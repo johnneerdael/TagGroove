@@ -1,6 +1,6 @@
 # Options dialog and tag preferences
 
-> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current open list is the [remaining-gaps register](../research/remaining-gaps.md).
+> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current uncovered list is the [parity ledger](../PARITY.md); the [coverage companion](../research/remaining-gaps.md) records represented and delivered scopes.
 
 Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, plus the General, Files, Directories and Appearance settings that change behaviour. References: `customization/options/*`, `customization/options/tags/{mpeg,ape,advanced}`, `keyboard`.
 

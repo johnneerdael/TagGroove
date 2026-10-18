@@ -4,27 +4,26 @@ This is an **open acceptance inventory**, not a parity certificate. The target r
 
 All **94** official sitemap pages were fetched with verified HTTPS and recursively checked for further same-origin documentation links; none were missing and no additional pages or attachments were found. The private raw cache is `../reference-docs/full-site` outside the MIT application. It contains URL/status/TLS/SHA/byte manifests, the sitemap, raw HTML and private working extraction. No proprietary documentation body, screenshots, templates, provider scripts or vendor license text is redistributed in this inventory. Functional labels and API identifiers below are requirements; explanations are independently authored.
 
-The JSON retains the inspected application HEAD and dirty source hashes from the documentation audit. Later implementation and verification must be assessed against their own source identities. The [parity ledger](PARITY.md) and the [remaining-gaps register](research/remaining-gaps.md) record subsequent progress, each linking its own verification note. Existing local contracts are linked separately from native commands, visible UI and runtime evidence. Every inventory item remains OPEN until its own acceptance evidence is recorded.
+The JSON retains the inspected application HEAD and dirty source hashes from the documentation audit. Later implementation and verification must be assessed against their own source identities. The [parity ledger](PARITY.md) is the sole actionable list of uncovered work. The [coverage companion](research/remaining-gaps.md) records delivered and open-PR scopes, source identities, proof limits and the historical register crosswalk. Existing local contracts are linked separately from native commands, visible UI and runtime evidence. An inventory entry remains unqualified until its own acceptance evidence is recorded; an entry is not automatically a missing implementation or an uncovered assignment.
 
 The catalog currently has **1533 section, functional-reference and authored acceptance entries**, plus **190 inline keyboard context references**. These counts include repeated references and historical headings; they are not a count of unique features or passed checks.
 
-## Major acceptance gaps
+## Acceptance and work tracking
 
-Baseline status as of 2026-10-17 (`main` `9d3764b`); Find is updated by the [2026-10-18 automation verification](verification/automation-parity-2026-10-18.md). Only open work is listed; the item-level list is the [remaining-gaps register](research/remaining-gaps.md).
+Use [PARITY.md](PARITY.md#uncovered-work) for actionable work not covered by an inspected open or merged PR. The [coverage companion](research/remaining-gaps.md) records the 2026-10-18 baseline and item-level exclusions/remainders. This inventory retains acceptance requirements even where implementation or test infrastructure is delivered or represented by an open PR. Neither these reference counts nor PR existence prove completed original-runtime, native-input, device or released-build qualification.
 
-| Area | Required acceptance work |
-| --- | --- |
-| Metadata and file formats | Real-encoder TAK/OptimFROG fixtures, original runtime comparison |
-| File table and panel | Original-runtime and native-input qualification of Find (the shared native Boost engine is implemented and locally regression-tested), floating panel as a separate OS window, movable toolbar bands |
-| Saved operations | Persistent history across sessions |
-| Covers | Original resampler, quality and rounding equivalence |
-| Converters/numbering | Original differential semantics |
-| Actions/export/playlists | Original sort, locale and encoding proof |
-| Sources | Bounded live-provider verification |
-| General settings | Further bundled languages, setting-name audit against the binary, proxy credentials/SOCKS/PAC |
-| Toolbars | The original registers 75 toolbar command ids; TagGroove offers 28, so about 47 are not assignable |
-| File and OS operations | Associated `.lrc`/`.cdg` follow-along |
-| Technical/expression behavior | Close the unverified items (`$caps` word starts, truth model, error degradation) with original runtime evidence |
+## Capabilities beyond the reference scope
+
+These source-backed capabilities were previously listed in PARITY. Retain them as implementation inventory, with their existing platform and verification limits; they are not uncovered parity tasks or new runtime/release claims.
+
+- Windows, macOS, Linux, Android and iOS build targets, with phone/tablet layouts; Android/iOS distribution and document-access limits remain in the ledger.
+- Extra iTunes, Deezer, LRCLIB lyrics, Last.fm, fanart.tv and AcoustID sources; fingerprints are computed in-app without an external fpcalc ([fingerprint boundary](verification/embedded-fingerprints.md)).
+- Tools, Load configuration, Previous/Next cover and a larger cover viewer ([options/tools](verification/options-utils.md), [covers](verification/covers.md)).
+- DFF/DSDIFF and AIFF text-chunk support beyond the documented reference-format list ([format evidence](verification/formats-dsd-mkv.md)).
+- Independently authored JSON language catalogs and live language switching, with user wording overrides ([language verification](verification/i18n.md)).
+- Clone-aware APFS Undo accounting and in-padding FLAC/ID3v2/MP4 writes; non-cloning budgets and other rewrite paths remain qualified separately ([history](verification/edit-history.md), [performance](PERFORMANCE.md)).
+- Validated JSON configuration backup/restore; it does not imply a complete portable workspace/browser-preference backup ([configuration verification](verification/options-utils.md), [C15/current limits](research/remaining-gaps.md#represented-and-delivered-scopes)).
+- MIT source and a project-owned [user guide](https://taggroove.neerdael.nl/); a URL or build alone is not proof of current publication.
 
 ## Open contradiction
 
@@ -139,4 +138,4 @@ The per-page scopes below are indexed by their official primary URL. Fine-graine
 4. For theme behavior, exercise Light, Dark and System with menus, table selection/sorting/filtering, drafts, every dialog/control, cover preview, warnings, native pickers and persistence. Check system-theme changes while default mode is active.
 5. Distinguish core contract, native execution, UI access, user-observed runtime and original Windows differential results. Store receipts/screenshots with their practical proof boundaries; none alone closes unrelated features.
 
-No original runtime differential corpus or complete user-tested workflow matrix exists yet. Every inventory item remains open. This inventory is the starting acceptance contract for the active full-parity goal; it must evolve with implementation and measured behavior.
+This snapshot does not contain completed original-runtime differential results or a complete user-tested workflow matrix. Keep each acceptance claim tied to its own evidence, and use the parity ledger and coverage companion for subsequent work/status rather than treating every inventory entry as a new uncovered task.

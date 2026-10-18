@@ -1,119 +1,283 @@
-# Remaining parity gaps versus Mp3tag 3.36.1
+# Parity coverage and historical gap register
 
-Baseline as of 2026-10-17 at `main` `9d3764b`; the Find entry is updated by the [2026-10-18 automation verification](../verification/automation-parity-2026-10-18.md). Destination memory and three previously implemented file/tag-panel capabilities are reconciled against approved main `696e419` in the [transfer-destination verification](../verification/transfer-destinations-2026-10-18.md). This register lists the known open items. It is built from audits and verification notes and is not an exhaustive proof. Everything the 2026-10-15 audit found that later batches closed has been removed; the closing evidence lives in the [verification notes](../verification/). The [parity ledger](../PARITY.md) summarises this list.
+This companion explains why work is present in, or excluded from, the single actionable [uncovered parity ledger](../PARITY.md). It is a traceability record, not a second backlog. An open PR represents only its inspected implementation/test/documentation scope; it supplies no shipped, native-input, original-runtime or area-wide completion proof.
 
-Method: the original audit compared every documentation page against the code. On 2026-10-17 the Windows binary's own tables were checked as well: script function names, placeholder names, field names, toolbar command ids and persisted setting names. Nothing was launched. "Unverified" means the behaviour is not documented and has not been compared with the original.
+## Snapshot and method
 
-Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** S = hours, M = a day or two, L = a batch of its own.
+Inspected application source at `main` `070da0d1399b208417bedcc7bcee6ec1abc7b746`, after PR55. The read-only GitHub metadata snapshots were retrieved on **2026-10-18 at 09:19 UTC**: PRs56–62 were open; PR55 and the earlier listed deliveries were merged. The inspection used existing commit objects and PR diffs against their merge bases, current source paths and bounded verification notes. Closed-unmerged PRs are not coverage. This cleanup itself cannot supply feature coverage.
+
+The independent roadmap’s L01–L79 identities and R01–R20 initiatives are retained for continuity; its older `4a1a95f` baseline is context, not current-state proof. Split partially covered rows instead of declaring the containing area complete. New N01–N06 entries retain acceptance already called out in the source-installation, automation and save verification notes. Historical impact/size labels below are planning estimates (H/M/L impact; S/M/L size), not measurements or delivery promises.
+
+The exact open heads below are immutable inspection identities, not promises about later PR heads. Pending verification documents use pinned GitHub links because those files do not yet exist on this baseline. Existing local notes may describe an earlier branch checkpoint; interpret them with the current source and PR scope, not as current release results.
+
+### PR identities
+
+| PR | State at snapshot | Inspected full head | Merge commit (merged PRs) |
+| --- | --- | --- | --- |
+| [PR13](https://github.com/johnneerdael/TagGroove/pull/13) | Merged 2026-10-15T05:55:53Z | `d67e5c82feb6be35c9402ec8c4ef9bb8d6423aae` | `dff3054582868f15839fc43c4393b50c023f3020` |
+| [PR14](https://github.com/johnneerdael/TagGroove/pull/14) | Merged 2026-10-15T08:01:51Z | `8047b8dde5e6bf43b6da9e7d5430073b1df04df2` | `0f744d401b6d0d2fc27305f89aa97dca471c87d0` |
+| [PR15](https://github.com/johnneerdael/TagGroove/pull/15) | Merged 2026-10-15T09:10:12Z | `6d21fe61644ad06998738e0823062d2ce09c41e0` | `80cb527f05c3fd4488568efcde98e1b715fa4d4e` |
+| [PR26](https://github.com/johnneerdael/TagGroove/pull/26) | Merged 2026-10-16T02:19:02Z | `2b4a44d3aa7079183978e0c8b653627e3153b6b7` | `be68d8331759ade5b7bbab50ac3c6f8f084c4273` |
+| [PR49](https://github.com/johnneerdael/TagGroove/pull/49) | Merged 2026-10-18T01:19:49Z | `8767870b82dd18725b8fffd2aea6f196046ff596` | `696e419191aec8aabd95edec76a499de8b9a14a0` |
+| [PR50](https://github.com/johnneerdael/TagGroove/pull/50) | Merged 2026-10-18T02:07:41Z | `3fbc2368053a07c2a9c62cb69d5772c9425b2959` | `84bf037cee0402a5de0de09dd7374cf36dd8ceb1` |
+| [PR51](https://github.com/johnneerdael/TagGroove/pull/51) | Merged 2026-10-18T03:30:51Z | `acb35901150a858d9e80de182fda661943c8da69` | `24f0a7423fb507450db5bd157c1d213f0e4325e5` |
+| [PR52](https://github.com/johnneerdael/TagGroove/pull/52) | Merged 2026-10-18T05:14:31Z | `b799733bb6ba2b0bd45f27f567dcb55bdb0dcfce` | `9ace6a5dfc0e012d1c05349229020055e82307cd` |
+| [PR53](https://github.com/johnneerdael/TagGroove/pull/53) | Merged 2026-10-18T06:13:29Z | `25ea2d6b9eebfb1e1e72295320185228472d9412` | `c8f46d8a239862cbbbc02a491c9b9100b5cd75fd` |
+| [PR54](https://github.com/johnneerdael/TagGroove/pull/54) | Merged 2026-10-18T07:20:47Z | `ae90ab40e161be2eb777d2e157e6b4c7a7767d1d` | `2841cdcf13f5d02161153dfb296b5413548d4027` |
+| [PR55](https://github.com/johnneerdael/TagGroove/pull/55) | Merged 2026-10-18T08:26:30Z | `2d245b64e4c3f7a8b6e9c639cf0ec0d68b337928` | `070da0d1399b208417bedcc7bcee6ec1abc7b746` |
+| [PR56](https://github.com/johnneerdael/TagGroove/pull/56) | Open | `fe500b6cf74ff3bcfbc4af83f5a1d5d2ceef1e9e` | — |
+| [PR57](https://github.com/johnneerdael/TagGroove/pull/57) | Open draft | `6baf1c515773efa3267a136498d397f13f74e5e8` | — |
+| [PR58](https://github.com/johnneerdael/TagGroove/pull/58) | Open draft | `24ad0b30ecf0477d5bbae7f9fa84e1af96258c8e` | — |
+| [PR59](https://github.com/johnneerdael/TagGroove/pull/59) | Open draft | `c005a1a34285201ae8f67cffe1607e32a0f5308c` | — |
+| [PR60](https://github.com/johnneerdael/TagGroove/pull/60) | Open draft | `7bdba2f8cc738cc802ad61fb6020e993fc880f56` | — |
+| [PR61](https://github.com/johnneerdael/TagGroove/pull/61) | Open draft | `23f14e4d2c3a4c06ac1db13a9cc0fdbd8f01ab10` | — |
+| [PR62](https://github.com/johnneerdael/TagGroove/pull/62) | Open draft | `9a7e77971ee3d56faf24db4b9a12d83a9f96f21d` | — |
+
+## Represented and delivered scopes
+
+These records remove only the stated implementation/observer/documentation work from the uncovered list. Their right-hand column points to acceptance or behavior that the PR does not cover. Local test counts and green builds are not evidence that those remainders are completed.
+
+| Record | Covering PR and exact scope | Evidence inspected | Uncovered remainder |
+| --- | --- | --- | --- |
+| <a id="c01"></a>C01 | [PR49](https://github.com/johnneerdael/TagGroove/pull/49) merged: Find uses the shared native Boost bridge and context/stale-response regressions; app-only MTA export warnings are visible. | [Find source](../../src-tauri/src/find.rs), [automation receipt](../verification/automation-parity-2026-10-18.md) | L06, L08–L12, L14–L17, N04–N05; original semantics and native-input qualification remain. |
+| <a id="c02"></a>C02 | [PR50](https://github.com/johnneerdael/TagGroove/pull/50) merged: separate last-successful Copy and Move destinations; cancellation/failure keeps the previous choice. | [Directory source](../../src-tauri/src/file_ops.rs), [receipt](../verification/transfer-destinations-2026-10-18.md) | L22b/L48/L79; native dialogs, other file-flow details and original timing remain unqualified. |
+| <a id="c03"></a>C03 | [PR51](https://github.com/johnneerdael/TagGroove/pull/51) merged: independently authored ordinary MP3/FLAC/M4A save corpus, audio/metadata/opaque retention, local exact Undo/Redo and negative controls. | [Corpus](../../crates/tag-core/tests/save_acceptance.rs), [trust-saves](../verification/trust-saves.md) | L28/L39/L79/N06; original defaults, original paired outcomes, native execution and gain consumers remain. |
+| <a id="c04"></a>C04 | [PR52](https://github.com/johnneerdael/TagGroove/pull/52) merged: folder/ZIP source, include and settings installation, complete dependency preflight, preserved existing metadata/settings and recoverable update. | [Installer](../../src-tauri/src/sources/web/installer.rs), [bundle receipt](../verification/source-bundle-migration.md) | L30/L32/N01–N03; native pickers, released behavior, full private-source journeys and distinct preview semantics remain. |
+| <a id="c05"></a>C05 | [PR53](https://github.com/johnneerdael/TagGroove/pull/53) merged: edited provider Save a copy includes pending replacement/removal artwork and configured field/artwork write policy; original-backup copy stays byte-identical. | [Copy command](../../src-tauri/src/documents.rs), [copy receipt](../verification/provider-copy-artwork.md) | L74/L75; this does not implement provider playlists/exports/Undo or real-device transport qualification. Provider-wide read policy is C11. |
+| <a id="c06"></a>C06 | [PR54](https://github.com/johnneerdael/TagGroove/pull/54) merged: opt-in exact-basename .lrc/.cdg handling for Tag → Filename and desktop Move, reviewed membership/conflicts and grouped rollback/Undo. | [Associated-file source](../../src-tauri/src/associated_files.rs), [receipt](../verification/associated-fileflow-2026-10-18.md) | L22a–L22b; Copy and other rename routes, native/platform/original qualification remain. |
+| <a id="c07"></a>C07 | [PR55](https://github.com/johnneerdael/TagGroove/pull/55) merged: 69 assignable commands (28 retained plus 41 additions), hidden additions, retained layouts/defaults and built-in-source quick-memory separate from web last-source. | [Catalog](../../src/toolbar.ts), [receipt](../verification/toolbar-catalog-2026-10-18.md) | L01/L02/L50/L53/L57a; 69 app commands are not a one-to-one mapping to the original 75 identifiers. Native layout/accessibility and remaining routes remain. |
+| <a id="c08"></a>C08 | [PR56](https://github.com/johnneerdael/TagGroove/pull/56) open: pinned reference-capture preparation/probe/manifest validation, stage-hash identities and read-only observation snapshots for the paired consumer. | [capture-tooling boundary](https://github.com/johnneerdael/TagGroove/blob/fe500b6cf74ff3bcfbc4af83f5a1d5d2ceef1e9e/docs/verification/mp3tag-reference-capture.md), [consumer diff source](https://github.com/johnneerdael/TagGroove/blob/fe500b6cf74ff3bcfbc4af83f5a1d5d2ceef1e9e/scripts/save-acceptance.py) | L28/L39/L79: no original process/control mapping, selected defaults, original stage transfer or real differential run has occurred. |
+| <a id="c09"></a>C09 | [PR26](https://github.com/johnneerdael/TagGroove/pull/26) merged implements header-less APEv2 and APE/ID3v1 TAG-collision fixes; [PR57](https://github.com/johnneerdael/TagGroove/pull/57) open reconciles stale ledger claims and records existing APE/real-encoder regressions only. | [APE guard](../../crates/tag-core/src/ape_footer.rs), [later format receipt](../verification/formats-gaps.md), [reconciliation diff](https://github.com/johnneerdael/TagGroove/blob/6baf1c515773efa3267a136498d397f13f74e5e8/docs/verification/ape-ledger-reconciliation.md) | L23/L28/L34/L38/L79; TAK/OptimFROG/reference-writer fixtures and original APE/default equivalence remain. Existing ASF/Matroska/AAC/WavPack real-encoder tests are not universal format certification. |
+| <a id="c10"></a>C10 | [PR58](https://github.com/johnneerdael/TagGroove/pull/58) open: export/re-import preserves decoded opaque unresolved MTA property values containing CR/LF and record order, with disabled unresolved groups. | [MTA change](https://github.com/johnneerdael/TagGroove/blob/24ad0b30ecf0477d5bbae7f9fa84e1af96258c8e/crates/tag-core/src/actions.rs), [preservation receipt](https://github.com/johnneerdael/TagGroove/blob/24ad0b30ecf0477d5bbae7f9fa84e1af96258c8e/docs/verification/mta-opaque-preservation-2026-10-18.md) | L14/L17/N05; IDs1001–1003, recognized-action schemas, original opaque behavior, source encoding/byte order/escape spelling and original re-import are unchanged or unproven. |
+| <a id="c11"></a>C11 | [PR59](https://github.com/johnneerdael/TagGroove/pull/59) open: current tag options/mappings govern provider import, reload, summary, recovery and post-publication descriptions through the shared reader. | [provider reader](https://github.com/johnneerdael/TagGroove/blob/c005a1a34285201ae8f67cffe1607e32a0f5308c/src-tauri/src/documents/engine.rs), [read-policy receipt](https://github.com/johnneerdael/TagGroove/blob/c005a1a34285201ae8f67cffe1607e32a0f5308c/docs/verification/provider-read-policy.md) | L18/L33/L72/L74/L75; provider operations/device/secure credentials remain. Read tests do not independently qualify the Save a copy writer; its delivered scope is C05. |
+| <a id="c12"></a>C12 | [PR60](https://github.com/johnneerdael/TagGroove/pull/60) open: supported setup folder/ZIP inventory, preview/collision report, import and native configuration/physical-MTE rollback, with explicit local window/workspace recovery and native helper histories. | [migration implementation](https://github.com/johnneerdael/TagGroove/blob/7bdba2f8cc738cc802ad61fb6020e993fc880f56/src-tauri/src/profile_migration.rs), [migration receipt](https://github.com/johnneerdael/TagGroove/blob/7bdba2f8cc738cc802ad61fb6020e993fc880f56/docs/verification/profile-migration.md) | L07/L50/L57a–L57b; unknown global/binary settings, toolbar formats, populated original-profile/native-platform acceptance and general portable backup remain. Its preference allowlist predates PR55 lastBuiltIn and needs integration review. |
+| <a id="c13"></a>C13 | [PR61](https://github.com/johnneerdael/TagGroove/pull/61) open: bounded local XSPF1/static WPL/well-formed ASX3 readers, ordered alternatives, diagnostics, existing load/drop integration and explicit XML-output refusal. | [XML reader](https://github.com/johnneerdael/TagGroove/blob/23f14e4d2c3a4c06ac1db13a9cc0fdbd8f01ab10/crates/tag-core/src/playlist/xml.rs), [playlist receipt](https://github.com/johnneerdael/TagGroove/blob/23f14e4d2c3a4c06ac1db13a9cc0fdbd8f01ab10/docs/verification/xml-playlists-2026-10-18.md) | L25/L44/L45/L70/L74/L79; refresh/order policy, export templates/encoding, provider routes, installed OS/original qualification remain. Dynamic/nested/remote XML and XML output are unsupported subsets, not silently certified. |
+| <a id="c14"></a>C14 | [PR62](https://github.com/johnneerdael/TagGroove/pull/62) open: eight ordinary save cases, all four ReplayGain fields and independent raw POPM/USLT/UFID/APIC preservation observations, distinguishing serialization from semantic-observation changes. | [native observer](https://github.com/johnneerdael/TagGroove/blob/9a7e77971ee3d56faf24db4b9a12d83a9f96f21d/crates/tag-core/tests/support/native_id3.rs), [observer receipt](https://github.com/johnneerdael/TagGroove/blob/9a7e77971ee3d56faf24db4b9a12d83a9f96f21d/docs/verification/native-save-corpus.md) | L28/L34/L39/L79/N06; no application save fix, reference capture, original expected output, rating scale, original grammar or consumer/device qualification is supplied. |
+| <a id="c15"></a>C15 | [PR15](https://github.com/johnneerdael/TagGroove/pull/15) merged: helper field/format/Find histories migrate to native lists.json and participate in Save/Load configuration. | [Storage](../../src/helper-menu.ts), [collect/restore](../../src-tauri/src/utilities.rs), [receipt](../verification/export-lists.md) | L57a; quick-action and other browser preferences/workspace are separate from already-backed-up native histories. |
+| <a id="c16"></a>C16 | [PR13](https://github.com/johnneerdael/TagGroove/pull/13) and [PR14](https://github.com/johnneerdael/TagGroove/pull/14) merged lineage: matching Filename → Filename extensions are deduplicated, typed-directory Enter and automatic multi-selection panel defaults are connected. | [Converter](../../crates/tag-core/src/converters.rs), [panel](../../src/tag-panel.ts), [reconciliation](../verification/transfer-destinations-2026-10-18.md) | L19/L49/L79; different explicit suffixes, dropdown directory semantics, format-string panel fields and original behavior remain. |
+| <a id="c17"></a>C17 | [PR14](https://github.com/johnneerdael/TagGroove/pull/14) merged lineage: Alt+Enter routes to file-manager reveal rather than falling through to Extended Tags. | [Keyboard route](../../src/keyboard.ts), [receipt](../verification/keyboard-extended.md) | L04; original Windows Properties behavior is a distinct platform acceptance question. |
 
 ## Open items
 
-| Area | Item | Detail | Impact | Size |
-|---|---|---|---|---|
-| Toolbars | Toolbar command catalogue | The binary lists 75 toolbar command ids (`file_*`, `edit_*`, `cover_*`, `utils_*`, `help_*`, `view_*`, `convert_*`, `tagsources_*`). `TOOLBAR_COMMANDS` in `src/toolbar.ts` has 28. Not assignable: copy/move/rename/delete files, directory up, favorites, Open folder in file manager, copy format, select similar (and next), invert and unselect, cover add/delete/replace/save/adjust/description/cut/copy/paste, Utils commands, Help commands, customize columns and toolbars, random sort, save and open configuration folder, playlist selected and all-multiple, freedb and local freedb, quick tag source, properties | M | M |
-| Toolbars | Movable toolbar bands | One fixed band per toolbar | L | M |
-| Menus | File → Exit | No menu item (macOS quits from the app menu) | L | S |
-| Menus | Alt+Enter | Opens Extended Tags; the original opens the Windows properties dialog (Windows-only) | L | S |
-| Tag panel | Floating panel | In-window overlay, not a separate OS window | L | M |
-| File table | Find runtime qualification | Find now uses the shared native Boost bridge (`src-tauri/src/find.rs`), covered by local cross-context regressions. Comparison against the original and native-input qualification on each desktop platform remain open ([automation verification](../verification/automation-parity-2026-10-18.md)) | L | S |
-| File table | `columns.ini` import | Known keys only; the file layout is undocumented | L | S |
-| Scripting | `$caps`, `$caps2`, `$caps3` word starts | Only whitespace starts a word, so `o'brien (live)` becomes `O'brien (live)`. Original set unverified | M | S |
-| Scripting | Truth of non-boolean conditions | Literal `1` is false; functions are true when an argument field exists (`script.rs`). Unverified | M | M |
-| Scripting | Errors inside a format string | `$div(x,0)`, bad `$char` or an unknown function abort the whole string. The original probably degrades inline | L | S |
-| Filters | Mixed quoted and bare words | Rejected as a syntax error (`filter.rs`) | L | S |
-| Filters | AND/OR precedence | AND binds tighter. Unverified | L | S |
-| Actions | Adjust Cover "Original" format | TIFF and unknown formats require JPEG or PNG; original resampler, quality and rounding equivalence remain unverified ([script-export](../verification/script-export.md)) | L | S |
-| Actions | Remove Fields Except | Unmapped frames (PRIV, GEOB, chapters) survive | L | M |
-| Actions | Split Field | Keeps empty pieces (`a;;b`). Unverified | L | S |
-| Actions | Convert Codepage default | Action group dialogs start at 1251 instead of the last choice (`src/action-ui.ts:285`) | L | S |
-| Actions | `.mta` type IDs | Adjust Cover, Set Cover Properties and Generate Playlists export with TagGroove-only type IDs 1001 to 1003 (`crates/tag-core/src/actions.rs`); Mp3tag lists them as unknown actions | M | M |
-| Actions | Mobile provider documents | File, cover-file and rename actions refused (`managed_actions.rs`) | L | L |
-| Converters | Filename → Filename with a nonmatching explicit suffix | A suffix matching the source extension is deduplicated case-insensitively, but a different suffix still receives the original extension (`song.mp3` with old pattern `%1` and new pattern `%1.flac` becomes `song.flac.mp3`). Original behavior for nonmatching suffixes remains unverified | L | S |
-| Converters | Text File → Tag record-count mismatch | Any mismatch refuses the import; the original applies records in order | L | M |
-| File operations | Associated `.lrc` and `.cdg` files | Not renamed or moved with the audio file | L | M |
-| Formats | TAK and OptimFROG | Implemented on a stand-in; only hand-built fixtures, no real-encoder files | L | S |
-| Formats | Nero details | `udta/indx` kept but not shown or edited; covers always written to `covr`; a longer value for a Nero-held field in an MP4 file without chapters reaches only the iTunes tag ([formats-gaps](../verification/formats-gaps.md)) | L | S |
-| Formats | Chapter rows | QuickTime chapter `href` URLs and ID3v2 CHAP artwork are not shown or edited; playlist operations on chapter rows are refused because the original's subsong path format is unknown ([chapter-fields](../verification/chapter-fields.md)) | L | M |
-| Formats | ADTS and ID3 limits | ADTS after junk is found only in `.aac` files, within 64 KiB and after three frames. Compressed or encrypted ID3 frames cannot be kept in an unsynchronised tag or one with an extended header or footer, also for DSF and DSDIFF | L | M |
-| Formats | MP4 cover type and description | Format limit | L | — |
-| Formats | Reference files | No Mp3tag- or WMP-written fixtures | M | M |
-| Covers | Resampler | Original resampler, quality and rounding equivalence unproven | L | M |
-| Sources | Live-provider coverage | One default-HTTPS gnudb query passed; broader live read and artwork outcomes unverified ([gnudb](../verification/gnudb.md)) | M | S |
-| Sources | Keyed services | AcoustID, Last.fm and fanart.tv need a build or user key | L | — |
-| Sources | `.src` scripts | `[MinAppVersion*]` not enforced | L | S |
-| Sources | Mobile | No keychain for the Discogs token | L | M |
-| Formats | Native-field limits | Text `UNIQUEFILEID` values require an owner and an identifier of at most 64 bytes, one per owner; binary identifiers stay opaque. `UNSYNCEDLYRICS <description>` accepts one text per language and description. Original-executable syntax and grouping equivalence remain unverified ([formats-edge](../verification/formats-edge.md), [CRITICAL-MAPPING](../CRITICAL-MAPPING.md)) | L | M |
-| Matroska | Edge cases | `TRACK` such as `3/12` is stored in `PART_NUMBER` without a `TOTAL_PARTS` split; a file without a SeekHead gets unindexed Tags, and a SeekHead with no spare room fails the write; the Segment Info title is not shown; chapters bound to other segments or ordered editions are kept but not interpreted ([formats-dsd-mkv](../verification/formats-dsd-mkv.md)) | L | M |
-| Formats | ASF/WMA | Headers over 512 MiB are refused; every write rewrites the whole file | L | M |
-| Formats | APE | A 131-byte APE tag whose items put "TAG" where ID3v1 starts is misread; header-less APEv2 tags are mishandled ([formats-edge](../verification/formats-edge.md)) | L | S |
-| Formats | Tag kinds | ID3v2 on Ape/Mpc files is not displayed (it can be removed); WAV/AIFF ID3v2 keeps its existing revision; removing ID3v1 does not remove a dependent Lyrics3 tag | M | S |
-| Tag preferences | Defaults | Write and remove defaults, cross-kind mirroring, ID3v1 truncation, multi-value joining and the encoding of existing Latin-1 frames in UTF-16 mode are not captured from the original ([tag-preferences](../verification/tag-preferences.md)) | M | S |
-| Chapters | Whole-file commands | Remove tag and Strip chapters MP4 are refused on chapter and cue rows; `%_subsong%` base and Nero field-name case are unconfirmed | L | S |
-| Utils | Optimize and Remove Unsupported Fields | Fragmented MP4 is refused and `stco` is not promoted to `co64`; FLAC with a leading ID3v2 tag is refused; Remove Unsupported Fields handles ID3v2 on MP3, AAC, AIFF and WAV only | L | M |
-| Scripting | `%_md5audio%` | Computed by the export host only; empty for MP4 and Ogg and unavailable to filters (`src-tauri/src/file_hashes.rs`) | L | M |
-| Scripting | `%_vbr%` and tag sizes | `%_vbr%` for Musepack and WavPack and tag sizes for chunk and box containers are unfinished ([script-export](../verification/script-export.md)) | L | S |
-| Export | Dropped files | A `.mte` file dropped into the export folder while the Export dialog is open is retired if the dialog saves | L | S |
-| Playlists | Reading and ordering | XSPF, WPL and ASX are not read; F5 does not re-read a loaded playlist; loading one clears the saved column sort and there is no "Playlist order" sort criterion | L | S |
-| Covers | Linux drag-out | The GTK drag source writes `file://` URIs without percent-encoding, so temporary names are limited to ASCII letters, digits and `-_.()` | L | S |
-| File list | Inline rename and order | Inline filename edits cannot move a file to another folder; manual order is not kept across sessions; save-on-move is not triggered by cell-editor Enter/Tab, Find, Select all or Select directory; Refresh reports an error for a file added individually and later renamed | L | M |
-| File operations | Details | Play opens each file separately with no temporary playlist; the native folder dialog has no subfolders checkbox; macOS uses Ctrl+H and Ctrl+M for Add and Favorite directory because ⌘H and ⌘M are reserved | L | S |
-| Tag panel | Details | The directory dropdown selects entries in the listed folder rather than changing the working directory; format-string fields are not implemented. Typed-directory Enter and automatic multi-selection defaults are already implemented (`tag-panel.ts:139,315`, `main.ts:1047`) | L | M |
-| Toolbars | Custom toolbar | Buttons are text labels with no symbol choice and none for individual tag sources; Mp3tag `toolbar.ini` and `toolbar_custom.ini` are not imported | L | M |
-| Tools | Default tool | Selecting "No action" for the default tool still opens Extended Tags on a file-list double-click; tools receive path placeholders only, `.lnk` and `.bat` forms are not special-cased, and a per-file launch is capped at 100 files | L | S |
-| Sources | freedb | "Current list of freedb servers" restores two built-in entries instead of fetching a current list; artist/album and artwork search is limited to `gnudb.org` hosts and local lookups are exact | M | M |
-| Sources | Review step | Utils are buttons, not a menu; "Suggest sorting" entries are one-shot actions; the exact Mp3tag behaviour of Ctrl+Shift+I is undocumented | L | S |
-| Rename | Reserved characters | Mp3tag's handling of `: * ? " < > |` in tag values is undocumented and TagGroove replaces them with `_`; Replace and Regex replace on `_FILENAME` can still produce invalid Windows characters | L | S |
-| Converters | Path edge cases | Filename → Filename resolves relative targets against the file's folder; two partitions writing one output file are refused; `/` as a folder marker in the old pattern is unverified | L | S |
-| Actions | Plan clashes and codepages | Filename → Filename refuses the whole reviewed plan when one destination clashes; Convert Codepage has no EBCDIC or ISO-2022 pages; Import Text File has no explicit codepage choice and reads a UTF-8-valid ANSI file as UTF-8; the quality preset numbers and default field list are TagGroove choices | L | M |
-| Configuration | Storage | Quick-action memories and field-list and format-string histories live in WebView storage, so configuration export does not include them; Mp3tag configuration ZIPs cannot be imported | M | M |
-| Updates | Install | The update check reads GitHub releases and offers no download or install | L | M |
-| General | Auto-completion | Fills from the first matching drop-down value only, not in multiline fields, with no filtered suggestions while typing | L | S |
-| Library | Locale | Locale-formatted technical fields such as `%_file_mod_date%` are stored as formatted and a locale change does not refresh them | L | S |
-| Undo | External changes | Outside Unix, external changes are detected by size and mtime only | L | S |
-| Launch | Open With | `.mkv` and `.webm` appear in Finder's Open With only when the system or another app declares their types | L | — |
-| Settings | UI languages | English, Dutch and German bundled; the original ships 43 | M | L |
-| Settings | Networking | Proxy credentials, SOCKS and PAC | L | S |
-| Settings | Setting names in the binary with no confirmed equivalent | `ConvFTFShowDlg`, `ConvFTTShowDlg`, `ConvTFFShowDlg`, `ConvTTFShowDlg`, `ConvReplaceShowDlg` (per-converter "show dialog"), `ToolOverwriteDefault`, `CoverPopup`, `HideID3Bar`, `ContextMenuDisabled` (Windows shell entry). Feature meaning for the first four groups not documented | L | S |
-| Settings | `ID3LeadingZeros` | The documented leading-zero option belongs to the numbering wizard; whether the binary also has a global switch is unknown | L | S |
-| Undo | Persistence | History is not kept across sessions | L | L |
-| Undo | Non-cloning volumes | 2 GiB full-size cap; the first unpadded save counts in full | L | M |
-| CLI | `open -a … --args` | macOS drops arguments to a running app | L | — |
-| CLI | File associations | Not registered on Windows or Linux | L | S |
-| Platforms | Signing | Windows unsigned, macOS ad-hoc, iOS simulator-only | M | M |
-| Platforms | iOS documents | iOS has no provider picker, document access or save-back (`runtime_platform()` in `src-tauri/src/lib.rs` enables document access for Android only) | L | L |
-| Tag panel | Extended Tags save | "Keep changes" only stages the fields and needs a later Save tags; immediate-save mode applies only when moving between files ([keyboard-ui](../verification/keyboard-ui.md)) | L | S |
-| Platforms | Mobile provider documents | Reads and reloads of Android provider documents use the default read path, so MPEG/APE read precedence and user field mappings do not apply (`src-tauri/src/documents/engine.rs`); "Save a copy" writes fields only, so pending artwork is not copied; playlist loading and creation, CSV/export operations and Undo/Redo are disabled for provider documents (`src/main.ts`, [playlists-export](../verification/playlists-export.md)) | L | M |
-| Platforms | Mobile | Directory trees, cloud providers and real-device qualification | L | L |
-| Distribution | Audit | Final dependency license audit; reproducible builds | M | M |
-| Performance | Comparison | No same-corpus comparison with the original; no Windows or Linux numbers; APE, RIFF, Ogg and other containers rewrite whole files | M | M |
-| Native UI proof | Input | The headless suites use synthetic DOM events, so OS input, IME and hit-testing are untested; native screen-reader qualification open | M | L |
-| All areas | Differential proof | No area has been compared run for run with the original (field ordering and mapping, padding and reset edge cases, export sort, locale and encoding, query corpus) | H | L |
+Use [PARITY.md](../PARITY.md#uncovered-work) for the actionable list. The records below explain its exclusions and remainders; they do not assign represented implementation work again.
+
+### Original register crosswalk
+
+All 79 roadmap row identities are retained, including rows already reconciled before this snapshot. A split row preserves every uncovered part while its covered portion stays in the C records. Source pointers in the next section are current-baseline files; linked verification notes establish the practical evidence boundary.
+
+| Original ID | Original area / item | Initiative; historical impact/size | Disposition at snapshot |
+| --- | --- | --- | --- |
+| L01 | Toolbars / Toolbar command catalogue | R09; M/M | C07 covers common file/selection/cover/playlist/built-in-source choices; retain L01 for remaining routes, without the stale 28/about47 arithmetic. |
+| L02 | Toolbars / Movable toolbar bands | R18; L/M | Retain L02: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L03 | Menus / File → Exit | R18; L/S | Retain L03: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L04 | Menus / Alt+Enter | R18; L/S | C17 corrects the stale Extended Tags claim; L04 retains the separate Windows Properties question. |
+| L05 | Tag panel / Floating panel | R18; L/M | Retain L05: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L06 | File table / Find regex | R05; L/S | C01 implements Find/Boost; L06 retains original/native-input qualification. |
+| L07 | File table / `columns.ini` import | R02; L/S | C12 represents guided import only; L07 retains unknown-key semantics. |
+| L08 | Scripting / `$caps`, `$caps2`, `$caps3` word starts | R05; M/S | Retain L08: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L09 | Scripting / Truth of non-boolean conditions | R05; M/M | Retain L09: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L10 | Scripting / Errors inside a format string | R05; L/S | Retain L10: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L11 | Filters / Mixed quoted and bare words | R05; L/S | Retain L11: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L12 | Filters / AND/OR precedence | R05; L/S | Retain L12: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L13 | Actions / Adjust Cover "Original" format | R15; L/S | Retain L13: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L14 | Actions / Remove Fields Except | R06; L/M | Retain L14: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L15 | Actions / Split Field | R05; L/S | Retain L15: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L16 | Actions / Convert Codepage default | R11; L/S | Retain L16: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L17 | Actions / `.mta` type IDs | R06; M/M | C01 warns about one-way exports and C10 preserves opaque settings; neither maps the three special action IDs. Retain L17. |
+| L18 | Actions / Mobile provider documents | R19; L/L | Retain L18: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L19 | Converters / Filename → Filename with an extension in the pattern | R08; L/S | C16 removes the already-delivered matching-suffix claim; L19 keeps the different-suffix comparison. |
+| L20 | Converters / Text File → Tag record-count mismatch | R08; L/M | Retain L20: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L21 | File operations / Last Copy/Move destination | R08; L/S | C02 delivered destination memory; no duplicate implementation task. Native/reference acceptance is retained in L48/L79. |
+| L22 | File operations / Associated `.lrc` and `.cdg` files | R08; L/M | C06 delivers only Tag → Filename and Move companions; L22a–L22b retain other routes and qualification. |
+| L23 | Formats / TAK and OptimFROG | R14; L/S | C09 documents real encoders for other formats; L23 still requires TAK/OptimFROG carriers. |
+| L24 | Formats / Nero details | R14; L/S | Retain L24: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L25 | Formats / Chapter rows | R14; L/M | Retain L25: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L26 | Formats / ADTS and ID3 limits | R14; L/M | Retain L26: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L27 | Formats / MP4 cover type and description | R14; L/— | B01 records an MP4 format boundary; no impossible implementation task is assigned. |
+| L28 | Formats / Reference files | R01; M/M | C03/C08/C14 provide owned corpus/tooling/observers; L28 retains missing reference-writer fixtures. |
+| L29 | Covers / Resampler | R15; L/M | Retain L29: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L30 | Sources / Live-provider coverage | R04; M/S | Retain L30: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L31 | Sources / Keyed services | R16; L/— | B02 retains the credential requirement; L31 assigns actual keyed-provider qualification, not removal of the requirement. |
+| L32 | Sources / `.src` scripts | R16; L/S | Retain L32: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L33 | Sources / Mobile | R19; L/M | Retain L33: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L34 | Formats / Native-field limits | R14; L/M | C14 observes native retention on authored inputs; L34 retains original syntax/grouping semantics. |
+| L35 | Matroska / Edge cases | R14; L/M | Retain L35: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L36 | Formats / ASF/WMA | R14; L/M | Retain L36: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L37 | Formats / APE | R14; L/S | C09: implemented by merged PR26; open PR57 reconciles the stale claim. Do not rebuild APE detection. L28/L38/L79 retain distinct acceptance. |
+| L38 | Formats / Tag kinds | R14; M/S | Retain L38: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L39 | Tag preferences / Defaults | R01; M/S | C08 prepares captures but does not observe defaults; retain L39. |
+| L40 | Chapters / Whole-file commands | R14; L/S | Retain L40: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L41 | Utils / Optimize and Remove Unsupported Fields | R14; L/M | Retain L41: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L42 | Scripting / `%_md5audio%` | R14; L/M | Retain L42: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L43 | Scripting / `%_vbr%` and tag sizes | R14; L/S | Retain L43: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L44 | Export / Dropped files | R10; L/S | Retain L44: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L45 | Playlists / Reading and ordering | R10; L/S | C13 represents local XML input readers only; L45 retains refresh and explicit playlist-order policy. |
+| L46 | Covers / Linux drag-out | R15; L/S | Retain L46: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L47 | File list / Inline rename and order | R11; L/M | L47a–L47c separate filename/refresh, ordinary order persistence and save-on-move. C12 local rollback does not establish ordinary session persistence. |
+| L48 | File operations / Details | R11; L/S | L48 retains playback/picker work; B03 records reserved macOS shortcut adaptation. |
+| L49 | Tag panel / Details | R11; L/M | C16 removes stale typed-directory/multi-selection claims; L49 retains dropdown and format-string fields. |
+| L50 | Toolbars / Custom toolbar | R09; L/M | C07 delivers individual built-in source commands and some catalog icons; L50 retains import/user symbol choice. C12 does not parse toolbar layouts. |
+| L51 | Tools / Default tool | R11; L/S | Retain L51: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L52 | Sources / freedb | R16; M/M | Retain L52: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L53 | Sources / Review step | R04; L/S | C07 implements remembered quick-source routing; L53 retains original interaction semantics, not a repeat implementation task. |
+| L54 | Rename / Reserved characters | R08; L/S | Retain L54: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L55 | Converters / Path edge cases | R08; L/S | Retain L55: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L56 | Actions / Plan clashes and codepages | R08; L/M | L56a–L56b separate converter clash policy from action codepages/presets. |
+| L57 | Configuration / Storage | R02; M/M | C15 already backs up helper histories; C12 represents supported migration/local rollback. L57a–L57b retain portable browser/workspace, original/native acceptance and unsupported settings. |
+| L58 | Updates / Install | R13; L/M | Retain L58: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L59 | General / Auto-completion | R11; L/S | Retain L59: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L60 | Library / Locale | R11; L/S | Retain L60: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L61 | Undo / External changes | R17; L/S | Retain L61: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L62 | Launch / Open With | R13; L/— | Retain L62: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L63 | Settings / UI languages | R20; M/L | Retain L63: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L64 | Settings / Networking | R16; L/S | Retain L64: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L65 | Settings / Setting names in the binary with no confirmed equivalent | R18; L/S | L65 retains undocumented non-shell names; ContextMenuDisabled belongs to the unsupported shell integration in Out of scope. |
+| L66 | Settings / `ID3LeadingZeros` | R18; L/S | Retain L66: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L67 | Undo / Persistence | R17; L/L | Retain L67: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L68 | Undo / Non-cloning volumes | R17; L/M | Retain L68: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L69 | CLI / `open -a … --args` | R13; L/— | Retain L69: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L70 | CLI / File associations | R13; L/S | Retain L70: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L71 | Platforms / Signing | R13; M/M | Retain L71: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L72 | Platforms / iOS documents | R19; L/L | Retain L72: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L73 | Tag panel / Extended Tags save | R07; L/S | Retain L73: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L74 | Platforms / Mobile provider documents | R19; L/M | C05 delivers artwork copy and C11 represents provider reads; L74 retains only provider playlist/export/Undo operations. |
+| L75 | Platforms / Mobile | R19; L/L | Retain L75: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L76 | Distribution / Audit | R13; M/M | Retain L76: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L77 | Performance / Comparison | R12; M/M | L77a–L77b distinguish original/platform measurement from rewrite-cost work. |
+| L78 | Native UI proof / Input | R12; M/L | Retain L78: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
+| L79 | All areas / Differential proof | R01; H/L | C03/C08/C14 provide bounded infrastructure only. Actual original differential execution stays L79. |
+
+### Evidence for each uncovered item
+
+The current source path establishes the local route or policy; the verification note supplies its observed scope and retained uncertainty. “No covering PR” refers to the precise remainder in PARITY, never the containing area. Existing merged source is not evidence that a later original/native/device acceptance run happened.
+
+| Active ID | Current source and bounded verification | Why no inspected open/merged PR covers this remainder |
+| --- | --- | --- |
+| <a id="l01"></a>L01 | [`src/toolbar.ts`](../../src/toolbar.ts), [verification](../verification/toolbar-catalog-2026-10-18.md) | C07 adds 41 app identities, not these remaining catalog routes or original-ID equivalence. |
+| <a id="l02"></a>L02 | [`src/main.ts`](../../src/main.ts), [verification](../verification/toolbar-catalog-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l03"></a>L03 | [`src/main.ts`](../../src/main.ts), [verification](../verification/keyboard-ui.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l04"></a>L04 | [`src/keyboard.ts`](../../src/keyboard.ts), [verification](../verification/keyboard-extended.md) | C17 implements reveal, not Windows Properties qualification. |
+| <a id="l05"></a>L05 | [`src/panel-dock.ts`](../../src/panel-dock.ts), [verification](../verification/panel-dock.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l06"></a>L06 | [`src-tauri/src/find.rs`](../../src-tauri/src/find.rs), [verification](../verification/automation-parity-2026-10-18.md) | C01 supplies Boost and local/native-window regression scope, not original differential/full native-input acceptance. |
+| <a id="l07"></a>L07 | [`src-tauri/src/mp3tag_columns.rs`](../../src-tauri/src/mp3tag_columns.rs), [verification](../verification/file-list.md) | C12 wraps the existing known-key parser; it does not establish undocumented mappings. |
+| <a id="l08"></a>L08 | [`crates/tag-core/src/script.rs`](../../crates/tag-core/src/script.rs), [verification](../verification/automation-parity-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l09"></a>L09 | [`crates/tag-core/src/script.rs`](../../crates/tag-core/src/script.rs), [verification](../verification/automation-parity-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l10"></a>L10 | [`crates/tag-core/src/script.rs`](../../crates/tag-core/src/script.rs), [verification](../verification/automation-parity-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l11"></a>L11 | [`crates/tag-core/src/filter.rs`](../../crates/tag-core/src/filter.rs), [verification](../verification/automation-parity-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l12"></a>L12 | [`crates/tag-core/src/filter.rs`](../../crates/tag-core/src/filter.rs), [verification](../verification/script-export.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l13"></a>L13 | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/script-export.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l14"></a>L14 | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/automation-parity-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l15"></a>L15 | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/automation-parity-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l16"></a>L16 | [`src/action-ui.ts`](../../src/action-ui.ts), [verification](../verification/actions-polish.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l17"></a>L17 | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/automation-parity-2026-10-18.md) | C10 changes opaque escaping only; C01 keeps special IDs1001–1003. |
+| <a id="l18"></a>L18 | [`src-tauri/src/managed_actions.rs`](../../src-tauri/src/managed_actions.rs), [verification](../verification/android-document-workflows.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l19"></a>L19 | [`crates/tag-core/src/converters.rs`](../../crates/tag-core/src/converters.rs), [verification](../verification/transfer-destinations-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l20"></a>L20 | [`crates/tag-core/src/converters.rs`](../../crates/tag-core/src/converters.rs), [verification](../verification/converter-workflows.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l22a"></a>L22a | [`src-tauri/src/associated_files.rs`](../../src-tauri/src/associated_files.rs), [verification](../verification/associated-fileflow-2026-10-18.md) | C06 intentionally leaves Copy and other rename routes outside its flow. |
+| <a id="l22b"></a>L22b | [`src-tauri/src/associated_files.rs`](../../src-tauri/src/associated_files.rs), [verification](../verification/associated-fileflow-2026-10-18.md) | C06’s existing filesystem regressions do not supply complete native-input/picker, cross-volume/network and remaining partial-rollback/fault acceptance. |
+| <a id="l23"></a>L23 | [`crates/tag-core/src/technical.rs`](../../crates/tag-core/src/technical.rs), [verification](../verification/formats-3.md) | C09’s existing encoder runs cover other named formats, not these two. |
+| <a id="l24"></a>L24 | [`crates/tag-core/src/mp4_chapters.rs`](../../crates/tag-core/src/mp4_chapters.rs), [verification](../verification/formats-gaps.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l25"></a>L25 | [`crates/tag-core/src/subsongs.rs`](../../crates/tag-core/src/subsongs.rs), [verification](../verification/chapter-fields.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l26"></a>L26 | [`crates/tag-core/src/lib.rs`](../../crates/tag-core/src/lib.rs), [verification](../verification/formats-gaps.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l28"></a>L28 | [`crates/tag-core/tests/save_acceptance.rs`](../../crates/tag-core/tests/save_acceptance.rs), [verification](../verification/trust-saves.md) | C03/C14 author their inputs independently; C08 prepares rather than performs original captures. |
+| <a id="l29"></a>L29 | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/covers.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l30"></a>L30 | [`src-tauri/src/sources/web/mod.rs`](../../src-tauri/src/sources/web/mod.rs), [verification](../verification/source-bundle-migration.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l31"></a>L31 | [`src-tauri/src/sources/mod.rs`](../../src-tauri/src/sources/mod.rs), [verification](../verification/sources-4.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l32"></a>L32 | [`src-tauri/src/sources/web/mod.rs`](../../src-tauri/src/sources/web/mod.rs), [verification](../verification/source-bundle-migration.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l33"></a>L33 | [`src-tauri/src/sources/discogs.rs`](../../src-tauri/src/sources/discogs.rs), [verification](../verification/sources-3.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l34"></a>L34 | [`crates/tag-core/src/mapping.rs`](../../crates/tag-core/src/mapping.rs), [verification](../verification/formats-edge.md) | C14 observes untouched native groups on authored carriers; it does not qualify original edit grammar. |
+| <a id="l35"></a>L35 | [`crates/tag-core/src/matroska.rs`](../../crates/tag-core/src/matroska.rs), [verification](../verification/formats-dsd-mkv.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l36"></a>L36 | [`crates/tag-core/src/asf/mod.rs`](../../crates/tag-core/src/asf/mod.rs), [verification](../verification/formats-asf.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l38"></a>L38 | [`crates/tag-core/src/lib.rs`](../../crates/tag-core/src/lib.rs), [verification](../verification/formats-edge.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l39"></a>L39 | [`crates/tag-core/src/preferences.rs`](../../crates/tag-core/src/preferences.rs), [verification](../verification/tag-preferences.md) | C08 explicitly leaves actual Windows controls/default observations unperformed. |
+| <a id="l40"></a>L40 | [`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs), [verification](../verification/chapter-fields.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l41"></a>L41 | [`crates/tag-core/src/optimize.rs`](../../crates/tag-core/src/optimize.rs), [verification](../verification/general-options.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l42"></a>L42 | [`src-tauri/src/file_hashes.rs`](../../src-tauri/src/file_hashes.rs), [verification](../verification/script-export.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l43"></a>L43 | [`crates/tag-core/src/media_info.rs`](../../crates/tag-core/src/media_info.rs), [verification](../verification/script-export.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l44"></a>L44 | [`src-tauri/src/exports.rs`](../../src-tauri/src/exports.rs), [verification](../verification/export-manager.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l45"></a>L45 | [`src/main.ts`](../../src/main.ts), [verification](../verification/playlists-export.md) | C13 adds readers; its source/receipt explicitly retains Refresh/order qualification. |
+| <a id="l46"></a>L46 | [`src-tauri/src/cover_drag.rs`](../../src-tauri/src/cover_drag.rs), [verification](../verification/export-lists.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l47a"></a>L47a | [`src/main.ts`](../../src/main.ts), [verification](../verification/file-list.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l47b"></a>L47b | [`src/main.ts`](../../src/main.ts), [verification](../verification/list-behaviour.md) | C12 restores a bounded pre-import workspace, not ordinary cross-session list order. |
+| <a id="l47c"></a>L47c | [`src/main.ts`](../../src/main.ts), [verification](../verification/list-behaviour.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l48"></a>L48 | [`src/file-ops.ts`](../../src/file-ops.ts), [verification](../verification/file-operations.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l49"></a>L49 | [`src/tag-panel.ts`](../../src/tag-panel.ts), [verification](../verification/transfer-destinations-2026-10-18.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l50"></a>L50 | [`src/toolbar.ts`](../../src/toolbar.ts), [verification](../verification/toolbar-catalog-2026-10-18.md) | C07 does not import vendor layouts; C12 imports columns/panels/actions/exports, not toolbar layouts. |
+| <a id="l51"></a>L51 | [`src-tauri/src/utilities.rs`](../../src-tauri/src/utilities.rs), [verification](../verification/options-utils.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l52"></a>L52 | [`src-tauri/src/sources/freedb.rs`](../../src-tauri/src/sources/freedb.rs), [verification](../verification/gnudb.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l53"></a>L53 | [`src/tag-sources.ts`](../../src/tag-sources.ts), [verification](../verification/sources-3.md) | C07 fixes application persistence only; no original interaction comparison is supplied. |
+| <a id="l54"></a>L54 | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/rename-fixes.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l55"></a>L55 | [`crates/tag-core/src/converters.rs`](../../crates/tag-core/src/converters.rs), [verification](../verification/convert-export.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l56a"></a>L56a | [`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs), [verification](../verification/converter-workflows.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l56b"></a>L56b | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/actions-polish.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l57a"></a>L57a | [`src-tauri/src/utilities.rs`](../../src-tauri/src/utilities.rs), [verification](../verification/toolbar-catalog-2026-10-18.md) | C15 includes native lists; C12 adds local journal/window recovery, not a complete portable browser/workspace bundle. |
+| <a id="l57b"></a>L57b | [`src-tauri/src/mp3tag_tag_panel.rs`](../../src-tauri/src/mp3tag_tag_panel.rs), [verification](../verification/source-bundle-migration.md) | C12 uses authored profiles and controlled boundaries; original/native acceptance and unsupported mappings are explicit exclusions. |
+| <a id="l58"></a>L58 | [`src-tauri/src/updates.rs`](../../src-tauri/src/updates.rs), [verification](../verification/general-options.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l59"></a>L59 | [`src/general-options.ts`](../../src/general-options.ts), [verification](../verification/general-options.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l60"></a>L60 | [`crates/tag-core/src/technical.rs`](../../crates/tag-core/src/technical.rs), [verification](../verification/library.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l61"></a>L61 | [`crates/tag-core/src/history.rs`](../../crates/tag-core/src/history.rs), [verification](../verification/edit-history.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l62"></a>L62 | [`src-tauri/tauri.macos.conf.json`](../../src-tauri/tauri.macos.conf.json), [verification](../verification/launch-forwarding.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l63"></a>L63 | [`src/i18n/catalogs/en.json`](../../src/i18n/catalogs/en.json), [verification](../verification/i18n.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l64"></a>L64 | [`src-tauri/src/sources/http.rs`](../../src-tauri/src/sources/http.rs), [verification](../verification/general-options.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l65"></a>L65 | [`src/options-ui.ts`](../../src/options-ui.ts), [verification](../verification/keyboard-ui.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l66"></a>L66 | [`src-tauri/src/settings.rs`](../../src-tauri/src/settings.rs), [verification](../verification/numbering.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l67"></a>L67 | [`crates/tag-core/src/history.rs`](../../crates/tag-core/src/history.rs), [verification](../verification/edit-history.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l68"></a>L68 | [`crates/tag-core/src/history.rs`](../../crates/tag-core/src/history.rs), [verification](../verification/edit-history.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l69"></a>L69 | [`src-tauri/src/main.rs`](../../src-tauri/src/main.rs), [verification](../verification/launch-forwarding.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l70"></a>L70 | [`src-tauri/tauri.conf.json`](../../src-tauri/tauri.conf.json), [verification](../verification/launch-forwarding.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l71"></a>L71 | [`docs/RELEASING.md`](../../docs/RELEASING.md), [verification](../verification/mobile-ios-simulator.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l72"></a>L72 | [`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs), [verification](../verification/mobile-ios-simulator.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l73"></a>L73 | [`src/main.ts`](../../src/main.ts), [verification](../verification/keyboard-ui.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l74"></a>L74 | [`src/main.ts`](../../src/main.ts), [verification](../verification/playlists-export.md) | C05 fixes edited-copy artwork/writer scope; C11 changes reads, neither enables these operations. |
+| <a id="l75"></a>L75 | [`src-tauri/src/documents/engine.rs`](../../src-tauri/src/documents/engine.rs), [verification](../verification/android-document-workflows.md) | C05/C11 use substituted provider transport and desktop engine tests, not real devices/cloud providers. |
+| <a id="l76"></a>L76 | [`docs/RELEASING.md`](../../docs/RELEASING.md), [verification](../verification/release-workflow.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l77a"></a>L77a | [`docs/PERFORMANCE.md`](../../docs/PERFORMANCE.md), [verification](../verification/../PERFORMANCE.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l77b"></a>L77b | [`crates/tag-core/src/lib.rs`](../../crates/tag-core/src/lib.rs), [verification](../verification/../PERFORMANCE.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l78"></a>L78 | [`tests/e2e/core-workflows.js`](../../tests/e2e/core-workflows.js), [verification](../verification/native-e2e.md) | No inspected scoped PR supplies this behavior or the missing original/native/platform acceptance; the linked note retains the limitation. |
+| <a id="l79"></a>L79 | [`scripts/save-acceptance.py`](../../scripts/save-acceptance.py), [verification](../verification/trust-saves.md) | C08 explicitly records no original process, stage transfer or real comparison; C03/C14 are local corpus/observer evidence. |
+| <a id="n01"></a>N01 | [`src-tauri/src/sources/web/mod.rs`](../../src-tauri/src/sources/web/mod.rs), [verification](../verification/source-bundle-migration.md) | C04 delivers installer behavior, while its native picker/released-desktop acceptance remains explicit future work. |
+| <a id="n02"></a>N02 | [`src-tauri/src/sources/web/mod.rs`](../../src-tauri/src/sources/web/mod.rs), [verification](../verification/source-bundle-migration.md) | C04 records compilation and bounded provider results, not the complete native tagging journeys. |
+| <a id="n03"></a>N03 | [`src-tauri/src/sources/web/mod.rs`](../../src-tauri/src/sources/web/mod.rs), [verification](../verification/source-bundle-migration.md) | C04 explicitly leaves full-cover/album-preview semantics and UI actions to later acceptance. |
+| <a id="n04"></a>N04 | [`crates/tag-core/src/script.rs`](../../crates/tag-core/src/script.rs), [verification](../verification/automation-parity-2026-10-18.md) | C01 proves local consistency; original results and complete contexts remain unobserved. |
+| <a id="n05"></a>N05 | [`crates/tag-core/src/actions.rs`](../../crates/tag-core/src/actions.rs), [verification](../verification/automation-parity-2026-10-18.md) | C10 preserves accepted opaque values; it supplies no original-generated option matrix or re-import result. |
+| <a id="n06"></a>N06 | [`crates/tag-core/tests/save_acceptance.rs`](../../crates/tag-core/tests/save_acceptance.rs), [verification](../verification/trust-saves.md) | C03/C14 preserve fields/payloads; neither executes an external native gain consumer. |
+
+## Boundaries retained without implementation assignments
+
+| Record | Boundary and evidence | Treatment |
+| --- | --- | --- |
+| B01 / L27 | MP4 cover type/description cannot be represented by the current MP4 cover atom model ([cover verification](../verification/covers.md), [MP4 metadata](../../crates/tag-core/src/mp4_metadata.rs)). | Retain the format boundary; do not count it as delivered support or a missing button. Original cover conversion behavior remains L13/L29. |
+| B02 / L31 | AcoustID, Last.fm and fanart.tv require configured build/user keys ([provider verification](../verification/sources-4.md), [key store](../../src-tauri/src/sources/keys.rs)). | Existing credential requirement; actual configured journeys remain L31. No secret is included here. |
+| B03 / L48 | macOS reserves Command-H/Command-M; Add/Favorite directory use Control-H/Control-M ([file operations](../verification/file-operations.md)). | Deliberate platform shortcut adaptation, not absent directory functionality. |
+| B04 / L65 | ContextMenuDisabled names the original Windows shell entry. | Track with the unsupported shell-extension scope below, not as a specified cross-platform setting. |
+| B05 / C13 | Static local XSPF/WPL/ASX input is the pending reader scope; dynamic/nested/remote instructions and XML output are refused ([pinned reader boundary](https://github.com/johnneerdael/TagGroove/blob/23f14e4d2c3a4c06ac1db13a9cc0fdbd8f01ab10/docs/verification/xml-playlists-2026-10-18.md)). | No evidence here that every refused feature is an original Mp3tag requirement. Retain the unsupported subset visibly; any newly established requirement becomes a separate uncovered item. |
 
 ## Out of scope
 
-| Item | Reason |
-|---|---|
-| Windows Explorer shell extension, context menu, Ctrl-drag from Explorer | Windows shell integration; TagGroove uses the CLI forms and single-instance forwarding |
-| Help → Donation and the vendor website and forum targets | Belong to the original vendor |
-| Bundled Mp3tag `.src`/`.inc` scripts and the web-sources download service | Proprietary content |
-| Mp3tag language files and the Appearance → Symbols icon set | Proprietary assets |
-| Audio-CD lookup for freedb | Optical-drive I/O per platform |
-| Discogs OAuth with an embedded consumer secret | An open-source app cannot keep the secret |
-| ANSI `.m3u` on macOS and Linux | No system ANSI code page; TagGroove writes Windows-1252 when the text round-trips and falls back to UTF-8 otherwise |
-| About → portable/Store install type | Windows packaging detail |
+These are existing unsupported or ownership boundaries, not achieved parity. Revisit them explicitly if the product scope changes; do not erase them by counting an unrelated PR.
+
+| Item | Existing reason / boundary |
+| --- | --- |
+| Windows Explorer shell extension, context menu and Ctrl-drag from Explorer | Unsupported Windows shell integration; the CLI and single-instance forwarding are a different delivered route. |
+| Vendor Donation, website and forum targets | Original vendor services; no literal clone is assigned. |
+| Redistributed vendor .src/.inc files, download service, language files and Symbols assets | Proprietary content/assets are not bundled. User-owned source imports and independently authored catalogs remain separate supported work. |
+| Audio-CD freedb lookup | Optical-drive I/O is outside current source scope. |
+| Discogs OAuth with an embedded vendor consumer secret | No vendor consumer secret is embedded. The existing credential route remains; this does not settle every possible future OAuth design. |
+| System ANSI .m3u encoding on macOS/Linux | No system ANSI page. Current writing uses Windows-1252 when text round-trips and UTF-8 otherwise; original encoding qualification remains L79. |
+| About portable/Store install label | Original Windows packaging label; installed application identity is qualified separately in L70/L71. |
 
 ## Binary tables checked (2026-10-17)
 
-Source: strings from `Mp3tag.exe`, compared with the code.
-
-- Script functions: all 52 names in the function table exist in `crates/tag-core/src/script.rs`.
-- Placeholders: every name in the placeholder table is produced (`src-tauri/src/evaluation.rs`, `crates/tag-core/src/technical.rs`, `mp4_chapters.rs`, `media_info.rs`).
-- Field names: the 99 names in the Fields menu table are in the mapping registry.
-- Toolbar command ids: 75 in the binary against 28 in TagGroove (first row above).
-- Persisted setting names: about 60 checked; the unmatched ones are listed under Settings and File operations.
+Retain the historical static audit: 52 scripting function names, all names in the inspected placeholder table, 99 Fields-menu names and approximately 60 persisted setting names were compared with source. This did not execute the original or certify semantics. The historical toolbar comparison was 75 original IDs versus 28 app choices; **the current baseline contains 69 app choices** after C07. The sets have different identities and extra providers, so 75−69 is not a valid missing-feature count. L01/L50 retain route/layout work; L65/L66 retain unanswered setting questions.
 
 ## 2026-10-18 ledger reconciliation
 
-- Filename → Filename already deduplicates an explicitly included suffix when it matches the source extension, ignoring case (`crates/tag-core/src/converters.rs`, `ends_with_extension`). This corrects the earlier broad missing-feature claim. A nonmatching suffix still gets the source extension appended; that narrower case remains in the register, with original runtime comparison open.
-- Typed-directory Enter and automatic defaults for multi-selection already exist and are connected. The remaining Tag Panel row keeps the separate dropdown-selection and format-string-field limits.
-- Copy and Move now retain separate last-successful destinations in `directories.json`; cancellation and wholly failed operations retain the previous choice. See [the bounded verification receipt](../verification/transfer-destinations-2026-10-18.md). Native dialog interaction and original timing are not claimed from the unit tests.
+C16 retains matching-suffix and typed-directory/multi-selection corrections; C02 retains destination memory. C09 supersedes the stale APE reader defect, C15 supersedes the helper-history storage claim and C17 corrects Alt+Enter’s current file-manager route. Local source and bounded regressions close only those implementation claims; original/runtime/native qualification remains in the linked active items. The [implementation inventory](../FEATURE-INVENTORY.md#capabilities-beyond-the-reference-scope) retains the former Beyond Mp3tag material.
+
+## Refresh before merge
+
+Keep this cleanup **draft** until PRs56–62 have all merged. After that queue merges, re-read the live open/merged list and final main, recheck every represented scope against its final diff/receipt, replace this frozen snapshot with the new exact identities and reopen any unsupported or withdrawn sub-item. A closed-unmerged PR stops representing work. Inspect new PRs for narrower overlapping coverage; do not exclude an item solely because its area appears in a title. A merged test/documentation PR is evidence only for its own test/documentation result.
+
+PR57 edits both PARITY and this path. Preserve its APE correction and real-encoder proof limits when resolving those expected conflicts, while keeping this path a companion and PARITY the sole active list. PR56 and PR62 both touch trust-saves/consumer infrastructure and may change during integration. PR60’s older browser-preference allowlist requires review against PR55’s lastBuiltIn addition; this record does not declare that compatibility work done. Do not merge dependency branches into this docs-only branch or borrow their unmerged runtime claims.
+
+Re-run the three documentation gates and whitespace/link checks after refresh. Then follow the repository’s exact-final-head GitHub Codex code review and required current-base validation/merge requirements. Preparing this draft neither requests review/CI nor authorizes its merge, and the cleanup itself never closes feature work by self-reference.
