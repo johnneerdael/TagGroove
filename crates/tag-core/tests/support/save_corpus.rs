@@ -1,4 +1,5 @@
 //! Independent retained carriers shared by the regression suite and paired harness.
+pub mod native_id3;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use lofty::{
     config::{ParseOptions, WriteOptions},
@@ -11,6 +12,7 @@ use std::{fs, path::Path};
 use tag_core::{read_entry, write_fields, Fields, TagOptions};
 
 pub const FORMATS: [&str; 3] = ["mp3", "flac", "m4a"];
+pub const NATIVE_ID3_NAME: &str = "native-groups.mp3";
 const OPAQUE: &[u8] = b"TGQA\0\x01\x02\xffopaque";
 
 pub fn fields(items: &[(&str, &[&str])]) -> Fields {
@@ -40,6 +42,8 @@ pub fn seed(path: &Path) {
             ("RATING WMP", &["4"]),
             ("REPLAYGAIN_TRACK_GAIN", &["-7.25 dB"]),
             ("REPLAYGAIN_TRACK_PEAK", &["0.987654"]),
+            ("REPLAYGAIN_ALBUM_GAIN", &["-5.50 dB"]),
+            ("REPLAYGAIN_ALBUM_PEAK", &["0.998877"]),
         ]),
     )
     .unwrap();
@@ -102,6 +106,90 @@ pub fn seed(path: &Path) {
         }
         _ => unreachable!(),
     }
+}
+
+pub fn native_profile() -> Value {
+    serde_json::from_str(include_str!(
+        "../fixtures/save-corpus/native-id3-profile.json"
+    ))
+    .unwrap()
+}
+
+pub fn seed_native_id3(path: &Path) {
+    use lofty::{
+        id3::v2::{
+            AttachedPictureFrame, PopularimeterFrame, UniqueFileIdentifierFrame,
+            UnsynchronizedTextFrame,
+        },
+        picture::PictureType,
+        TextEncoding,
+    };
+    seed(path);
+    let profile = native_profile();
+    let mut file =
+        lofty::mpeg::MpegFile::read_from(&mut fs::File::open(path).unwrap(), ParseOptions::new())
+            .unwrap();
+    let mut tag = file.id3v2().cloned().unwrap();
+    let pictures = (&tag)
+        .into_iter()
+        .filter_map(|frame| {
+            if let Frame::Picture(p) = frame {
+                Some(p.picture.clone().into_owned())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    tag.retain(|frame| {
+        !matches!(
+            frame,
+            Frame::Picture(_)
+                | Frame::Popularimeter(_)
+                | Frame::UnsynchronizedText(_)
+                | Frame::UniqueFileIdentifier(_)
+        )
+    });
+    for rating in profile["popularimeters"].as_array().unwrap() {
+        tag.insert(Frame::Popularimeter(PopularimeterFrame::new(
+            rating["owner"].as_str().unwrap().to_owned(),
+            rating["rating"].as_u64().unwrap() as u8,
+            rating["counter"].as_u64().unwrap(),
+        )));
+    }
+    for lyrics in profile["lyrics"].as_array().unwrap() {
+        tag.insert(Frame::UnsynchronizedText(UnsynchronizedTextFrame::new(
+            TextEncoding::UTF16,
+            lyrics["language"]
+                .as_str()
+                .unwrap()
+                .as_bytes()
+                .try_into()
+                .unwrap(),
+            lyrics["description"].as_str().unwrap().to_owned(),
+            lyrics["text"].as_str().unwrap().to_owned(),
+        )));
+    }
+    let uid = &profile["unique_file_id"];
+    tag.insert(Frame::UniqueFileIdentifier(UniqueFileIdentifierFrame::new(
+        uid["owner"].as_str().unwrap().to_owned(),
+        STANDARD
+            .decode(uid["identifier_base64"].as_str().unwrap())
+            .unwrap(),
+    )));
+    for cover in profile["covers"].as_array().unwrap() {
+        let mut picture = pictures[cover["image_index"].as_u64().unwrap() as usize].clone();
+        picture.set_pic_type(PictureType::from_u8(
+            cover["picture_type"].as_u64().unwrap() as u8,
+        ));
+        picture.set_description(Some(cover["description"].as_str().unwrap().to_owned()));
+        tag.insert(Frame::Picture(AttachedPictureFrame::new(
+            TextEncoding::UTF16,
+            picture,
+        )));
+    }
+    file.set_id3v2(tag);
+    file.save_to_path(path, WriteOptions::default().use_id3v23(true))
+        .unwrap();
 }
 
 /// Encoded audio payload, excluding tags/container headers. Fail on malformed carriers.
@@ -256,6 +344,7 @@ pub fn snapshot(path: &Path) -> Value {
         })).collect::<Vec<_>>(),
         "opaque_marker_count": bytes.windows(OPAQUE.len()).filter(|v| *v == OPAQUE).count(),
         "opaque_native": opaque_native,
+        "native_id3": if path.extension().unwrap().eq_ignore_ascii_case("mp3") { native_id3::snapshot(&bytes) } else { Value::Null },
         "audio_payload_base64": STANDARD.encode(payload(path)),
         "tag_kinds": entry.technical.get("_TAG"),
     })
