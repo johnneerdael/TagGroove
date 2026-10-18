@@ -96,6 +96,8 @@ If the edited bytes cannot be read, the displayed tags may come from the last
 verified backup. The **Retained tags and artwork are unavailable** warning
 identifies that situation. Choose **Original backup** to export the verified
 source; displayed backup tags do not mean the edited copy can be recovered.
+Enabling **List chapters as separate files** does not make a readable recovery
+copy's artwork unavailable; this check reads the retained file as a whole.
 
 ## Cut without deleting the audio
 

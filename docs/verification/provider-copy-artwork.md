@@ -31,6 +31,13 @@ metadata warning, clipboard operations omit artwork changes, and **Original
 backup** remains available. Readable recovery copies still permit pending
 artwork edits for **Edited copy**.
 
+This reconciliation reads the requested physical working files regardless of
+**List chapters as separate files**. It preserves their identities, chapter
+summaries and artwork rather than returning virtual chapter rows. The normal
+file-list and mutation-result chapter presentation remains unchanged. Repeated
+paths are read once; each unsuccessful physical request retains its own path
+in the error result, and cue-sheet requests are not expanded into other files.
+
 The native wrapper resolves all requested clipboard image bytes before
 `CREATE_DOCUMENT`. The document engine starts from retained edited bytes or
 the verified original baseline, stages cover and field changes on the new
@@ -92,6 +99,16 @@ remains separate work. MP4 artwork still has no cover type or description.
   with reconciliation they pass, retain the warning where needed, and keep
   original-backup copies isolated. The native transport remains controlled;
   these cases do not claim an actual Android process restart.
+- A retained WAV with an embedded two-track cue sheet and artwork exercises
+  the production working-entry worker with chapter listing enabled. The
+  preference is scoped to that I/O worker thread for the test; no app or global
+  settings are installed. The normal `batch` transform is a positive control
+  and returns two chapter rows. Before the fix, the working-entry worker did
+  the same; it now retains the physical entry and cover summary, including
+  ordered deduplication alongside a second retained file and an unmanaged
+  `.cue` error. Provider bytes are deleted before the read. The actual async
+  command boundary is also checked with default test settings, and unreadable
+  working bytes still refuse baseline substitution with either preference.
 
 Validation commands and their final results are recorded in the PR. These
 fixtures exercise real metadata and audio files with a substituted SAF
