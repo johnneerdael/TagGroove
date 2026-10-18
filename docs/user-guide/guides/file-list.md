@@ -118,6 +118,12 @@ order. Keep a playlist or other deliberate order record before experimenting
 when the sequence must be restored later. Manual order lasts while the
 files stay listed; it does not write track tags automatically.
 
+Refresh keeps the relative order of surviving exact rows and appends newly
+found rows. Removed rows disappear; a changed chapter identity counts as a new
+row. To see an externally reordered playlist's new source sequence, choose
+**Playlist order** explicitly. Refresh does not erase your saved column sort
+or switch the chosen order mode.
+
 ## Edit a cell
 
 Choose **Edit → Edit in file list** or ++f2++. This starts the first selected

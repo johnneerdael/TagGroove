@@ -2084,10 +2084,11 @@ async function listOperation(op:Operation){
       if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
       if(generation!==sourceGeneration||context!==sourceReadContext()){status='Files or pending changes changed while refreshing. The list is unchanged.';return;}
       removeEntries([...entries.keys()].filter(path=>!found.has(path)));
+      const retainedOrder=[...entries.keys()];
       drafts.clear();pendingCovers.clear();copyOverrides.clear();workingReadErrors.clear();folderImages.clear();
       accept(batch,'Refreshed');
       sourceOrder=mergeSourceOrder([],batch.entries.map(entry=>entry.path),true);
-      const refreshed=sourceOrder.map(path=>entries.get(path)!);entries.clear();refreshed.forEach(entry=>entries.set(entry.path,entry));orderCacheKey='';filterCacheKey='';
+      const refreshed=mergeSourceOrder(retainedOrder,[...sourceOrder,...entries.keys()],false).map(path=>entries.get(path)!);entries.clear();refreshed.forEach(entry=>entries.set(entry.path,entry));orderCacheKey='';filterCacheKey='';
       if(expanded.errors.length){errors=[...expanded.errors,...errors];status+=`, ${expanded.errors.length} playlist entr${expanded.errors.length===1?'y':'ies'} not loaded`;}
       if(!anchor||!selected.has(anchor))anchor=paths()[0];
       if(!selected.size&&batch.entries.length){const first=ordered()[0].path;selected.add(first);anchor=first;}

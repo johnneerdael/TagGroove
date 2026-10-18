@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const root=new URL('../',import.meta.url),transpile=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const load=async name=>import(`data:text/javascript;base64,${Buffer.from(transpile(await readFile(new URL(`src/${name}.ts`,root),'utf8'))).toString('base64')}`);
-const columns=await load('columns'),order=await load('playlist-order'),{PlaylistUI,isPlaylistPath}=await load('playlist-ui'),{mergeOrder,shuffleOrder}=await load('list-behaviour');
+const columns=await load('columns'),order=await load('playlist-order'),{PlaylistUI,isPlaylistPath}=await load('playlist-ui'),{mergeOrder,shuffleOrder,moveSelection}=await load('list-behaviour');
 const {resolvePathChanges,rebaseCaseOnly}=await load('action-ui'),{DirectoryHistory}=await load('file-ops'),{insideFolders}=await load('general-options'),{rowFile,replaceFileRows}=await load('chapters'),{reconcileDrafts}=await load('document-state');
 const source=await readFile(new URL('src/main.ts',root),'utf8'),parsed=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true);
 const functionNames=['loadPaths','scan','sourceReadContext','activeSort','setListOrder','ordered','applyColumns','clearWorkspace','removeEntries','listEnabled','listOperation','operateImpl','sortMenuItems','reorderFiles','shuffleFiles','applyRenamed','executeGroups','renameFromList','accept','spliceRows','optionsApplied'];
@@ -24,7 +24,7 @@ function runtime(state={}){
     throw new Error(`Unexpected ${command}`);
   };
   const playlistUI=new PlaylistUI({invoke});
-  const dependencies={state,calls,entries,selected,drafts,pendingCovers,copyOverrides,workingReadErrors,invoke,playlistUI,isPlaylistPath,...columns,...order,mergeOrder,shuffleOrder,resolvePathChanges,rebaseCaseOnly,DirectoryHistory,insideFolders,rowFile,replaceFileRows,reconcileDrafts};
+  const dependencies={state,calls,entries,selected,drafts,pendingCovers,copyOverrides,workingReadErrors,invoke,playlistUI,isPlaylistPath,...columns,...order,mergeOrder,shuffleOrder,moveSelection,resolvePathChanges,rebaseCaseOnly,DirectoryHistory,insideFolders,rowFile,replaceFileRows,reconcileDrafts};
   const code=transpile(`
     const desktop=state.desktop??true,runtimePlatform={document_access_supported:!!state.provider};
     let columnLayout=defaultLayout(),listRoots=[],loadedPlaylist,listOrder='columns',sourceOrder,sourceGeneration=0;
@@ -47,7 +47,7 @@ function runtime(state={}){
     const moved=${movedCallback};
     return{loadPaths,refresh:()=>listOperation('refresh'),playlistOrder:()=>operateImpl('list-playlist-order'),unsorted:()=>operateImpl('list-unsorted'),canRefresh:()=>listEnabled('refresh'),
       sort:async()=>applyColumns({...columnLayout,sort:[{id:'filename',ascending:true}]},false,true),resize:async()=>applyColumns({...columnLayout,columns:columnLayout.columns.map((column,index)=>index?column:{...column,width:300})}),
-      manual:()=>reorderFiles(shown=>[...shown].reverse()),shuffle:shuffleFiles,menu:sortMenuItems,forgetSourceOrder:()=>{sourceOrder=undefined;},remove:path=>removeEntries([path]),select:path=>{selected.clear();selected.add(path);anchor=path;},
+      manual:()=>reorderFiles(shown=>[...shown].reverse()),moveTop:()=>reorderFiles(shown=>moveSelection(shown,selected,'top')),shuffle:shuffleFiles,menu:sortMenuItems,forgetSourceOrder:()=>{sourceOrder=undefined;},remove:path=>removeEntries([path]),select:path=>{selected.clear();selected.add(path);anchor=path;},
       clear:clearWorkspace,dirty:(path='/music/a.wav')=>drafts.set(path,{TITLE:['Pending']}),artDirty:()=>pendingCovers.set('/music/a.wav',[{digest:'pending'}]),cancel:()=>{if(progressJob)progressJob.cancelling=true;},
       execute:()=>executeGroups([{name:'Rename fixture',enabled:true,actions:[]}]),move:()=>moved(state.renameBatch,'Moved fixture'),rename:(path,name)=>renameFromList(entries.get(path),'_FILENAME_EXT',name),
       optionsChanged:()=>optionsApplied({tags:{advanced:{list_chapters:!!state.listChapters}},pages:{}},{tags:{advanced:{list_chapters:!state.listChapters}},pages:{}}),
@@ -72,6 +72,43 @@ test('Refresh rereads updated source membership and order, reports missing entri
   await model.refresh();assert.deepEqual(model.snapshot().paths,['/music/c.wav','/music/b.wav']);assert.equal(model.snapshot().errors.length,1);assert.equal(model.calls.filter(([command])=>command==='read_playlist').length,2);
   assert.ok(model.calls.every(([command])=>['read_playlist','scan_files','save_columns','cell-cancel','art-clear'].includes(command)),JSON.stringify(model.calls));
   model.state.playlists['/lists/one.m3u8']={files:[],errors:[]};await model.refresh();assert.deepEqual(model.snapshot().paths,[],'valid empty playlist clears membership');assert.equal(model.canRefresh(),true,'source remains refreshable after an empty read');
+});
+
+for(const kind of ['folder','playlist']){
+  const abc=['/music/a.wav','/music/b.wav','/music/c.wav'],cab=[abc[2],abc[0],abc[1]],root=kind==='folder'?'/music':'/lists/manual.m3u8';
+  const fixture=()=>kind==='folder'?{directories:{[root]:[...abc]}}:{playlists:{[root]:{files:[...abc],errors:[]}}};
+  test(`${kind} Refresh retains manually moved rows independently of fresh source rank and saved column sort`,async()=>{
+    const model=runtime(fixture());await model.loadPaths([root],{replace:true});model.select(abc[2]);model.moveTop();
+    assert.deepEqual(model.snapshot().paths,cab);assert.equal(model.snapshot().mode,'manual');const sort=model.snapshot().sort;
+    await model.refresh();assert.deepEqual(model.snapshot().paths,cab);assert.deepEqual(model.snapshot().manual,cab);assert.deepEqual(model.snapshot().order,abc);assert.equal(model.snapshot().mode,'manual');assert.deepEqual(model.snapshot().sort,sort);
+    if(kind==='playlist'){
+      await model.playlistOrder();assert.deepEqual(model.snapshot().paths,abc);await model.refresh();assert.equal(model.snapshot().mode,'playlist');assert.deepEqual(model.snapshot().paths,abc);assert.deepEqual(model.snapshot().manual,cab);
+      await model.unsorted();assert.deepEqual(model.snapshot().paths,cab);
+    }
+    await model.sort();await model.refresh();assert.equal(model.snapshot().mode,'columns');assert.deepEqual(model.snapshot().paths,abc);assert.deepEqual(model.snapshot().manual,cab);assert.deepEqual(model.snapshot().sort,sort);
+    await model.unsorted();assert.deepEqual(model.snapshot().paths,cab);
+  });
+  test(`${kind} Refresh removes absent exact rows and appends new rows without reordering survivors`,async()=>{
+    const model=runtime(fixture());await model.loadPaths([root],{replace:true});model.select(abc[2]);model.moveTop();
+    const d='/music/d.wav',fresh=[d,abc[1],abc[0]];
+    if(kind==='folder')model.state.directories[root]=fresh;else model.state.playlists[root]={files:fresh,errors:[]};
+    await model.refresh();assert.deepEqual(model.snapshot().paths,[abc[0],abc[1],d]);assert.deepEqual(model.snapshot().manual,[abc[0],abc[1],d]);assert.deepEqual(model.snapshot().order,fresh);assert.equal(model.snapshot().mode,'manual');
+    if(kind==='playlist'){await model.playlistOrder();assert.deepEqual(model.snapshot().paths,fresh);}
+  });
+}
+
+test('Refresh treats changed chapter identities as new rows while retaining surviving exact row positions',async()=>{
+  const book='/music/book.m4b',one=book+'\u00011',two=book+'\u00012',three=book+'\u00013',other='/music/other.wav',root='/lists/chapters.m3u8';
+  const model=runtime({playlists:{[root]:{files:[one,two,other],errors:[]}}});await model.loadPaths([root],{replace:true});model.select(other);model.moveTop();
+  model.state.playlists[root]={files:[three,one,other],errors:[]};await model.refresh();
+  assert.deepEqual(model.snapshot().manual,[other,one,three]);assert.deepEqual(model.snapshot().paths,[other,one,three]);assert.deepEqual(model.snapshot().order,[three,one,other]);
+  await model.playlistOrder();assert.deepEqual(model.snapshot().paths,[three,one,other]);
+});
+
+test('Refresh scanning blocks manual moves while preserving the current mode and source context',async()=>{
+  const abc=['/music/a.wav','/music/b.wav','/music/c.wav'],model=runtime({directories:{'/music':abc}});await model.loadPaths(['/music'],{replace:true});
+  model.state.scanGate=deferred();const refreshing=model.refresh();await Promise.resolve();await Promise.resolve();model.select(abc[2]);model.moveTop();model.state.scanGate.resolve();await refreshing;
+  assert.deepEqual(model.snapshot().paths,abc);assert.deepEqual(model.snapshot().order,abc);assert.equal(model.snapshot().mode,'columns');assert.equal(model.snapshot().status,'Refreshed: 3 files');
 });
 
 test('grouped playlist, folder and individual loads merge first positions and Refresh expands every original group',async()=>{

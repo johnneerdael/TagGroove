@@ -221,8 +221,8 @@ The replacement is text with a few codes in it:
 | `$1` … `$9`, `${12}` | The text of that group. Use braces when a digit follows: `${1}0` |
 | `\1` … `\9` | The same as `$1` … `$9` |
 | `$&` or `$0` | The whole match |
-| `` $` `` | The text before the match |
-| `$'` | The text after the match |
+| `` $` `` | The unmatched text before this match, starting after the preceding match (or at the start of the input for the first match) |
+| `$'` | The remaining input after this match |
 | `$$` | A literal `$` |
 | `\U` … `\E` | Upper-case everything up to `\E` (or to the end) |
 | `\L` … `\E` | Lower-case everything up to `\E` |
@@ -240,6 +240,25 @@ With the text `Juniper Vale` and the pattern `(\w+) (\w+)`:
 | `\L$0` | `juniper vale` |
 | `${1}_$2` | `Juniper_Vale` |
 | `$$5` | `$5` |
+
+In a global replacement, the prefix and suffix refer to the original input
+for each match, not to replacement text already produced. Try this in the
+**Replace with regular expression** action, using the pattern and replacement
+directly:
+
+<!-- regex-replacement-context:start -->
+```text
+Input: abc def
+Pattern: \w+
+Replacement: [$`|$&|$']
+Result: [|abc| def] [ |def|]
+```
+<!-- regex-replacement-context:end -->
+
+For the first match, `abc`, the prefix is empty and the suffix is ` def`.
+For the second, `def`, the prefix is just the space since the previous match
+and the suffix is empty. Unmatched text also stays in the output, keeping
+the space between the two bracketed replacements.
 
 Case codes can capitalise words, a job a regex alone can't do. Section 7
 refines this example:

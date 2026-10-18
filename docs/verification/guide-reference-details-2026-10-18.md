@@ -23,3 +23,28 @@ Three further guide corrections retain current TagGroove policy without changing
 The [new actual-Markdown tests](../../crates/tag-core/tests/guide_scripting_details.rs) execute all ten published rows under both LF and CRLF. The three new tests first failed because the marked examples were absent, then passed with the examples present. This is a documentation-test connection, not a reproduced production evaluator defect. Sixteen focused tests, strict MkDocs, formatting and scoped whitespace checks passed in the author batch; the root independently reran the three new tests successfully.
 
 Official background: [arithmetic functions](https://docs.mp3tag.de/scripting/#arithmetic-functions), [string functions](https://docs.mp3tag.de/scripting/#string-functions) and [optional sections](https://docs.mp3tag.de/format/#characters-with-special-functionality). These pages do not establish the original program's numeric overflow or all separator/availability behavior. L08/L10/L79 remain open; no original or native program was run.
+
+
+## Regex replacement-context teaching pass
+
+The reference now explains that the global replacement prefix `` $` `` starts
+at the end of the preceding match, while `$'` is the remaining input after the
+current match. The copyable `abc def` / `\w+` example shows both matches and
+why prefix/suffix substitutions can repeat surrounding text. This clarifies
+previously underspecified wording; no production regex defect was found.
+
+The new named `user_guide.rs` test reads the actual marked four-line example,
+executes `ActionSpec::RegexReplace` and checks its written Result. It failed
+for a missing block and rejected an intentionally wrong Result; the original
+Markdown bytes were restored before the final passing run. All 24 existing
+regex bridge/guide/case controls plus the new test passed; 22 direct probes of
+the actual shared C++ bridge also passed. Strict guide build, rendered literal
+block inspection, formatting and scoped whitespace checks passed. No original
+runtime or native/provider operation was performed.
+
+The combined runs caught the remaining reference consumers still expecting five
+fences. Both newline fixtures now include all six blocks, and the existing
+scripting consumer explicitly retains its five scripting examples while the
+new literal context block runs through the actual action. Every reference to
+the page was checked; all 30 targeted guide/checkout controls pass, including
+execution of the new example under LF and CRLF.
