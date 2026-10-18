@@ -22,6 +22,7 @@ test('Find chapter exercises all actual strategy labels and its written edge cas
   for(const [label,criteria,value,expected] of rows){
     const strategy=findStrategies.find(([,name])=>name===label.replaceAll('**',''))?.[0];
     assert.ok(strategy,label);seen.add(strategy);
+    if(strategy==='regex')continue; // Native documentation cases run in src-tauri/src/find.rs.
     assert.equal(findMatcher(literal(criteria),strategy,false)(literal(value)),expected==='Match',label+' '+value);
   }
   assert.deepEqual([...seen].sort(),findStrategies.map(([id])=>id).sort());

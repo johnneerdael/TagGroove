@@ -18,19 +18,19 @@ remain in the writing plan until ready. See `docs/PUBLISHING.md`.
 
 ## Structure
 
-Seven tabs, each with one kind of page (see `style.md` § 3 for the page types):
+Eight tabs, each with one kind of page (see `style.md` § 3 for the page types):
 
 | Tab | Pages | Sections | Page type |
 |---|---:|---|---|
 | Home | 1 | | Landing page |
 | Get started | 12 | 7 top-level pages; Platform notes (5) | How-to guides for the first hour, plus platform notes |
 | Learn | 19 | Tutorials (10), Concepts (8), plus an index | Tutorials and concept explainers. **Mp3tag's docs have neither.** |
-| Guides | 22 | Everyday editing (10), TagGroove extras (3), Customize (8), plus an index | How-to guides for the main window and customization |
+| Guides | 23 | Everyday editing (11), TagGroove extras (3), Customize (8), plus an index | How-to guides for the main window and customization |
 | Automate | 44 | Converters (7), Actions (19), Tag sources (12), Export and playlists (5), plus an index | How-to guides, one page per converter and action type |
 | Reference | 50 | 8 top-level pages; Format strings (9), Menus (10), Options (23) | Reference: complete and exact |
 | Cookbook | 35 | Rename (6), Fix and tidy (10), Import (5), Numbers (3), Covers (4), Find and report (6), plus an index | Recipes. **Mp3tag's docs have none.** |
 | Help | 4 | | FAQ, troubleshooting, glossary, about |
-| **Total** | **187** | | |
+| **Total** | **188** | | |
 
 Design decisions:
 

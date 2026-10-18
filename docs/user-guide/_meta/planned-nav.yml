@@ -48,6 +48,7 @@ nav:
       - Find: guides/find.md
       - "Cut, copy and paste tags": guides/copy-paste-tags.md
       - "Copy, move and delete files": guides/file-operations.md
+      - Associated lyrics and karaoke: guides/associated-files.md
       - Removing tags: guides/remove-tags.md
       - Undo and history: guides/undo-history.md
     - TagGroove extras:

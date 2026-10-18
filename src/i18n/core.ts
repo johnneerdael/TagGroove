@@ -57,6 +57,7 @@ const HISTORY_FRAMES = new Set([
 const HISTORY_LABELS = new Set([
   "Save tags",
   "Remove tags",
+  "Move files",
   "Add cover",
   "Remove cover",
   "Filename → Tag",
