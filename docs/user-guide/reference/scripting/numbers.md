@@ -9,15 +9,31 @@ readable counts. They return text for the enclosing format string.
 
 ## Read the numeric rules first
 
-Arithmetic uses signed integers, not decimal arithmetic. A leading integer
+Arithmetic uses signed 64-bit integers, from `-9223372036854775808` through
+`9223372036854775807`, rather than decimal arithmetic. A leading integer
 is read after any initial whitespace. Text after that integer is ignored:
 `3/8` means 3, `12px` means 12, and `2.9` means 2. Text without a leading
 integer, such as `B2`, means 0. Do not apply these functions to vinyl sides
 or decimal measurements without first deciding how to represent them.
 
-Operations run from left to right. Overflow and division by zero report
-errors. Numeric output does not automatically become a true condition;
-use comparison functions when testing a result.
+TagGroove treats an input prefix outside that range as 0, just like text
+without a usable leading integer. This conversion happens **before** the
+operation. By contrast, an operation whose result overflows the range reports
+an error, as does division by zero. Operations run from left to right.
+
+<!-- numeric-overflow-examples:start -->
+| Expression | What happens | Outcome |
+|---|---|---|
+| `$add(9223372036854775808,1)` | The first input cannot fit, so it becomes 0 before adding 1 | `1` |
+| `$add(9223372036854775807,1)` | Both inputs fit, but their sum does not | Error: `Integer overflow or division by zero` |
+<!-- numeric-overflow-examples:end -->
+
+These are TagGroove's current conversion and calculation rules. Check the
+input before treating a plausible result as proof that every number was
+read successfully. Numeric output does not automatically become a true
+condition; use comparison functions when testing a result.
+
+<!-- verified: crates/tag-core/tests/guide_scripting_details.rs:published_numeric_examples_distinguish_conversion_from_operation_overflow -->
 
 ### `$num(x,n)` { #num }
 

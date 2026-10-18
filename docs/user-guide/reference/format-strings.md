@@ -120,8 +120,10 @@ expressions and multi-value fields. The examples below show common uses.
 ### Optional sections: `[…]` { #optional-sections }
 
 Square brackets mark a part that should disappear when it has nothing to say.
-A section is **kept when at least one placeholder inside it has a value**,
-and dropped completely, with its text, when none has:
+A section is **kept when a field lookup inside it establishes availability**.
+Usually that is a placeholder with a value. `$meta` and `$meta_sep` can also
+establish availability, as shown below. Without it, the section and its text
+are dropped:
 
 | Format string | With these values | Result |
 |---|---|---|
@@ -134,18 +136,38 @@ and dropped completely, with its text, when none has:
 
 Things to know:
 
-- **"Has a value" means a placeholder inside produced text.** In the fifth
+- **A nonempty placeholder establishes availability.** In the fifth
   row, `ARTIST` is enough to keep the section. Its text is kept even though
   `ALBUMARTIST` is empty. To require both, use
   `$and` with [`$if`](#conditions).
-- **A section with only plain text is always dropped**, because no
-  placeholder in it has a value. Write plain text outside brackets.
+- **A section with only plain text is always dropped**, because literal
+  text does not establish field availability. Write it outside brackets.
 - **Functions count through their arguments.** `[CD$num(%discnumber%,1)]` is
   dropped when `DISCNUMBER` is empty, even though `$num` would have
   returned `0`.
 - Sections can be nested: `[%album%[ (%year%)] - ]%title%`.
 - Commas and brackets inside a section that sits in a function argument are
   plain text: in `$upper([%year%, ]%album%)` the comma does not end the argument.
+
+In TagGroove, a nonempty `$meta` or `$meta_sep` result also establishes
+availability without a `%field%` placeholder. A missing field does not:
+
+<!-- optional-metadata-examples:start -->
+| Format string | With these values | Result |
+|---|---|---|
+| `[Artist: $meta(artist)]` | `ARTIST` = `Juniper Vale` | `Artist: Juniper Vale` |
+| `[Artist: $meta(artist)]` | `ARTIST` absent | *(empty)* |
+| `[Artists: $meta_sep(artist,' & ')]` | `ARTIST` = `Juniper Vale` + `Mira Solberg` | `Artists: Juniper Vale & Mira Solberg` |
+| `[Artists: $meta_sep(artist,' & ')]` | `ARTIST` absent | *(empty)* |
+<!-- optional-metadata-examples:end -->
+
+Availability differs from visible output and from a condition's truth flag.
+For example, removing all text from an available placeholder can still keep
+its section. Use [conditions](#conditions) to ask whether a calculation is
+true, or [`$iflonger`](scripting/conditions.md#iflonger) to test its output
+length; square brackets do not perform either test.
+
+<!-- verified: crates/tag-core/tests/guide_scripting_details.rs:published_optional_metadata_examples_use_the_written_present_or_missing_fields -->
 
 ### Quoted text: `'…'` { #quotes }
 

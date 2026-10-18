@@ -66,6 +66,16 @@ Unicode uppercasing can change the number of characters; do not assume it preser
 
 This is mechanical capitalization, not a language-aware title style. `DJ` becomes `Dj`. The separator argument is a set of characters, not a regex.
 
+Compare a hyphenated title with and without `-` as an extra separator.
+Whitespace still starts a word in both cases:
+
+<!-- caps-separator-examples:start -->
+| Format string | With these values | Result |
+|---|---|---|
+| `$caps('LOW-TIDE HIGH WIND')` | Any file | `Low-tide High Wind` |
+| `$caps('LOW-TIDE HIGH WIND',-)` | Any file | `Low-Tide High Wind` |
+<!-- caps-separator-examples:end -->
+
 **Related:** [`$caps2`](#caps2).
 
 ### `$caps2(x[,separators])` { #caps2 }
@@ -84,6 +94,18 @@ This is mechanical capitalization, not a language-aware title style. `DJ` become
 | `$caps2($lower(%title%))` | `TITLE` = `Paper Boats` | `Paper Boats` |
 
 This does not repair arbitrary uppercase text: existing uppercase letters after the first character remain uppercase.
+
+The same extra separator starts `Tide` below, while `$caps2` preserves the
+existing uppercase `DJ`:
+
+<!-- caps2-separator-examples:start -->
+| Format string | With these values | Result |
+|---|---|---|
+| `$caps2('low-tide DJ')` | Any file | `Low-tide DJ` |
+| `$caps2('low-tide DJ',-)` | Any file | `Low-Tide DJ` |
+<!-- caps2-separator-examples:end -->
+
+<!-- verified: crates/tag-core/tests/guide_scripting_details.rs:published_caps_examples_show_custom_separators_and_retained_whitespace_boundaries -->
 
 **Related:** [`$caps`](#caps).
 
