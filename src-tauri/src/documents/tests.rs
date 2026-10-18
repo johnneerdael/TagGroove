@@ -326,6 +326,10 @@ fn provider_policy_current_options_apply_to_existing_handles_and_recovery() {
         Some(&vec!["ID3 title".into()])
     );
     assert!(!working.fields.contains_key("TITLE"));
+    let selected_again = f.import();
+    assert_eq!(selected_again.path, entry.path);
+    assert_eq!(selected_again.fields, working.fields);
+    assert_eq!(f.store.states().len(), 1);
     fs::write(&entry.path, b"interrupted local write").unwrap();
     f.files.0.unavailable.set(true);
     f.restart();
@@ -407,6 +411,106 @@ fn provider_policy_ape_family_uses_current_read_switches_and_ape_mapping() {
     assert!(!reloaded.fields.contains_key("TITLE"));
     assert_eq!(reloaded.technical["_PATH"], ["content://test/source"]);
     assert_eq!(fs::read(path).unwrap(), f.source);
+}
+
+#[test]
+fn provider_policy_mpeg_read_switches_choose_each_kind_or_no_fields() {
+    let mut f = Fixture::with_options(true, current_read_options);
+    seed_conflicting_mpeg(&mut f);
+    let source = f.files.path("content://test/source");
+    let mut legacy = tag_core::TagOptions::default();
+    legacy.mpeg.write_id3v2 = false;
+    legacy.mpeg.remove_id3v2 = false;
+    legacy.mpeg.remove_ape = false;
+    tag_core::write_fields_with_options(
+        &source,
+        &BTreeMap::from([("TITLE".into(), vec!["Legacy title".into()])]),
+        false,
+        &[],
+        &legacy,
+    )
+    .unwrap();
+    f.source = fs::read(&source).unwrap();
+    for (id3v1, id3v2, ape, title) in [
+        (true, true, true, Some("APE title")),
+        (true, true, false, Some("ID3 title")),
+        (true, false, false, Some("Legacy title")),
+        (false, false, false, None),
+    ] {
+        let mut options = tag_core::TagOptions::default();
+        options.mpeg.read_id3v1 = id3v1;
+        options.mpeg.read_id3v2 = id3v2;
+        options.mpeg.read_ape = ape;
+        CURRENT_READ_OPTIONS.with(|current| *current.borrow_mut() = options);
+        let entry = f.import();
+        assert_eq!(
+            entry.fields.get("TITLE"),
+            title.map(|value| vec![value.into()]).as_ref(),
+            "read ID3v1={id3v1}, ID3v2={id3v2}, APE={ape}"
+        );
+        let summary = f.store.read_working(Path::new(&entry.path)).unwrap();
+        assert_eq!(summary.fields, entry.fields);
+        assert_eq!(fs::read(&source).unwrap(), f.source);
+        assert_eq!(fs::read(&entry.path).unwrap(), f.source);
+    }
+}
+
+#[test]
+fn provider_policy_copy_results_and_retained_edits_use_current_mapping() {
+    let mut f = Fixture::with_options(true, mapped_id3_options);
+    seed_conflicting_mpeg(&mut f);
+    let original = f.import();
+    let path = Path::new(&original.path);
+    let mut options = mapped_id3_options();
+    options.mpeg.write_id3v1 = false;
+    options.mpeg.remove_ape = false;
+    let drafts = BTreeMap::from([("DISPLAY_TITLE".into(), vec!["Copy title".into()])]);
+    for (version, expected) in [("original", "ID3 title"), ("edited", "Copy title")] {
+        let copy = f
+            .store
+            .save_copy(path, &drafts, None, version, &options)
+            .unwrap();
+        assert!(copy.errors.is_empty());
+        let entry = &copy.entries[0];
+        assert_eq!(entry.fields["DISPLAY_TITLE"], [expected]);
+        assert!(!entry.fields.contains_key("TITLE"));
+        assert_ne!(entry.path, original.path);
+        assert_eq!(
+            entry.technical["_PATH"],
+            [f.store.states()[&entry.path].uri.clone()]
+        );
+        assert_ne!(entry.technical["_PATH"], original.technical["_PATH"]);
+    }
+    assert_eq!(fs::read(path).unwrap(), f.source);
+    assert_eq!(
+        fs::read(f.files.path("content://test/source")).unwrap(),
+        f.source
+    );
+    f.files.0.failure.set(1);
+    assert!(f
+        .store
+        .mutate(path, |path| tag_core::write_fields_with_options(
+            path,
+            &drafts,
+            false,
+            &options.mappings,
+            &options
+        ))
+        .is_err());
+    let edited_bytes = fs::read(path).unwrap();
+    f.restart();
+    let retained = f.store.restore_recovery();
+    assert!(retained.errors.is_empty(), "{:?}", retained.errors);
+    assert_eq!(retained.entries.len(), 1);
+    assert_eq!(retained.entries[0].fields["DISPLAY_TITLE"], ["Copy title"]);
+    assert_eq!(
+        retained.entries[0].technical["_PATH"],
+        original.technical["_PATH"]
+    );
+    let summary = f.store.read_working(path).unwrap();
+    assert_eq!(summary.fields, retained.entries[0].fields);
+    assert_eq!(f.store.states()[&original.path].state, "recovery_required");
+    assert_eq!(fs::read(path).unwrap(), edited_bytes);
 }
 
 #[test]

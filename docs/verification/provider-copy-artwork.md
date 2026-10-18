@@ -59,11 +59,12 @@ does not silently become the default ID3 policy when pasted artwork is saved,
 and a later pending field does not undo that choice. An original-backup copy
 ignores pending fields/artwork and does not apply policy conversions.
 
-Provider import, recovery and published-result projection retain their existing
-default read behavior. A custom mapped alias can therefore return under its
-native field name even when the new copy was written using the mapping.
-Applying user read precedence and field mappings throughout those reads remains
-separate acceptance work. MP4 artwork still has no cover type or description.
+PR #53 originally retained default reads for provider import, recovery and
+published results. The later [provider read-policy change](provider-read-policy.md)
+applies current read precedence and mappings to these descriptions, including
+both copy results. The native file keeps its configured storage field name;
+the editor result exposes its mapped alias. MP4 artwork still has no cover type
+or description.
 
 ## Regression evidence
 
@@ -129,9 +130,11 @@ separate acceptance work. MP4 artwork still has no cover type or description.
   while ignoring stale artwork and pending fields. The nondefault policy is
   scoped to the production synchronous copy body on its I/O worker thread;
   existing default-policy cases also exercise the actual async command.
-  Result projection is checked under its current native-name behavior and an
-  independent options-aware read verifies the mapped alias. No provider-wide
-  read-policy parity or physical Android device is claimed.
+  Originally, result projection was checked under native-name behavior. The
+  later read-policy integration checks the mapped alias in both edited and
+  original-backup results; independent native-item inspection still verifies
+  storage names and an options-aware file read verifies mapped values. No
+  physical Android device or complete provider parity is claimed.
 
 Validation commands and their final results are recorded in the PR. These
 fixtures exercise real metadata and audio files with a substituted SAF
@@ -153,7 +156,7 @@ reproduced against current source before implementation.
 | R16: networking/legacy sources | Qualify actual keyed-provider setup, needed proxy authentication/SOCKS/PAC cases and gnudb server-list/local lookup behavior. Interpret source minimum-version declarations as required capabilities. Keep live HTTP receipts distinct from parser replay. |
 | R17: persistent recovery | Design and validate desktop restart recovery/undo retention and stale-baseline rejection, Windows external-edit detection and snapshot budgets on non-cloning volumes. This PR exercises existing provider restart recovery only; it does not persist desktop Undo history. |
 | R18: desktop customization | Observe original File Exit, Windows Properties, floating panels and movable toolbar workflows before selecting platform behavior. Treat binary-only setting names and a possible global leading-zero option as unknown until independently established. |
-| R19: mobile documents | Apply read precedence and field mappings to provider read/reload/copy paths; qualify provider undo, exports, playlists and file actions; implement iOS provider selection/save-back and qualify directory/cloud providers. Run permission-loss, interrupted-write and restart recovery cases on real Android/iOS devices. Mobile credentials remain separate work. |
+| R19: mobile documents | Qualify provider read/reload/copy paths on devices after the source-backed read-policy fix; qualify provider undo, exports, playlists and file actions; implement iOS provider selection/save-back and qualify directory/cloud providers. Run permission-loss, interrupted-write and restart recovery cases on real Android/iOS devices. Mobile credentials remain separate work. |
 | R20: languages/regions | Add demand-led, independently authored catalogs after high-impact workflows stabilize; qualify complete journeys, Unicode, locale-sensitive formatting, layout and input. Do not reuse Mp3tag proprietary catalogs or infer regional correctness from catalog count. |
 
 Signing and distribution qualification belong to the broader platform/release

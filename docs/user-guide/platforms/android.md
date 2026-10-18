@@ -1,5 +1,10 @@
 # Android
 
+Android packages are signed previews. See [installation and mobile download
+limits](../getting-started/install.md#understand-the-mobile-downloads) before
+installing a downloaded APK. Signing does not establish device compatibility or
+desktop feature parity.
+
 ## Open a document through Android
 
 Choose **Add files** and select audio files in Android's document picker.
@@ -19,13 +24,14 @@ Provider-document reads use the current **Options → Tags** preferences,
 including [Mpeg](../reference/options/tags-mpeg.md),
 [Ape, Mpc](../reference/options/tags-ape-mpc.md) and
 [Mapping](../reference/options/tags-mapping.md). These preferences apply
-when adding files, reloading them and describing a completed save or retained
-recovery copy.
+when adding or reselecting files, reloading them and describing a completed save,
+**Save a copy** result or retained recovery copy. Existing document handles use
+the current preferences on their next read.
 
 For example, an MP3 can contain different titles in its APE and ID3v2 tags.
 With both kinds enabled, APE takes priority. To inspect the ID3v2 title:
 
-1. Open **Options → Tags → Mpeg**.
+1. Open **File → Options… → Tags → Mpeg**.
 2. Leave ID3v2 reading enabled and disable APE reading.
 3. Return to the file and choose **Reload tags**. Confirm discarding pending
    edits only if those edits are no longer needed.
@@ -57,10 +63,18 @@ discarding either retained version. An unreadable edited copy is not silently
 presented as successful recovery: where a baseline can be shown instead, the
 document still remains marked as requiring recovery.
 
+**Edited copy** also applies pending field and artwork edits using the current
+tag write preferences and field mappings. **Original backup** ignores those
+pending edits. The returned description uses the current read preferences, so
+an unread tag kind can remain present in the saved file without being displayed.
+Saving a new copy leaves the source's recovery state in place.
+
 ## Current limits and verification
 
 Provider documents do not currently support ordinary Undo/Redo, playlist
-loading or creation, CSV/export operations, or file/cover-file/rename actions.
+loading or creation, CSV/export operations, action execution or rename/move
+operations. Artwork edited through the tag panel and **Save a copy** is separate
+from unsupported cover-file actions.
 Directory-tree and cloud-provider behavior still needs broader qualification.
 The compact layout does not turn a provider address into a desktop path.
 
@@ -69,3 +83,6 @@ coverage does not certify an Android device, document provider, permission
 grant or interrupted save on a real phone. The
 [verification receipt](https://github.com/johnneerdael/TagGroove/blob/main/docs/verification/provider-read-policy.md) records
 the exercised cases and remaining device checks.
+
+This Android path does not establish an iOS document route or original-Mp3tag
+parity.
