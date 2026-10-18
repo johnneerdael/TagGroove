@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -192,6 +193,10 @@ def prepare(root, executable, corpus=None):
         "Record actual defaults as an object and capture filenames in an identity JSON with application, version,\n"
         "executable_sha256, platform, runtime, recorded_at_utc, defaults and evidence (nonempty array).\n"
         "Add input_sha256 mapping each filename to the verified pre-edit hash from contract.json.\n"
+        "Require stage_sha256[operation][stage][filename] for every prepared operation, saved/undone/redone stage and input.\n"
+        "Record each lowercase whole-file SHA-256 at capture time, before transferring files; retain those bindings unchanged.\n"
+        "The reference-capture collector exports these bindings from a validated capture manifest; it does not copy media.\n"
+        "Comparison rejects absent/invalid bindings or transferred bytes differing from capture, and rechecks after observation.\n"
         "Run: python3 scripts/save-acceptance.py compare WORKSPACE --identity IDENTITY.json\n"
         "Cancellation/interruption, native gain-consumer behavior and UI behavior need separate evidence.\n", encoding="utf-8")
     return {"workspace": str(root), "reference_comparison": "not performed"}
@@ -261,6 +266,28 @@ def run(root, executable):
     return {"passed": passed, "cases": len(cases), "receipt": str(receipt_path), "reference_comparison": "not performed"}
 
 
+def validate_reference_stages(root, reference, baseline):
+    """Bind every transferred stage to the operator's captured whole-file hash."""
+    bindings = reference.get("stage_sha256")
+    if not isinstance(bindings, dict) or set(bindings) != set(OPERATIONS):
+        raise ValueError("reference stage bindings require exactly the prepared operations")
+    for operation in OPERATIONS:
+        stages = bindings[operation]
+        if not isinstance(stages, dict) or set(stages) != {"saved", "undone", "redone"}:
+            raise ValueError(f"reference stage bindings are incomplete or invalid: {operation}")
+        for stage, files in stages.items():
+            if not isinstance(files, dict) or files.keys() != baseline.keys():
+                raise ValueError(f"reference stage bindings require exactly the prepared filenames: {operation}/{stage}")
+            for name, captured_hash in files.items():
+                if not isinstance(captured_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", captured_hash):
+                    raise ValueError(f"reference stage hash is invalid: {operation}/{stage}/{name}")
+                path = root / "reference" / operation / stage / name
+                if not path.is_file():
+                    raise ValueError(f"missing original-runtime capture: {path}")
+                if sha256(path.read_bytes()) != captured_hash:
+                    raise ValueError(f"reference stage hash differs from captured bytes: {operation}/{stage}/{name}")
+
+
 def compare(root, executable, identity_path):
     validate_workspace(root)
     contract = json.loads((root / "contract.json").read_text(encoding="utf-8"))
@@ -283,6 +310,7 @@ def compare(root, executable, identity_path):
     wanted_cases = {(operation, name) for operation in OPERATIONS for name in contract["baseline"]}
     if local_cases.keys() != wanted_cases or len(local["cases"]) != len(wanted_cases):
         raise ValueError("local receipt does not contain exactly the captured cases")
+    validate_reference_stages(root, reference, contract["baseline"])
     cases = []
     for operation in OPERATIONS:
         for name in contract["baseline"]:
@@ -306,8 +334,10 @@ def compare(root, executable, identity_path):
                 observed = normalize(invoke(executable, "observe", path))
                 cases.append({"file": name, "operation": operation, "stage": stage,
                     "local_file_sha256": hashes[stage],
-                    "reference_file_sha256": sha256(path.read_bytes()), "observed_reference": observed,
+                    "reference_file_sha256": reference["stage_sha256"][operation][stage][name], "observed_reference": observed,
                     "differences_from_taggroove": differences(local_observed, observed)})
+    # Recheck every binding after observation, including stages read earlier.
+    validate_reference_stages(root, reference, contract["baseline"])
     passed = all(not c["differences_from_taggroove"] for c in cases)
     require_identity(consumer, identity(executable, root), "Completed comparison")
     receipt = {"passed": passed, "producer": local["producer"], "prepared_by": contract["producer"],

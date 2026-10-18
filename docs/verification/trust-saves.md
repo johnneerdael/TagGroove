@@ -152,7 +152,19 @@ and runtime evidence separately. Supply the resulting identity JSON:
   "recorded_at_utc": "record the capture timestamp",
   "defaults": {"record": "the actual selected read/write/remove settings and encoding"},
   "evidence": ["paths to screenshots, logs or capture notes"],
-  "input_sha256": {"café 日本.mp3": "the verified pre-edit hash; include every input"}
+  "input_sha256": {"café 日本.mp3": "the verified pre-edit hash; include every input"},
+  "stage_sha256": {
+    "edit-one": {
+      "saved": {"café 日本.mp3": "lowercase SHA-256 recorded at Save capture"},
+      "undone": {"café 日本.mp3": "lowercase SHA-256 recorded at Undo capture"},
+      "redone": {"café 日本.mp3": "lowercase SHA-256 recorded at Redo capture"}
+    },
+    "edit-many": {
+      "saved": {"café 日本.mp3": "lowercase SHA-256 recorded at Save capture"},
+      "undone": {"café 日本.mp3": "lowercase SHA-256 recorded at Undo capture"},
+      "redone": {"café 日本.mp3": "lowercase SHA-256 recorded at Redo capture"}
+    }
+  }
 }
 ```
 
@@ -160,7 +172,20 @@ and runtime evidence separately. Supply the resulting identity JSON:
 python3 scripts/save-acceptance.py compare /tmp/taggroove-save-pair --identity /tmp/mp3tag-capture.json
 ```
 
+Replace the illustrative hash descriptions with actual 64-character lowercase
+SHA-256 values and include every prepared filename in every stage. The required
+`stage_sha256[operation][stage][filename]` map must contain exactly the prepared
+operations, `saved`/`undone`/`redone` stages and input filenames. Record these
+hashes when capturing the original stage files, before transferring them into
+`reference/`; retain those bindings unchanged. The
+[reference capture exporter](mp3tag-reference-capture.md) derives this map from
+validated capture cases and artifact hashes. Generic evidence entries alone
+and older identities without stage bindings cannot authorize a comparison.
+
 The consumer requires every reference stage and matching pinned provenance.
+It verifies all transferred reference bytes against those captured hashes
+before comparison and rechecks every reference stage after observation,
+rejecting missing/invalid bindings, wrong mapped stages and changed bytes.
 It independently rereads retained inputs and local/reference outputs,
 compares them against the expected operation and writes structural
 differences to `paired-results.json`. Before accepting the local stages, it
@@ -183,7 +208,11 @@ python3 -m unittest discover -s scripts/tests -p test_save_acceptance.py -v
 The Python suite executes the producer and consumer with explicitly
 synthetic reference copies. It verifies missing-capture/identity rejection,
 captured-input copying, baseline/receipt tamper detection and real audio
-corruption detection. Those synthetic controls test the harness; they are
+corruption detection. Collector-exported identities also pass through a
+synthetic stage transfer and the real consumer. Changed reference padding
+with identical decoded output, missing/invalid stage bindings, wrong stage
+assignments and changes during observation fail closed. Those synthetic
+controls test the harness; they are
 not Mp3tag execution evidence.
 
 Additional controls change a disposable backend binary and initialize a

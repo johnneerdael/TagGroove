@@ -161,7 +161,15 @@ python3 scripts/reference-capture/collector.py export-identity CAPTURE_WORKSPACE
 ```
 
 The exporter writes only the identity JSON accepted by the merged
-`scripts/save-acceptance.py compare` consumer. It does not copy media,
+`scripts/save-acceptance.py compare` consumer. It derives the required
+`stage_sha256[operation][stage][filename]` map from the validated case-to-artifact
+associations and their captured whole-file hashes. The consumer requires
+exactly every prepared operation, stage and filename, checks transferred
+bytes before comparison and rechecks all reference stages after observation.
+Missing/invalid bindings, wrong stage assignments and changed bytes fail
+closed; generic evidence alone cannot authorize comparison. These checks bind
+transferred bytes to operator-supplied captures, without authenticating the
+application that produced them. The exporter does not copy media,
 runtime files, scratch directories or vendor bodies, and does not prepare
 a paired comparison by itself. This collector retains reference stage files
 at `CAPTURE_WORKSPACE/evidence/OPERATION/STAGE/FILENAME`; the paired consumer
@@ -169,8 +177,9 @@ reads `PAIRED_WORKSPACE/reference/OPERATION/STAGE/FILENAME`. A future authorized
 capture must separately transfer each validated stage file to that paired
 layout, verify its bytes against the capture manifest, and use the same
 prepared contract and input hashes. Follow the save verification guide for
-the local producer run and comparison command. No stage transfer or paired
-comparison was performed for this change.
+the local producer run and comparison command. This change tests transfers
+and consumer comparisons only with explicitly synthetic TagGroove output
+copies; no original-runtime stage transfer or comparison was performed.
 
 Manifest validation checks integrity and explicit operator claims; it cannot
 authenticate who produced a supplied file. It does not perform or certify
@@ -185,7 +194,7 @@ of native declarations without API calls, and eleven synthetic
 containment/integrity tests. These are historical acquisition/static
 observations; this revision did not repeat the download or staging.
 
-The current focused suite passes those eleven synthetic tests and six
+The current focused suite passes twelve synthetic integrity tests and six
 probe-finalization tests. The latter execute only the parsed final observation
 block and JSON writer against disposable files and an already-exited process
 fixture. They cover deleted/renamed, empty, nonempty and invalid-directory
@@ -193,7 +202,10 @@ candidates, disappearance or a read failure during hashing, retained
 observations/errors and an earlier blocked status.
 They require an existing PowerShell installation and skip if it is absent.
 They do not execute startup, native declarations, Win32/UIA APIs or Mp3tag.
-No reference process was run, and no paired save parity was established.
+The paired consumer tests also cover collector-exported bindings, unchanged
+synthetic transfers, equivalent-decoding byte mutations, missing/invalid or
+misassigned bindings and changes during observation. No reference process
+was run, and no original-versus-TagGroove save parity was established.
 
 ```sh
 python3 -m unittest discover -s scripts/tests -p test_reference_capture.py -v

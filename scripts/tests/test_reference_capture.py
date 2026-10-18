@@ -123,10 +123,32 @@ class ReferenceCapture(unittest.TestCase):
         identity = json.loads(destination.read_text())
         self.assertEqual(identity["executable_sha256"], collector.EXECUTABLE_SHA256)
         self.assertEqual(identity["input_sha256"], {"café.flac": self.record["cases"][0]["input_sha256"]})
+        expected_hash = hashlib.sha256(b"fLaCsynthetic header control").hexdigest()
+        self.assertEqual(identity.get("stage_sha256"), {
+            operation: {stage: {"café.flac": expected_hash} for stage in ("saved", "undone", "redone")}
+            for operation in ("edit-one", "edit-many")})
         self.assertNotIn("configuration control", destination.read_text())
         self.assertFalse((self.root / "reference").exists())
         with self.assertRaisesRegex(ValueError, "must not exist"):
             collector.export_identity(self.root, self.contract, destination)
+
+    def test_identity_export_rejects_changed_or_misassigned_capture_stages(self):
+        self.capture()
+        destination = self.root / "identity.json"
+        stages = self.record["cases"][0]["stages"]
+        saved = stages["saved"]
+        stages["saved"] = stages["undone"]
+        self.save()
+        with self.assertRaisesRegex(ValueError, "mismatched saved capture"):
+            collector.export_identity(self.root, self.contract, destination)
+        self.assertFalse(destination.exists())
+        stages["saved"] = saved
+        self.save()
+        path = self.root / saved
+        path.write_bytes(path.read_bytes() + b" changed")
+        with self.assertRaisesRegex(ValueError, "artifact changed"):
+            collector.export_identity(self.root, self.contract, destination)
+        self.assertFalse(destination.exists())
 
     def test_mutated_artifacts_contract_and_configuration_are_rejected(self):
         self.capture()

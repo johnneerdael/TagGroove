@@ -226,10 +226,15 @@ def export_identity(root, contract, destination):
     if destination.exists():
         raise ValueError("export destination must not exist")
     reference = record["reference"]
+    artifacts = {item["path"]: item for item in record["artifacts"]}
+    stage_sha256 = {operation: {stage: {} for stage in STAGES} for operation in OPERATIONS}
+    for case in record["cases"]:
+        for stage, relative in case["stages"].items():
+            stage_sha256[case["operation"]][stage][case["file"]] = artifacts[relative]["sha256"]
     identity = {"application": "Mp3tag", "version": "3.36.1", "executable_sha256": reference["executable_sha256"],
         "platform": record["runtime"]["os_version"], "runtime": record["runtime"],
         "recorded_at_utc": record["recorded_at_utc"], "defaults": record["defaults"],
-        "evidence": record["artifacts"], "input_sha256": {case["file"]: case["input_sha256"] for case in record["cases"]}}
+        "evidence": record["artifacts"], "stage_sha256": stage_sha256, "input_sha256": {case["file"]: case["input_sha256"] for case in record["cases"]}}
     with destination.open("x", encoding="utf-8") as output:
         output.write(json.dumps(identity, indent=2, ensure_ascii=False) + "\n")
     return {"status": "validated_operator_identity_export", "output": str(destination), "parity_comparison_performed": False}
