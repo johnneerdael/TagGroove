@@ -59,3 +59,6 @@ end-to-end journey. L30/N01/N02/L78/L79 remain open; Windows work is deferred.
 Provider-response qualification still needs a legitimately retained response
 body with acquisition URL/date and provenance. Original/runtime, native and
 live-provider receipts remain separate requirements.
+
+The [SoundCloud scalar-parser check](private-soundcloud-offline-2026-10-19.md)
+separately executes that private bundle against invented hydration input.
