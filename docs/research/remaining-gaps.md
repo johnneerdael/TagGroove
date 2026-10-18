@@ -1,6 +1,6 @@
 # Remaining parity gaps versus Mp3tag 3.36.1
 
-Current as of 2026-10-17 at `main` `9d3764b`. This register lists the known open items. It is built from audits and verification notes and is not an exhaustive proof. Everything the 2026-10-15 audit found that later batches closed has been removed; the closing evidence lives in the [verification notes](../verification/). The [parity ledger](../PARITY.md) summarises this list.
+Baseline as of 2026-10-17 at `main` `9d3764b`; the Find entry is updated by the [2026-10-18 automation verification](../verification/automation-parity-2026-10-18.md). This register lists the known open items. It is built from audits and verification notes and is not an exhaustive proof. Everything the 2026-10-15 audit found that later batches closed has been removed; the closing evidence lives in the [verification notes](../verification/). The [parity ledger](../PARITY.md) summarises this list.
 
 Method: the original audit compared every documentation page against the code. On 2026-10-17 the Windows binary's own tables were checked as well: script function names, placeholder names, field names, toolbar command ids and persisted setting names. Nothing was launched. "Unverified" means the behaviour is not documented and has not been compared with the original.
 
@@ -15,7 +15,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Menus | File → Exit | No menu item (macOS quits from the app menu) | L | S |
 | Menus | Alt+Enter | Opens Extended Tags; the original opens the Windows properties dialog (Windows-only) | L | S |
 | Tag panel | Floating panel | In-window overlay, not a separate OS window | L | M |
-| File table | Find regex | Uses JavaScript `RegExp`, not the Boost bridge (`src/find.ts`) | L | S |
+| File table | Find runtime qualification | Find now uses the shared native Boost bridge (`src-tauri/src/find.rs`), covered by local cross-context regressions. Comparison against the original and native-input qualification on each desktop platform remain open ([automation verification](../verification/automation-parity-2026-10-18.md)) | L | S |
 | File table | `columns.ini` import | Known keys only; the file layout is undocumented | L | S |
 | Scripting | `$caps`, `$caps2`, `$caps3` word starts | Only whitespace starts a word, so `o'brien (live)` becomes `O'brien (live)`. Original set unverified | M | S |
 | Scripting | Truth of non-boolean conditions | Literal `1` is false; functions are true when an argument field exists (`script.rs`). Unverified | M | M |
