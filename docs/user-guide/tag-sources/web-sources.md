@@ -48,10 +48,29 @@ symbolic links or directories deeper than 64 levels aside before installation.
 
 After a successful replacement, `data/.opentag-sources-previous` retains the
 complete previous sources folder, including its configured values. Another
-successful update replaces that snapshot. To roll back manually, close TagGroove,
-move `data/sources` aside, and rename `.opentag-sources-previous` to `sources`.
-If an interrupted replacement leaves the sources folder missing, TagGroove
-restores this snapshot automatically on the next source-list/settings read.
+successful update replaces that snapshot. A refused pre-publication update keeps
+the original active and previous data available for rollback. If recovery itself
+cannot finish, their data can remain under recovery names until retry. Once a validated
+replacement is published, cleanup of older retired files can be retried without
+rolling the new sources back.
+
+After a process interruption, the next source-list/settings read or **Open
+sources folder** attempts recovery. If a permissions error stops recovery,
+resolve that error and retry. A changed retained folder or unrecognized recovery
+entry is preserved for inspection instead of being overwritten. Keep the complete
+data folder while recovery is pending; do not delete its recovery files to clear
+the message.
+
+To roll back a completed update, first ensure that no recovery is pending:
+
+1. Close TagGroove.
+2. Move `data/sources` aside under a different name. Keep the previous snapshot
+   at `data/.opentag-sources-previous`.
+3. Reopen TagGroove and open the sources folder or source list. With the active
+   folder absent, recovery restores the marked previous snapshot automatically.
+4. Check the restored sources and configured values before removing your
+   moved-aside copy.
+
 The original downloaded folder/ZIP is never modified.
 
 **Tag Sources → Open sources folder** opens
