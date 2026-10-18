@@ -387,8 +387,10 @@ test('a plain drop replaces the list after the unsaved-changes question', async 
 });
 
 
-test('opted-in moves review companion paths once and apply the frozen token', async () => {
-  const {ui, host, calls} = harness({prefs: {subfolders: true, startup: 'empty', associatedFiles: true}});
+test('opted-in moves retain destination memory while reviewing companions and applying frozen tokens', async () => {
+  const {ui, host, calls} = harness({prefs: {subfolders: true, startup: 'empty', associatedFiles: true},
+    directoryState: {copy_destination: '/copy-before', move_destination: '/move-before'}});
+  await ui.initialize();calls.length=0;
   const original = host.invoke;
   host.invoke = async (command, args) => {
     if (command === 'preview_transfer') {
@@ -399,13 +401,20 @@ test('opted-in moves review companion paths once and apply the frozen token', as
   };
   host.picks.push(['/dest']);
   await ui.operate('file-move');
+  assert.deepEqual(host.pickerCalls[0], {title: 'Move files to', multiple: false, defaultPath: '/move-before'});
   assert.deepEqual(calls[0], ['preview_transfer', {paths: ['/m/a.mp3', '/m/b.mp3'], destination: '/dest'}]);
   assert.match(host.confirmed.parts.join(host.confirmed.separator), /a\.lrc.*a\.lrc/s);
   assert.deepEqual(calls[1], ['transfer_files', {paths: ['/m/a.mp3', '/m/b.mp3'], destination: '/dest', mode: 'move', planToken: 'frozen'}]);
-  host.picks.push(['/dest']); host.answers.push(false);
+  const saved=calls.findLast(([command])=>command==='save_directory_state')[1].state;
+  assert.equal(saved.move_destination,'/dest');assert.equal(saved.copy_destination,'/copy-before');
+  host.picks.push(['/cancelled']); host.answers.push(false);
   await ui.operate('file-move');
+  assert.equal(host.pickerCalls.at(-1).defaultPath,'/dest');
+  assert.equal(ui.state.move_destination,'/dest');
+  assert.equal(calls.filter(([command])=>command==='save_directory_state').length,1);
   assert.equal(calls.filter(([command]) => command === 'transfer_files').length, 1, 'cancelled review never applies');
   host.picks.push(['/dest']);
   await ui.operate('file-copy');
+  assert.equal(host.pickerCalls.at(-1).defaultPath,'/copy-before');
   assert.equal(calls.filter(([command]) => command === 'preview_transfer').length, 2, 'copy never silently adopts the move policy');
 });

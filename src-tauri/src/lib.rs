@@ -924,6 +924,14 @@ struct Preview {
     plan_token: Option<String>,
 }
 
+#[derive(Serialize)]
+struct RenamePreview {
+    path: String,
+    value: String,
+    plan_token: Option<String>,
+    associated: Vec<associated_files::Preview>,
+}
+
 #[tauri::command]
 async fn preview_format(
     paths: Vec<String>,
@@ -1124,14 +1132,6 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
         }
     }
     Ok(target)
-}
-
-#[derive(Serialize)]
-struct RenamePreview {
-    path: String,
-    value: String,
-    plan_token: Option<String>,
-    associated: Vec<associated_files::Preview>,
 }
 
 #[tauri::command]

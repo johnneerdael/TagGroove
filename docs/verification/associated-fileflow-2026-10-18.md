@@ -1,11 +1,13 @@
 # R08 associated-file move qualification — 18 October 2026
 
 Scope: opt-in same-basename `.lrc`/`.cdg` handling for Tag → Filename and desktop
-Move files to. This batch does not complete area 4 or R08. PR #50 remains a
-separate delivery for remembered Copy/Move destinations and scoped ledger
-corrections. This worktree retained its original local PR #50 head
-`c31ca77b482704e18e617675298f964ab74ef48c` before branching from
-`4a1a95ff4eddb9da7492aaace68197c4f81347d0`; live PR review/CI state is tracked separately.
+Move files to. This batch does not complete area 4 or R08. PR #50's remembered
+Copy/Move destinations are already merged, and this branch normally integrated
+approved main `c8f46d8a239862cbbbc02a491c9b9100b5cd75fd` at
+`8065f5a18521183c77a48ecfda2f8c0be25f9277`. Both destination memory and the
+reviewed companion-file workflow are retained. The current-head validation and
+live GitHub review/CI results are recorded in the PR; the checkpoints below are
+historical local evidence.
 
 ## Original evidence and limits
 
@@ -35,6 +37,12 @@ WAV carrier where metadata readback or history is exercised. It covers:
   that remain untouched when Undo is refused.
 - Frontend default-off Options control, one Move confirmation, displayed companion
   paths, frozen token delivery, cancelled confirmation and unchanged Copy behavior.
+- The opted-in Move flow starts in its remembered destination, persists a new
+  destination only after successful audio moves, and keeps the previous destination
+  when the companion review is cancelled. Copy retains its separate destination.
+- The native `Move files` history label is included in fixed-label producer coverage
+  and translated in Undo/Redo, replay progress, completion and conflict messages.
+  Authored action names remain data through live language changes.
 
 The actual OptionsUI compact page-picker branch was exercised at 420 × 700 in
 Happy DOM with the production stylesheet (whitespace after `@media` normalized

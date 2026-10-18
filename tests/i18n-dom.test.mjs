@@ -918,11 +918,15 @@ test('actual history menus replay progress completion and typed errors translate
     const errors=Array.from({length:failures},()=>({path:'Help',error:'raw'})),entries=new Map(),rowFile=path=>path,applyRenamed=()=>{},accept=()=>{};
     const invoke=async()=>({label,entries:Array.from({length:files},(_,i)=>({path:String(i)})),history}),run=async(text,job)=>{progress=text;await job();};
     ${replay};await replayHistory(kind);return{progress,status,history};})()`);
+  const fileOps=await readFile(new URL('../src-tauri/src/file_ops.rs',import.meta.url),'utf8');
+  const moveLabel=/(?:history::)?\brecord\s*\(\s*"([^"]+)"/.exec(fileOps)?.[1];
+  assert.equal(moveLabel,'Move files','exercise the native move history producer');
   const english=JSON.parse(await source('i18n/catalogs/en.json'));
-  const custom={...english,'Action {name}':'Copy of {name}','Actions ({count} groups)':'Copy of {count} groups','Copy of Help':'Again',Help:'Wrong name','Action Help':'Wrong action-like name','Actions (2 groups)':'Wrong count-like name'};
+  const custom={...english,'Move files':'Transfer files','Action {name}':'Copy of {name}','Actions ({count} groups)':'Copy of {count} groups','Copy of Help':'Again',Help:'Wrong name','Action Help':'Wrong action-like name','Actions (2 groups)':'Wrong count-like name'};
   const reordered={...custom,'Action {name}':'[{name}] applied','Actions ({count} groups)':'[{count}] groups applied','[Help] applied':'Again'};
   const cases=['Help','Action Help','Actions (2 groups)','  Help  ','Help\nTitle'].map(name=>({label:`Action ${name}`,key:'Action {name}',params:{name}}));
   cases.push({label:'Actions (2 groups)',key:'Actions ({count} groups)',params:{count:'2'}});
+  cases.push({label:moveLabel,key:moveLabel,params:{}});
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',reordered]])for(const [i,item] of cases.entries())for(const kind of ['undo','redo']){
     const files=i%2+1,failures=i%2,observed=await runReplay(item.label,kind,files,failures),step={label:item.label,files};
     const raw={menu:kind==='undo'?historyLabel('Undo',step):redoOrRepeat({redo:step},undefined).label,progress:observed.progress,status:observed.status};
@@ -951,10 +955,10 @@ function nativeHistoryLabels(sources){
   return labels;
 }
 test('native fixed history label producers have registered exact translations and unknown labels remain raw',async()=>{
-  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
+  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers','file_ops'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
   const labels=nativeHistoryLabels(sources);
   for(const newline of ['\n','\r\n'])assert.deepEqual(nativeHistoryLabels(Object.fromEntries(Object.entries(sources).map(([name,text])=>[name,text.replace(/\r?\n/g,newline)]))),labels);
-  assert.equal(labels.size,21);const generated=englishCatalog();
+  assert.equal(labels.size,22);assert.ok(labels.has('Move files'));const generated=englishCatalog();
   for(const label of labels)assert.equal(generated[label],label,`register native history label ${label}`);
   const {historyLabelText}=await load('i18n/core.ts');assert.equal(typeof historyLabelText,'function');
   for(const locale of ['de','nl']){
