@@ -22,7 +22,7 @@ export type ActionUIHost = {
   fieldNames?: () => string[];
   exportGroup?: (group: ActionGroup) => Promise<string|null>;
   changed: () => void;
-  /** Remembers the Actions (Quick) type and settings between uses. */
+  /** Remembers Quick settings and the last confirmed group-editor codepage. */
   storage?: QuickStorage;
 };
 export type QuickStorage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void };
@@ -164,9 +164,9 @@ function defaultAction(type:string):ActionSpec{
   }
 }
 const QUICK_KEY='opentag.actions.quick';
-type QuickMemory={last?:string;actions:Record<string,ActionSpec>};
+type QuickMemory={last?:string;actions:Record<string,ActionSpec>;groupCodepage?:string};
 function quickMemory(storage?:QuickStorage):QuickMemory{
-  try{const value=JSON.parse(storage?.getItem(QUICK_KEY)||'null');if(value&&typeof value==='object'&&value.actions&&typeof value.actions==='object')return{last:typeof value.last==='string'?value.last:undefined,actions:value.actions};}catch{/* A damaged entry falls back to the defaults. */}
+  try{const value=JSON.parse(storage?.getItem(QUICK_KEY)||'null');if(value&&typeof value==='object'&&value.actions&&typeof value.actions==='object')return{last:typeof value.last==='string'?value.last:undefined,actions:value.actions,groupCodepage:codepageChoices.some(([id])=>id===value.groupCodepage)?value.groupCodepage:undefined};}catch{/* A damaged entry falls back to the defaults. */}
   return{actions:{}};
 }
 /** Actions (Quick) settings last applied for `type` (default: the last type used), over that type's defaults. */
@@ -182,6 +182,17 @@ export function recallQuick(storage:QuickStorage|undefined,type?:string):ActionS
 export function rememberQuick(storage:QuickStorage|undefined,action:ActionSpec,asLast=true){
   if(!storage||!actionCatalog.some(([key])=>key===action.type))return;
   const memory=quickMemory(storage);memory.actions[action.type]=clone(action);if(asLast)memory.last=action.type;
+  try{storage.setItem(QUICK_KEY,JSON.stringify(memory));}catch{/* Preferences are optional. */}
+}
+/** Reuse only the confirmed codepage; new group actions keep their usual field/defaults. */
+function groupDefault(storage:QuickStorage|undefined,type:string):ActionSpec{
+  const action=defaultAction(type);
+  if(type==='convert_codepage')action.codepage=quickMemory(storage).groupCodepage??action.codepage;
+  return action;
+}
+function rememberGroupCodepage(storage:QuickStorage|undefined,action:ActionSpec){
+  if(!storage||action.type!=='convert_codepage'||!codepageChoices.some(([id])=>id===action.codepage))return;
+  const memory=quickMemory(storage);memory.groupCodepage=action.codepage as string;
   try{storage.setItem(QUICK_KEY,JSON.stringify(memory));}catch{/* Preferences are optional. */}
 }
 function dialog(title:string,content:string,footer:string):HTMLDialogElement{
@@ -291,8 +302,8 @@ export class ActionUI {
       if(quality&&preset){preset.addEventListener('change',()=>{if(preset.value!=='custom')quality.value=preset.value;});quality.addEventListener('input',()=>{preset.value=qualityPresets.find(([value])=>value===String(Number(quality.value)))?.[0]||'custom';});}
       content.querySelectorAll<HTMLButtonElement>('[data-browse]').forEach(button=>button.addEventListener('click',async()=>{try{const path=await this.host.pickFile(button.dataset.browse as 'image'|'text'|'export');if(path)content.querySelector<HTMLInputElement>(`[data-key="${button.dataset.target}"]`)!.value=path;}catch(e){this.showError(el,e);}}));content.querySelector<HTMLInputElement>('[data-key="resize_enabled"]')?.addEventListener('change',e=>{content.querySelector<HTMLElement>('.resize-options')!.hidden=!(e.target as HTMLInputElement).checked;});
     };
-    show();typeControl.addEventListener('change',()=>{current=mode==='group'?defaultAction(typeControl.value):recallQuick(this.host.storage,typeControl.value);show();this.clearError(el);el.querySelector('.dialog-error')?.remove();});el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());
-    keep.addEventListener('click',async()=>{try{const action=readAction(el,current.type);if(mode!=='group')rememberQuick(this.host.storage,action,quick);keep.disabled=true;await onKeep(action);el.close();}catch(e){this.showError(el,e);keep.disabled=false;}});
+    show();typeControl.addEventListener('change',()=>{current=mode==='group'?groupDefault(this.host.storage,typeControl.value):recallQuick(this.host.storage,typeControl.value);show();this.clearError(el);el.querySelector('.dialog-error')?.remove();});el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());
+    keep.addEventListener('click',async()=>{try{const action=readAction(el,current.type);if(mode!=='group')rememberQuick(this.host.storage,action,quick);keep.disabled=true;await onKeep(action);if(mode==='group')rememberGroupCodepage(this.host.storage,action);el.close();}catch(e){this.showError(el,e);keep.disabled=false;}});
     return el;
   }
   /** Actions (Quick) reopens on the last applied type and its settings; `type` preselects one action, e.g. Adjust Cover from the cover window. */

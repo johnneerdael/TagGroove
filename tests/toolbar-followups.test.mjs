@@ -60,6 +60,7 @@ function runtime(state={}){
     const fileOps={reason:()=>''},selectedFiles=()=>[],mp4ChapterFiles=()=>({files:state.chapters===false?0:1});
     const history={undo:null},repeatState=()=>({kind:'none'}),tagClipboard=null,listRoots=[];
     const columnLayout={sort:state.sort??[{id:'filename',ascending:true}]},tableColumns=()=>[{id:'filename'}],editKey=()=> '_FILENAME_EXT';
+    let listOrder='columns';const sourceOrder=undefined,refreshList=()=>calls.push(['list-order',listOrder]);let orderCacheKey='',filterCacheKey='';
     const toolbarConfig={shown:true,items:followups.map(id=>({id,visible:true}))},customToolbar=toolbarConfig;
     const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),glyphs={},render=()=>{};
     const toolsUI={tools:[]},actionUI={groupNames:[],initialize:async()=>{calls.push(['actions-initialize']);}};
@@ -78,7 +79,7 @@ function runtime(state={}){
     let errors=[],status='';
     ${declaration('utilOperations')} ${declaration('listOperations')} ${declaration('tagSourceOperations')} ${declaration('coverOperations')}
   `;
-  const code=transpile(`${setup}\n${functions(['lastSourceOp','operationReason','enabled','listEnabled','button','toolbarMarkup','customToolbarMarkup','customToolbarChoices','operateImpl','operate'])}\nreturn{enabled,reason:operationReason,render:toolbarMarkup,custom:customToolbarMarkup,choices:customToolbarChoices,operate,errors:()=>errors};`);
+  const code=transpile(`${setup}\n${functions(['activeSort','setListOrder','lastSourceOp','operationReason','enabled','listEnabled','button','toolbarMarkup','customToolbarMarkup','customToolbarChoices','operateImpl','operate'])}\nreturn{enabled,reason:operationReason,render:toolbarMarkup,custom:customToolbarMarkup,choices:customToolbarChoices,operate,errors:()=>errors};`);
   model=new Function(...Object.keys(dependencies),'followups',code)(...Object.values(dependencies),followups);
   return{...model,window,document,calls,dialogs,coverUI};
 }
@@ -91,7 +92,7 @@ test('all followups render and dispatch through production main guards to their 
       const expected={
         'copy-text':['copy-text'],'remove-tag-types':['remove-tag-types'],'strip-mp4-chapters':['confirm'],'util-unsupported':['util','remove_unsupported_fields'],'util-optimize':['util','optimize'],
         'help-docs':['invoke','open_help_page',{page:'documentation'}],'help-issues':['invoke','open_help_page',{page:'issues'}],'help-releases':['invoke','open_help_page',{page:'releases'}],'help-shortcuts':['shortcuts'],'help-updates':['updates',false],about:['dialog','About TagGroove'],
-        columns:['list','columns'],'autosize-columns':['list','autosize-columns'],'shuffle-list':['list','shuffle-list'],'toolbar-customize':['customize','main'],'custom-toolbar-customize':['actions-initialize'],'config-save':['save','Save configuration'],'config-load':['open','Load configuration'],'config-folder':['invoke','open_configuration_folder',undefined],
+        columns:['list','columns'],'autosize-columns':['list','autosize-columns'],'shuffle-list':['list','shuffle-list'],'list-unsorted':['list-order','manual'],'toolbar-customize':['customize','main'],'custom-toolbar-customize':['actions-initialize'],'config-save':['save','Save configuration'],'config-load':['open','Load configuration'],'config-folder':['invoke','open_configuration_folder',undefined],
         'cover-replace':['cover-picker'],'cover-extract':['dialog','Extract cover'],'cover-adjust':['adjust'],'cover-description':['dialog','Set cover description'],'cover-cut':['cover-invoke','copy_cover_to_clipboard',{path:'/Music/a.mp3',index:0}],'cover-copy':['cover-invoke','copy_cover_to_clipboard',{path:'/Music/a.mp3',index:0}],'cover-paste':['cover-invoke','paste_cover_from_clipboard',undefined],
       }[id];
       if(expected)assert.deepEqual(model.calls[0],expected,id);

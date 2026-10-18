@@ -87,8 +87,10 @@ before extracting, copying or cutting. A toolbar button does not bypass
 read-only/provider restrictions or confirmation dialogs.
 
 **Random sort** changes the visible list order used by playlists and numbering;
-**Unsorted (load and playlist order)** returns to the stored load order.
-Neither re-reads a changed playlist from disk. Save intended edits before
+**Unsorted (load and playlist order)** returns to the maintained manual/load
+order. To restore the remembered source sequence after a shuffle, use
+**View → Sort by → Playlist order**. Those order commands do not reread a
+changed playlist; **Refresh** does. Save intended edits before
 loading a configuration: the existing confirmation and application reload
 still apply. **Check for updates…** checks releases without installing them.
 

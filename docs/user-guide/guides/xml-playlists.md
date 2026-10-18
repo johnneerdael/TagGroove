@@ -41,9 +41,11 @@ beside this independently authored example, saved as UTF-8 `practice.xspf`:
 </playlist>
 ```
 
-Load it and expect Low Tide before Paper Boats. Replacing the list clears
-column sorting so the playlist’s load order is visible. Repeated references
-to the same resolved path retain their first position. That does not establish
+Load it and expect Low Tide before Paper Boats. Replacing the list selects
+playlist order for the session, without erasing saved
+column-sort preferences. **View → Sort by → Playlist order** restores that
+source order after sorting or shuffling. Refresh rereads the original sources.
+Repeated references to the same resolved path retain their first position. That does not establish
 that every filesystem alias is the same recording. Missing entries are reported
 while other resolvable entries can load; audio-format readback can report
 additional errors after reference resolution.

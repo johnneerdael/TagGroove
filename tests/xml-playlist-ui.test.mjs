@@ -11,9 +11,9 @@ const functionJS=name=>ts.transpileModule(parsed.statements.find(node=>ts.isFunc
 function pipeline(failure,sorted=false){
   const calls=[],listed=['/Practice/old.wav'];
   const ui=new PlaylistUI({invoke:async(command,args)=>{calls.push([command,args]);assert.equal(command,'read_playlist');if(failure)throw new Error(failure);return{files:['/Practice/two.wav','/Practice/one.wav'],errors:[{path:args.path,error:'Line 4: missing.wav: file not found'}]};}});
-  const dependencies={calls,isPlaylistPath,playlistUI:ui,publicMessage:String,render:()=>{},
+  const dependencies={calls,isPlaylistPath,playlistUI:ui,publicMessage:String,render:()=>{},sourceReadContext:()=> 'fixture',
     scan:async(paths,options)=>{calls.push(['scan',paths,options]);if(options.replace)listed.splice(0,listed.length,...paths);return true;}};
-  const code=`let errors=[],status='',loadedPlaylist,columnLayout={sort:${sorted?"[{id:'filename',ascending:true}]":'[]'}};const entries=new Map([['/Practice/old.wav',{}]]);const applyColumns=async layout=>{columnLayout=layout;calls.push(['columns',layout]);};${functionJS('loadPaths')}return{loadPaths,errors:()=>errors,status:()=>status,playlist:()=>loadedPlaylist,sort:()=>columnLayout.sort};`;
+  const code=`let errors=[],status='',busy=false,sourceGeneration=0,columnLayout={sort:${sorted?"[{id:'filename',ascending:true}]":'[]'}};${functionJS('loadPaths')}return{loadPaths,errors:()=>errors,status:()=>status,playlist:()=>calls.find(([command])=>command==='scan')?.[2].playlist,sort:()=>columnLayout.sort};`;
   return{...new Function(...Object.keys(dependencies),code)(...Object.values(dependencies)),calls,listed};
 }
 
@@ -51,10 +51,10 @@ test('actual Load playlist picker offers all readable extensions while cancellat
 });
 
 
-test('replacing the list with an XML playlist clears column sorting after its ordered scan',async()=>{
+test('XML loading passes original source roots and ordered members without clearing saved column sorting',async()=>{
   const model=pipeline(undefined,true);
   assert.equal(await model.loadPaths(['/Practice/order.xspf'],{replace:true}),true);
   assert.deepEqual(model.listed,['/Practice/two.wav','/Practice/one.wav']);
-  assert.deepEqual(model.sort(),[]);
-  assert.deepEqual(model.calls.map(([command])=>command),['read_playlist','scan','columns']);
+  assert.deepEqual(model.sort(),[{id:'filename',ascending:true}]);assert.deepEqual(model.calls[1][2].roots,['/Practice/order.xspf']);
+  assert.deepEqual(model.calls.map(([command])=>command),['read_playlist','scan']);
 });

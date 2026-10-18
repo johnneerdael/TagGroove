@@ -996,10 +996,13 @@ pub fn scan_paths_cached(
     let mut seen = HashSet::new();
     let mut candidates = Vec::new();
     let mut rows = Vec::new();
+    let mut input_position = 0usize;
+    let mut input_ranks = std::collections::HashMap::new();
     for raw in paths {
         // Chapter and cue sheet rows are read as they are.
         if subsong_parts(raw).is_some() {
-            rows.push(raw);
+            rows.push((input_position, raw));
+            input_position += 1;
             continue;
         }
         let path = PathBuf::from(raw);
@@ -1011,7 +1014,8 @@ pub fn scan_paths_cached(
                     match item {
                         Ok(item) if item.file_type().is_file() || item.file_type().is_symlink() => {
                             if audio_extension(item.path(), extensions) {
-                                candidates.push(item.into_path());
+                                candidates.push((input_position, item.into_path()));
+                                input_position += 1;
                             }
                         }
                         Ok(_) => {}
@@ -1022,18 +1026,25 @@ pub fn scan_paths_cached(
                     }
                 }
             }
-            Ok(_) => candidates.push(path),
+            Ok(_) => {
+                candidates.push((input_position, path));
+                input_position += 1;
+            }
             Err(e) => result.errors.push(FileError {
                 path: raw.clone(),
                 error: e.to_string(),
             }),
         }
     }
+    let has_explicit_rows = !rows.is_empty();
     let mut unique = Vec::new();
-    for path in candidates {
+    for (position, path) in candidates {
         match dunce::canonicalize(&path) {
             Ok(canonical) => {
                 if seen.insert(canonical.clone()) {
+                    if has_explicit_rows {
+                        input_ranks.insert(canonical.clone(), position);
+                    }
                     unique.push(canonical);
                 }
             }
@@ -1084,10 +1095,11 @@ pub fn scan_paths_cached(
     if options.advanced.list_chapters {
         result.entries = expand_chapter_rows(std::mem::take(&mut result.entries));
     }
-    for raw in rows {
+    for (position, raw) in rows {
         if !seen.insert(PathBuf::from(raw)) {
             continue;
         }
+        input_ranks.insert(PathBuf::from(raw), position);
         match read_entry_summary_with_options(Path::new(raw), &options.mappings, options) {
             Ok(entry) => result.entries.push(entry),
             Err(error) => result.errors.push(FileError {
@@ -1095,6 +1107,21 @@ pub fn scan_paths_cached(
                 error,
             }),
         }
+    }
+    // Ordinary audio is read in parallel and explicit CUE/chapter rows are
+    // read afterwards, but the combined result must retain their input order.
+    // Rows expanded from one ordinary file keep their existing relative order.
+    if has_explicit_rows {
+        result.entries.sort_by_key(|entry| {
+            input_ranks
+                .get(Path::new(&entry.path))
+                .or_else(|| {
+                    subsong_parts(&entry.path)
+                        .and_then(|(path, _)| input_ranks.get(Path::new(path)))
+                })
+                .copied()
+                .unwrap_or(usize::MAX)
+        });
     }
     result
 }

@@ -18,7 +18,6 @@
   "End": "Ende"
  },
  "(empty)": "(leer)",
- "(reading cancelled)": "(Lesen abgebrochen)",
  "(unnamed)": "(unbenannt)",
  "({counts} file)": "({counts} Datei)",
  "({counts} files)": "({counts} Dateien)",
@@ -3289,5 +3288,13 @@
  "Show or hide the main toolbar": "Die Hauptsymbolleiste ein- oder ausblenden",
  "Show the application version and license notices": "Die Anwendungsversion und Lizenzhinweise anzeigen",
  "Show the keyboard shortcuts": "Die Tastenkürzel anzeigen",
- "Shuffle the visible files; playlists and numbering use the resulting list order": "Sichtbare Dateien zufällig anordnen; Wiedergabelisten und Nummerierung verwenden die resultierende Listenreihenfolge"
+ "Shuffle the visible files; playlists and numbering use the resulting list order": "Sichtbare Dateien zufällig anordnen; Wiedergabelisten und Nummerierung verwenden die resultierende Listenreihenfolge",
+ "Playlist order": "Wiedergabelistenreihenfolge",
+ "✓ Playlist order": "✓ Wiedergabelistenreihenfolge",
+ "Files are shown in playlist source order": "Dateien werden in der Reihenfolge der Quellwiedergabeliste angezeigt",
+ "Playlist and folder sources require local file paths.": "Wiedergabelisten- und Ordnerquellen erfordern lokale Dateipfade.",
+ "Source could not be read": "Die Quelle konnte nicht gelesen werden",
+ "Reading cancelled. The list is unchanged.": "Lesen abgebrochen. Die Liste ist unverändert.",
+ "Files or pending changes changed while reading. The list is unchanged.": "Dateien oder ungespeicherte Änderungen haben sich während des Lesens geändert. Die Liste ist unverändert.",
+ "Files or pending changes changed while refreshing. The list is unchanged.": "Dateien oder ungespeicherte Änderungen haben sich während der Aktualisierung geändert. Die Liste ist unverändert."
 }

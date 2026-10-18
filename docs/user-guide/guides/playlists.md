@@ -18,8 +18,10 @@ and return to whole audio files before creating playlists.
 3. Check the loaded rows and error messages. Missing references can be
    reported while other valid entries are loaded.
 
-Opening this way replaces the loaded workspace. Playlist order becomes load
-order, with column sorting cleared so it does not obscure that order. An
+Opening this way replaces the loaded workspace and shows playlist source
+order for this session. It does not erase your saved column-sort preferences.
+Choose **View → Sort by → Playlist order** to return to that source order
+after header sorting, shuffling or manual moves. An
 ordinary M3U/M3U8 uses path-line order; PLS uses the numeric `File1`, `File2`,
 … keys, even if those lines were written in another order. Repeated
 references to the same resolved path keep their first position. This is not
@@ -70,13 +72,40 @@ dropping onto the file list, hold Command on macOS or Control on Windows/Linux
 to add; without an add modifier, a file drop replaces the list. Use the Add
 commands when modifier detection or the drop target is uncertain. Adding to
 an existing workspace differs from the explicit replace operation: it need
-not clear the current sort or replace the remembered loaded-playlist context.
+not replace the current display-order choice or remembered loaded-playlist
+context. Added source groups follow existing members; duplicate references
+keep their first position.
 
 Review the [file-list order](file-list.md) before writing. Header sorting and
 manual row ordering while holding Alt (Option on macOS) affect the sequence
 supplied to a playlist. A
 playlist generator groups that sequence; it does not independently sort by
-track number. Changing the loaded list does not rewrite the playlist on disk.
+track number. Ordering the list or refreshing it does not rewrite the source
+playlist. Separate automatic-playlist options can still write their configured
+outputs after saves or renames.
+
+## Refresh a changed source playlist
+
+Choose **View → Refresh** (++f5++) to reread the original playlist and other
+loaded source roots. Added references can appear and departed references
+leave the list; missing or unsupported members produce diagnostics while
+valid members load. A valid empty playlist can produce an empty list.
+
+Resolve the pending-edit confirmation deliberately. A fatal source-read or
+scan failure, canceled read or stale result leaves the previous list and
+drafts intact. A successful refresh keeps the chosen display criterion and
+the selection where those rows still exist. **Reload tags** instead reads
+the selected files without rebuilding playlist membership.
+
+**Playlist order** ranks the rows currently listed; it does not re-add rows
+removed with **Remove from list**. Refresh is the deliberate way to reread
+those source members. The remembered source order is session state: old
+restore snapshots cannot reconstruct grouped order they did not record.
+
+Known app-reported file/folder moves update the in-memory source roots and
+context. The playlist's own text remains unchanged. Absolute references in
+a moved playlist can therefore become missing references; inspect the next
+read's diagnostics rather than assuming its contents were repaired.
 
 ## Choose the writing scope
 

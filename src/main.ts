@@ -47,6 +47,7 @@ import { openTagToTag } from './tag-tag-ui';
 import { ConfigListStorage, installHelperMenus } from './helper-menu';
 import { FileOpsUI, fileShortcut, startupChoice, startupOptionsPage, type FileOperation } from './file-ops';
 import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, playlistValues, type PlaylistPlan } from './playlist-ui';
+import { mergeSourceOrder, rankSourceRows, sourceFolders, type ListOrderMode } from './playlist-order';
 import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
 import { imageExtensions, type CoverInfo, type CoverCommand } from './cover-model';
@@ -98,7 +99,7 @@ type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string;associated?:{from:string;to:string}[]};
 // A file whose name does not match the pattern has no fields and is left unchanged.
 type FilenamePreview = { path: string; fields: Fields|null; error?: string };
-type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-itunes'|'source-deezer'|'source-lastfm'|'source-acoustid'|'source-lrclib'|'source-cover-itunes'|'source-cover-deezer'|'source-cover-fanart'|'source-keys'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'profile-import'|'profile-restore'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|CoverOperation|ListOperation|FileOperation;
+type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'list-playlist-order'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-itunes'|'source-deezer'|'source-lastfm'|'source-acoustid'|'source-lrclib'|'source-cover-itunes'|'source-cover-deezer'|'source-cover-fanart'|'source-keys'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'profile-import'|'profile-restore'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|CoverOperation|ListOperation|FileOperation;
 type UtilOperation='util-unsupported'|'util-optimize';
 type CoverOperation='cover-replace'|'cover-extract'|'cover-adjust'|'cover-description'|'cover-cut'|'cover-copy'|'cover-paste';
 const coverOperations:Record<CoverOperation,CoverCommand>={'cover-replace':'replace','cover-extract':'extract','cover-adjust':'adjust','cover-description':'description','cover-cut':'cut','cover-copy':'copy','cover-paste':'paste'};
@@ -190,6 +191,8 @@ const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
 let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],slowEditTimer=0;
+// Source rank and display mode belong to this workspace, not saved columns.
+let listOrder:ListOrderMode='columns',sourceOrder:string[]|undefined,sourceGeneration=0;
 let filter = '', anchor: string | undefined, busy = false, status: string|ColumnImportStatus = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
@@ -398,7 +401,7 @@ let lastActionGroups:ActionGroup[]|undefined;
 const repeatState=()=>redoOrRepeat(history,enabled('action')?lastActionGroups:undefined);
 const toolsUI=new ToolsUI({
   values:()=>optionsUI.page('tools'),mac:macPlatform,
-  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?listRoots[0]:null}),
+  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?sourceFolders(listRoots,new Set(entries.keys()))[0]:null}),
   selection:()=>paths(),reason:()=>!desktop?'Tools require the desktop app.':!selected.size?'Select files first.':operationReason('file-play'),
   confirm:(text,title)=>ask(text,{title,kind:'warning'}),
   report:text=>{status=text;render();},fail:error=>{errors=[{path:'Tools',label:'Tools',error:publicMessage(error)}];status='Tool failed';render();},
@@ -657,7 +660,7 @@ async function autoSizeColumns(ids:string[]){
   const widths=new Map(shown.map(column=>{
     const header=table.querySelector<HTMLElement>(`th[data-col="${CSS.escape(column.id)}"] button`),cell=table.querySelector<HTMLElement>(`td[data-col="${CSS.escape(column.id)}"]`)||table.querySelector<HTMLElement>('tbody td[data-col]');
     const headStyle=header?getComputedStyle(header):getComputedStyle(table),cellStyle=cell?getComputedStyle(cell):headStyle;
-    const label=`${columnName(column)}${sortIndicator(columnLayout.sort,column.id).replace(/<[^>]*>/g,'')}`;
+    const label=`${columnName(column)}${sortIndicator(activeSort(),column.id).replace(/<[^>]*>/g,'')}`;
     const marker=column.id===first&&drafts.size?textWidths(['●'],font(cellStyle))[0]+6:0;
     const headerWidth=fitWidth(textWidths([label],font(headStyle)),space(headStyle)+4,limits);
     return[column.id,Math.max(headerWidth,fitWidth(textWidths(rows.map(entry=>cellValue(entry,column.value)),font(cellStyle)),space(cellStyle)+marker+1,limits))] as const;
@@ -672,9 +675,10 @@ const findUI=new FindUI({
   listed:path=>visible().some(entry=>entry.path===path),
 });
 /** Apply a column layout. Verified layouts (the Customize dialog) are saved first; quick header changes apply immediately. */
-async function applyColumns(layout:ColumnLayout,verified=false){
+async function applyColumns(layout:ColumnLayout,verified=false,sorting=false){
   const next=normalizeLayout(layout),sortOnly=JSON.stringify(next.columns)===JSON.stringify(columnLayout.columns);
   if(verified&&desktop)await invoke('save_columns',{layout:next});
+  if(verified||sorting||JSON.stringify(next.sort)!==JSON.stringify(columnLayout.sort))listOrder='columns';
   columnLayout=next;if(sortOnly)refreshList();else render();
   if(!verified&&desktop)await invoke('save_columns',{layout:next});
 }
@@ -686,22 +690,27 @@ function revealRow(path:string,focus=true){
   const row=wrap.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(path)}"]`);if(focus)row?.focus({preventScroll:true});return row;
 }
 function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
+function activeSort(){return listOrder==='columns'?columnLayout.sort:[];}
+function setListOrder(mode:ListOrderMode){listOrder=mode;orderCacheKey='';filterCacheKey='';refreshList();}
+/** Exclude hydrated artwork/cache revisions; refuse replacing new edits or a changed workspace. */
+function sourceReadContext(){return JSON.stringify([listRoots,[...entries.keys()],[...drafts],[...pendingCovers]]);}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
   const ms=performance.now()-start;
   perfSink()?.push({name,at:start,ms,...extra});
   if(dev)console.debug(`[TagGroove performance] ${name}`,{milliseconds:Math.round(ms*100)/100,files:entries.size,...extra});
 }
 function ordered(): Entry[] {
-  const key=`${dataRevision}:${columnValues.revision}:${JSON.stringify(columnLayout.sort)}`;
+  const key=`${dataRevision}:${columnValues.revision}:${listOrder}:${JSON.stringify(activeSort())}`;
   if(orderCacheKey===key)return orderCache;
   const start=performance.now();
-  const criteria=columnLayout.sort.flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[{sort,column,template:sortTemplate(column)}]:[];});
-  orderCache=sortRows([...entries.values()].map(entry=>({item:entry,keys:criteria.map(({template})=>cellValue(entry,template))})),criteria.map(({sort,column})=>({ascending:sort.ascending,numeric:column.numeric})),collator);orderCacheKey=key;
+  const criteria=activeSort().flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[{sort,column,template:sortTemplate(column)}]:[];});
+  const base=listOrder==='playlist'&&sourceOrder?rankSourceRows([...entries.values()],sourceOrder):[...entries.values()];
+  orderCache=sortRows(base.map(entry=>({item:entry,keys:criteria.map(({template})=>cellValue(entry,template))})),criteria.map(({sort,column})=>({ascending:sort.ascending,numeric:column.numeric})),collator);orderCacheKey=key;
   timing('sort',start,{criteria:criteria.length});return orderCache;
 }
 function sortValueOf(path:string){
   const entry=entries.get(path);if(!entry)return '';
-  const criteria=columnLayout.sort.flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[sortTemplate(column)]:[];});
+  const criteria=activeSort().flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[sortTemplate(column)]:[];});
   return criteria.length?criteria.map(template=>cellValue(entry,template).toLocaleLowerCase()).join('\u0000'):entry.filename.toLocaleLowerCase();
 }
 function providerEntry(entry:Entry){return runtimePlatform.document_access_supported||!!documentAccess.states[entry.path]||!!entry.technical?._PATH?.[0]?.startsWith('content://');}
@@ -748,7 +757,7 @@ function requestFilter(query:string){
     }).catch(error=>{if(filterRequestKey===key&&filter===query&&filterContextKey()===context){filterPending=false;filterFailure=String(error);filterCacheKey='';refreshList();}});
   },120);
 }
-function filterContextKey(){return`${dataRevision}:${JSON.stringify(columnLayout.sort)}:${compactScreen()}`;}
+function filterContextKey(){return`${dataRevision}:${listOrder}:${JSON.stringify(activeSort())}:${compactScreen()}`;}
 function visible(): Entry[] {
   const query = filter.toLocaleLowerCase();
   const all=ordered(),key=`${orderCacheKey}:${query}`;
@@ -884,7 +893,7 @@ function operationReason(op:Operation):string {
   if(op==='reload'&&policy.reloadReason)return policy.reloadReason;
   if(op==='number'&&dirtySelected()&&!sourcePolicy().unsupportedReason)return 'Save pending changes first.';
   if(/^(dir|file)-/.test(op)&&fileOps.reason(op as FileOperation))return fileOps.reason(op as FileOperation);
-  if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups','toggle-panel','panel-options','field-values','panel-defaults','options','undo','redo','copy-tags','cut-tags','paste-tags','source-token','source-keys','source-options','source-install','source-folder','copy-text','tools-options','config-save','config-load','config-folder','profile-import','profile-restore','help-shortcuts','help-docs','help-issues','help-releases','help-updates','list-unsorted','toggle-filter','toggle-toolbar','toolbar-customize','toggle-custom-toolbar','custom-toolbar-customize','source-last','source-last-quick',...listOperations].includes(op))return 'Save pending changes first.';
+  if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups','toggle-panel','panel-options','field-values','panel-defaults','options','undo','redo','copy-tags','cut-tags','paste-tags','source-token','source-keys','source-options','source-install','source-folder','copy-text','tools-options','config-save','config-load','config-folder','profile-import','profile-restore','help-shortcuts','help-docs','help-issues','help-releases','help-updates','list-unsorted','list-playlist-order','toggle-filter','toggle-toolbar','toolbar-customize','toggle-custom-toolbar','custom-toolbar-customize','source-last','source-last-quick',...listOperations].includes(op))return 'Save pending changes first.';
   if(op==='source-last'||op==='source-last-quick')return operationReason(lastSourceOp(op==='source-last-quick'));
   if(tagSourceOperations.includes(op)&&tagSourcesUI.keyReason(op))return tagSourcesUI.keyReason(op);
   return '';
@@ -897,7 +906,8 @@ function enabled(op: Operation): boolean {
   if (op === 'select-all') return visible().length > 0;
   if (op === 'discard') return dirtySelected();
   if (listOperations.includes(op)) return listEnabled(op);
-  if (op === 'list-unsorted') return columnLayout.sort.length > 0;
+  if (op === 'list-unsorted') return activeSort().length > 0||listOrder==='playlist';
+  if (op === 'list-playlist-order') return !!sourceOrder&&listRoots.some(isPlaylistPath);
   if (!desktop) return false;
   if(op==='groups'||op==='export-config'||op==='export-folders'||op==='panel-options'||op==='field-values'||op==='options'||op==='source-token'||op==='source-keys'||op==='source-options'||op==='source-install'||op==='source-folder'||op==='tools-options'||op.startsWith('config-')||op.startsWith('help-'))return true;
   if(op==='refresh-source')return runtimePlatform.document_access_supported;
@@ -919,8 +929,8 @@ const viewListItems:[Operation,string,string?][]=[['refresh','Refresh','F5'],['c
 function lastSourceOp(quick=false):Operation{return quick?tagSourcesUI.lastBuiltInOperation:tagSourcesUI.lastOperation;}
 /** View menu submenus: Sort by (each shown column; again reverses the order) and Toolbars. */
 function sortMenuItems(){
-  const primary=columnLayout.sort[0];
-  return tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}<span translate="no">${esc(columnName(column))}</span>${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
+  const primary=activeSort()[0],playlist=enabled('list-playlist-order')?`<button type="button" data-op="list-playlist-order" role="menuitemradio" aria-checked="${listOrder==='playlist'}"><span>${listOrder==='playlist'?'✓ ':'<span class="column-check-space"></span>'}Playlist order</span></button>`:'';
+  return playlist+tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}<span translate="no">${esc(columnName(column))}</span>${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
 }
 function viewMenuHTML(){
   const sortItems=sortMenuItems();
@@ -1014,7 +1024,7 @@ function listEnabled(op:Operation){
   if(op==='columns')return true;
   if(op==='autosize-columns')return visible().length>0;
   if(op==='shuffle-list')return visible().length>1;
-  if(op==='refresh')return desktop&&!runtimePlatform.document_access_supported&&listRoots.length>0;
+  if(op==='refresh')return desktop&&!runtimePlatform.document_access_supported&&listRoots.length>0&&!listRoots.some(root=>root.includes('://'));
   if(op==='clear-list'||op==='find')return entries.size>0;
   if(op==='invert-selection'||op==='select-next')return visible().length>0;
   if(op==='edit-cell')return selected.size>0&&tableColumns().some(column=>editKey(column));
@@ -1050,7 +1060,7 @@ function render() {
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,activeSort(),!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):e.diagnostic?.kind==='history_folders_failed'?e.path:displayName(e.path))}:</strong> ${e.diagnostic||e.diagnosticRaw||e.cause||e.rollback?`<span translate="no">${esc(fileErrorText(e,t,translate,publicMessage))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${statusMarkup()}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
@@ -1126,7 +1136,7 @@ function refreshList(){
   reviewedConverterContextChanged?.();
   const list=visible();
   table.setAttribute('aria-rowcount',String(list.length+1));
-  updateSortHeader(table.querySelectorAll<HTMLElement>('thead th[data-col]'),tableColumns(),columnLayout.sort);
+  updateSortHeader(table.querySelectorAll<HTMLElement>('thead th[data-col]'),tableColumns(),activeSort());
   const sortMenu=document.querySelector('.view-sort-menu > div');if(sortMenu)sortMenu.innerHTML=sortMenuItems();
   wrap.querySelector('.empty')?.remove();
   if(!list.length)wrap.insertAdjacentHTML('beforeend',emptyMarkup());
@@ -1219,8 +1229,7 @@ async function reorderFiles(change:(shown:string[])=>string[]){
   const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
   entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
   orderCacheKey='';filterCacheKey='';
-  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
-  else refreshList();
+  setListOrder('manual');
   const focus=anchor&&selected.has(anchor)?anchor:paths()[0];if(focus)revealRow(focus);
   status=`Moved ${selected.size} file${selected.size===1?'':'s'}. Playlists and numbering use the list order.`;
   const element=document.querySelector('.status-message');if(element)element.textContent=status;
@@ -1232,8 +1241,7 @@ async function shuffleFiles(){
   const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
   entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
   orderCacheKey='';filterCacheKey='';document.querySelector('.table-wrap')!.scrollTop=0;
-  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
-  else refreshList();
+  setListOrder('manual');
   status=`Shuffled ${shown.length} files. Playlists and numbering use the list order.`;
   const element=document.querySelector('.status-message');if(element)element.textContent=status;
 }
@@ -1338,12 +1346,12 @@ function bind() {
   document.querySelector('.view-sort-menu')?.addEventListener('click',event=>{
     const el=(event.target as Element).closest<HTMLButtonElement>('[data-sort-menu]');if(!el)return;
     document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);
-    const id=el.dataset.sortMenu!,primary=columnLayout.sort[0];document.querySelector('.table-wrap')!.scrollTop=0;
-    applyColumns({...columnLayout,sort:[{id,ascending:primary?.id===id?!primary.ascending:true}]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
+    const id=el.dataset.sortMenu!,primary=activeSort()[0];document.querySelector('.table-wrap')!.scrollTop=0;
+    applyColumns({...columnLayout,sort:[{id,ascending:primary?.id===id?!primary.ascending:true}]},false,true).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   });
   document.querySelector<HTMLButtonElement>('[data-shuffle]')?.addEventListener('click',event=>{event.stopPropagation();void operate('shuffle-list');});
   bindToolbarHints();
-  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(columnLayout.sort,el.dataset.sort!,event.shiftKey)}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();}); }));
+  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(activeSort(),el.dataset.sort!,event.shiftKey)},false,true).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();}); }));
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   let scrollFrame=0;
   wrap.addEventListener('scroll',()=>{if(wrap.clientHeight){tableScrollTop=wrap.scrollTop;tableScrollLeft=wrap.scrollLeft;}if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;if(wrap.isConnected&&wrap.clientHeight)updateVirtualRows();});},{passive:true});
@@ -1403,7 +1411,8 @@ function cancelProgress(){
 const movedOut=new Set<string>();
 // `whole` names the files a whole-file command ran on: their listed chapter rows are replaced by what came back.
 function accept(batch: Batch, message: string, clearDrafts = true, whole: string[] = []) {
-  const order=[...entries.keys()],next=replaceFileRows(order,batch.entries.map(entry=>entry.path),whole);
+  const returned=batch.entries.map(entry=>entry.path),order=[...entries.keys()],next=replaceFileRows(order,returned,whole);
+  if(sourceOrder)sourceOrder=replaceFileRows(sourceOrder,returned,whole);
   if(next!==order)spliceRows(order,next);
   batch.entries.forEach(entry=>{if(!movedOut.has(entry.path))storeEntry(entry);});movedOut.clear();
   if(next!==order){const listed=next.flatMap(path=>{const entry=entries.get(path);return entry?[[path,entry] as const]:[];}),placed=new Set(next),rest=[...entries].filter(([path])=>!placed.has(path));entries.clear();[...listed,...rest].forEach(([path,entry])=>entries.set(path,entry));changedData();}reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);pendingCovers.delete(entry.path);});
@@ -1429,7 +1438,15 @@ function applyRenamed(batch:Batch){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
   listRoots=rebaseCaseOnly(listRoots,batch.moved_directories||[]);
   // Listed folders, taken before files added on their own are renamed away.
-  const folders=listRoots.map(root=>entries.has(root)?dirname(root):root);
+  const folders=sourceFolders(listRoots.filter(root=>!isPlaylistPath(root)),new Set(entries.keys()));
+  if(listRoots.some(isPlaylistPath))folders.push(...[...entries.keys()].map(path=>dirname(rowFile(path))));
+  const rebase=(targets:string[])=>{const moved=resolvePathChanges(targets,batch.renamed||[],batch.moved_directories||[]);return targets.map(path=>moved.get(path)??path);};
+  listRoots=rebase(listRoots);
+  if(loadedPlaylist)loadedPlaylist=rebase([loadedPlaylist])[0];
+  if(locationIsData)location=rebase([location])[0];
+  const working=fileOps.history.current;
+  if(working){const next=rebase([working])[0];if(next!==working)fileOps.history.visit(next);}
+  if(sourceOrder)sourceOrder=sourceOrder.map(path=>changes.get(path)??path);
   const snapshots=[...changes].map(([from,to])=>({from,to,entry:entries.get(from)!,draft:drafts.get(from),covers:pendingCovers.get(from),selected:selected.has(from)}));
   const order=snapshots.length?[...entries.keys()].map(path=>changes.get(path)??path):[];
   snapshots.forEach(({from})=>{invalidateCovers(from);entries.delete(from);drafts.delete(from);pendingCovers.delete(from);selected.delete(from);});
@@ -1440,30 +1457,44 @@ function applyRenamed(batch:Batch){
   if(!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));gone.forEach(path=>movedOut.add(path));if(gone.length)removeEntries(gone);}
 }
 // Replacing the list (Change directory) happens only after the new scan succeeds.
-async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[]}={}) {
-  folderImages.clear();
-  return !!await run('Reading audio files…',async job=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job});if(options.replace)clearWorkspace();const empty=!entries.size;accept(result,'Loaded',false);if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}listRoots=options.replace?[...newPaths]:[...new Set([...listRoots,...newPaths])];if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}if(empty||!options.location){location=options.location??(newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`);locationIsData=options.location?options.locationIsData!==false:newPaths.length===1;}if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}if(progressJob?.cancelling)status+=' (reading cancelled)';return true; },{progress:true});
+async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {
+  const generation=options.generation??++sourceGeneration,context=options.context??sourceReadContext(),roots=options.roots??newPaths;
+  return !!await run('Reading audio files…',async job=>{
+    const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+    if(!result)return false;
+    if(progressJob?.cancelling){status='Reading cancelled. The list is unchanged.';return false;}
+    if(generation!==sourceGeneration||context!==sourceReadContext()){status='Files or pending changes changed while reading. The list is unchanged.';return false;}
+    if(options.replace)clearWorkspace();
+    const empty=!entries.size;
+    folderImages.clear();accept(result,'Loaded',false);
+    sourceOrder=sourceOrder?mergeSourceOrder(sourceOrder,result.entries.map(entry=>entry.path),false):empty?mergeSourceOrder([],result.entries.map(entry=>entry.path),true):undefined;
+    if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}
+    listRoots=mergeSourceOrder(listRoots,roots,!!options.replace);
+    if(options.playlist&&(options.replace||empty)){loadedPlaylist=options.playlist;listOrder='playlist';}
+    if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}
+    if(empty||!options.location){location=options.location??(roots.length===1?roots[0]:`${roots.length} added locations`);locationIsData=options.location?options.locationIsData!==false:roots.length===1;}
+    if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}
+    return true;
+  },{progress:true});
 }
 // Playlists and cue sheets among the paths load their entries in playlist order (https://docs.mp3tag.de/playlists/).
-async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean}={}){
-  if(!newPaths.some(isPlaylistPath))return scan(newPaths,options);
+async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean}={}):Promise<boolean>{
+  if(busy)return false;
+  if(newPaths.some(path=>path.includes('://'))){errors=[{path:'Playlist',label:'Playlist',error:'Playlist and folder sources require local file paths.'}];status='Source could not be read';render();return false;}
+  const generation=++sourceGeneration,context=sourceReadContext();
+  if(!newPaths.some(isPlaylistPath))return scan(newPaths,{...options,roots:newPaths,generation,context});
   let expanded;
-  try{expanded=await playlistUI.expand(newPaths);}catch(error){errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();return false;}
-  const wasEmpty=!entries.size,playlist=expanded.playlist;
-  const loaded=await scan(expanded.paths,{...options,errors:expanded.errors,location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true});
-  if(loaded&&playlist&&(options.replace||wasEmpty)){
-    loadedPlaylist=playlist;
-    // Playlist order is the list's load order; a column sort would hide it.
-    if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[...errors,{path:'Columns',label:'Columns',error:String(error)}];render();});
-  }
-  return loaded;
+  try{expanded=await playlistUI.expand(newPaths);}catch(error){if(generation===sourceGeneration&&context===sourceReadContext()){errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();}return false;}
+  if(generation!==sourceGeneration||context!==sourceReadContext())return false;
+  const playlist=expanded.playlist;
+  return scan(expanded.paths,{...options,roots:newPaths,generation,context,playlist,errors:expanded.errors,location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true});
 }
 // Drop entries and everything cached for them (Remove from list, Clear list, Refresh, Delete, Change directory).
 function removeEntries(removed:string[]){
   removed.forEach(path=>{invalidateCovers(path);entries.delete(path);drafts.delete(path);pendingCovers.delete(path);copyOverrides.delete(path);workingReadErrors.delete(path);selected.delete(path);if(anchor===path)anchor=undefined;});
   columnValues.retain(path=>entries.has(path));changedData();
 }
-function clearWorkspace(){cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];coverIndex=0;loadedPlaylist=undefined;}
+function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
 // Immediate mutations may change retained bytes even when publication fails.
 // Keep those local contents separate from source success and pending field intent.
 async function reconcileWorkingEntries(targets:string[]){
@@ -1922,7 +1953,8 @@ async function operateImpl(op: Operation) {
   if(op==='toolbar-customize'){customizeToolbar({config:()=>toolbarConfig,save:saveToolbar,mac:macKeyboard});return;}
   if(op==='toggle-custom-toolbar'){await saveCustomToolbar({...customToolbar,shown:!customToolbar.shown});status=customToolbar.shown?customToolbar.items.length?'Custom toolbar shown':'Custom toolbar shown. Add commands, tools and action groups with View → Toolbars → Customize custom toolbar.':'Custom toolbar hidden';render();return;}
   if(op==='custom-toolbar-customize'){await actionUI.initialize().catch(()=>undefined);customizeToolbar({config:()=>customToolbar,save:saveCustomToolbar,mac:macKeyboard,custom:{choices:customToolbarChoices}});return;}
-  if(op==='list-unsorted'){await applyColumns({...columnLayout,sort:[]});status='Files are shown in load order (playlist order)';render();return;}
+  if(op==='list-unsorted'){setListOrder('manual');status='Files are shown in load order (playlist order)';render();return;}
+  if(op==='list-playlist-order'){setListOrder('playlist');status='Files are shown in playlist source order';render();return;}
   if(op==='options'){await optionsUI.open();return;}
   if(op==='number'){numbering();return;}
   // Ctrl+I repeats a web source too; Ctrl+Shift+I's quick search is for the built-in sources.
@@ -1989,19 +2021,30 @@ async function listOperation(op:Operation){
     if(pending&&!await messages.confirm('unsaved_changes',`${pending} file${pending===1?' has':'s have'} pending tag changes. Remove ${targets.length===1?'it':'them'} from the list and discard the changes? Files on disk are not changed.`,op==='clear-list'?'Clear list':'Remove from list'))return;
     const removed=new Set(targets),next=list.slice(Math.max(0,...list.map((path,index)=>removed.has(path)?index:-1))).find(path=>!removed.has(path))||[...list].reverse().find(path=>!removed.has(path));
     cellEditor.cancel();removeEntries(targets);
-    if(op==='clear-list'||!entries.size){listRoots=[];location='No folder loaded';locationIsData=false;errors=[];}
+    if(op==='clear-list'||!entries.size){listRoots=[];loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
     status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
     choose(next?[next]:[],next,true);return;
   }
   if(op==='refresh'){
-    if(drafts.size&&!await messages.confirm('unsaved_changes',`Refresh the file list and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}?`,'Refresh'))return;
+    const generation=++sourceGeneration,context=sourceReadContext(),pending=new Set([...drafts.keys(),...pendingCovers.keys()]);
+    if(pending.size&&!await messages.confirm('unsaved_changes',`Refresh the file list and discard pending changes in ${pending.size} file${pending.size===1?'':'s'}?`,'Refresh'))return;
+    if(generation!==sourceGeneration||context!==sourceReadContext())return;
     cellEditor.cancel();
     await run('Refreshing file list…',async job=>{
-      const batch=await invoke<Batch>('scan_files',{paths:listRoots,recursive:optionsUI.settings.directories.subfolders,job}),found=new Set(batch.entries.map(entry=>entry.path));
+      const expanded=await playlistUI.expand(listRoots).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+      if(!expanded||generation!==sourceGeneration||context!==sourceReadContext())return;
       if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
+      const batch=await invoke<Batch>('scan_files',{paths:expanded.paths,recursive:optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+      if(!batch)return;
+      const found=new Set(batch.entries.map(entry=>entry.path));
+      if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
+      if(generation!==sourceGeneration||context!==sourceReadContext()){status='Files or pending changes changed while refreshing. The list is unchanged.';return;}
       removeEntries([...entries.keys()].filter(path=>!found.has(path)));
       drafts.clear();pendingCovers.clear();copyOverrides.clear();workingReadErrors.clear();folderImages.clear();
       accept(batch,'Refreshed');
+      sourceOrder=mergeSourceOrder([],batch.entries.map(entry=>entry.path),true);
+      const refreshed=sourceOrder.map(path=>entries.get(path)!);entries.clear();refreshed.forEach(entry=>entries.set(entry.path,entry));orderCacheKey='';filterCacheKey='';
+      if(expanded.errors.length){errors=[...expanded.errors,...errors];status+=`, ${expanded.errors.length} playlist entr${expanded.errors.length===1?'y':'ies'} not loaded`;}
       if(!anchor||!selected.has(anchor))anchor=paths()[0];
       if(!selected.size&&batch.entries.length){const first=ordered()[0].path;selected.add(first);anchor=first;}
     },{progress:true});

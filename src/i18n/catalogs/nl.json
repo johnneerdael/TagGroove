@@ -5,7 +5,6 @@
  },
  "\"prefer values from tags\" is one setting for all fields in Field values": "\"Waarden uit tags voorrang geven\" is één instelling voor alle velden onder Veldwaarden",
  "(empty)": "(leeg)",
- "(reading cancelled)": "(lezen geannuleerd)",
  "(unnamed)": "(naamloos)",
  "({counts} file)": "({counts} bestand)",
  "({counts} files)": "({counts} bestanden)",
@@ -3276,5 +3275,13 @@
  "Show or hide the main toolbar": "Toon of verberg de hoofdwerkbalk",
  "Show the application version and license notices": "Toon de versie van de toepassing en de licentievermeldingen",
  "Show the keyboard shortcuts": "Toon de sneltoetsen",
- "Shuffle the visible files; playlists and numbering use the resulting list order": "Zet de zichtbare bestanden in willekeurige volgorde; afspeellijsten en nummering gebruiken deze lijstvolgorde"
+ "Shuffle the visible files; playlists and numbering use the resulting list order": "Zet de zichtbare bestanden in willekeurige volgorde; afspeellijsten en nummering gebruiken deze lijstvolgorde",
+ "Playlist order": "Afspeellijstvolgorde",
+ "✓ Playlist order": "✓ Afspeellijstvolgorde",
+ "Files are shown in playlist source order": "Bestanden worden in de volgorde van de bronafspeellijst getoond",
+ "Playlist and folder sources require local file paths.": "Voor afspeellijst- en mapbronnen zijn lokale bestandspaden nodig.",
+ "Source could not be read": "De bron kon niet worden gelezen",
+ "Reading cancelled. The list is unchanged.": "Lezen geannuleerd. De lijst is ongewijzigd.",
+ "Files or pending changes changed while reading. The list is unchanged.": "Bestanden of niet-opgeslagen wijzigingen zijn tijdens het lezen veranderd. De lijst is ongewijzigd.",
+ "Files or pending changes changed while refreshing. The list is unchanged.": "Bestanden of niet-opgeslagen wijzigingen zijn tijdens het vernieuwen veranderd. De lijst is ongewijzigd."
 }

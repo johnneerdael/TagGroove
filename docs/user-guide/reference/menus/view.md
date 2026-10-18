@@ -7,7 +7,7 @@ column does not remove the corresponding metadata from audio files.
 
 | Item | Result |
 | --- | --- |
-| **Refresh** | Rescan loaded folders and reload file information; F5 |
+| **Refresh** | Reread loaded playlist/folder/file sources and rebuild membership after confirmation; F5 |
 | **Show tag panel** / **Hide tag panel** | Toggle the editor panel; physical Control+Q |
 | **Extended tags…** | Inspect and edit fields and embedded artwork beyond the visible tag panel; Alt+T |
 | **Show filter** / **Hide filter** | Toggle the filter bar; F3 |
@@ -31,6 +31,7 @@ unsaved edits rather than applying defaults.
 | Item | Result |
 | --- | --- |
 | **Sort by** | Choose a displayed column as the primary sort; choosing it again reverses direction |
+| **Sort by → Playlist order** | Restore remembered source rank for currently listed playlist members, when that session source order is known |
 | **Unsorted (load and playlist order)** | Remove active sort criteria and show the maintained load/manual order |
 | **Customize columns…** | Edit column visibility, names, values and editable fields |
 | **Auto-size columns** | Fit displayed widths to content; Primary+Num + |
@@ -43,9 +44,12 @@ sorting and the **Sort by** primary choice serve different needs; inspect the
 current arrows before using similar-file selection or generating a playlist.
 
 To restore input order after sorting by artist, choose **Unsorted (load and
-playlist order)**. Manual Alt+arrow or Alt+drag ordering starts from the current
+playlist order)** when the maintained manual/load order is the intended one.
+To recover a known playlist's source sequence after shuffling or manual moves,
+choose **Sort by → Playlist order**. These choices leave saved regular column
+sorts intact. Manual Alt+arrow or Alt+drag ordering starts from the current
 displayed order and leaves the sorted view. Neither sorting nor reordering
-moves audio files between folders.
+moves audio files between folders or rewrites the source playlist.
 
 ## Toolbars and positions
 

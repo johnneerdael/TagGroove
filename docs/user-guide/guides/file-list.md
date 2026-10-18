@@ -73,9 +73,11 @@ format. Equal keys retain their prior order. Inspect mixed/empty values and
 numbered disc groups; sorting cannot infer a release's intended track order.
 
 Choose **View → Unsorted (load and playlist order)** to remove active sort
-criteria. This returns to the underlying workspace order, which may already
-have been manually rearranged. It does not reconstruct an earlier order
-after shuffling or manual moves.
+criteria for this view. This returns to the underlying workspace order, which
+may already have been manually rearranged. It does not reconstruct an earlier
+order after shuffling or manual moves. For loaded playlist sources, choose
+**View → Sort by → Playlist order** to recover their remembered source rank.
+These session choices do not erase your saved column-sort preferences.
 
 ## Move rows into a manual order
 
@@ -166,7 +168,10 @@ a later unusually long value can still need manual widening.
   edits for removed rows are discarded after the configured confirmation.
 - **File → Clear list** removes all loaded rows and their workspace state.
 - **View → Refresh** (++f5++) rescans the loaded roots under the current
-  subfolder preference. Review its pending-change warning before proceeding.
+  subfolder preference and rereads loaded source playlists. Review its
+  pending-change warning before proceeding. A fatal read, cancellation or
+  stale result keeps the previous list and drafts; successful reads can
+  change membership while keeping the display-order choice.
 - **Reload tags** rereads selected files' tags; it is a different task from
   rebuilding the loaded file list.
 - **Delete files…** and **Delete files permanently…** are actual filesystem
@@ -181,7 +186,8 @@ commands, and keep their scope separate from the filter and selection.
 - Arrange the list before numbering or positional text import. A sorted
   preview is not evidence that tags on disk already contain those numbers.
 - Moving rows does not create an undoable tag edit or restore an earlier
-  shuffle through the **Unsorted** item.
+  shuffle through the **Unsorted** item. **Playlist order** can restore the
+  remembered source rank of currently listed playlist members.
 - Text focus changes shortcut meaning. Ctrl/Command+A in an editor selects
   text, not every loaded file.
 - A rendered column can use an expression, while its editable **Field**

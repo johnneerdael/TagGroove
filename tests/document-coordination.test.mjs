@@ -38,6 +38,7 @@ export function createWorkspace(initial, options={}) {
   const path='retained.wav', original=structuredClone(initial), originalCovers=structuredClone(options.covers||[]);
   let working=structuredClone(initial), workingCovers=structuredClone(options.covers||[]), copied, copiedCovers, copyRequestSent, dialog, status='', busy=false, errors=[], location='', locationIsData=false, anchor;
   const nativeCalls=[],workingReadErrors=new Map();
+  let sourceOrder;
   const coverEpochs=new Map(),coverCache=new Map(),coverRequests=new Map();
   const coverCacheBytesLimit=12*1024*1024,coverCacheEntryLimit=8;
   let coverCacheBytes=0,activeCover,coverError,coverIndex=0,progressJob;
