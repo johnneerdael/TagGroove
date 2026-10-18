@@ -3000,7 +3000,7 @@
  "{name}: symbolic links are not accepted in ZIP files.": "{name}: symbolische koppelingen zijn niet toegestaan in ZIP-bestanden.",
  "{name}: symbolic links are not accepted in source folders.": "{name}: symbolische koppelingen zijn niet toegestaan in bronmappen.",
  "{name}: {e}. Choose the complete bundle.": "{name}: {e}. Kies het volledige pakket.",
- "{relative}: source folders can be at most {MAX_DEPTH} levels deep.": "{relative}: bronmappen mogen maximaal {MAX_DEPTH} niveaus diep zijn.",
  "{value} must be a regular file of at most {limit} bytes (no symbolic links).": "{value} moet een gewoon bestand van maximaal {limit} bytes zijn (geen symbolische koppelingen).",
- "Individual-file updates can reuse installed companion files.": "Updates van losse bestanden kunnen geïnstalleerde bijbehorende bestanden gebruiken."
+ "Individual-file updates can reuse installed companion files.": "Updates van losse bestanden kunnen geïnstalleerde bijbehorende bestanden gebruiken.",
+ "{relative}: source folders can be at most {depthLimit} levels deep.": "{relative}: bronmappen mogen maximaal {depthLimit} niveaus diep zijn."
 }

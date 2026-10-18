@@ -3013,7 +3013,7 @@
  "{name}: symbolic links are not accepted in ZIP files.": "{name}: Symbolische Verknüpfungen sind in ZIP-Dateien nicht zulässig.",
  "{name}: symbolic links are not accepted in source folders.": "{name}: Symbolische Verknüpfungen sind in Quellordnern nicht zulässig.",
  "{name}: {e}. Choose the complete bundle.": "{name}: {e}. Das vollständige Paket auswählen.",
- "{relative}: source folders can be at most {MAX_DEPTH} levels deep.": "{relative}: Quellordner dürfen höchstens {MAX_DEPTH} Ebenen tief sein.",
  "{value} must be a regular file of at most {limit} bytes (no symbolic links).": "{value} muss eine reguläre Datei mit höchstens {limit} Bytes sein (keine symbolischen Verknüpfungen).",
- "Individual-file updates can reuse installed companion files.": "Updates einzelner Dateien können installierte Begleitdateien verwenden."
+ "Individual-file updates can reuse installed companion files.": "Updates einzelner Dateien können installierte Begleitdateien verwenden.",
+ "{relative}: source folders can be at most {depthLimit} levels deep.": "{relative}: Quellordner dürfen höchstens {depthLimit} Ebenen tief sein."
 }
