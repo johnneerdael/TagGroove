@@ -40,7 +40,7 @@ values file. Saved values still need the same schema root key and value type.
 The combined sources folder must fit the 128 MB/4096-entry staging limits;
 move large debug captures elsewhere if necessary. The three-folder depth limit
 applies to incoming source bundles. Existing unrelated directories, including
-hidden metadata directories, are preserved up to 64 folders deep. Move existing
+empty folders and hidden metadata directories, are preserved up to 64 folders deep. Move existing
 symbolic links or directories deeper than 64 levels aside before installation.
 
 After a successful replacement, `data/.opentag-sources-previous` retains the

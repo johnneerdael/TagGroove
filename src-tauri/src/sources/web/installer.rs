@@ -66,8 +66,9 @@ fn directory(
     files: &mut Files,
     total: &mut u64,
     entries: &mut usize,
-    all: bool,
+    mut existing_directories: Option<&mut BTreeSet<String>>,
 ) -> Result<(), String> {
+    let all = existing_directories.is_some();
     for entry in std::fs::read_dir(path).map_err(|e| format!("{}: {e}", path.display()))? {
         let entry = entry.map_err(|e| e.to_string())?;
         *entries += 1;
@@ -100,6 +101,9 @@ fn directory(
             if !all {
                 plain_name(&name)?;
             }
+            if let Some(directories) = existing_directories.as_deref_mut() {
+                directories.insert(relative.clone());
+            }
             directory(
                 &entry.path(),
                 &format!("{relative}/"),
@@ -107,7 +111,7 @@ fn directory(
                 files,
                 total,
                 entries,
-                all,
+                existing_directories.as_deref_mut(),
             )?;
         } else if all || supported(&name) {
             if !all {
@@ -257,7 +261,7 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
         }
         if meta.is_dir() {
             complete = true;
-            directory(path, "", 0, &mut incoming, &mut total, &mut entries, false)?;
+            directory(path, "", 0, &mut incoming, &mut total, &mut entries, None)?;
         } else if extension(&path.to_string_lossy()) == "zip" {
             complete = true;
             archive(path, &mut incoming, &mut total, &mut entries)?;
@@ -284,18 +288,27 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
         .tempdir_in(parent)
         .map_err(|e| e.to_string())?;
     let mut existing = Files::new();
+    let mut existing_directories = BTreeSet::new();
     if folder.exists() {
         let meta = std::fs::symlink_metadata(folder).map_err(|e| e.to_string())?;
         if !meta.is_dir() || meta.is_symlink() {
             return Err("The sources folder must be a real directory.".into());
         }
-        directory(folder, "", 0, &mut existing, &mut 0, &mut 0, true)?;
+        directory(
+            folder,
+            "",
+            0,
+            &mut existing,
+            &mut 0,
+            &mut 0,
+            Some(&mut existing_directories),
+        )?;
     }
     // Canonicalize every path component, including existing folder spelling.
     // Otherwise a case-sensitive host could create both Shop/ and shop/ and
     // break Windows-style companion lookup in a later installation.
     let mut spellings = BTreeMap::new();
-    for name in existing.keys() {
+    for name in existing.keys().chain(existing_directories.iter()) {
         let mut prefix = String::new();
         for part in name.split('/') {
             if !prefix.is_empty() {
@@ -327,7 +340,11 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
         })
         .collect::<Files>();
     let mut combined_entries = BTreeSet::new();
-    for name in existing.keys().chain(incoming.keys()) {
+    for name in existing
+        .keys()
+        .chain(incoming.keys())
+        .chain(existing_directories.iter())
+    {
         let mut prefix = String::new();
         for part in name.split('/') {
             if !prefix.is_empty() {
@@ -348,6 +365,9 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
         .sum::<u64>();
     if combined_bytes > MAX_BYTES {
         return Err("Combined sources exceed the 128 MB staging limit.".into());
+    }
+    for name in &existing_directories {
+        std::fs::create_dir_all(stage.path().join(name)).map_err(|e| e.to_string())?;
     }
     write_all(stage.path(), &existing)?;
     write_all(stage.path(), &incoming)?;
@@ -495,6 +515,123 @@ mod tests {
             b"retained local history"
         );
         assert_eq!(super::super::list(&target).sources.len(), 1);
+    }
+
+    #[test]
+    fn existing_empty_directories_survive_consecutive_updates_and_snapshots() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        collection(&target);
+        let directories = [
+            "Empty",
+            ".git/objects",
+            ".git/refs/heads",
+            "Cache/Nested/Empty",
+        ];
+        for name in directories {
+            std::fs::create_dir_all(target.join(name)).unwrap();
+        }
+        for _ in 0..2 {
+            install(&target, &selected(&bundle)).unwrap();
+            for name in directories {
+                assert!(
+                    target.join(name).is_dir(),
+                    "active directory {name} was lost"
+                );
+                assert!(
+                    dir.path().join(BACKUP).join(name).is_dir(),
+                    "snapshot directory {name} was lost"
+                );
+            }
+        }
+        std::fs::remove_dir_all(&target).unwrap();
+        prepare_folder_open(&target).unwrap();
+        for name in directories {
+            assert!(
+                target.join(name).is_dir(),
+                "recovered directory {name} was lost"
+            );
+        }
+    }
+
+    #[test]
+    fn existing_empty_directories_retain_the_64_level_bound() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        collection(&target);
+        let mut deepest = target.clone();
+        for _ in 0..MAX_EXISTING_DEPTH {
+            deepest.push("e");
+        }
+        std::fs::create_dir_all(&deepest).unwrap();
+        install(&target, &selected(&bundle)).unwrap();
+        assert!(deepest.is_dir());
+        let too_deep = deepest.join("e");
+        std::fs::create_dir(&too_deep).unwrap();
+        assert!(install(&target, &selected(&bundle))
+            .unwrap_err()
+            .contains("64 levels deep"));
+        assert!(
+            too_deep.is_dir(),
+            "rejected update must leave existing directories intact"
+        );
+        assert_eq!(
+            std::fs::read_to_string(target.join("Common.inc")).unwrap(),
+            INCLUDE
+        );
+    }
+
+    #[test]
+    fn existing_empty_directories_cannot_be_replaced_by_incoming_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        collection(&target);
+        std::fs::create_dir(target.join("Reserved.src")).unwrap();
+        std::fs::write(bundle.join("Reserved.src"), SOURCE).unwrap();
+        assert!(install(&target, &selected(&bundle)).is_err());
+        assert!(target.join("Reserved.src").is_dir());
+        assert!(!dir.path().join(BACKUP).exists());
+    }
+
+    #[test]
+    fn existing_empty_directories_keep_their_case_for_new_children() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle.join("keptcase"));
+        collection(&target);
+        std::fs::create_dir(target.join("KeptCase")).unwrap();
+        install(&target, &selected(&bundle)).unwrap();
+        let names = std::fs::read_dir(&target)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect::<Vec<_>>();
+        assert!(names.iter().any(|name| name == "KeptCase"));
+        assert!(!names.iter().any(|name| name == "keptcase"));
+        assert!(target.join("KeptCase/Shop#&Album.src").is_file());
+    }
+
+    #[test]
+    fn existing_empty_directories_count_toward_the_combined_entry_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        std::fs::create_dir(&target).unwrap();
+        for index in 0..MAX_ENTRIES {
+            std::fs::create_dir(target.join(format!("empty-{index:04}"))).unwrap();
+        }
+        assert!(install(&target, &selected(&bundle))
+            .unwrap_err()
+            .contains("4096"));
+        assert_eq!(std::fs::read_dir(&target).unwrap().count(), MAX_ENTRIES);
+        assert!(!dir.path().join(BACKUP).exists());
     }
 
     #[test]
