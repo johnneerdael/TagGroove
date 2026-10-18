@@ -223,7 +223,7 @@ let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
 // View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
 let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
 const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
-  translateNow,
+  translateNow,translateLabel:label=>translate(label),
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
   import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
@@ -319,7 +319,7 @@ const extendedTags=new ExtendedTags({
 });
 const fileOps=new FileOpsUI({
   invoke:(command,args)=>invoke(command,args),
-  pickDirectories:async(title,multiple)=>{const result=await open({directory:true,multiple,title});return result?Array.isArray(result)?result:[result]:[];},
+  pickDirectories:async(title,multiple,defaultPath)=>{const result=await open({directory:true,multiple,title,defaultPath});return result?Array.isArray(result)?result:[result]:[];},
   confirm:(text,title)=>title==='Delete files'||title==='Delete permanently'?messages.confirm('confirm_delete_files',text,title):title==='Unsaved changes'?messages.confirm('unsaved_changes',text,title):ask(text,{title,kind:'warning'}),
   selection:()=>paths().map(path=>({path,name:displayName(path)})),pendingCount:()=>drafts.size,
   load:(targets,options)=>loadPaths(targets,options),removeEntries,
@@ -523,7 +523,7 @@ const webSourcesUI=new WebSourcesUI({
   last:()=>tagSourcesUI.lastWeb,
   shortcut:'⌘/Ctrl I',
   changed:()=>render(),
-  pickFiles:async()=>{const chosen=await open({multiple:true,title:'Install tag sources',filters:[{name:'Tag sources',extensions:['src','inc','settings']}]});return Array.isArray(chosen)?chosen:typeof chosen==='string'?[chosen]:null;},
+  pickFiles:async(mode='files')=>{const chosen=await open(mode==='folder'?{directory:true,multiple:false,title:'Install source folder'}:{multiple:true,title:'Install tag sources or ZIP',filters:[{name:'Tag sources or ZIP',extensions:['src','inc','settings','zip']}]});return Array.isArray(chosen)?chosen:typeof chosen==='string'?[chosen]:null;},
   report:message=>{status=message;render();},
   fail:error=>{errors=[{path:'Tag sources',label:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
 });
@@ -630,6 +630,7 @@ async function autoSizeColumns(ids:string[]){
   await applyColumns({...columnLayout,columns:columnLayout.columns.map(column=>widths.has(column.id)?{...column,width:widths.get(column.id)!}:column)});
 }
 const findUI=new FindUI({
+  regex:(pattern,caseSensitive,values)=>invoke<boolean[]>('regex_find',{pattern,caseSensitive,values}),
   items:()=>visible().map(entry=>({path:entry.path,filename:entry.filename,fields:merged(entry)})),
   select:(targets,focus)=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus,false);status=`${targets.length} file${targets.length===1?'':'s'} selected from Find results`;document.querySelector('.status-message')!.textContent=status;},
   listed:path=>visible().some(entry=>entry.path===path),
