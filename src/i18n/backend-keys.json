@@ -53,6 +53,7 @@
  "Action field must not be empty",
  "Action group already exists: {name}",
  "Action group contains no actions",
+ "Action group export exceeds the 4 MiB .mta limit; split the group or shorten its settings.",
  "Action group import limit exceeded",
  "Action group index out of range",
  "Action group name must not be empty",

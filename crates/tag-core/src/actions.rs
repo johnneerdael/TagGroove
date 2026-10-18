@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 const LIMIT: usize = 1_048_576;
+const MTA_BYTE_LIMIT: usize = 4 * LIMIT;
 /// Separates several values of one field in a Format Value result.
 const MULTI_VALUE_SEPARATOR: &str = "\\\\";
 pub const ACTION_CATALOG: [(&str, &str); 18] = [
@@ -1763,7 +1764,7 @@ pub fn import_mta_diagnostic(
     bytes: &[u8],
     legacy_encoding: Option<&str>,
 ) -> Result<MtaImportReport, String> {
-    if bytes.len() > 4 * LIMIT {
+    if bytes.len() > MTA_BYTE_LIMIT {
         return Err("Action group import limit exceeded".into());
     }
     let (encoding, input) = if bytes.starts_with(&[0xff, 0xfe]) {
@@ -1879,7 +1880,7 @@ pub fn import_mta_diagnostic(
     })
 }
 
-fn mta_escape(value: &str, opaque: bool) -> Result<String, String> {
+fn mta_escape(value: &str, opaque: bool, escape_final_bracket: bool) -> Result<String, String> {
     if !opaque && value.contains(['\r', '\n']) {
         return Err("Line breaks cannot be stored in an .mta setting".into());
     }
@@ -1891,19 +1892,21 @@ fn mta_escape(value: &str, opaque: bool) -> Result<String, String> {
             // Preserve them without assigning executable semantics to the action.
             '\r' => out.push_str("\\x0d"),
             '\n' => out.push_str("\\x0a"),
+            ']' if escape_final_bracket && index + 1 == chars.len() => out.push_str("\\x5d"),
             // A backslash stays literal unless the importer would read it as
             // the start of an escape sequence (including one written below).
             '\\' if chars.get(index + 1).is_some_and(|next| {
                 matches!(next, 'x' | 'u' | '\\' | '\r' | '\n')
-                    || (0x80..=0xffff).contains(&u32::from(*next))
+                    || (!opaque && (0x80..=0xffff).contains(&u32::from(*next)))
+                    || (escape_final_bracket && index + 2 == chars.len() && *next == ']')
             }) =>
             {
                 out.push_str("\\\\")
             }
-            c if u32::from(c) > 0x7f && u32::from(c) <= 0xff => {
+            c if !opaque && u32::from(c) > 0x7f && u32::from(c) <= 0xff => {
                 out.push_str(&format!("\\x{:02x}", u32::from(c)))
             }
-            c if u32::from(c) > 0xff && u32::from(c) <= 0xffff => {
+            c if !opaque && u32::from(c) > 0xff && u32::from(c) <= 0xffff => {
                 out.push_str(&format!("\\u{:04x}", u32::from(c)))
             }
             c => out.push(c),
@@ -1916,6 +1919,37 @@ fn mta_escape(value: &str, opaque: bool) -> Result<String, String> {
 /// opaque values use the existing escape grammar; resolved actions still refuse
 /// line breaks because their original serialized semantics are unqualified.
 pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
+    let text = serialize_mta(group)?;
+    check_mta_export_size(text.len())?;
+    Ok(text)
+}
+
+/// Encode the native host's BOM-marked UTF-16LE wire format within the import
+/// byte budget. UTF-8 and UTF-16 can fit different groups, so validate the actual
+/// output encoding rather than passing through the UTF-8 export budget.
+pub fn export_mta_utf16(group: &ActionGroup) -> Result<Vec<u8>, String> {
+    let text = serialize_mta(group)?;
+    let size = text
+        .encode_utf16()
+        .count()
+        .checked_mul(2)
+        .and_then(|size| size.checked_add(2))
+        .unwrap_or(usize::MAX);
+    check_mta_export_size(size)?;
+    let mut bytes = Vec::with_capacity(size);
+    bytes.extend([0xff, 0xfe]);
+    bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    Ok(bytes)
+}
+
+fn check_mta_export_size(size: usize) -> Result<(), String> {
+    if size > MTA_BYTE_LIMIT {
+        return Err("Action group export exceeds the 4 MiB .mta limit; split the group or shorten its settings.".into());
+    }
+    Ok(())
+}
+
+fn serialize_mta(group: &ActionGroup) -> Result<String, String> {
     if group.actions.is_empty() {
         return Err("Action group contains no actions".into());
     }
@@ -2135,7 +2169,13 @@ pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
         out.push_str(&format!("[#{index}]\r\n"));
         let opaque = matches!(action, ActionSpec::UnresolvedMta { .. });
         for (key, value) in settings {
-            out.push_str(&format!("{key}={}\r\n", mta_escape(&value, opaque)?));
+            // A decoded closing bracket must not turn a preserved property into
+            // a section header. Keep both the key and decoded value unchanged.
+            let bracket = opaque && key.starts_with("[#") && value.ends_with(']');
+            out.push_str(&format!(
+                "{key}={}\r\n",
+                mta_escape(&value, opaque, bracket)?
+            ));
         }
         out.push_str("\r\n");
     }

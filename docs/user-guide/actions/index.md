@@ -160,6 +160,10 @@ that every setting has an equivalent in TagGroove.
 
 Choose **Export .mta…** for the selected group to write an exchange file.
 Review any reported error rather than assuming a partial export is usable.
+An `.mta` file is limited to 4 MiB. Native exports count the actual UTF-16LE
+file, including its byte-order mark, rather than the number of characters.
+If the group cannot fit, split it or shorten its settings and export again;
+that refusal preserves an existing destination file.
 Unresolved imported actions can be exported for preservation: their decoded
 settings survive export and re-import, including encoded line breaks next to
 literal backslashes. Literal backslash sequences remain literal text. The

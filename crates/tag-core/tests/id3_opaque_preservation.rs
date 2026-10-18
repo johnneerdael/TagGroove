@@ -343,7 +343,7 @@ fn opaque_records(bytes: &[u8]) -> Vec<Vec<u8>> {
         };
         let end = at + 10 + size;
         assert!(end <= body.len(), "authored native frame exceeds tag");
-        if &body[at..at + 4] == b"ENCR" || body[at + 9] & if major == 3 { 0xc0 } else { 0x0c } != 0
+        if &body[at..at + 4] == b"ENCR" || body[at + 9] & if major == 3 { 0xc0 } else { 0x0e } != 0
         {
             output.push(body[at..end].to_vec());
         }
@@ -889,6 +889,280 @@ fn malformed_v4_crc_and_footer_envelopes_refuse_without_changing_disk_or_history
             );
             assert_eq!(history.state().undo.unwrap().label, "Earlier control edit");
             assert_eq!(history.retained_bytes(), retained);
+        }
+    }
+}
+
+fn ordinary_unsync_tag() -> Vec<u8> {
+    // The logical payload contains both a literal FF00 and a false MPEG sync.
+    // Only frame-level unsynchronisation is present; there is no optional header.
+    let payload = b"qualification.example.invalid\0opaque\xff\0value\xff\xe0tail\xff";
+    let body = [
+        frame(4, b"TIT2", 0, b"\x03Plain title"),
+        frame(4, b"PRIV", 0x02, &unsync(payload)),
+        frame(4, b"X000", 0x02, &unsync(payload)),
+        // Ordinary FF00 must not be de-unsynchronised merely because another
+        // frame in the same tag needs a raw copy.
+        frame(4, b"X001", 0, payload),
+    ]
+    .concat();
+    let mut tag = b"ID3\x04\0\0".to_vec();
+    tag.extend(syncsafe(body.len() + 128));
+    tag.extend(body);
+    tag.resize(tag.len() + 128, 0);
+    tag
+}
+
+fn logical_frame(tag: &[u8], wanted: &[u8; 4]) -> (u8, Vec<u8>) {
+    let mut at = 10;
+    while at + 10 <= tag.len() && tag[at] != 0 {
+        let size = if tag[3] == 3 {
+            u32::from_be_bytes(tag[at + 4..at + 8].try_into().unwrap()) as usize
+        } else {
+            tag[at + 4..at + 8]
+                .iter()
+                .fold(0usize, |n, b| (n << 7) | usize::from(*b))
+        };
+        let end = at + 10 + size;
+        assert!(end <= tag.len());
+        if &tag[at..at + 4] == wanted {
+            let flags = tag[at + 9];
+            let body = &tag[at + 10..end];
+            return (
+                flags,
+                if tag[3] == 4 && flags & 2 != 0 {
+                    deunsync(body)
+                } else {
+                    body.to_vec()
+                },
+            );
+        }
+        at = end;
+    }
+    panic!("Missing authored frame {}", String::from_utf8_lossy(wanted));
+}
+
+#[test]
+fn ordinary_frame_unsynchronisation_keeps_raw_opaque_records_media_and_exact_replay() {
+    for extension in ["mp3", "dsf", "dff", "wav", "aiff"] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(format!("ordinary-unsync.{extension}"));
+        let tag = ordinary_unsync_tag();
+        let before = if matches!(extension, "wav" | "aiff") {
+            pcm_container(extension, &tag)
+        } else {
+            carrier(extension, &tag)
+        };
+        let parts = |bytes| {
+            if matches!(extension, "wav" | "aiff") {
+                pcm_parts(extension, bytes)
+            } else {
+                native_parts(extension, bytes)
+            }
+        };
+        let (original_tag, original_audio) = parts(&before);
+        let opaque = opaque_records(original_tag);
+        assert_eq!(opaque.len(), 2);
+        fs::write(&path, &before).unwrap();
+        keep_evidence(&format!("ordinary-unsync.{extension}"), "input", &before);
+        let mut options = TagOptions::default();
+        options.mpeg.write_id3v1 = false;
+        options.mpeg.id3v2_format = Id3v2Format::V24Utf8;
+        let initial = read_entry_with_options(&path, &[], &options).unwrap();
+        assert_eq!(initial.fields["TITLE"], ["Plain title"]);
+        keep_evidence(
+            &format!("ordinary-unsync.{extension}"),
+            "initial-fields.json",
+            &serde_json::to_vec(&initial.fields).unwrap(),
+        );
+        let mut journal = Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+        journal.set_tag_options(options.clone());
+        let capture = journal.begin(
+            "Unrelated artist edit",
+            None,
+            &[path.to_string_lossy().into()],
+        );
+        let changes = Fields::from([("ARTIST".into(), vec!["Someone".into()])]);
+        write_fields_with_options(&path, &changes, false, &[], &options).unwrap();
+        journal.commit(capture, &[], &[]);
+        let after = fs::read(&path).unwrap();
+        keep_evidence(&format!("ordinary-unsync.{extension}"), "after", &after);
+        let (saved_tag, saved_audio) = parts(&after);
+        assert_eq!(saved_audio, original_audio, "{extension}: media");
+        assert_eq!(
+            opaque_records(saved_tag),
+            opaque,
+            "{extension}: raw unsynchronised records"
+        );
+        for id in [b"PRIV", b"X000", b"X001"] {
+            assert_eq!(
+                logical_frame(saved_tag, id),
+                logical_frame(original_tag, id),
+                "{extension}: decoded payload {}",
+                String::from_utf8_lossy(id)
+            );
+        }
+        let ordinary = frame(
+            4,
+            b"X001",
+            0,
+            b"qualification.example.invalid\0opaque\xff\0value\xff\xe0tail\xff",
+        );
+        assert!(
+            saved_tag
+                .windows(ordinary.len())
+                .any(|bytes| bytes == ordinary),
+            "{extension}: ordinary FF00 record"
+        );
+        let reopened = read_entry_with_options(&path, &[], &options).unwrap();
+        assert_eq!(reopened.fields["TITLE"], ["Plain title"]);
+        assert_eq!(reopened.fields["ARTIST"], ["Someone"]);
+        keep_evidence(
+            &format!("ordinary-unsync.{extension}"),
+            "after-fields.json",
+            &serde_json::to_vec(&reopened.fields).unwrap(),
+        );
+        assert!(journal.undo().unwrap().errors.is_empty());
+        assert_eq!(fs::read(&path).unwrap(), before, "{extension}: exact Undo");
+        keep_evidence(
+            &format!("ordinary-unsync.{extension}"),
+            "undone",
+            &fs::read(&path).unwrap(),
+        );
+        assert!(journal.redo().unwrap().errors.is_empty());
+        assert_eq!(fs::read(&path).unwrap(), after, "{extension}: exact Redo");
+        keep_evidence(
+            &format!("ordinary-unsync.{extension}"),
+            "redone",
+            &fs::read(&path).unwrap(),
+        );
+    }
+}
+
+#[test]
+fn ordinary_unsync_revision_conversion_writes_decoded_payloads_with_correct_flags() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ordinary-unsync-conversion.mp3");
+    let before = carrier("mp3", &ordinary_unsync_tag());
+    let (original_tag, original_audio) = native_parts("mp3", &before);
+    fs::write(&path, &before).unwrap();
+    let mut options = TagOptions::default();
+    options.mpeg.write_id3v1 = false;
+    let mut journal = Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+    journal.set_tag_options(options.clone());
+    let capture = journal.begin(
+        "Convert ordinary unsync",
+        None,
+        &[path.to_string_lossy().into()],
+    );
+    write_fields_with_options(
+        &path,
+        &Fields::from([("ARTIST".into(), vec!["Someone".into()])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    journal.commit(capture, &[], &[]);
+    let after = fs::read(&path).unwrap();
+    let (saved_tag, saved_audio) = native_parts("mp3", &after);
+    assert_eq!(saved_tag[3], 3);
+    assert_eq!(saved_audio, original_audio);
+    for id in [b"PRIV", b"X000", b"X001"] {
+        let (flags, body) = logical_frame(saved_tag, id);
+        assert_eq!(
+            flags,
+            0,
+            "converted flags for {}",
+            String::from_utf8_lossy(id)
+        );
+        assert_eq!(
+            body,
+            logical_frame(original_tag, id).1,
+            "converted payload for {}",
+            String::from_utf8_lossy(id)
+        );
+    }
+    let reopened = read_entry_with_options(&path, &[], &options).unwrap();
+    assert_eq!(reopened.fields["TITLE"], ["Plain title"]);
+    assert_eq!(reopened.fields["ARTIST"], ["Someone"]);
+    keep_evidence(
+        "ordinary-unsync-conversion.mp3",
+        "after-fields.json",
+        &serde_json::to_vec(&reopened.fields).unwrap(),
+    );
+    assert!(journal.undo().unwrap().errors.is_empty());
+    let undone = fs::read(&path).unwrap();
+    assert_eq!(undone, before);
+    assert!(journal.redo().unwrap().errors.is_empty());
+    let redone = fs::read(&path).unwrap();
+    assert_eq!(redone, after);
+    for (stage, bytes) in [
+        ("input", &before),
+        ("after", &after),
+        ("undone", &undone),
+        ("redone", &redone),
+    ] {
+        keep_evidence("ordinary-unsync-conversion.mp3", stage, bytes);
+    }
+}
+
+#[test]
+fn malformed_ordinary_unsync_frames_refuse_without_writing() {
+    for variant in ["oversized-frame", "non-syncsafe-frame-size"] {
+        let mut tag = ordinary_unsync_tag();
+        let private = tag.windows(4).position(|bytes| bytes == b"PRIV").unwrap();
+        let oversized = syncsafe(tag.len() + 4096);
+        match variant {
+            "oversized-frame" => tag[private + 4..private + 8].copy_from_slice(&oversized),
+            "non-syncsafe-frame-size" => tag[private + 4] |= 0x80,
+            _ => unreachable!(),
+        }
+        for extension in ["mp3", "dsf", "dff", "wav", "aiff"] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join(format!("{variant}.{extension}"));
+            let before = if matches!(extension, "wav" | "aiff") {
+                pcm_container(extension, &tag)
+            } else {
+                carrier(extension, &tag)
+            };
+            fs::write(&path, &before).unwrap();
+            let mut options = TagOptions::default();
+            options.mpeg.write_id3v1 = false;
+            options.mpeg.id3v2_format = Id3v2Format::V24Utf8;
+            let fields = Fields::from([("ARTIST".into(), vec!["Someone".into()])]);
+            let control = dir.path().join("control.mp3");
+            fs::write(&control, include_bytes!("fixtures/save-corpus/tone.mp3")).unwrap();
+            let mut journal =
+                Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+            journal.set_tag_options(options.clone());
+            let earlier = journal.begin(
+                "Earlier control edit",
+                None,
+                &[control.to_string_lossy().into()],
+            );
+            write_fields_with_options(&control, &fields, false, &[], &options).unwrap();
+            journal.commit(earlier, &[], &[]);
+            let retained = journal.retained_bytes();
+            let capture = journal.begin(
+                "Refused unsync edit",
+                None,
+                &[path.to_string_lossy().into()],
+            );
+            let error = write_fields_with_options(&path, &fields, false, &[], &options)
+                .expect_err(&format!("{variant}.{extension}: malformed write accepted"));
+            journal.commit(capture, &[], &[]);
+            let after = fs::read(path).unwrap();
+            assert_eq!(
+                after, before,
+                "{variant}.{extension}: refusal changed bytes"
+            );
+            assert_eq!(journal.state().undo.unwrap().label, "Earlier control edit");
+            assert_eq!(journal.retained_bytes(), retained);
+            let name = format!("ordinary-unsync-{variant}.{extension}");
+            keep_evidence(&name, "input", &before);
+            keep_evidence(&name, "after", &after);
+            keep_evidence(&name, "write-error.txt", error.as_bytes());
         }
     }
 }

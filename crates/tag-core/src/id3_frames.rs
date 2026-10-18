@@ -1,13 +1,13 @@
-//! Compressed and encrypted ID3v2 frames.
+//! Compressed, encrypted and frame-unsynchronised ID3v2 frames.
 //!
 //! lofty decompresses compressed frames on read but cannot write them back,
 //! and it fails on encrypted ID3v2.3 frames and on frames that are both
 //! compressed and encrypted. Reading such a tag falls back to a view of the
 //! file ([`Overlay`]) in which every encrypted frame is renamed to an opaque
 //! placeholder lofty keeps as binary data. Writing ([`Passthrough`]) copies
-//! every compressed or encrypted frame the edit left alone from the original
-//! tag byte for byte; frames converted to another ID3v2 revision are written
-//! decompressed, and encrypted frames cannot be converted.
+//! every compressed, encrypted or frame-unsynchronised frame left alone from
+//! the original tag byte for byte; frames converted to another ID3v2 revision
+//! are written decoded, and encrypted frames cannot be converted.
 use crate::batch_errors::ErrorCause;
 use lofty::id3::v2::{Frame, Id3v2Tag};
 use std::io::{self, Read, Seek, SeekFrom};
@@ -36,7 +36,7 @@ fn syncsafe_bytes(value: usize) -> Option<[u8; 4]> {
     ])
 }
 
-/// One compressed or encrypted frame of a stored tag.
+/// One compressed, encrypted or frame-unsynchronised frame of a stored tag.
 #[derive(Debug, Clone)]
 pub(crate) struct RawFrame {
     /// Offset of the frame header in the file.
@@ -47,7 +47,7 @@ pub(crate) struct RawFrame {
     pub encrypted: bool,
 }
 
-/// The compressed and encrypted frames of a stored ID3v2.3 or v2.4 tag.
+/// The frames needing raw preservation in a stored ID3v2.3 or v2.4 tag.
 #[derive(Debug, Clone)]
 pub(crate) struct RawTag {
     pub major: u8,
@@ -122,19 +122,32 @@ pub(crate) fn scan(reader: &mut (impl Read + Seek)) -> io::Result<Option<RawTag>
         if head[0] == 0 || !head[..4].iter().all(|b| b.is_ascii_alphanumeric()) {
             break;
         }
+        let (compressed, encrypted) = flagged(major, [head[8], head[9]]);
+        let unsynchronised = major == 4 && head[9] & 0x02 != 0;
         let Some(size) = (if major == 3 {
             Some(u32::from_be_bytes([head[4], head[5], head[6], head[7]]))
         } else {
             syncsafe(&head[4..8])
         }) else {
+            if unsynchronised {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid unsynchronised ID3v2 frame size",
+                ));
+            }
             break;
         };
         let next = position + 10 + u64::from(size);
         if next > end {
+            if unsynchronised {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Unsynchronised ID3v2 frame exceeds metadata bounds",
+                ));
+            }
             break;
         }
-        let (compressed, encrypted) = flagged(major, [head[8], head[9]]);
-        if compressed || encrypted {
+        if compressed || encrypted || unsynchronised {
             let mut bytes = head.to_vec();
             bytes.resize(10 + size as usize, 0);
             reader.read_exact(&mut bytes[10..])?;
@@ -591,9 +604,12 @@ impl<T: Read + Seek + ?Sized> ReadSeek for T {}
 
 fn is_flagged(frame: &Frame<'_>) -> bool {
     let flags = frame.flags();
-    flags.compression || flags.encryption.is_some() || is_placeholder(frame)
+    flags.compression
+        || flags.encryption.is_some()
+        || flags.unsynchronisation
+        || is_placeholder(frame)
 }
-/// Whether `tag` holds a compressed or encrypted frame.
+/// Whether `tag` holds a frame requiring raw preservation.
 pub(crate) fn has_flagged(tag: &Id3v2Tag) -> bool {
     tag.into_iter().any(is_flagged)
 }
@@ -670,14 +686,18 @@ impl Passthrough {
             if copied.contains(&(index - 1)) {
                 return false;
             }
-            // A decompressed frame is written uncompressed, and a data length
-            // indicator only describes a compressed or encrypted frame.
+            // The reader already decoded these transforms. Lofty's writer does
+            // not reapply frame unsynchronisation, so a frame not copied raw
+            // must not retain that declaration (including revision conversion).
             let mut flags = frame.flags();
             if flags.encryption.is_none()
-                && (flags.compression || flags.data_length_indicator.is_some())
+                && (flags.compression
+                    || flags.data_length_indicator.is_some()
+                    || flags.unsynchronisation)
             {
                 flags.compression = false;
                 flags.data_length_indicator = None;
+                flags.unsynchronisation = false;
                 frame.set_flags(flags);
             }
             true

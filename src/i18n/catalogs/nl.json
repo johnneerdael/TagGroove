@@ -3364,5 +3364,6 @@
  "Captured workspace: {rows} rows and {length} roots. Unavailable: {length2}.": "Vastgelegde werkruimte: {rows} rijen en {length} bronmappen. Niet beschikbaar: {length2}.",
  "No workspace is included in this backup.": "Deze back-up bevat geen werkruimte.",
  "Original roots": "Oorspronkelijke bronmappen",
- "Path style:": "Padnotatie:"
+ "Path style:": "Padnotatie:",
+ "Action group export exceeds the 4 MiB .mta limit; split the group or shorten its settings.": "De export van de actiegroep overschrijdt de .mta-limiet van 4 MiB; splits de groep of verkort de instellingen."
 }

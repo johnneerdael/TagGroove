@@ -3377,5 +3377,6 @@
  "Captured workspace: {rows} rows and {length} roots. Unavailable: {length2}.": "Gespeicherter Arbeitsbereich: {rows} Zeilen und {length} Quellordner. Nicht verfügbar: {length2}.",
  "No workspace is included in this backup.": "Diese Sicherung enthält keinen Arbeitsbereich.",
  "Original roots": "Ursprüngliche Quellordner",
- "Path style:": "Pfadformat:"
+ "Path style:": "Pfadformat:",
+ "Action group export exceeds the 4 MiB .mta limit; split the group or shorten its settings.": "Der Export der Aktionsgruppe überschreitet die .mta-Grenze von 4 MiB; teile die Gruppe auf oder kürze ihre Einstellungen."
 }

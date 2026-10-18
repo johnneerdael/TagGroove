@@ -104,6 +104,12 @@ edits. A successful save normalizes these optional envelopes to plain v2.4;
 it does not retain their checksum/footer representation. Exact Undo restores
 the original bytes.
 
+Ordinary top-level ID3v2.4 frame unsynchronisation is also preserved for
+unchanged private/unknown records in the tested MPEG, DSF, DSDIFF, WAV and AIFF
+paths. This is byte escaping inside a frame, separate from the optional tag
+headers above. The supported MPEG v2.4→v2.3 conversion retains the decoded
+payload instead of marking already-decoded bytes as escaped again.
+
 Global unsynchronization combined with optional headers, update/restriction
 declarations and arbitrary frame/layout combinations remain unqualified. A
 refused operation should leave the original file intact. Keep a backup rather

@@ -243,9 +243,7 @@ pub fn import_groups_diagnostic(
 /// Write a group as a UTF-16LE `.mta` file with BOM and CRLF lines, the
 /// layout of the action files shipped with Mp3tag.
 pub fn export_group(path: &Path, group: &ActionGroup) -> Result<(), String> {
-    let text = tag_core::actions::export_mta(group)?;
-    let mut bytes = vec![0xff, 0xfe];
-    bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    let bytes = tag_core::actions::export_mta_utf16(group)?;
     atomic_output(path, &bytes, false)
 }
 fn export_group_worker(directory: &Path, path: &Path, group: &ActionGroup) -> Result<(), String> {
@@ -2051,6 +2049,66 @@ mod tests {
         )
         .is_err());
         assert!(!dir.path().join("lines.mta").exists());
+    }
+
+    #[test]
+    fn mta_utf16_wire_limit_counts_bom_and_preserves_destination_on_refusal() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("Bounded.mta");
+        let limit = 4 * 1_048_576;
+        for extra in [0, 1] {
+            let input = format!(
+                "[#0]\nT=9999\n1={}\n",
+                "a".repeat((limit - 2) / 2 - 20 + extra)
+            );
+            let imported =
+                tag_core::actions::import_mta("Bounded".into(), input.as_bytes(), None).unwrap();
+            if extra == 0 {
+                export_group(&target, &imported.group).unwrap();
+                let bytes = fs::read(&target).unwrap();
+                assert_eq!(bytes.len(), limit);
+                assert_eq!(&bytes[..2], &[0xff, 0xfe]);
+                assert_eq!(
+                    import_group(&target, None).unwrap().group.actions,
+                    imported.group.actions
+                );
+            } else {
+                fs::write(&target, b"keep existing output").unwrap();
+                let error = export_group(&target, &imported.group)
+                    .expect_err("an oversized native wire artifact must never be published");
+                assert!(error.contains("limit"), "{error}");
+                assert!(
+                    error.contains("split") || error.contains("shorten"),
+                    "{error}"
+                );
+                assert_eq!(fs::read(&target).unwrap(), b"keep existing output");
+                let absent = dir.path().join("absent.mta");
+                assert!(export_group(&absent, &imported.group).is_err());
+                assert!(!absent.exists());
+            }
+        }
+    }
+
+    #[test]
+    fn mta_native_utf16_export_preserves_unicode_when_utf8_export_cannot_fit() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = format!("[#0]\r\nT=9999\r\n1={}\r\n", "猫".repeat(4 * 1_048_576 / 3));
+        let bytes = [0xff, 0xfe]
+            .into_iter()
+            .chain(input.encode_utf16().flat_map(u16::to_le_bytes))
+            .collect::<Vec<_>>();
+        let imported = tag_core::actions::import_mta("Unicode wire".into(), &bytes, None).unwrap();
+        let target = dir.path().join("Unicode wire.mta");
+        export_group(&target, &imported.group).unwrap();
+        assert!(fs::metadata(&target).unwrap().len() <= 4 * 1_048_576);
+        assert_eq!(
+            import_group(&target, None).unwrap().group.actions,
+            imported.group.actions
+        );
+        assert!(
+            tag_core::actions::export_mta(&imported.group).is_err(),
+            "UTF-8 output must enforce its own distinct byte budget"
+        );
     }
 
     #[test]
