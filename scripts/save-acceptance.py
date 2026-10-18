@@ -54,6 +54,12 @@ def normalize(snapshot):
     value = copy.deepcopy(snapshot)
     value["audio_payload_sha256"] = sha256(base64.b64decode(value.pop("audio_payload_base64"), validate=True))
     value["opaque_native_sha256"] = sha256(json.dumps(value["opaque_native"], sort_keys=True, ensure_ascii=False).encode("utf-8"))
+    if value["native_id3"] is not None:
+        for frame in value["native_id3"]:
+            frame["raw_body_sha256"] = sha256(base64.b64decode(frame["raw_body_base64"], validate=True))
+            if frame["frame"] == "APIC":
+                frame["image_sha256"] = sha256(base64.b64decode(frame["image_base64"], validate=True))
+    value["native_id3_sha256"] = sha256(json.dumps(value["native_id3"], sort_keys=True, ensure_ascii=False).encode("utf-8"))
     for cover in value["covers"]:
         cover["sha256"] = sha256(base64.b64decode(cover.pop("data_base64"), validate=True))
     return value
@@ -82,8 +88,26 @@ def differences(expected_value, observed, prefix=""):
     return [] if expected_value == observed else [prefix or "/"]
 
 
+def native_id3_semantics(snapshot):
+    frames = snapshot["native_id3"]
+    if frames is None:
+        return None
+    values = [{key: value for key, value in frame.items()
+               if key not in ("raw_body_base64", "raw_body_sha256", "flags")} for frame in frames]
+    return sorted(values, key=lambda value: json.dumps(value, sort_keys=True, ensure_ascii=False))
+
+
+def native_id3_difference_kind(expected_value, observed):
+    if native_id3_semantics(expected_value) != native_id3_semantics(observed):
+        return "semantic_observation"
+    if expected_value["native_id3"] != observed["native_id3"]:
+        return "serialization_only"
+    return "none"
+
+
 def identity(executable, workspace=None):
     sources = ["scripts/save-acceptance.py", "crates/tag-core/examples/save_acceptance.rs",
+        "crates/tag-core/tests/support/native_id3.rs",
         "crates/tag-core/tests/support/save_corpus.rs", "crates/tag-core/tests/save_acceptance.rs",
         "scripts/tests/test_save_acceptance.py", "Cargo.lock"]
     sources.extend(str(p.relative_to(REPO)) for p in sorted((REPO / "crates/tag-core/tests/fixtures/save-corpus").iterdir()))
@@ -363,6 +387,7 @@ def compare(root, executable, identity_path):
                 cases.append({"file": name, "operation": operation, "stage": stage,
                     "local_file_sha256": hashes[stage],
                     "reference_file_sha256": reference_hash, "observed_reference": observed,
+                    "native_id3_difference_kind": native_id3_difference_kind(local_observed, observed),
                     "differences_from_taggroove": differences(local_observed, observed)})
     # Recheck every binding after observation, including stages read earlier.
     validate_reference_stages(root, reference, contract["baseline"])
@@ -370,6 +395,7 @@ def compare(root, executable, identity_path):
     require_identity(consumer, identity(executable, root), "Completed comparison")
     receipt = {"passed": passed, "producer": local["producer"], "prepared_by": contract["producer"],
         "consumer": consumer, "reference": reference,
+        "comparison_interpretation": "passed means strict observed equality; serialization-only native differences are not data-loss or incompatibility findings",
         "scope": "operator-supplied saved/undo/redo files; decoded through the same TagGroove reader; no complete parity certification", "cases": cases}
     write_json(root / "paired-results.json", receipt)
     return {"passed": passed, "cases": len(cases), "receipt": str(root / "paired-results.json")}

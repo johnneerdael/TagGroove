@@ -6,6 +6,10 @@ MP3, FLAC and M4A carriers, backend preservation regressions and an executable
 paired producer/consumer. It does not change save defaults or certify Mp3tag
 parity. R01 and the save/recovery aspects of R17 remain open.
 
+This records the initial six-case snapshot. The later native metadata
+extension and current eight-case producer are described in
+[Native metadata preservation](native-save-corpus.md).
+
 ## Evidence boundaries
 
 The reference is the supplied Windows x64 Mp3tag 3.36.1 executable, SHA-256

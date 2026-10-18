@@ -1,5 +1,6 @@
 """Exercise the paired consumer with explicitly synthetic captures, never Mp3tag proof."""
 import copy
+import base64
 import importlib.util
 import json
 from pathlib import Path
@@ -396,6 +397,82 @@ class SaveAcceptance(unittest.TestCase):
             damaged[key] = None
             self.assertTrue(harness.differences(baseline, damaged), key)
 
+    def test_native_id3_fixture_matches_pinned_raw_frame_payloads(self):
+        profile = json.loads((harness.REPO / "crates/tag-core/tests/fixtures/save-corpus/native-id3-profile.json").read_text())
+        frames = self.contract["baseline"]["native-groups.mp3"]["snapshot"]["native_id3"]
+        def key(frame):
+            if frame["frame"] == "USLT":
+                return "|".join(("USLT", frame["language"], frame["description"]))
+            return "|".join((frame["frame"], frame.get("owner", frame.get("description", ""))))
+        observed = {key(frame): frame["raw_body_sha256"] for frame in frames}
+        self.assertEqual(observed, profile["expected_native_body_sha256"])
+        self.assertEqual(len(observed), len(frames), "native groups must not silently collapse")
+        for cover in profile["covers"]:
+            frame = next(frame for frame in frames if frame["frame"] == "APIC" and frame["description"] == cover["description"])
+            self.assertEqual(frame["image_sha256"], cover["image_sha256"])
+
+    def test_paired_consumer_detects_native_counter_loss_hidden_by_star_fields(self):
+        self.synthetic_reference()
+        path = self.root / "reference" / "edit-one" / "saved" / "native-groups.mp3"
+        before = harness.normalize(harness.invoke(self.executable, "observe", path))
+        frame = next(frame for frame in before["native_id3"] if frame["frame"] == "POPM" and frame["owner"] == "Windows Media Player 9 Series")
+        body = base64.b64decode(frame["raw_body_base64"], validate=True)
+        data = bytearray(path.read_bytes())
+        self.assertEqual(data.count(body), 1)
+        at = data.index(body)
+        data[at + len(body) - 1] ^= 1
+        path.write_bytes(data)
+        after = harness.normalize(harness.invoke(self.executable, "observe", path))
+        self.assertEqual(before["fields"], after["fields"])
+        self.assertEqual(before["audio_payload_sha256"], after["audio_payload_sha256"])
+        self.assertNotEqual(before["native_id3_sha256"], after["native_id3_sha256"])
+        # This deliberately synthetic capture must first fail the original
+        # transfer binding. Rebind its test-only declared bytes before testing
+        # native semantics, without relaxing the production integrity gate.
+        with self.assertRaisesRegex(ValueError, "reference stage.*hash"):
+            harness.compare(self.root, self.executable, self.identity_path)
+        self.assertFalse((self.root / "paired-results.json").exists())
+        reference = json.loads(self.identity_path.read_text())
+        reference["stage_sha256"]["edit-one"]["saved"][path.name] = harness.sha256(path.read_bytes())
+        harness.write_json(self.identity_path, reference)
+        self.assertFalse(harness.compare(self.root, self.executable, self.identity_path)["passed"])
+        receipt = json.loads((self.root / "paired-results.json").read_text())
+        failed = next(case for case in receipt["cases"] if case["file"] == path.name and case["operation"] == "edit-one" and case["stage"] == "saved")
+        self.assertIn("/native_id3_sha256", failed["differences_from_taggroove"])
+        self.assertEqual(failed["native_id3_difference_kind"], "semantic_observation")
+
+    def test_native_serialization_difference_is_distinct_from_changed_counter_semantics(self):
+        self.synthetic_reference()
+        path = self.root / "reference" / "edit-one" / "saved" / "native-groups.mp3"
+        before = harness.normalize(harness.invoke(self.executable, "observe", path))
+        frame = next(frame for frame in before["native_id3"] if frame["frame"] == "POPM" and frame["owner"] == "Windows Media Player 9 Series")
+        body = base64.b64decode(frame["raw_body_base64"], validate=True)
+        data = bytearray(path.read_bytes())
+        at = data.index(body)
+        end = 10 + sum(value << (7 * (3 - i)) for i, value in enumerate(data[6:10]))
+        self.assertEqual(data[end - 1], 0, "control needs one padding byte")
+        data[at - 6:at - 2] = (len(body) + 1).to_bytes(4, "big")
+        data.insert(at + body.index(0) + 2, 0)  # Same numeric counter, one leading zero byte.
+        del data[end]  # Consume one old padding byte; preserve the media offset.
+        path.write_bytes(data)
+        after = harness.normalize(harness.invoke(self.executable, "observe", path))
+        self.assertEqual(harness.native_id3_semantics(before), harness.native_id3_semantics(after))
+        self.assertEqual(before["fields"], after["fields"])
+        self.assertEqual(before["audio_payload_sha256"], after["audio_payload_sha256"])
+        # This deliberately synthetic capture must first fail the original
+        # transfer binding. Rebind its test-only declared bytes before testing
+        # native semantics, without relaxing the production integrity gate.
+        with self.assertRaisesRegex(ValueError, "reference stage.*hash"):
+            harness.compare(self.root, self.executable, self.identity_path)
+        self.assertFalse((self.root / "paired-results.json").exists())
+        reference = json.loads(self.identity_path.read_text())
+        reference["stage_sha256"]["edit-one"]["saved"][path.name] = harness.sha256(path.read_bytes())
+        harness.write_json(self.identity_path, reference)
+        self.assertFalse(harness.compare(self.root, self.executable, self.identity_path)["passed"])
+        receipt = json.loads((self.root / "paired-results.json").read_text())
+        changed = next(case for case in receipt["cases"] if case["file"] == path.name and case["operation"] == "edit-one" and case["stage"] == "saved")
+        self.assertEqual(changed["native_id3_difference_kind"], "serialization_only")
+        self.assertIn("strict observed equality", receipt["comparison_interpretation"])
     def test_policy_verdict_rejects_lost_or_changed_displayed_gain_fields(self):
         invoke = harness.invoke
         for policy in ("default", "explicit_write_ape"):
