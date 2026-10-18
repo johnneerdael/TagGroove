@@ -9,8 +9,10 @@ write audio tags.
 ## Prepare the profile and your current session
 
 1. Locate the configuration folder or backup ZIP from your own Mp3tag setup.
-   Keep a separate original copy. The importer does not infer undocumented
-   binary/global settings from their filenames.
+   Keep a separate original copy outside the TagGroove configuration folder.
+   The selected folder or ZIP must neither contain nor be inside that folder;
+   overlapping locations are rejected before recovery or import can write.
+   The importer does not infer undocumented binary/global settings from their filenames.
 2. Save or close edited action-group dialogs. Save pending audio/artwork edits,
    or explicitly discard them when prompted. Configuration restoration cannot
    recover discarded in-memory audio edits.
@@ -20,6 +22,10 @@ write audio tags.
    importers' defaults. The chosen codepage is retained in the report.
 4. Read the inventory. Unsupported and invalid files stay visible, with their
    reasons; seeing a file in the inventory does not mean it can be transferred.
+   Select only one incoming action group or export template for each destination
+   name. Choosing two source files with the same name, including case variants
+   in different subfolders, is rejected under both keep and replace policies.
+   Those policies decide collisions with the current setup only.
 
 Inputs are bounded to 128 MB and 4096 entries, with paths at most 64 folders
 deep. Supported text definitions are limited to 4 MB each. ZIP paths must be

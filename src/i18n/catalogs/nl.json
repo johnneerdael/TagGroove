@@ -2995,7 +2995,6 @@
  "No completed setup import is available to restore.": "Er is geen voltooide instellingenimport om te herstellen.",
  "No setup items would change; review the collision choices.": "Er zouden geen instellingen veranderen; controleer de keuzes bij naamconflicten.",
  "No setup migration snapshot is available.": "Er is geen momentopname van een instellingenmigratie beschikbaar.",
- "Previous setup report disappeared.": "Het vorige instellingenrapport is verdwenen.",
  "Recovery retained its snapshot because {name} changed outside the setup operation.": "De momentopname is behouden omdat {name} buiten de instellingenbewerking is gewijzigd.",
  "Reload setup": "Instellingen opnieuw laden",
  "Replace current items": "Huidige items vervangen",
@@ -3072,5 +3071,9 @@
  "Retry workspace restores captured window preferences and the file list. The managed native configuration stays as it is.": "Werkruimte opnieuw proberen herstelt de vastgelegde venstervoorkeuren en bestandslijst. De beheerde native instellingen blijven ongewijzigd.",
  "Setup migration requires attention.": "De instellingenmigratie vereist aandacht.",
  "Startup recovery": "Opstartherstel",
- "Workspace recovery remains pending. Open Restore setup to retry. {error}": "Het herstel van de werkruimte staat nog open. Open Instellingen herstellen om het opnieuw te proberen. {error}"
+ "Workspace recovery remains pending. Open Restore setup to retry. {error}": "Het herstel van de werkruimte staat nog open. Open Instellingen herstellen om het opnieuw te proberen. {error}",
+ "Cannot resolve the setup target location.": "De doellocatie voor de instellingen kan niet worden bepaald.",
+ "Choose a profile outside the TagGroove configuration folder. Copy the profile folder or ZIP to a separate location that neither contains nor is inside the configuration folder, then inspect that copy.": "Kies een profiel buiten de configuratiemap van TagGroove. Kopieer de profielmap of het ZIP-bestand naar een aparte locatie die de configuratiemap niet bevat en er ook niet in staat. Inspecteer daarna die kopie.",
+ "Selected setup files have the same destination name: {previous} and {file}. Select only one of these files, then inspect the profile again.": "Geselecteerde instellingenbestanden hebben dezelfde doelnaam: {previous} en {file}. Selecteer slechts één van deze bestanden en inspecteer het profiel opnieuw.",
+ "The source profile location changed after preview; inspect it again.": "De locatie van het bronprofiel is na het voorbeeld gewijzigd. Inspecteer het opnieuw."
 }

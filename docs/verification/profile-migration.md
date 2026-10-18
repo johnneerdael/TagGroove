@@ -16,7 +16,12 @@ original Windows application execution or original-profile differential test.
 - The native preview token retains parsed candidates and hashes the complete
   source inventory, current seven-file native configuration, physical export
   tree and explicitly typed window state. Apply re-reads source/target/window
-  state before staging and rejects drift or unseen/duplicate selections.
+  state before staging and rejects drift or unseen/duplicate selections. Canonical
+  source identity is retained, including device/inode on Unix. Preview and Apply
+  reject canonical source/target overlap before any status recovery or writes;
+  missing target directories are resolved through existing ancestors without
+  creating them. Same-name selected action/export sources are rejected before
+  staging under either target collision policy, naming the ambiguous files.
 - Existing parsers and save methods build candidate layouts/groups/templates.
   Source warnings remain visible. Unknown MTA records remain unresolved and
   disabled. Source collections/global/binary files stay outside the import.
@@ -24,6 +29,9 @@ original Windows application execution or original-profile differential test.
   contents before replacement. Writes recheck bounded regular paths. Failure
   and interrupted-phase recovery restore known content; external conflicting
   edits retain the named snapshot and error rather than overwrite unknown data.
+  Recovery of a second import validates the previous journal in memory and
+  attaches the latest rollback-window receipt before one atomic publication.
+  A corrupt previous journal leaves the valid current journal unchanged.
 - Restore includes physical MTE files and file absence, not only export JSON
   identities. API credential stores and unsupported native files are untouched.
 - Window state uses an explicit preference-key allowlist, local absolute file
@@ -71,6 +79,12 @@ Negative controls cover source/template/window drift, cancellation, unseen
 selections, ZIP traversal/drive/case duplicates, symbolic links, bounded items,
 corrupted/path-tampered journals, a controlled second-publication refusal,
 interrupted restore and an external recovery conflict that keeps the snapshot.
+Focused review controls additionally cover overlapping source/target folders
+(including nonexistent targets), source parent retargeting with identical bytes
+before Apply, same-name MTA/MTE selections under both policies, corrupt previous
+journals and an interrupted second-import recovery. Four fresh processes retain
+the latest pre-second-import workspace even when publication is refused after
+rollback but before the prepared journal is atomically published.
 
 Frontend tests execute the real UI for choices/cancellation, collision/encoding
 arguments, unsaved-edit gates, browser failure and one-shot receipt behavior.
@@ -107,3 +121,18 @@ remain requirements for the eventual PR, after root currency checks.
   recorded/direct-ID/settings/matching coverage, and distinct full-cover and
   album-preview semantics. Prior bundle compilation and partial live provider
   parsing do not close those outcomes.
+
+## Focused source-review correction
+
+The initial review controls failed against the unpublished checkpoint for
+overlap acceptance, current-journal clobbering and ambiguous source-name import.
+The corrected profile suite passes 18 native tests with one controlled restart
+helper ignored; each parent process invokes that helper explicitly in isolated
+sandboxes. See `/tmp/taggroove-profile-review-native.log` for the local run.
+The full Rust workspace passes 1100 tests (7 opt-in/helper tests ignored).
+The frontend snapshot test initially detected that the new backend errors had
+not yet been regenerated into the catalog; the intended extractor refreshed
+that snapshot and the affected catalog suites then passed all 37 controls.
+The final complete frontend rerun passes all 583 tests. Production build, strict
+guide, formatting and catalog consistency checks pass.
+These corrections do not add original-profile or native OS interaction evidence.

@@ -3008,7 +3008,6 @@
  "No completed setup import is available to restore.": "Es ist kein abgeschlossener Konfigurationsimport zum Wiederherstellen vorhanden.",
  "No setup items would change; review the collision choices.": "Keine Konfigurationseinträge würden geändert; die Auswahl bei Namenskonflikten prüfen.",
  "No setup migration snapshot is available.": "Es ist keine Momentaufnahme einer Konfigurationsmigration vorhanden.",
- "Previous setup report disappeared.": "Der vorherige Konfigurationsbericht ist nicht mehr vorhanden.",
  "Recovery retained its snapshot because {name} changed outside the setup operation.": "Die Wiederherstellung hat ihre Momentaufnahme behalten, da {name} außerhalb des Konfigurationsvorgangs geändert wurde.",
  "Reload setup": "Konfiguration neu laden",
  "Replace current items": "Aktuelle Einträge ersetzen",
@@ -3085,5 +3084,9 @@
  "Retry workspace restores captured window preferences and the file list. The managed native configuration stays as it is.": "Arbeitsbereich erneut versuchen stellt die erfassten Fenstereinstellungen und die Dateiliste wieder her. Die verwaltete native Konfiguration bleibt unverändert.",
  "Setup migration requires attention.": "Die Konfigurationsmigration erfordert Aufmerksamkeit.",
  "Startup recovery": "Startwiederherstellung",
- "Workspace recovery remains pending. Open Restore setup to retry. {error}": "Die Arbeitsbereichswiederherstellung steht weiterhin aus. Konfiguration wiederherstellen zum erneuten Versuch öffnen. {error}"
+ "Workspace recovery remains pending. Open Restore setup to retry. {error}": "Die Arbeitsbereichswiederherstellung steht weiterhin aus. Konfiguration wiederherstellen zum erneuten Versuch öffnen. {error}",
+ "Cannot resolve the setup target location.": "Der Speicherort für die Einrichtung lässt sich nicht auflösen.",
+ "Choose a profile outside the TagGroove configuration folder. Copy the profile folder or ZIP to a separate location that neither contains nor is inside the configuration folder, then inspect that copy.": "Wählen Sie ein Profil außerhalb des TagGroove-Konfigurationsordners. Kopieren Sie den Profilordner oder die ZIP-Datei an einen separaten Speicherort, der den Konfigurationsordner weder enthält noch darin liegt, und prüfen Sie dann diese Kopie.",
+ "Selected setup files have the same destination name: {previous} and {file}. Select only one of these files, then inspect the profile again.": "Ausgewählte Einrichtungsdateien haben denselben Zielnamen: {previous} und {file}. Wählen Sie nur eine dieser Dateien und prüfen Sie das Profil erneut.",
+ "The source profile location changed after preview; inspect it again.": "Der Speicherort des Quellprofils hat sich seit der Vorschau geändert; prüfen Sie es erneut."
 }

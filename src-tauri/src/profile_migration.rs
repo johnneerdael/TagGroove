@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 const LIMIT: u64 = 128 * 1024 * 1024;
@@ -336,9 +336,74 @@ pub struct Item {
     pub collision: bool,
     pub supported: bool,
 }
+#[derive(Clone, PartialEq, Eq)]
+struct SourceIdentity {
+    canonical: PathBuf,
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
+}
+// Resolve future configuration directories without creating them. Existing ancestors may
+// contain symlinks, so canonicalize before appending the missing path components.
+fn canonical_target(path: &Path) -> Result<PathBuf, String> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|error| error.to_string())?
+            .join(path)
+    };
+    let mut ancestor = absolute.as_path();
+    let mut missing = Vec::new();
+    let mut canonical = loop {
+        match std::fs::canonicalize(ancestor) {
+            Ok(path) => break path,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                missing.push(
+                    ancestor
+                        .file_name()
+                        .ok_or("Cannot resolve the setup target location.")?
+                        .to_os_string(),
+                );
+                ancestor = ancestor
+                    .parent()
+                    .ok_or("Cannot resolve the setup target location.")?;
+            }
+            Err(error) => return Err(error.to_string()),
+        }
+    };
+    for component in missing.into_iter().rev() {
+        canonical.push(component);
+    }
+    Ok(canonical)
+}
+fn source_identity(directory: &Path, path: &Path) -> Result<SourceIdentity, String> {
+    let canonical = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
+    let target = canonical_target(directory)?;
+    if canonical.starts_with(&target) || target.starts_with(&canonical) {
+        return Err("Choose a profile outside the TagGroove configuration folder. Copy the profile folder or ZIP to a separate location that neither contains nor is inside the configuration folder, then inspect that copy.".into());
+    }
+    #[cfg(unix)]
+    let metadata = std::fs::metadata(&canonical).map_err(|error| error.to_string())?;
+    Ok(SourceIdentity {
+        canonical,
+        #[cfg(unix)]
+        device: {
+            use std::os::unix::fs::MetadataExt;
+            metadata.dev()
+        },
+        #[cfg(unix)]
+        inode: {
+            use std::os::unix::fs::MetadataExt;
+            metadata.ino()
+        },
+    })
+}
 #[derive(Clone)]
 struct Plan {
     path: String,
+    source_identity: SourceIdentity,
     source_hash: String,
     target_hash: String,
     legacy_encoding: Option<String>,
@@ -490,6 +555,7 @@ fn preview(
     legacy_encoding: Option<String>,
 ) -> Result<Preview, String> {
     validate_window(&window)?;
+    let source_identity = source_identity(directory, Path::new(path))?;
     if status(directory, None, None, None)?.pending.is_some() {
         return Err(
             "Complete the pending workspace recovery before importing another setup.".into(),
@@ -509,6 +575,7 @@ fn preview(
     let token = uuid::Uuid::new_v4().to_string();
     let plan = Plan {
         path: path.into(),
+        source_identity,
         source_hash: source_hash.clone(),
         target_hash: hash(&target, Some(&window))?,
         legacy_encoding: legacy_encoding.clone(),
@@ -617,8 +684,11 @@ fn journal(directory: &Path) -> Result<Option<Journal>, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.to_string()),
     }
-    let journal: Journal = serde_json::from_slice(&read(&path, LIMIT * 5)?)
-        .map_err(|e| format!("Setup recovery journal: {e}"))?;
+    checked_journal(&read(&path, LIMIT * 5)?).map(Some)
+}
+fn checked_journal(bytes: &[u8]) -> Result<Journal, String> {
+    let journal: Journal =
+        serde_json::from_slice(bytes).map_err(|e| format!("Setup recovery journal: {e}"))?;
     let mut checked = journal.clone();
     checked.checksum.clear();
     let checksum = format!(
@@ -649,7 +719,7 @@ fn journal(directory: &Path) -> Result<Option<Journal>, String> {
     if let Some(window) = &journal.rollback_window {
         validate_window(window)?;
     }
-    Ok(Some(journal))
+    Ok(journal)
 }
 fn current_file(directory: &Path, name: &str) -> Result<Option<Vec<u8>>, String> {
     relative(name)?;
@@ -720,7 +790,14 @@ fn rollback(directory: &Path, before: &Files, desired: &Files) -> Result<(), Str
     }
     replace(directory, &current, before)
 }
-fn recovered(directory: &Path, mut state: Journal) -> Result<Journal, String> {
+fn recovered(directory: &Path, state: Journal) -> Result<Journal, String> {
+    recovered_with(directory, state, || Ok(()))
+}
+fn recovered_with(
+    directory: &Path,
+    mut state: Journal,
+    before_publish: impl FnOnce() -> Result<(), String>,
+) -> Result<Journal, String> {
     if state.phase == "applying" || state.phase == "restoring" {
         let before = decode(
             state
@@ -733,28 +810,37 @@ fn recovered(directory: &Path, mut state: Journal) -> Result<Journal, String> {
         } else {
             decode(&state.before)?
         };
+        // Validate and prepare the complete next journal in memory. Publishing raw
+        // previous bytes would both discard this operation's receipt on a crash and
+        // destroy the valid current journal when the previous snapshot is corrupt.
+        let previous = if state.phase == "applying" && state.previous {
+            let mut previous = checked_journal(&read(
+                &directory.join(STORE).join("previous.json"),
+                LIMIT * 5,
+            )?)?;
+            let window = state
+                .rollback_window
+                .as_ref()
+                .ok_or("Setup recovery has no window snapshot.")?
+                .clone();
+            validate_window(&window)?;
+            previous.pending = Some(Pending {
+                id: uuid::Uuid::new_v4().to_string(),
+                attempted: false,
+                window,
+            });
+            Some(previous)
+        } else {
+            None
+        };
         rollback(directory, &before, &desired).map_err(|error| {
             format!(
                 "{error} Recovery snapshot retained in {}.",
                 directory.join(STORE).display()
             )
         })?;
-        if state.phase == "applying" && state.previous {
-            let previous = read(&store(directory)?.join("previous.json"), LIMIT * 5)?;
-            crate::action_host::atomic_output(
-                &store(directory)?.join("current.json"),
-                &previous,
-                false,
-            )?;
-            let mut previous = journal(directory)?.ok_or("Previous setup report disappeared.")?;
-            previous.pending = Some(Pending {
-                id: uuid::Uuid::new_v4().to_string(),
-                attempted: false,
-                window: state
-                    .rollback_window
-                    .take()
-                    .ok_or("Setup recovery has no window snapshot.")?,
-            });
+        if let Some(previous) = previous {
+            before_publish()?;
             persist(directory, &previous)?;
             return Ok(previous);
         }
@@ -776,6 +862,7 @@ fn recovered(directory: &Path, mut state: Journal) -> Result<Journal, String> {
         }
         .into();
         state.rollback = None;
+        before_publish()?;
         persist(directory, &state)?;
     }
     Ok(state)
@@ -853,6 +940,9 @@ fn apply(
         .map_err(|e| e.to_string())?
         .remove(token)
         .ok_or("Setup preview expired; inspect the profile again.")?;
+    if source_identity(directory, Path::new(&plan.path))? != plan.source_identity {
+        return Err("The source profile location changed after preview; inspect it again.".into());
+    }
     let _ = status(directory, None, None, None)?;
     let before = native(directory)?;
     if hash(&input(Path::new(&plan.path))?, None)? != plan.source_hash
@@ -881,6 +971,18 @@ fn apply(
             > 1
         {
             return Err("Select at most one column layout and one tag-panel layout.".into());
+        }
+    }
+    // Target keep/replace policy cannot disambiguate two incoming definitions.
+    let mut incoming = BTreeMap::new();
+    for file in selected {
+        let identity = match &plan.candidates[file] {
+            Candidate::Actions(group) => ("actions", group.name.to_ascii_lowercase()),
+            Candidate::Export(configuration) => ("export", configuration.name.to_ascii_lowercase()),
+            _ => continue,
+        };
+        if let Some(previous) = incoming.insert(identity, file) {
+            return Err(format!("Selected setup files have the same destination name: {previous} and {file}. Select only one of these files, then inspect the profile again."));
         }
     }
     let stage = tempfile::tempdir().map_err(|e| e.to_string())?;
@@ -1233,6 +1335,155 @@ mod tests {
         }
     }
     #[test]
+    fn review_source_target_overlap_is_rejected_before_any_recovery_write() {
+        let _guard = TESTS.lock().unwrap();
+        for relation in ["equal", "contains", "inside", "not-created"] {
+            let root = tempfile::tempdir().unwrap();
+            let directory = root.path().join("config");
+            config(&directory);
+            let source = match relation {
+                "equal" => directory.clone(),
+                "contains" | "not-created" => root.path().to_path_buf(),
+                _ => directory.join("profile"),
+            };
+            std::fs::create_dir_all(&source).unwrap();
+            std::fs::write(source.join("columns.ini"), fixture()["columns.ini"].clone()).unwrap();
+            let target = if relation == "not-created" {
+                directory.join("future/nested")
+            } else {
+                directory.clone()
+            };
+            if relation != "not-created" {
+                let before = native(&target).unwrap();
+                let mut after = before.clone();
+                after.insert("columns.json".into(), b"pending operation".to_vec());
+                persist(&target, &pending_state(&before, &after, "applying")).unwrap();
+                std::fs::write(target.join("columns.json"), &after["columns.json"]).unwrap();
+            }
+            let had_store = target.join(STORE).exists();
+            let before = input(root.path()).unwrap();
+            let result = make_preview(&target, source.to_str().unwrap(), window());
+            assert!(
+                result.is_err(),
+                "{relation}: overlapping source was accepted"
+            );
+            assert!(result.err().unwrap().contains("outside"));
+            assert_eq!(input(root.path()).unwrap(), before);
+            assert_eq!(target.join(STORE).exists(), had_store);
+        }
+    }
+    #[cfg(unix)]
+    #[test]
+    fn review_source_retarget_is_rejected_before_apply_recovery() {
+        let _guard = TESTS.lock().unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("config");
+        config(&directory);
+        let original = root.path().join("first/profile");
+        let other = root.path().join("second/profile");
+        write_stage(&original, &fixture()).unwrap();
+        write_stage(&other, &fixture()).unwrap();
+        let alias = root.path().join("selected");
+        std::os::unix::fs::symlink(original.parent().unwrap(), &alias).unwrap();
+        let path = alias.join("profile");
+        let preview = make_preview(&directory, path.to_str().unwrap(), window()).unwrap();
+        std::fs::remove_file(&alias).unwrap();
+        std::os::unix::fs::symlink(other.parent().unwrap(), &alias).unwrap();
+        let before = native(&directory).unwrap();
+        // A pending operation would mutate settings if status were called before
+        // checking the source location; rejection must retain it byte-for-byte.
+        let mut after = before.clone();
+        after.insert("columns.json".into(), b"interrupted bytes".to_vec());
+        persist(&directory, &pending_state(&before, &after, "applying")).unwrap();
+        std::fs::write(directory.join("columns.json"), &after["columns.json"]).unwrap();
+        let current = std::fs::read(directory.join(STORE).join("current.json")).unwrap();
+        let error = apply(&directory, &preview.token, &selected(), true, window()).unwrap_err();
+        assert!(error.contains("location changed"), "{error}");
+        assert_eq!(native(&directory).unwrap(), after);
+        assert_eq!(
+            std::fs::read(directory.join(STORE).join("current.json")).unwrap(),
+            current
+        );
+        // Retargeting the parent into the configuration tree must fail disjointness
+        // before status as well, even when the profile bytes are identical.
+        std::fs::remove_file(&alias).unwrap();
+        std::os::unix::fs::symlink(original.parent().unwrap(), &alias).unwrap();
+        // Obtain a clean preview in a separate destination.
+        let clean = root.path().join("clean");
+        let preview = make_preview(&clean, path.to_str().unwrap(), window()).unwrap();
+        std::fs::remove_file(&alias).unwrap();
+        std::os::unix::fs::symlink(&clean, &alias).unwrap();
+        write_stage(&clean.join("profile"), &fixture()).unwrap();
+        let error = apply(&clean, &preview.token, &selected(), true, window()).unwrap_err();
+        assert!(error.contains("outside"), "{error}");
+        assert!(!clean.join(STORE).exists());
+    }
+    #[test]
+    fn review_corrupt_previous_journal_never_replaces_valid_current() {
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let before = native(dir.path()).unwrap();
+        let mut state = pending_state(&before, &before, "applying");
+        state.previous = true;
+        persist(dir.path(), &state).unwrap();
+        let path = dir.path().join(STORE).join("current.json");
+        let current = std::fs::read(&path).unwrap();
+        for corrupt in [
+            b"corrupt previous".to_vec(),
+            serde_json::to_vec(&state).unwrap(),
+        ] {
+            // The second input is valid JSON with an invalid checksum, requiring
+            // the same complete validation as the authoritative current journal.
+            std::fs::write(store(dir.path()).unwrap().join("previous.json"), corrupt).unwrap();
+            assert!(status(dir.path(), None, None, None).is_err());
+            assert_eq!(
+                std::fs::read(&path).unwrap(),
+                current,
+                "valid current journal was clobbered"
+            );
+            assert_eq!(native(dir.path()).unwrap(), before);
+        }
+    }
+    #[test]
+    fn review_same_name_source_candidates_are_rejected_for_both_policies() {
+        let _guard = TESTS.lock().unwrap();
+        for (extension, bytes) in [
+            ("mta", fixture()["data/actions/Normalize.mta"].clone()),
+            ("mte", fixture()["export/Practice.mte"].clone()),
+        ] {
+            for replace in [false, true] {
+                let dir = tempfile::tempdir().unwrap();
+                config(dir.path());
+                let source = tempfile::tempdir().unwrap();
+                let files = Files::from([
+                    (format!("first/Mixed.{extension}"), bytes.clone()),
+                    (format!("second/mIXED.{extension}"), bytes.clone()),
+                ]);
+                write_stage(source.path(), &files).unwrap();
+                let preview =
+                    make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+                let before = native(dir.path()).unwrap();
+                let result = apply(
+                    dir.path(),
+                    &preview.token,
+                    &files.keys().cloned().collect::<Vec<_>>(),
+                    replace,
+                    window(),
+                );
+                assert!(
+                    result.is_err(),
+                    "{extension} replace={replace}: ambiguous source selection was accepted"
+                );
+                let error = result.unwrap_err();
+                for name in files.keys() {
+                    assert!(error.contains(name), "{error}");
+                }
+                assert_eq!(native(dir.path()).unwrap(), before);
+                assert!(!dir.path().join(STORE).exists());
+            }
+        }
+    }
+    #[test]
     fn no_journal_status_does_not_create_or_write_configuration_directories() {
         let root = tempfile::tempdir().unwrap();
         let directory = root.path().join("not-created");
@@ -1517,6 +1768,37 @@ mod tests {
         }
     }
     #[test]
+    fn review_interrupted_second_import_keeps_latest_receipt_across_processes() {
+        let root = tempfile::tempdir().unwrap();
+        let nonce = uuid::Uuid::new_v4().to_string();
+        std::fs::write(root.path().join(".profile-native-test-sandbox"), &nonce).unwrap();
+        for phase in [
+            "apply",
+            "second-interrupted",
+            "second-recovered",
+            "second-consumed",
+        ] {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "profile_migration::tests::profile_restart_child",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("OPENTAG_PROFILE_TEST_ROOT", root.path())
+                .env("OPENTAG_PROFILE_TEST_NONCE", &nonce)
+                .env("OPENTAG_PROFILE_TEST_PHASE", phase)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "fresh-process {phase}: {} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    #[test]
     #[ignore = "controlled restart child; invoked only by the parent sandbox test"]
     fn profile_restart_child() {
         let root = std::path::PathBuf::from(
@@ -1540,6 +1822,72 @@ mod tests {
                 let path = make_source(&source);
                 let preview = make_preview(&directory, &path, window()).unwrap();
                 apply(&directory, &preview.token, &selected(), true, window()).unwrap();
+            }
+            "second-interrupted" => {
+                let pending = status(&directory, None, None, None)
+                    .unwrap()
+                    .pending
+                    .unwrap();
+                status(&directory, Some(&pending.id), None, None).unwrap();
+                status(&directory, None, Some(&pending.id), None).unwrap();
+                let old = journal(&directory).unwrap().unwrap();
+                crate::action_host::atomic_output(
+                    &directory.join(STORE).join("previous.json"),
+                    &serde_json::to_vec(&old).unwrap(),
+                    false,
+                )
+                .unwrap();
+                let before = native(&directory).unwrap();
+                let mut after = before.clone();
+                after.insert(
+                    "columns.json".into(),
+                    b"second interrupted publication".to_vec(),
+                );
+                let mut state = pending_state(&before, &after, "applying");
+                let mut latest = window();
+                latest.workspace.filter = "latest pre-second-import workspace".into();
+                state.window = latest.clone();
+                state.rollback_window = Some(latest);
+                state.previous = true;
+                persist(&directory, &state).unwrap();
+                std::fs::write(directory.join("columns.json"), &after["columns.json"]).unwrap();
+            }
+            "second-recovered" => {
+                assert!(PLANS.get().is_none());
+                let interrupted = journal(&directory).unwrap().unwrap();
+                let before = decode(interrupted.rollback.as_ref().unwrap()).unwrap();
+                let current = std::fs::read(directory.join(STORE).join("current.json")).unwrap();
+                let error = recovered_with(&directory, interrupted, || {
+                    assert_eq!(
+                        std::fs::read(directory.join(STORE).join("current.json")).unwrap(),
+                        current
+                    );
+                    Err("controlled crash before journal publication".into())
+                })
+                .err()
+                .unwrap();
+                assert!(error.contains("controlled crash"));
+                assert_eq!(native(&directory).unwrap(), before);
+                assert_eq!(
+                    std::fs::read(directory.join(STORE).join("current.json")).unwrap(),
+                    current
+                );
+            }
+            "second-consumed" => {
+                assert!(PLANS.get().is_none());
+                let recovered = status(&directory, None, None, None).unwrap();
+                assert!(recovered.restorable);
+                let pending = recovered.pending.unwrap();
+                assert_eq!(
+                    pending.window.workspace.filter,
+                    "latest pre-second-import workspace"
+                );
+                status(&directory, Some(&pending.id), None, None).unwrap();
+                status(&directory, None, Some(&pending.id), None).unwrap();
+                assert!(status(&directory, None, None, None)
+                    .unwrap()
+                    .pending
+                    .is_none());
             }
             "restore" => {
                 assert!(PLANS.get().is_none());
