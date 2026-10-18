@@ -28,6 +28,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Actions | Convert Codepage default | Action group dialogs start at 1251 instead of the last choice (`src/action-ui.ts:285`) | L | S |
 | Actions | `.mta` type IDs | Adjust Cover, Set Cover Properties and Generate Playlists export with TagGroove-only type IDs 1001 to 1003 (`crates/tag-core/src/actions.rs`); Mp3tag lists them as unknown actions | M | M |
 | Actions | Mobile provider documents | File, cover-file and rename actions refused (`managed_actions.rs`) | L | L |
+| Converters | Filename → Filename with a nonmatching explicit suffix | A suffix matching the source extension is deduplicated case-insensitively, but a different suffix still receives the original extension (`song.mp3` with old pattern `%1` and new pattern `%1.flac` becomes `song.flac.mp3`). Original behavior for nonmatching suffixes remains unverified | L | S |
 | Converters | Text File → Tag record-count mismatch | Any mismatch refuses the import; the original applies records in order | L | M |
 | File operations | Associated `.lrc` and `.cdg` files | Not renamed or moved with the audio file | L | M |
 | Formats | TAK and OptimFROG | Implemented on a stand-in; only hand-built fixtures, no real-encoder files | L | S |
@@ -113,6 +114,6 @@ Source: strings from `Mp3tag.exe`, compared with the code.
 
 ## 2026-10-18 ledger reconciliation
 
-- Filename → Filename already checks an explicitly included extension before appending it (`crates/tag-core/src/converters.rs:88`); its earlier missing-feature row was stale. Exact original runtime comparison stays open.
+- Filename → Filename already deduplicates an explicitly included suffix when it matches the source extension, ignoring case (`crates/tag-core/src/converters.rs`, `ends_with_extension`). This corrects the earlier broad missing-feature claim. A nonmatching suffix still gets the source extension appended; that narrower case remains in the register, with original runtime comparison open.
 - Typed-directory Enter and automatic defaults for multi-selection already exist and are connected. The remaining Tag Panel row keeps the separate dropdown-selection and format-string-field limits.
 - Copy and Move now retain separate last-successful destinations in `directories.json`; cancellation and wholly failed operations retain the previous choice. See [the bounded verification receipt](../verification/transfer-destinations-2026-10-18.md). Native dialog interaction and original timing are not claimed from the unit tests.

@@ -31,7 +31,7 @@ The branch integrates approved main `696e419191aec8aabd95edec76a499de8b9a14a0`, 
 
 The following corrections record existing implementations; this PR does not rebuild them:
 
-- `crates/tag-core/src/converters.rs` checks `ends_with_extension` before appending the original extension in Filename → Filename, including a case-insensitive comparison.
+- `crates/tag-core/src/converters.rs` compares the rendered suffix with the source extension through `ends_with_extension`, ignoring case. A matching explicit suffix is kept once; a nonmatching suffix still has the source extension appended. For `song.mp3`, old pattern `%1` and new pattern `%1.flac` produce `song.flac.mp3`. The ledger retains this narrower qualification gap; original behavior for that case remains unverified.
 - `src/tag-panel.ts` handles Enter in a typed directory field through `typedDirectory` and `host.changeDirectory`; the production host in `src/main.ts` connects it to opening that directory.
 - `automaticDefaults` in `src/tag-panel.ts` selects visible fields with configured defaults and no pending edit. `applyAutoDefaults` in `src/main.ts` applies those defaults on a new multi-file selection while preserving pending edits.
 
@@ -39,3 +39,8 @@ These are source and local-regression observations. Original runtime timing and 
 
 
 Combined-source validation after integrating approved main passed all 575 frontend tests and 1,088 Rust tests across 71 result blocks, with six existing ignores. The production build, strict guide build, formatting, strict local Clippy and diff checks passed. Hosted platform validation and a fresh Codex review of the final commit remain required.
+
+
+## Review follow-up: explicit extension scope
+
+The ledger's earlier extension reconciliation was too broad. Source-matching suffixes are deduplicated case-insensitively; nonmatching suffixes still receive the source extension and remain an original-runtime qualification case. The converter guide now shows four extension choices for `song.mp3`, including `%1.flac` producing `song.flac.mp3`. The existing native guide harness executes all eight published rearrangement rows; its nine converter-guide tests and two newline-portability tests pass. The strict guide build, formatting and diff checks pass. This correction changes documentation and the existing guide test's expected row count; application behavior is unchanged.
