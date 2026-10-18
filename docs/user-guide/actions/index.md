@@ -172,6 +172,16 @@ original `.mta` file when its exact form matters. Settings containing actual
 line breaks in recognized actions still report an export error. Acceptance
 by the original app for an unknown action or option remains unqualified.
 
+**Adjust Cover**, **Set Cover Properties** and **Generate Playlists** use
+app-only extensions in exported `.mta` files. The group dialog labels this
+before export and repeats the notice after writing the file. Action names in
+the notice follow the current language; saved group names and export paths
+stay as entered. These three actions can round-trip in this app, but do not
+transfer to Mp3tag. Their
+original serialized identifiers/options have not yet been qualified; a shared
+action name does not establish file compatibility. Keep a separate group
+without these actions when transferring the supported mappings.
+
 ## Keyboard controls in the group list
 
 Use Cmd on macOS and Ctrl on Windows or Linux for the primary modifier.
