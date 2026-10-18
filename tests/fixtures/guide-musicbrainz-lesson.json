@@ -1,0 +1,238 @@
+{
+  "purpose": "Independently authored invented teaching data for deterministic guide tests. Not a captured MusicBrainz response, live album oracle, artwork download or provider-availability claim. Synthetic IDs and example.invalid URLs must never be requested.",
+  "provider_release": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "title": "Harbour Lights",
+    "date": "2024-06-01",
+    "country": "NL",
+    "status": "Official",
+    "artist-credit": [
+      {
+        "name": "Juniper Vale",
+        "artist": {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "name": "Juniper Vale"
+        }
+      }
+    ],
+    "release-group": {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "primary-type": "Album"
+    },
+    "label-info": [
+      {
+        "catalog-number": "JV-024",
+        "label": {
+          "name": "Practice Records"
+        }
+      }
+    ],
+    "cover-art-archive": {
+      "front": true,
+      "count": 2
+    },
+    "media": [
+      {
+        "position": 1,
+        "tracks": [
+          {
+            "id": "00000000-0000-4000-8000-000000000011",
+            "number": "1",
+            "position": 1,
+            "title": "Paper Boats",
+            "length": 180000,
+            "recording": {
+              "id": "00000000-0000-4000-8000-000000000021",
+              "title": "Paper Boats"
+            }
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000012",
+            "number": "2",
+            "position": 2,
+            "title": "Lanterns on the Water",
+            "length": 200000,
+            "recording": {
+              "id": "00000000-0000-4000-8000-000000000022",
+              "title": "Lanterns on the Water"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "expected_release": {
+    "provider": "musicbrainz",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "url": "https://musicbrainz.org/release/00000000-0000-4000-8000-000000000001",
+    "title": "Harbour Lights",
+    "artist": "Juniper Vale",
+    "fields": {
+      "ALBUM": [
+        "Harbour Lights"
+      ],
+      "ALBUMARTIST": [
+        "Juniper Vale"
+      ],
+      "YEAR": [
+        "2024"
+      ],
+      "PUBLISHER": [
+        "Practice Records"
+      ],
+      "CATALOGNUMBER": [
+        "JV-024"
+      ],
+      "MUSICBRAINZ_ALBUMID": [
+        "00000000-0000-4000-8000-000000000001"
+      ],
+      "MUSICBRAINZ_RELEASEGROUPID": [
+        "00000000-0000-4000-8000-000000000002"
+      ],
+      "MUSICBRAINZ_ALBUMARTISTID": [
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      "MUSICBRAINZ_ALBUMRELEASECOUNTRY": [
+        "NL"
+      ],
+      "MUSICBRAINZ_ALBUMSTATUS": [
+        "official"
+      ],
+      "MUSICBRAINZ_ALBUMTYPE": [
+        "album"
+      ]
+    },
+    "tracks": [
+      {
+        "position": "1",
+        "disc": 1,
+        "number": 1,
+        "title": "Paper Boats",
+        "artist": "Juniper Vale",
+        "length": 180.0,
+        "fields": {
+          "TITLE": [
+            "Paper Boats"
+          ],
+          "ARTIST": [
+            "Juniper Vale"
+          ],
+          "MUSICBRAINZ_TRACKID": [
+            "00000000-0000-4000-8000-000000000021"
+          ],
+          "MUSICBRAINZ_RELEASETRACKID": [
+            "00000000-0000-4000-8000-000000000011"
+          ],
+          "TRACK": [
+            "1/2"
+          ],
+          "DISCNUMBER": [
+            "1/1"
+          ]
+        }
+      },
+      {
+        "position": "2",
+        "disc": 1,
+        "number": 2,
+        "title": "Lanterns on the Water",
+        "artist": "Juniper Vale",
+        "length": 200.0,
+        "fields": {
+          "TITLE": [
+            "Lanterns on the Water"
+          ],
+          "ARTIST": [
+            "Juniper Vale"
+          ],
+          "MUSICBRAINZ_TRACKID": [
+            "00000000-0000-4000-8000-000000000022"
+          ],
+          "MUSICBRAINZ_RELEASETRACKID": [
+            "00000000-0000-4000-8000-000000000012"
+          ],
+          "TRACK": [
+            "2/2"
+          ],
+          "DISCNUMBER": [
+            "1/1"
+          ]
+        }
+      }
+    ],
+    "covers": [
+      {
+        "url": "https://coverartarchive.org/release/00000000-0000-4000-8000-000000000001/front-500",
+        "thumb": "https://coverartarchive.org/release/00000000-0000-4000-8000-000000000001/front-250",
+        "kind": "Front",
+        "width": null,
+        "height": null
+      }
+    ],
+    "more_covers": true
+  },
+  "provider_covers": {
+    "images": [
+      {
+        "image": "http://example.invalid/back.png",
+        "front": false,
+        "types": [
+          "Back"
+        ],
+        "thumbnails": {
+          "500": "http://example.invalid/back-500.png"
+        }
+      },
+      {
+        "image": "http://example.invalid/front.png",
+        "front": true,
+        "types": [
+          "Front"
+        ],
+        "thumbnails": {
+          "500": "http://example.invalid/front-500.png"
+        }
+      }
+    ]
+  },
+  "expected_covers": [
+    {
+      "url": "https://example.invalid/front-500.png",
+      "thumb": null,
+      "kind": "Front",
+      "width": null,
+      "height": null
+    },
+    {
+      "url": "https://example.invalid/back-500.png",
+      "thumb": null,
+      "kind": "Back",
+      "width": null,
+      "height": null
+    }
+  ],
+  "selected_files": [
+    {
+      "path": "/practice/Paper Boats.flac",
+      "name": "02 - Paper Boats.flac",
+      "title": "Paper Boats",
+      "artist": "Juniper Vale",
+      "album": "Harbour Lights",
+      "album_artist": "Juniper Vale",
+      "track": "2",
+      "disc": "1",
+      "length": 180
+    },
+    {
+      "path": "/practice/Lanterns on the Water.flac",
+      "name": "01 - Lanterns on the Water.flac",
+      "title": "Lanterns on the Water",
+      "artist": "Juniper Vale",
+      "album": "Harbour Lights",
+      "album_artist": "Juniper Vale",
+      "track": "1",
+      "disc": "1",
+      "length": 200
+    }
+  ]
+}

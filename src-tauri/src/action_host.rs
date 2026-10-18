@@ -2821,9 +2821,8 @@ mod tests {
         fs::write(path, bytes).unwrap();
     }
 
-    /// Remove Fields Except removes every displayed field but, like Mp3tag,
-    /// leaves frames without a field (left to Utils → Remove unsupported
-    /// fields) and chapters (Utils → Strip chapters).
+    /// Pin TagGroove's retention of unmapped frames and chapters. Original-app
+    /// equivalence requires a separate differential capture (PARITY L14).
     #[test]
     fn remove_fields_except_keeps_frames_that_have_no_field() {
         let dir = tempfile::tempdir().unwrap();

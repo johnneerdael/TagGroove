@@ -6,7 +6,7 @@ export type SearchField = {label:string;format:string;default_label?:boolean};
 export type WebSourceInfo = {id:string;menu:string;name:string;search_by:SearchField[];direct:boolean};
 export type WebSettingsInfo = {id:string;menu:string};
 export type WebListing = {folder:string;sources:WebSourceInfo[];settings:WebSettingsInfo[];problems:{file:string;error:string}[]};
-export type WebResult = {url:string;cover:string|null;preview:string|null;values:string[]};
+export type WebResult = {url:string;cover:string|null;full_cover?:string|null;preview:string|null;values:string[]};
 export type WebSearchPage = {columns:string[];results:WebResult[];direct:boolean};
 /** A `.settings` schema as documented for Mp3tag tag sources. */
 export type SettingSpec = {type:string;key:string;title?:string;description?:string;choices?:string[];default?:unknown};

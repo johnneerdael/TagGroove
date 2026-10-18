@@ -40,7 +40,7 @@ test('expanded catalog preserves the legacy 28 commands and all original default
   const defaults=toolbar.defaultToolbar();
   assert.deepEqual(defaults.items.slice(0,oldDefaults.length).map(item=>item.id),oldDefaults);
   assert.deepEqual(toolbar.visibleItems(defaults.items).filter(item=>!toolbar.isDivider(item.id)).map(item=>item.id),['folder','files','save','reload','filename-tags','tags-filename','groups','number']);
-  assert.deepEqual(defaults.items.slice(oldDefaults.length),added.map(id=>({id,visible:false})));
+  assert.deepEqual(defaults.items.slice(oldDefaults.length,oldDefaults.length+added.length),added.map(id=>({id,visible:false})));
   assert.deepEqual(new Set(defaults.items.filter(item=>!toolbar.isDivider(item.id)).map(item=>item.id)),new Set(Object.keys(toolbar.TOOLBAR_COMMANDS)));
 });
 
@@ -88,7 +88,7 @@ function runtime(state={}){
     const toolsUI={tools:[{name:'Inspect track'}]},actionUI={groupNames:['House#Credit cleanup']};
     const listOperation=async op=>{calls.push(['list',op]);};
     let errors=[],status='';
-    ${declaration('listOperations')} ${declaration('tagSourceOperations')}
+    ${declaration('listOperations')} ${declaration('tagSourceOperations')} ${declaration('coverOperations')}
   `;
   const code=js(`${setup}\n${functions(['lastSourceOp','operationReason','enabled','listEnabled','button','toolbarMarkup','customToolbarMarkup','customToolbarChoices','operateImpl','operate'])}\nreturn{enabled,reason:operationReason,render:toolbarMarkup,custom:customToolbarMarkup,choices:customToolbarChoices,operate,errors:()=>errors};`);
   const model=new Function(...Object.keys(dependencies),code)(...Object.values(dependencies));

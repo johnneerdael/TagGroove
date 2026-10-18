@@ -143,11 +143,14 @@ nav:
   - Opening files: getting-started/opening-files.md
   - Editing, saving and undo: getting-started/editing-and-saving.md
   - Bring an Mp3tag setup across: getting-started/coming-from-mp3tag.md
+  - What's new: getting-started/whats-new.md
 - Learn:
+  - learn/index.md
   - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
     - Get tags from filenames: learn/tags-from-filenames.md
     - Clean up a messy library: learn/clean-a-messy-library.md
+    - Tag an album from an online database: learn/tag-from-online-sources.md
     - Give every album a cover: learn/give-every-album-a-cover.md
     - Format strings from zero: learn/format-strings-from-zero.md
     - Rename files and folders: learn/rename-files-and-folders.md
@@ -166,6 +169,7 @@ nav:
   - Customize:
     - Languages and translations: customize/languages.md
 - Guides:
+  - guides/index.md
   - Everyday editing:
     - The file list: guides/file-list.md
     - The tag panel: guides/tag-panel.md
@@ -185,6 +189,7 @@ nav:
     - freedb and gnudb: tag-sources/freedb.md
     - Local freedb database: tag-sources/local-freedb.md
   - Customization:
+    - customize/index.md
     - Save and restore configuration: customize/configuration.md
     - Toolbars: customize/toolbars.md
     - External tools: customize/tools.md
@@ -192,6 +197,7 @@ nav:
     - File-list columns: customize/columns.md
     - Tag panel: customize/tag-panel.md
 - Automate:
+  - automate/index.md
   - Converters:
     - converters/index.md
     - Tag → Filename: converters/tag-to-filename.md
@@ -230,6 +236,7 @@ nav:
     - Local XML playlists: guides/xml-playlists.md
   - Tag sources:
     - Search, review and save: tag-sources/index.md
+    - MusicBrainz: tag-sources/musicbrainz.md
     - Discogs: tag-sources/discogs.md
     - iTunes / Apple Music: tag-sources/itunes.md
     - Deezer: tag-sources/deezer.md
@@ -293,6 +300,7 @@ nav:
     - Playlist: reference/options/playlist.md
     - Tools: reference/options/tools.md
 - Cookbook:
+  - cookbook/index.md
   - Inspect your files:
     - Find missing fields: cookbook/find-missing-fields.md
     - Find missing embedded covers: cookbook/find-missing-covers.md
@@ -334,6 +342,7 @@ nav:
     - Apply a tracklist from text: cookbook/tracklist-from-text-file.md
     - Import lyrics sidecars: cookbook/lyrics-from-text-files.md
   - Exchange text reports:
+    - An HTML catalogue of your albums: cookbook/html-album-catalogue.md
     - Your library in a spreadsheet: cookbook/csv-for-spreadsheets.md
 
 - Platforms:
@@ -341,8 +350,10 @@ nav:
   - Windows: platforms/windows.md
   - Linux: platforms/linux.md
   - Android: platforms/android.md
+  - iOS and iPadOS: platforms/ios.md
 
 - Help:
   - Frequently asked questions: help/faq.md
   - Troubleshooting: help/troubleshooting.md
+  - Glossary: help/glossary.md
   - About TagGroove and this guide: help/about.md

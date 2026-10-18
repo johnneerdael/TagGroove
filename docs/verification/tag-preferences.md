@@ -8,7 +8,7 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
 
 **Settings store** (`src-tauri/src/settings.rs`). Settings are stored as `settings.json` in the app config directory with `version: 1`. Missing files load the defaults. A partial file is filled in from the defaults. A corrupt file, a file from a newer version, or a file with invalid values also loads the defaults, and the dialog explains why; the next save replaces the file. `save_settings` validates the settings, writes atomically, and runs under the file-operation lock, so a batch never sees the options change mid-run. Pages registered by other features store their values under `pages.<id>` as JSON objects, so no backend change is needed.
 
-**Explicit options in tag-core** (`crates/tag-core/src/preferences.rs`, `tag_policy.rs`). `TagOptions` is passed to `*_with_options` variants of read, scan, write, remove-tags, add/remove cover and the cover actions. tag-core has no global state. The older functions use `TagOptions::default()`, which uses the Mp3tag defaults. In the Tauri layer, every desktop command routes tag I/O through the current settings: save, remove tags, covers, reload, previews, rename, export, actions and converters.
+**Explicit options in tag-core** (`crates/tag-core/src/preferences.rs`, `tag_policy.rs`). `TagOptions` is passed to `*_with_options` variants of read, scan, write, remove-tags, add/remove cover and the cover actions. tag-core has no global state. The older functions use `TagOptions::default()`, which selects TagGroove's current defaults; original Mp3tag defaults have not been captured. In the Tauri layer, every desktop command routes tag I/O through the current settings: save, remove tags, covers, reload, previews, rename, export, actions and converters.
 
 **Mpeg (MP1/MP2/MP3)**
 - *Read:* only one tag kind is displayed. It is the highest-priority kind that is enabled and present: APE, then ID3v2, then ID3v1. Secondary tags are no longer merged in (this resolves the contradiction recorded in FEATURE-INVENTORY). `_TAG_READ` reports the displayed kind and `_TAG` still lists every kind present.
@@ -61,7 +61,7 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
   - ffmpeg-encoded MP3 for every ID3v2 format, and WavPack Ape/Mpc policies, with unchanged decoder packets
 - `preferences.rs` unit tests (2) and `settings.rs` tests (4): roundtrip, partial, corrupt and newer files, validation, extension syntax, and defaults equal to `tests/fixtures/default-settings.json`.
 - `tests/options-ui.test.mjs` (8): the same defaults fixture, page tree and registration, path storage, validation-to-page, extension parsing, control rendering and enabling, collator and title.
-- `metadata.rs` native-APE preservation now enables APEv2 writing explicitly, because the Mp3tag default removes APE from MP3s.
+- `metadata.rs` native-APE preservation enables APEv2 writing explicitly, because TagGroove's current default removes APE from MP3s. This does not establish the original application's default.
 - Totals: 109 frontend tests pass (baseline 101) and 297 Rust tests pass (baseline 279). `tsc --noEmit`, `vite build` and `cargo clippy --workspace --all-targets -D warnings` are clean.
 
 ## Known gaps and risks

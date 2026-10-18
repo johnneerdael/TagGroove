@@ -603,6 +603,27 @@ mod tests {
     }
 
     #[test]
+    fn guide_lesson_fixture_matches_the_shared_review_model_without_network() {
+        // Independently authored teaching data, never a live provider response.
+        // The frontend lesson test consumes the same expected model, so parser
+        // drift cannot silently leave its fixture disconnected from this backend.
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/guide-musicbrainz-lesson.json"
+        ))
+        .unwrap();
+        let release = parse_release(&fixture["provider_release"], CoverSize::Medium).unwrap();
+        assert_eq!(
+            serde_json::to_value(&release).unwrap(),
+            fixture["expected_release"]
+        );
+        assert_eq!(
+            serde_json::to_value(parse_covers(&fixture["provider_covers"], CoverSize::Medium))
+                .unwrap(),
+            fixture["expected_covers"]
+        );
+    }
+
+    #[test]
     fn release_maps_album_fields_track_credits_composers_and_ids() {
         let release = parse_release(&release_fixture(), CoverSize::Medium).unwrap();
         let f = |key: &str| release.fields.get(key).cloned().unwrap_or_default();

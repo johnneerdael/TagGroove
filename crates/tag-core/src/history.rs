@@ -164,13 +164,83 @@ fn retained(len: u64, linked: bool, writes: Option<Writes>) -> u64 {
 struct Fingerprint {
     len: u64,
     modified: Option<SystemTime>,
+    #[cfg(not(windows))]
     identity: Option<(u64, u64)>,
+    #[cfg(windows)]
+    identity: WindowsIdentity,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WindowsIdentity {
+    FileId128 { volume: u64, file: [u8; 16] },
+    FileIndex64 { volume: u32, file: u64 },
+}
+
+#[cfg(windows)]
+fn windows_legacy_identity(file: &fs::File) -> std::io::Result<WindowsIdentity> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    };
+
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    // SAFETY: the file owns a live handle, and info is the correctly sized writable buffer.
+    if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(WindowsIdentity::FileIndex64 {
+        volume: info.dwVolumeSerialNumber,
+        file: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+    })
+}
+
+#[cfg(windows)]
+fn windows_identity(file: &fs::File) -> std::io::Result<WindowsIdentity> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FileIdInfo, GetFileInformationByHandleEx, FILE_ID_INFO,
+    };
+
+    let mut info = FILE_ID_INFO::default();
+    // Prefer the full ID: the legacy 64-bit index is not guaranteed unique on ReFS.
+    // SAFETY: the file owns a live handle, and the buffer matches FileIdInfo's ABI.
+    if unsafe {
+        GetFileInformationByHandleEx(
+            file.as_raw_handle(),
+            FileIdInfo,
+            std::ptr::from_mut(&mut info).cast(),
+            std::mem::size_of::<FILE_ID_INFO>() as u32,
+        )
+    } != 0
+    {
+        Ok(WindowsIdentity::FileId128 {
+            volume: info.VolumeSerialNumber,
+            file: info.FileId.Identifier,
+        })
+    } else {
+        // Older/network filesystems may expose only volume + file index. If neither
+        // query works, refuse the fingerprint rather than trusting size/mtime alone.
+        windows_legacy_identity(file)
+    }
 }
 
 fn fingerprint(path: &Path) -> Result<Fingerprint, String> {
     fingerprint_diagnostic(path).map_err(|cause| cause.to_string())
 }
 fn fingerprint_diagnostic(path: &Path) -> Result<Fingerprint, ErrorCause> {
+    #[cfg(windows)]
+    let file = {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::FILE_READ_ATTRIBUTES;
+        fs::File::options()
+            .access_mode(FILE_READ_ATTRIBUTES)
+            .open(path)
+            .map_err(ErrorCause::external)?
+    };
+    #[cfg(windows)]
+    let metadata = file.metadata().map_err(ErrorCause::external)?;
+    #[cfg(not(windows))]
     let metadata = fs::metadata(path).map_err(ErrorCause::external)?;
     if !metadata.is_file() {
         return Err(ErrorCause::owned("Not a regular file"));
@@ -180,7 +250,9 @@ fn fingerprint_diagnostic(path: &Path) -> Result<Fingerprint, ErrorCause> {
         use std::os::unix::fs::MetadataExt;
         Some((metadata.dev(), metadata.ino()))
     };
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    let identity = windows_identity(&file).map_err(ErrorCause::external)?;
+    #[cfg(not(any(unix, windows)))]
     let identity = None;
     Ok(Fingerprint {
         len: metadata.len(),
@@ -471,8 +543,20 @@ impl Journal {
             let Ok(path) = dunce::canonicalize(Path::new(raw)) else {
                 continue;
             };
-            let Ok(print) = fingerprint(&path) else {
-                continue;
+            let print = match fingerprint(&path) {
+                Ok(print) => print,
+                Err(error) => {
+                    #[cfg(windows)]
+                    {
+                        capture.abandoned = Some(format!("an undo snapshot failed: {error}"));
+                        return capture;
+                    }
+                    #[cfg(not(windows))]
+                    {
+                        let _ = error;
+                        continue;
+                    }
+                }
             };
             if seen.insert(path.clone()) {
                 targets.push((raw.clone(), path, print));
@@ -1667,6 +1751,48 @@ fn discard_record(record: &Record) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn legacy_windows_identity_tracks_handles_hard_links_and_replacements() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("identity.wav");
+        fs::write(&path, b"original").unwrap();
+        let original = fs::File::open(&path).unwrap();
+        let expected = windows_legacy_identity(&original).unwrap();
+        assert_eq!(
+            windows_legacy_identity(&fs::File::open(&path).unwrap()).unwrap(),
+            expected
+        );
+        let link = dir.path().join("linked.wav");
+        fs::hard_link(&path, &link).unwrap();
+        assert_eq!(
+            windows_legacy_identity(&fs::File::open(&link).unwrap()).unwrap(),
+            expected
+        );
+        let replacement = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
+        fs::write(replacement.path(), b"external").unwrap();
+        replacement.persist(&path).unwrap();
+        assert_ne!(
+            windows_legacy_identity(&fs::File::open(&path).unwrap()).unwrap(),
+            expected
+        );
+        assert_eq!(windows_legacy_identity(&original).unwrap(), expected);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn unavailable_windows_fingerprint_reports_capture_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+        // Opening a directory without backup semantics cannot supply the audio-file
+        // fingerprint. The capture must report a failure rather than silently skip it.
+        let capture = journal.begin("Save tags", None, &[dir.path().to_string_lossy().into()]);
+        journal.commit(capture, &[], &[]);
+        let state = journal.state();
+        assert!(state.undo.is_none());
+        assert!(state.notice.unwrap().contains("an undo snapshot failed"));
+    }
 
     fn diagnostic_wav(path: &Path) {
         let samples: Vec<u8> = (0..8000)

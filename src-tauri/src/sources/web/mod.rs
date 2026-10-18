@@ -447,6 +447,21 @@ fn script_failure(
     }
 }
 
+/// Check actual parser capabilities without comparing another application's
+/// minimum-version declarations or executing a script/downloading a page.
+fn validate_scripts(file: &SourceFile) -> Result<(), String> {
+    for (block, section) in [
+        (file.index_script.as_ref(), "[ParserScriptIndex]"),
+        (file.album_script.as_ref(), "[ParserScriptAlbum]"),
+    ] {
+        if let Some(block) = block {
+            engine::Script::compile(&block.lines)
+                .map_err(|error| script_failure(block, section, error, None).to_string())?;
+        }
+    }
+    Ok(())
+}
+
 /// Run one parser script over a downloaded page.
 fn execute(
     folder: &Path,
@@ -490,6 +505,9 @@ fn execute(
 pub struct WebResult {
     pub url: String,
     pub cover: Option<String>,
+    /// Optional full-size image, distinct from the thumbnail and release page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub full_cover: Option<String>,
     pub preview: Option<String>,
     /// One value per column.
     pub values: Vec<String>,
@@ -651,7 +669,11 @@ fn index_results(file: &SourceFile, output: &str, page: &Url) -> Result<WebSearc
     let names = file.index_fields();
     let position = |name: &str| names.iter().position(|n| n.eq_ignore_ascii_case(name));
     let url_at = position("_url").ok_or("[IndexFormat] has no %_url% field")?;
-    let (cover_at, preview_at) = (position("_coverurl"), position("_preview"));
+    let (cover_at, full_cover_at, preview_at) = (
+        position("_coverurl"),
+        position("_coverfullurl"),
+        position("_preview"),
+    );
     let visible: Vec<usize> = (0..names.len())
         .filter(|&i| !names[i].is_empty() && !names[i].starts_with('_'))
         .collect();
@@ -678,6 +700,7 @@ fn index_results(file: &SourceFile, output: &str, page: &Url) -> Result<WebSearc
         results.push(WebResult {
             url: url.to_string(),
             cover: address(cover_at),
+            full_cover: address(full_cover_at),
             preview: address(preview_at),
             values: visible.iter().map(|&i| get(i).to_owned()).collect(),
         });
@@ -983,6 +1006,7 @@ pub async fn web_source_search(
         for address in [
             Some(&result.url),
             result.cover.as_ref(),
+            result.full_cover.as_ref(),
             result.preview.as_ref(),
         ]
         .into_iter()
@@ -1286,6 +1310,40 @@ mod tests {
     }
 
     #[test]
+    fn index_full_cover_stays_separate_from_thumbnail_preview_and_parser_url() {
+        let file = SourceFile {
+            album_url: "https://source.example/album/".into(),
+            index_format: "%_url%|%Title%|%_coverurl%|%_CoVeRfUlLuRl%|%_preview%".into(),
+            ..SourceFile::default()
+        };
+        let page = Url::parse("https://source.example/search").unwrap();
+        let found = index_results(
+            &file,
+            "7|Release|/thumb.jpg|/full.jpg|/release-page\n8|No full||javascript:alert(1)|\n9|Credentials||https://user:password@source.example/full.jpg|\n10|Missing|||",
+            &page,
+        )
+        .unwrap();
+        assert_eq!(found.columns, ["Title"]);
+        let serialized = serde_json::to_value(&found).unwrap();
+        assert_eq!(
+            serialized["results"][0]["full_cover"],
+            "https://source.example/full.jpg"
+        );
+        assert_eq!(
+            found.results[0].cover.as_deref(),
+            Some("https://source.example/thumb.jpg")
+        );
+        assert_eq!(
+            found.results[0].preview.as_deref(),
+            Some("https://source.example/release-page")
+        );
+        assert_eq!(found.results[0].url, "https://source.example/album/7");
+        for result in serialized["results"].as_array().unwrap().iter().skip(1) {
+            assert!(result.get("full_cover").is_none());
+        }
+    }
+
+    #[test]
     fn index_output_becomes_search_results() {
         let file = SourceFile {
             album_url: "https://shop.example/album/".into(),
@@ -1305,12 +1363,14 @@ mod tests {
                 WebResult {
                     url: "https://shop.example/album/12".into(),
                     cover: Some("https://shop.example/img/12.jpg".into()),
+                    full_cover: None,
                     preview: Some("https://shop.example/p/12".into()),
                     values: vec!["Band".into(), "One|Two".into()],
                 },
                 WebResult {
                     url: "https://other.example/a".into(),
                     cover: None,
+                    full_cover: None,
                     preview: None,
                     values: vec!["X".into(), "Y".into()],
                 },

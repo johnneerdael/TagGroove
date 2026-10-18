@@ -54,15 +54,18 @@ The customization list also offers the following built-in commands:
 
 | Task family | Other available buttons |
 | --- | --- |
-| Recover or remove | Undo, Redo, Remove tag |
-| Edit and convert | Extended tags, Filename → Filename, Text File → Tag, Tag → Tag, Quick action, Edit in file list |
+| Recover or remove | Undo, Redo, Remove tag, Remove tag types…, Strip chapters MP4… |
+| Edit and convert | Extended tags, Filename → Filename, Text File → Tag, Tag → Tag, Quick action, Edit in file list, Copy as Text… |
 | File operations | Copy files to…, Move files to…, Delete files…, Delete files permanently…, Show in folder, Play |
 | Directories | Add directory…, Upper directory, Previous directory, Next directory, Favorite directory, Favorite directories… |
-| Selection and list | Select all, Unselect all, Invert selection, Select next file, Select similar files, Select next similar files, Remove from list, Clear list, Find, Refresh |
+| Selection and list | Select all, Unselect all, Invert selection, Select next file, Select similar files, Select next similar files, Remove from list, Clear list, Find, Refresh, Unsorted (load and playlist order), Random sort |
 | Playlists and output | Playlist, Playlist (selected files), Load playlist/cue sheet…, Playlist per folder (all files), Generate playlists…, Export |
 | Sources | MusicBrainz, Discogs, Discogs Release ID, iTunes, Deezer, Last.fm, AcoustID, freedb, freedb (local), Lyrics: LRCLIB, Last tag source, Last tag source (quick) |
-| Artwork | Covers, Add cover…, Remove cover, Covers: freedb (gnudb), Covers: MusicBrainz, Covers: Discogs, Covers: iTunes, Covers: Deezer, Covers: fanart.tv |
-| Workspace | Tag panel, Filter, Options |
+| Artwork | Covers, Add cover…, Remove cover, Replace cover…, Extract cover…, Adjust cover…, Set cover description…, Cut cover, Copy cover, Paste cover, Covers: freedb (gnudb), Covers: MusicBrainz, Covers: Discogs, Covers: iTunes, Covers: Deezer, Covers: fanart.tv |
+| Workspace | Tag panel, Filter, Options, Customize columns…, Auto-size columns, Main toolbar, Customize main toolbar…, Custom toolbar, Customize custom toolbar… |
+| Utilities | Remove unsupported fields…, Optimize… |
+| Configuration | Save configuration…, Load configuration…, Open configuration folder |
+| Help | Documentation, Keyboard shortcuts, Report an issue, Check for updates…, Releases, About TagGroove |
 
 New choices are appended **hidden** to the main-toolbar configuration. Existing
 button positions, custom labels and visibility stay intact, and the default
@@ -76,6 +79,18 @@ redo step. The [menu reference](../reference/menus/index.md) and
 [action guide](../actions/index.md) explain the actual operations and their
 write timing. You do not need to show every button, and the menus stay
 available.
+
+Cover buttons use the same availability rules as the existing cover menu.
+For example, copying a displayed image, editing varied artwork and pasting
+from the clipboard have different requirements. Finish pending cover edits
+before extracting, copying or cutting. A toolbar button does not bypass
+read-only/provider restrictions or confirmation dialogs.
+
+**Random sort** changes the visible list order used by playlists and numbering;
+**Unsorted (load and playlist order)** returns to the stored load order.
+Neither re-reads a changed playlist from disk. Save intended edits before
+loading a configuration: the existing confirmation and application reload
+still apply. **Check for updates…** checks releases without installing them.
 
 ## Arrange an album-cleanup workflow
 

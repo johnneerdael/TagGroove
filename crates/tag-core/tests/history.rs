@@ -453,6 +453,49 @@ fn external_changes_are_reported_and_never_overwritten() {
 }
 
 #[test]
+fn same_size_replacements_with_preserved_mtime_are_not_overwritten_by_undo_or_redo() {
+    use std::io::Write;
+
+    for redo in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("replaced.wav");
+        wav(&path);
+        let mut history = journal(dir.path());
+        let capture = history.begin("Save tags", None, &[key(&path)]);
+        write_fields(&path, &fields(&[("TITLE", &["Ours"])])).unwrap();
+        history.commit(capture, &[], &[]);
+        if redo {
+            assert!(history.undo().unwrap().errors.is_empty());
+        }
+
+        let before = fs::metadata(&path).unwrap();
+        let mut external = fs::read(&path).unwrap();
+        // Change an audio sample without changing the format or file length.
+        external[44] ^= 1;
+        let mut replacement = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
+        replacement.write_all(&external).unwrap();
+        replacement
+            .as_file()
+            .set_modified(before.modified().unwrap())
+            .unwrap();
+        replacement.persist(&path).unwrap();
+        let after = fs::metadata(&path).unwrap();
+        assert_eq!(after.len(), before.len());
+        assert_eq!(after.modified().unwrap(), before.modified().unwrap());
+
+        let replay = if redo {
+            history.redo().unwrap()
+        } else {
+            history.undo().unwrap()
+        };
+        assert_eq!(replay.errors.len(), 1, "redo={redo}");
+        assert!(replay.errors[0].error.contains("Changed outside TagGroove"));
+        assert_eq!(fs::read(&path).unwrap(), external, "redo={redo}");
+        assert!(history.state().undo.is_none() && history.state().redo.is_none());
+    }
+}
+
+#[test]
 fn side_files_created_or_replaced_are_removed_or_restored() {
     let dir = tempfile::tempdir().unwrap();
     let audio = dir.path().join("track.wav");

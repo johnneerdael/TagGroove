@@ -49,7 +49,7 @@ import { FileOpsUI, fileShortcut, startupChoice, startupOptionsPage, type FileOp
 import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, playlistValues, type PlaylistPlan } from './playlist-ui';
 import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
-import { imageExtensions, type CoverInfo } from './cover-model';
+import { imageExtensions, type CoverInfo, type CoverCommand } from './cover-model';
 import { chapterRowReason, replaceFileRows, rowFile } from './chapters';
 import { libraryOptionsPage, type CleanupReport, type LibraryStatus } from './library';
 import logoLightUrl from '../assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light.svg';
@@ -98,8 +98,10 @@ type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string;associated?:{from:string;to:string}[]};
 // A file whose name does not match the pattern has no fields and is left unchanged.
 type FilenamePreview = { path: string; fields: Fields|null; error?: string };
-type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-itunes'|'source-deezer'|'source-lastfm'|'source-acoustid'|'source-lrclib'|'source-cover-itunes'|'source-cover-deezer'|'source-cover-fanart'|'source-keys'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'profile-import'|'profile-restore'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|ListOperation|FileOperation;
+type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-itunes'|'source-deezer'|'source-lastfm'|'source-acoustid'|'source-lrclib'|'source-cover-itunes'|'source-cover-deezer'|'source-cover-fanart'|'source-keys'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'profile-import'|'profile-restore'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|CoverOperation|ListOperation|FileOperation;
 type UtilOperation='util-unsupported'|'util-optimize';
+type CoverOperation='cover-replace'|'cover-extract'|'cover-adjust'|'cover-description'|'cover-cut'|'cover-copy'|'cover-paste';
+const coverOperations:Record<CoverOperation,CoverCommand>={'cover-replace':'replace','cover-extract':'extract','cover-adjust':'adjust','cover-description':'description','cover-cut':'cut','cover-copy':'copy','cover-paste':'paste'};
 const utilOperations:Record<UtilOperation,Util>={'util-unsupported':'remove_unsupported_fields','util-optimize':'optimize'};
 const tagSourceOperations:Operation[]=['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-freedb','source-cover-musicbrainz','source-cover-discogs','source-itunes','source-deezer','source-lastfm','source-acoustid','source-lrclib','source-cover-itunes','source-cover-deezer','source-cover-fanart','source-last','source-last-quick'];
 type ListOperation='unselect-all'|'invert-selection'|'select-next'|'select-similar'|'select-next-similar'|'remove-from-list'|'clear-list'|'refresh'|'find'|'edit-cell'|'columns'|'autosize-columns'|'shuffle-list';
@@ -867,6 +869,9 @@ function updateVirtualRows(force=false){
   timing('table window',startTime,{rendered:end-start,first:start,last:end});
 }
 function operationReason(op:Operation):string {
+  // Cover aliases share the cover window's edit policy; reading a saved cover
+  // remains possible when tag edits or source write access prevent mutations.
+  if(op in coverOperations)return op==='cover-copy'||op==='cover-extract'?'':operationReason('add-cover');
   const policy=sourcePolicy();
   if((op==='folder'||op==='playlist-load'||op.startsWith('dir-'))&&!runtimePlatform.folder_picker_supported)return 'Folder access is not available here. Use Add files.';
   if(op.startsWith('file-')&&runtimePlatform.family!=='desktop')return 'File operations are available in the desktop app.';
@@ -888,6 +893,7 @@ function enabled(op: Operation): boolean {
   if (op === 'about' || op === 'toggle-panel' || op === 'help-shortcuts' || op === 'toggle-filter' || op === 'toggle-toolbar' || op === 'toolbar-customize' || op === 'toggle-custom-toolbar' || op === 'custom-toolbar-customize') return true;
   if (op === 'source-last' || op === 'source-last-quick') return enabled(lastSourceOp(op==='source-last-quick'));
   if (busy) return false;
+  if(op in coverOperations)return coverUI.canRun(coverOperations[op as CoverOperation]);
   if (op === 'select-all') return visible().length > 0;
   if (op === 'discard') return dirtySelected();
   if (listOperations.includes(op)) return listEnabled(op);
@@ -1933,6 +1939,7 @@ async function operateImpl(op: Operation) {
   if(op==='field-values'){tagPanel.fieldValues();return;}
   if(op==='panel-defaults'){tagPanel.applyDefaults();return;}
   if(op==='add-cover'||op==='remove-cover'||op==='cover-manage'){await coverUI.run(op==='add-cover'?'add':op==='remove-cover'?'remove':'manage');return;}
+  if(op in coverOperations){await coverUI.run(coverOperations[op as CoverOperation]);return;}
   if(op==='remove-tags'){if(await messages.confirm('confirm_remove_tags',{parts:removeTagParts(selected.size,optionsUI.settings.tags),separator:'\n'},'Remove tag'))await mutate('remove_tags',{},'Removed tags');return;}
   if(op==='strip-mp4-chapters'){const found=mp4ChapterFiles(selectedFiles());if(await messages.confirm('confirm_remove_tags',stripChaptersPrompt(found),'Strip chapters MP4'))await mutate('strip_mp4_chapters',{},'Stripped MP4 chapters');return;}
   if(op==='remove-tag-types'){removeTagTypesDialog({modal,modalError,tags:()=>paths().map(path=>entries.get(path)?.technical?._TAG?.[0]),remove:async kinds=>{await mutate('remove_tag_types',{kinds:kinds as RemovableTag[]},'Removed tag types');}});return;}

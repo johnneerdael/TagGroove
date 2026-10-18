@@ -22,7 +22,7 @@ const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.S
 const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','pendingCoverInfos','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice','flushNotices','spliceRows','sourcePolicy','operationReason','enabled','stageTagUpdates','clipTags']);
 const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).find(declaration=>declaration.name.getText(parsed)==='merged');
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
-const declarationNames=new Set(['clipTargets','coverTargets','utilOperations','tagSourceOperations','listOperations']);
+const declarationNames=new Set(['clipTargets','coverTargets','coverOperations','utilOperations','tagSourceOperations','listOperations']);
 const declarations=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).filter(declaration=>declarationNames.has(declaration.name.getText(parsed))).map(declaration=>`const ${declaration.getText(parsed)};`).join('\n');
 // Run the actual recovery-startup callback, including its ordering relative to
 // accept() and working-copy reconciliation, without launching the application.

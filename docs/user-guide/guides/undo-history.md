@@ -125,6 +125,13 @@ These guards do not establish universal detection of every external change,
 filesystem alias or concurrent writer. Avoid editing the same files in two
 applications during a recovery attempt.
 
+On Windows, history also checks that a file has not been replaced by another
+file with the same size and modification date. If it cannot obtain the
+information needed for a safe snapshot, the operation can succeed without
+being recorded for Undo; read the **cannot be undone** notice. Editing the
+same file in place and restoring its size and date can still evade change
+detection. Keep an independent backup even when Undo is available.
+
 A failed or canceled batch is not automatically rolled back. Completed writes
 can remain, while files never processed can retain pending edits. Inspect
 per-file errors and the current Undo label. Undo is a subsequent recovery

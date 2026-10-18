@@ -427,6 +427,7 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
             "src" => {
                 let file = load(checked, name)
                     .map_err(|e| format!("{name}: {e}. Choose the complete bundle."))?;
+                super::validate_scripts(&file)?;
                 if let Some(settings) = file.settings {
                     schema(checked, &settings)
                         .map_err(|e| format!("{name}: [Settings]={settings}: {e}"))?;
@@ -446,6 +447,7 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
     // without making an unrelated old broken source block every new install.
     let validate_source = |root: &Path, name: &str| -> Result<(), String> {
         let source = load(root, name)?;
+        super::validate_scripts(&source)?;
         if let Some(settings) = source.settings {
             schema(root, &settings)?;
         }
@@ -518,6 +520,133 @@ mod tests {
             writer.write_all(text.as_bytes()).unwrap();
         }
         writer.finish().unwrap();
+    }
+
+    fn snapshot(folder: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+        fn collect(root: &Path, folder: &Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
+            for entry in std::fs::read_dir(folder).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    collect(root, &path, files);
+                } else {
+                    files.insert(
+                        path.strip_prefix(root).unwrap().into(),
+                        std::fs::read(path).unwrap(),
+                    );
+                }
+            }
+        }
+        let mut files = BTreeMap::new();
+        collect(folder, folder, &mut files);
+        files
+    }
+
+    #[test]
+    fn capability_preflight_rejects_parser_errors_before_replacing_sources_or_backup() {
+        for (section, command, reason) in [
+            (
+                "ParserScriptIndex",
+                "FutureCommand \"x\"",
+                "not a known command",
+            ),
+            (
+                "ParserScriptAlbum",
+                "FutureCommand \"x\"",
+                "not a known command",
+            ),
+            ("ParserScriptAlbum", "If \"x\"", "no Endif"),
+            (
+                "ParserScriptAlbum",
+                "SayRest unexpected",
+                "takes 0 parameters",
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let bundle = dir.path().join("download");
+            let target = dir.path().join("sources");
+            collection(&bundle);
+            install(&target, &selected(&bundle)).unwrap();
+            std::fs::write(
+                target.join("settings.json"),
+                r#"{"example":{"language":"de"}}"#,
+            )
+            .unwrap();
+            install(&target, &selected(&bundle)).unwrap();
+            let backup = target.parent().unwrap().join(BACKUP);
+            let before = snapshot(&target);
+            let previous = snapshot(&backup);
+            let script = if section == "ParserScriptIndex" {
+                format!("[IndexUrl]=https://example.invalid/%s\n[{section}]=...\n{command}\n[ParserScriptAlbum]=...\nSayRest\n")
+            } else {
+                format!("[MinAppVersionWin]=1.0\n[{section}]=...\n{command}\n")
+            };
+            std::fs::write(bundle.join("Common.inc"), script).unwrap();
+            let error = install(&target, &selected(&bundle)).unwrap_err();
+            assert!(
+                error.contains(&format!("Common.inc [{section}] line 3 ({command})")),
+                "{error}"
+            );
+            assert!(error.contains(reason), "{error}");
+            assert_eq!(snapshot(&target), before);
+            assert_eq!(snapshot(&backup), previous);
+        }
+    }
+
+    #[test]
+    fn capability_preflight_rejects_an_include_update_that_breaks_a_working_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        install(&target, &selected(&bundle)).unwrap();
+        let before = snapshot(&target);
+        std::fs::write(
+            bundle.join("Common.inc"),
+            INCLUDE.replace("SayRest", "FutureCommand"),
+        )
+        .unwrap();
+        let error = install(&target, &selected(&bundle.join("Common.inc"))).unwrap_err();
+        assert!(error.contains("Shop#&Album.src"), "{error}");
+        assert!(
+            error.contains("Common.inc [ParserScriptAlbum] line 3 (FutureCommand)"),
+            "{error}"
+        );
+        assert_eq!(snapshot(&target), before);
+    }
+
+    #[test]
+    fn capability_preflight_accepts_supported_scripts_with_unrelated_minimum_versions() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        std::fs::write(
+            bundle.join("Common.inc"),
+            format!("[MinAppVersionWin]=999.0\n[MinAppVersionMac]=999.0\n{INCLUDE}"),
+        )
+        .unwrap();
+        install(&target, &selected(&bundle)).unwrap();
+        let source = load(&target, "Shop#&Album.src").unwrap();
+        assert_eq!(source.min_app_version_win, "999.0");
+        assert_eq!(source.min_app_version_mac, "999.0");
+        assert_eq!(super::super::list(&target).sources.len(), 1);
+    }
+
+    #[test]
+    fn capability_preflight_keeps_existing_incompatible_sources_without_blocking_an_install() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        std::fs::create_dir_all(&target).unwrap();
+        let old = "[AlbumUrl]=https://example.invalid/%s\n[ParserScriptAlbum]=...\nFutureCommand\n";
+        std::fs::write(target.join("Old.src"), old).unwrap();
+        install(&target, &selected(&bundle)).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(target.join("Old.src")).unwrap(),
+            old
+        );
+        assert!(target.join("Shop#&Album.src").is_file());
     }
     #[test]
     fn folder_updates_preserve_values_other_files_and_previous_complete_install() {

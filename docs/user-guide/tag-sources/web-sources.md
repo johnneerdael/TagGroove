@@ -18,9 +18,10 @@ the right edition or track mapping for your selected files.
    access. Choose **Folder…** for an unpacked download, or **Files or ZIP…**
    for a ZIP archive or a selection of all companion files.
 3. Read the installation result. Missing includes, missing/invalid settings
-   schemas and invalid source headers stop the entire update before replacement.
+   schemas, invalid source headers and unsupported or malformed parser commands
+   stop the entire update before replacement.
 4. Open **Tag Sources** and choose the installed entry. Installation checks
-   dependencies and schemas; a real lookup must still qualify the parser and
+   dependencies, schemas and parser command support; a real lookup must still qualify the parser and
    provider response.
 
 The installer accepts Unicode-named local source files up to 4 MB each, ZIPs
@@ -90,6 +91,12 @@ row. A thumbnail can help identify an edition, but it is not a match guarantee.
 A preview address can open more release information. A direct source instead
 uses the entered identifier to reach the album page.
 
+When a result supplies a full-size image address, **Full cover** opens that
+image in your browser. It is separate from the small result thumbnail and
+the **Preview** page. Opening it does not write artwork to your audio files
+or choose a different release; continue with **Next** to review the source's
+proposed tags and artwork.
+
 At review, check proposed fields, enabled states, artwork and the mapping
 between local files and source tracks. A parser's track order is not a promise
 that automatic matching or ordering suggestions preserved the intended local
@@ -148,6 +155,12 @@ A third-party source can rely on headers, parser details or remote behavior
 that differs in TagGroove. Minimum-version declarations written for another
 application do not certify TagGroove compatibility. Check the actual command
 reference and test a small copied selection.
+
+Installation checks the supported parser commands rather than comparing that
+declaration with TagGroove's unrelated version number. A higher declared
+minimum can still install when its commands are supported. Unsupported commands
+are refused even when a source declares an older minimum. Include-file updates
+also check dependent sources before replacing the active collection.
 
 Keep unsupported headers and matching assumptions visible while adapting a
 source. In particular, do not infer ordering guarantees or duration-matching

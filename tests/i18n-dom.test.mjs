@@ -1381,6 +1381,43 @@ test('source dialogs keep authored accessible names through search and review wh
     }finally{p.close();}
   }
 });
+test('web-source full-cover action stays separate from thumbnail, index preview and parser Next',async()=>{
+  const p=page();try{
+    const calls=[],url='https://source.example/album/7',thumb='https://source.example/thumb.jpg',full='https://source.example/full.jpg',preview='https://source.example/release-page';
+    const ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async()=>{throw new Error('preview must not apply tags');},invoke:async(command,args)=>{
+      calls.push([command,args]);
+      if(command==='web_source_search')return{direct:false,columns:['Title'],results:[{url,cover:thumb,full_cover:full,preview,values:['Release']}]};
+      if(command==='tag_source_image')return'data:image/png;base64,AA==';
+      if(command==='tag_source_open_page')return;
+      if(command==='web_source_release')return{provider:'web',id:'7',url,artist:'Artist',title:'Release',fields:{},tracks:[],covers:[],more_covers:false};
+      throw new Error(command);
+    }});
+    await ui.open('web',{web:{id:'fixture.src',name:'Fixture',search_by:[]}});
+    const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await p.window.happyDOM.waitUntilComplete();
+    const fullButton=dialog.querySelector('.ts-full-cover');assert.ok(fullButton);assert.equal(fullButton.textContent,'Full cover');
+    assert.deepEqual(calls.filter(([command])=>command==='tag_source_image').map(([,args])=>args.url),[thumb]);
+    assert.equal(calls.filter(([command])=>command==='tag_source_open_page'||command==='web_source_release').length,0);
+    fullButton.click();await p.window.happyDOM.waitUntilComplete();
+    dialog.querySelector('.ts-preview:not(.ts-full-cover)').click();await p.window.happyDOM.waitUntilComplete();
+    assert.deepEqual(calls.filter(([command])=>command==='tag_source_open_page').map(([,args])=>args.url),[full,preview]);
+    dialog.querySelector('#ts-next').click();await p.window.happyDOM.waitUntilComplete();
+    assert.deepEqual(calls.filter(([command])=>command==='web_source_release').map(([,args])=>args.url),[url]);
+  }finally{p.close();}
+});
+test('web-source missing or invalid full-cover addresses leave the action hidden',async()=>{
+  for(const full_cover of [undefined,null,'','javascript:alert(1)','https://user:password@source.example/full.jpg','file:///tmp/full.jpg']){
+    const p=page();try{
+      const ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',invoke:async command=>{
+        if(command==='web_source_search')return{direct:false,columns:['Title'],results:[{url:'https://source.example/album/7',cover:null,full_cover,preview:null,values:['Release']}]};
+        throw new Error(command);
+      }});
+      await ui.open('web',{web:{id:'fixture.src',name:'Fixture',search_by:[]}});
+      const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await p.window.happyDOM.waitUntilComplete();
+      assert.equal(dialog.querySelector('.ts-full-cover'),null);
+      assert.equal(dialog.querySelector('#ts-next').disabled,false);
+    }finally{p.close();}
+  }
+});
 test('scalar web-source TITLE reaches review and applies to the selected files through the existing album-wide fallback',async()=>{
   for(const count of [1,2]){
     const p=page();try{
@@ -1429,7 +1466,7 @@ test('web-source result headers and search labels remain authored while applicat
         assert.equal(p.body.querySelector('#ts-more').textContent,t.t('More results'));
       }
       for(const web of [false,true]){
-        const chosen=rendererVariable(tagSourceParsed,'chosenMarkup',{results,chosen:0,web,provider:'musicbrainz',freedb:false,html:esc,preview:()=>'<button class="ts-preview">Preview</button>'});
+        const chosen=rendererVariable(tagSourceParsed,'chosenMarkup',{results,chosen:0,web,webRows:[],provider:'musicbrainz',freedb:false,html:esc,preview:()=>'<button class="ts-preview">Preview</button>',fullCoverPreview:()=>''});
         p.body.innerHTML=chosen();p.translate(locale,catalog);
         assert.equal(p.body.querySelector('.ts-url > span[translate="no"]').textContent,'Help');
         assert.equal(p.body.querySelector('.ts-preview').textContent,t.t('Preview'));
