@@ -6,7 +6,22 @@ already exist in `crates/tag-core/src/ape_footer.rs` and were described in
 [the later format verification](formats-gaps.md). This documentation change
 removes that stale implementation gap; it changes no reader or writer.
 
-## Evidence checked on 2026-10-18
+## Current-main qualification
+
+This documentation branch includes approved main through merged PR #56,
+`50d0855dfc3c6e33029d66c5cfb7a9a3cad6311e`. On 18 October 2026, both
+commands below were rerun against that integrated source: all three selected
+APE regressions and all five selected real-encoder checks passed. FFmpeg and
+ffprobe 9.0.2 (libavformat 63.1.102) were available and actually executed;
+no missing-tool skip branch ran.
+
+The APE reader and the four cited test-source files are byte-identical to the
+historical `c1375a6` checkpoint. These current local checks support the bounded
+implementation claims, while the earlier receipts below remain historical.
+Protected final-head validation and clean GitHub Codex code review are separate
+merge requirements. No original Mp3tag executable or device was exercised.
+
+## Historical source inspection on 2026-10-18
 
 The inspected source is PR #47 branding head
 `864b1448f7c3e4ea95a16aa9f5da51ea7e25a08c`. Its APE implementation and
@@ -56,9 +71,13 @@ open in the roadmap.
 
 ## Qualification still required
 
-These are synthetic regression fixtures, not original-Mp3tag captures or
-real-encoder format certification. They do not establish equivalent original
+The three APE checks use synthetic regression carriers; the five encoder
+checks use independently generated encoded files. Neither is original-Mp3tag
+capture evidence or whole-format certification. They do not establish equivalent original
 save defaults, tag ordering, malformed-file handling, or every APE layout.
 The ledger retains reference-file qualification and tag-kind policy gaps.
 No original executable was run, no whole format area is marked complete,
-and PR #47's merge hold remains in effect.
+and this report does not certify a published release or original-runtime parity.
+PR #47's branding hold is historical: it merged before this reconciliation.
+This documentation follows the repository's clean final-head Codex CODE review
+and current-main protected validation requirements before merge.
