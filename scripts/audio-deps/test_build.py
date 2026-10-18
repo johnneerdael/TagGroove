@@ -48,6 +48,28 @@ class SourceSafetyTests(unittest.TestCase):
         self.build = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.build)
 
+    def test_apple_device_and_simulator_use_their_own_sdk_and_platform_flags(self):
+        self.assertIn("aarch64-apple-ios", self.build.TARGETS)
+        for target, sdk, flag in [
+            ("aarch64-apple-ios", "iphoneos", "-target arm64-apple-ios13.0"),
+            ("aarch64-apple-ios-sim", "iphonesimulator", "-target arm64-apple-ios13.0-simulator"),
+            ("aarch64-apple-darwin", "macosx", "-mmacosx-version-min=11.0"),
+        ]:
+            def xcrun(command, **kwargs):
+                self.assertEqual(command[0], "xcrun")
+                requested = command[2]
+                return (f"/sdk/{requested}\n" if command[-1] == "--show-sdk-path" else "/toolchain/clang\n")
+            with self.subTest(target=target), mock.patch.object(self.build.subprocess, "check_output", side_effect=xcrun):
+                cmake, ffmpeg, _, _ = self.build.target_tools(target, {})
+                self.assertIn("-DCMAKE_OSX_SYSROOT=/sdk/" + sdk, cmake)
+                self.assertIn("--cc=/toolchain/clang", ffmpeg)
+                cflags = next(arg for arg in ffmpeg if arg.startswith("--extra-cflags="))
+                self.assertIn(flag, cflags)
+                if sdk != "macosx":
+                    self.assertIn("-DCMAKE_SYSTEM_NAME=iOS", cmake)
+                    self.assertIn("--enable-cross-compile", ffmpeg)
+                    self.assertNotIn("-mmacosx-version-min", cflags)
+
     def test_tampered_source_is_rejected_before_extraction(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "source.tar.gz"
