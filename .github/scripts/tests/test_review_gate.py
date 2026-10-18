@@ -456,20 +456,20 @@ class WorkflowTrustTests(unittest.TestCase):
         self.assertNotIn('secrets.', source)
         self.assertNotIn('rust-cache', source)
         self.assertNotIn('cache:', source)
-        for job in ['tooling', 'desktop', 'native-e2e', 'android', 'docs']:
-            block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
-            self.assertIn('needs: authorize', block)
+        for job in ['tooling', 'desktop', 'android', 'docs']:
+            block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
+            self.assertIn('needs: [authorize, tooling]' if job in {'desktop', 'android'} else 'needs: authorize', block)
             self.assertIn("if: needs.authorize.outputs.ready == 'true'", block)
             self.assertIn('ref: ${{ inputs.merge_sha }}', block)
             self.assertIn('persist-credentials: false', block)
 
     def test_native_desktop_jobs_install_their_toolchains_before_building(self):
         import re
-        for workflow, jobs in [('_reviewed-build.yml', ('desktop', 'native-e2e')), ('reviewed-release.yml', ('desktop',))]:
+        for workflow, jobs in [('_reviewed-build.yml', ('desktop',)), ('reviewed-release.yml', ('desktop',))]:
             source = (ROOT.parent / 'workflows' / workflow).read_text()
             for job in jobs:
                 with self.subTest(workflow=workflow, job=job):
-                    block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
+                    block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
                     before_build = re.split(r'run: cargo |npx tauri build|run: npm run tauri --', block, maxsplit=1)[0]
                     self.assertIn("python-version: '3.12'", before_build)
                     steps = re.split(r'^      - ', before_build, flags=re.M)
@@ -486,7 +486,7 @@ class WorkflowTrustTests(unittest.TestCase):
                     binding = selected('steps.msys2.outputs.msys2-location', "if: runner.os == 'Windows'")
                     for required in ("'usr/bin/bash.exe'", "'usr/bin/make.exe'", 'OPENTAG_MSYS2=$env:MSYS2_LOCATION', '$env:GITHUB_ENV'):
                         self.assertIn(required, binding)
-                    windows = selected('choco install ffmpeg nasm', "if: runner.os == 'Windows'")
+                    windows = selected('choco install nasm' if workflow == 'reviewed-release.yml' else 'choco install ffmpeg nasm', "if: runner.os == 'Windows'")
                     for required in ('shell: pwsh', '$LASTEXITCODE', "'nasm.exe'", '$env:GITHUB_PATH'):
                         self.assertIn(required, windows)
                     # The retried install can leave a failing Chocolatey code behind a recovered fallback.
@@ -503,7 +503,7 @@ class WorkflowTrustTests(unittest.TestCase):
         for workflow, job in [('_reviewed-build.yml', 'android'), ('reviewed-release.yml', 'android'), ('reviewed-release.yml', 'ios')]:
             with self.subTest(workflow=workflow, job=job):
                 source = (ROOT.parent / 'workflows' / workflow).read_text()
-                block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
+                block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
                 before_build = block.split('npm run tauri --')[0]
                 self.assertIn("python-version: '3.12'", before_build)
                 self.assertIn('cmake', before_build)
@@ -518,7 +518,7 @@ class WorkflowTrustTests(unittest.TestCase):
     def test_documentation_is_checked_only_after_review_when_present(self):
         import re
         source = (ROOT.parent / 'workflows/_reviewed-build.yml').read_text()
-        block = re.search(r'^  docs:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
+        block = re.search(r'^  docs:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
         self.assertEqual(block.count("if: hashFiles('mkdocs.yml') != ''"), 5)
         self.assertIn("python-version: '3.12'", block)
         for command in ['python -m pip install -r docs/site-requirements.txt',

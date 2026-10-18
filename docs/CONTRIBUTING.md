@@ -40,6 +40,14 @@ Put test commands, measured results, coverage gaps and review evidence in `## Va
 
 The release publisher collects each merged PR's public notes since the previous published release, including intervening docs-only merges. It excludes draft/unpublished tags and fails on unavailable metadata or missing newly required notes. Historical PRs at or before `.github/release-notes-baseline` retain their sanitized descriptions; later merges require the dedicated section. Tests, badges and agent transcripts belong outside that section. See [RELEASING.md](RELEASING.md) for artifact and publication safeguards.
 
+## Lean validation and main-build repairs
+
+After the exact-head Codex gate, run frontend/tooling checks once before expensive native work. Each desktop runner shares its checkout and build directory for formatting, Rust tests, Clippy, the debug app and native UI suites. Android integration and strict documentation checks remain required. PR validation does not create a second set of release packages.
+
+Main release jobs package the already validated source for all required targets, then verify signatures, versions, native provenance, complete corresponding source and checksums before publication. They do not repeat frontend unit tests, Rust unit tests or linting. Keep PR execution free of signing secrets, checkout credentials and shared caches.
+
+Owner-authorized repairs for failed builds on main go directly to main. Retain the failing run and diagnosis, run the appropriate checks, and push with a lease on the inspected main head. Do not rewrite unrelated history or claim a clean PR review for a repair commit that has no such review. Publication still requires the trusted release authorization and artifact/source checks; direct-main workflow repairs do not themselves authorize a new application release.
+
 ## Validation
 
 For application work, run `npm test` and `npm run build`, plus the relevant native UI/platform suites. For CI and release-tooling changes, also run:
