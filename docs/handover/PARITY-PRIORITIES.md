@@ -1,12 +1,13 @@
 # Remaining parity: user impact and priority
 
-Planning snapshot: 2026-10-19, frozen PR64 with L67 now represented by
+Planning snapshot refreshed 2026-10-20, after merged PR64 with L67 represented by
 [C62](../research/remaining-gaps.md#c62). This table covers all **49 current intake
 IDs**, assigned to later PRs. It is not a feature count, parity percentage,
-claim of a defect, or completion certificate. Review/CI/merge remain pending.
+claim of a defect, or completion certificate. PR64 review, CI and merge are recorded in the [integration evidence](../research/remaining-gaps.md#pr64-integration-evidence).
 
 The owner changed the sequence: **finish L67, freeze and merge PR64 after its
-required review/CI, then use a new PR for further ledger implementation**.
+required review/CI, then use a new PR for further ledger implementation**. PR64
+has merged; the remaining local implementation now follows this priority table.
 The current [intake](../PARITY.md), [scope/evidence companion](../research/remaining-gaps.md)
 and [OS handover](PARITY-OTHER-MACHINES.md) remain authoritative. Implemented work
 must not be rebuilt because an original/native qualification is still open.
@@ -138,10 +139,10 @@ The represented implementation records also retain bounded local acceptance:
 
 | Scope | Priority | Concrete local check, not new feature implementation |
 | --- | --- | --- |
-| [C47](../research/remaining-gaps.md#c47) | P1 | Running-app CLI replacement/add, pending edits and queued launch order via the documented bundle executable. |
+| [C47](../research/remaining-gaps.md#c47) | P1 | [Historical native replacement/add, relative-path and pending-edit cases](../verification/native-workspace-acceptance-2026-10-19.md) retain their original pins. Replay on current merged loading/restoration paths, queued arrivals during workspace restoration and the separately documented forced-new-process route remain local acceptance. |
 | [C57](../research/remaining-gaps.md#c57) | P2 | Native editor/action-file/export/save journeys for the implemented canonical action schemas; Windows original re-import remains separate. |
-| [C58](../research/remaining-gaps.md#c58) | P2 | Four toolbar arrangements with filter docks, compact geometry, actual keyboard/pointer and accessibility. |
-| [C59](../research/remaining-gaps.md#c59) | P1 | Ordinary saved-only close/restart, exact row order, launch precedence and storage-failure recovery. |
+| [C58](../research/remaining-gaps.md#c58) | P2 | [Historical native toolbar/filter/compact cases](../verification/native-workspace-acceptance-2026-10-19.md) qualify only the pinned older builds. VoiceOver, broader keyboard/IME/accessibility and the retained AX/AppKit menu case remain; no latest-build native toolbar proof is claimed. |
+| [C59](../research/remaining-gaps.md#c59) | P1 | [Historical native restarts, exact rows, explicit launches and missing/corrupt recovery](../verification/native-workspace-acceptance-2026-10-19.md) retain their original pins. The [focused merged-source replay](../verification/native-workspace-acceptance-2026-10-19.md#focused-merged-source-replay) qualifies suffixed-directory Refresh and manual/playlist-source-order normal restarts only. Column mode, CUE/chapters, missing/corrupt recovery, quota retry and queued arrivals remain pending. |
 | [C60](../research/remaining-gaps.md#c60) | P2 | Actual Mac region/custom-pattern/timezone changes update loaded rows without damaging drafts. |
 | [C61](../research/remaining-gaps.md#c61) | P1 | Bounded native Mac concealed-edit replay refusals pass; broader corruption notices and physical input remain qualification. |
 

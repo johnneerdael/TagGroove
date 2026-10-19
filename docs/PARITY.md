@@ -1,10 +1,10 @@
 # Mp3tag 3.36.1: uncovered parity work
 
-For the next work sequence, use the [user-impact, effort and environment table](handover/PARITY-PRIORITIES.md). Merge the frozen PR64 first; remaining implementation belongs in a new PR, selected by importance.
+For the next work sequence, use the [user-impact, effort and environment table](handover/PARITY-PRIORITIES.md). PR64 has merged; remaining implementation belongs in small new PRs, selected by importance.
 
 This is the single actionable **uncovered** list: missing behavior and unresolved semantic research for which the inspected open or merged PRs provide no covering implementation. Outstanding verification of implemented behavior belongs in the [qualification register](research/remaining-gaps.md#qualification-of-implemented-scopes), outside this intake. Represented work is excluded even while its PR is open; exclusion is not a completion claim. The [coverage companion](research/remaining-gaps.md) records delivered work, inspected PR scopes, historical row IDs, evidence and intentional limits. The [feature inventory](FEATURE-INVENTORY.md) retains the full acceptance contract.
 
-Reference: Windows x64 Mp3tag 3.36.1, executable SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Inspected merged application baseline: `main` `bb1c1ecb77c1fed424f054c88cedd55ed11cd069`, after PR63. PRs49–63 are merged; [consolidated PR64](https://github.com/johnneerdael/TagGroove/pull/64) is open and ready for review. Intake refreshed **2026-10-19**.
+Reference: Windows x64 Mp3tag 3.36.1, executable SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Inspected merged application baseline: `main` `e4017801dd923b65e1e5e2fc0ece58706374b60d`, after [PR64](https://github.com/johnneerdael/TagGroove/pull/64), merged 2026-10-19T22:53:18Z. PRs49–64 are merged. Intake refreshed **2026-10-20**. The exact reviewed head and successful pre-merge validation are recorded in the [integration evidence](research/remaining-gaps.md#pr64-integration-evidence). Packaging, publication and native acceptance remain separate claims.
 
 The [implementation checkpoint table](research/remaining-gaps.md#pr64-implementation-checkpoints) identifies the exact commits and bounded evidence behind represented work. Planned checklists, local checks and an open PR do not establish delivery or original/native acceptance. See the [coverage and refresh rules](research/remaining-gaps.md#refresh-and-evidence-rules).
 
@@ -25,9 +25,18 @@ implemented behaviors have left active intake. See the [local closeout evidence]
 and [OS/device handover register](handover/PARITY-OTHER-MACHINES.md).
 
 C58–C60 represent accessible toolbar-band placement, ordinary saved-only list
-restart and loaded-row regional-date refresh. Their native macOS journeys are
-still locally executable and pending; Windows/Linux and original acceptance
-remain separate. See the [daily-workflow receipt](verification/daily-workflows-2026-10-19.md).
+restart and loaded-row regional-date refresh. The [native workspace receipt](verification/native-workspace-acceptance-2026-10-19.md)
+retains historical Mac toolbar/filter, bounded compact, exact-row/restart,
+missing/corrupt-input recovery and explicit running-app command-line cases at
+their original source/executable pins. Final PR64 changed loading and workspace
+serialization/restoration through root classification after those runs. The [focused merged-source replay](verification/native-workspace-acceptance-2026-10-19.md#focused-merged-source-replay) records suffixed-directory Refresh and manual/playlist-source-order
+normal restarts only. Current running-instance CLI, column mode, CUE/chapter
+identities, missing/corrupt recovery, quota retry and queued arrivals remain pending.
+C58 evidence is limited to the older builds; broader native input and live C60
+OS transitions remain local work. Windows/Linux and original
+acceptance remain separate; use the [OS procedures](handover/PARITY-VERIFICATION-PROCEDURES.md).
+The [implementation receipt](verification/daily-workflows-2026-10-19.md) retains
+its original source-bound controls and limits.
 
 C57 covers the canonical native action-file schemas and bounded source-preserving
 export compatibility. Original generated-file/readback and native acceptance remain
@@ -36,6 +45,10 @@ with [its implementation record](research/remaining-gaps.md#c57).
 C47 also covers the implemented and documented direct-executable route for
 arguments sent to a running macOS app. Historical L69 now retains only actual
 macOS runtime qualification under that record; it is not missing launch code.
+The native receipt above retains historical explicit replace/add, relative paths
+with spaces and pending-edit decisions. Replay against the current merged
+loading/restoration paths, queued arrival during restoration and the separately
+documented forced-new-process route remain unqualified.
 
 C61 covers full-content history and staged-write checks, including concealed external edits and corrupted snapshots. A bounded native Mac Save/Undo/Redo journey passes; broader native/Windows qualifications remain under [the represented scope](research/remaining-gaps.md#c61). C62 now covers persistent history, interruption recovery and verified-copy export; see [the durable-history receipt](verification/durable-history-2026-10-19.md).
 
@@ -57,8 +70,8 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 | L22a | Associated files | Determine original companion behavior for Copy, Filename → Filename, inline edits and action-driven renames, then extend only confirmed gaps; the merged opt-in flow covers Tag → Filename and desktop Move. | [Scope and evidence](research/remaining-gaps.md#l22a) |
 | L24 | Formats | Qualify/edit Nero udta/indx and cover placement; extend required chapterless rewrites beyond currently guarded layouts and qualify original/native behavior. Supported mirror growth/shrink and atomic refusal are represented by C34. | [Scope and evidence](research/remaining-gaps.md#l24) |
 | L25 | Chapters | Expose/qualify QuickTime href URLs and CHAP artwork, and establish original subsong playlist paths; chapter-row playlist operations currently refuse. | [Scope and evidence](research/remaining-gaps.md#l25) |
-| L26 | Formats | Qualify broader ADTS probing, combined global-unsync/optional-header transforms, update/restriction declarations and arbitrary compressed/encrypted/grouped retention. Draft support also preserves the named ordinary v2.4 frame-unsynchronisation cases; ADTS junk scan remains .aac-only, bounded to 64 KiB and three frames. | [Scope and evidence](research/remaining-gaps.md#l26) |
-| L32 | Source capabilities | Qualify capability coverage beyond compiled parser commands and map declared original-version features without comparing unrelated app versions. Draft installation/include updates already compile supported grammar before replacement; high minimum declarations remain informational. | [Scope and evidence](research/remaining-gaps.md#l32) |
+| L26 | Formats | Qualify broader ADTS probing, combined global-unsync/optional-header transforms, update/restriction declarations and arbitrary compressed/encrypted/grouped retention. Merged support also preserves the named ordinary v2.4 frame-unsynchronisation cases; ADTS junk scan remains .aac-only, bounded to 64 KiB and three frames. | [Scope and evidence](research/remaining-gaps.md#l26) |
+| L32 | Source capabilities | Qualify capability coverage beyond compiled parser commands and map declared original-version features without comparing unrelated app versions. Merged installation/include updates already compile supported grammar before replacement; high minimum declarations remain informational. | [Scope and evidence](research/remaining-gaps.md#l32) |
 | L33 | Mobile credentials | Provide and qualify mobile secure credential storage for the Discogs token. | [Scope and evidence](research/remaining-gaps.md#l33) |
 | L34 | Native fields | Qualify original UFID owner/identifier grammar (64-byte identifier, one per owner), binary retention, and USLT language/description grouping; observation of retained groups does not certify original edit syntax. | [Scope and evidence](research/remaining-gaps.md#l34) |
 | L35 | Matroska | Settle TRACK 3/12 versus TOTAL_PARTS, Segment Info title editing, full-SeekHead rewrite support, cross-segment chapters and ordered editions; qualify original/native behavior and broader layouts. C37 covers local unindexed round trips and unchanged no-room refusal. | [Scope and evidence](research/remaining-gaps.md#l35) |
