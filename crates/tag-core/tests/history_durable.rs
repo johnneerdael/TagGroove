@@ -1170,7 +1170,15 @@ fn recovery_export_copies_preimages_without_overwriting_or_consuming_them() {
     fs::create_dir(&destination).unwrap();
     fs::write(destination.join("user-file.bin"), b"User-owned file").unwrap();
     let exported = j.export_recovery(&destination).unwrap();
-    assert!(exported.is_dir() && exported.starts_with(fs::canonicalize(&destination).unwrap()));
+    assert!(exported.is_dir());
+    // The exporter uses a compatible Windows path; std canonicalization can
+    // add a verbatim prefix. Compare physical locations in the same form.
+    let canonical_export = fs::canonicalize(&exported).unwrap();
+    let canonical_destination = fs::canonicalize(&destination).unwrap();
+    assert_eq!(
+        canonical_export.parent(),
+        Some(canonical_destination.as_path())
+    );
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(exported.join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest["version"], 1);

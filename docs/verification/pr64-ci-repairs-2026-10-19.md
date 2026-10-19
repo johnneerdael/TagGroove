@@ -127,3 +127,34 @@ ignores; strict workspace/all-target Clippy, formatting, TypeScript/Vite and the
 strict guide build pass for their bound current snapshots. Frontend production
 code is unchanged; its earlier 851-test local checkpoint belongs to c169e9ee.
 Full frontend/platform validation of the new head belongs to reviewed CI.
+
+## Windows recovery-export path assertion
+
+[Validation 39309769712](https://github.com/johnneerdael/TagGroove/actions/runs/39309769712)
+of `f8a0e3f9213f25e425e44daf652576c7e07fb778` passed Linux and macOS
+Rust/Clippy/native suites, Android integration, frontend/tooling/save acceptance
+and documentation. The run remains failed: Windows reached the durable-history
+executable and passed 33 cases, but
+`recovery_export_copies_preimages_without_overwriting_or_consuming_them`
+failed its path-containment assertion. The prior legacy-handle replacement and
+created-parent/reopen regressions both passed on Windows.
+
+The exporter canonicalizes with `dunce`, which removes a safe Windows verbatim
+prefix. The test compared its returned path lexically against a destination
+canonicalized by `std::fs`, which retains that prefix. The repaired test
+canonicalizes both existing paths with `std::fs` and requires the exported
+directory's immediate parent to equal the destination. It retains the independent
+audio/cover byte checks, new-directory-per-export assertion, non-consumption,
+user-file preservation and tampered-snapshot refusal. Production code is unchanged.
+
+Only that test was built and executed locally after this correction: **1 passed,
+0 failed, 41 filtered out** on macOS. Formatting and whitespace pass. The retained
+executable SHA-256 is
+`6605977b061b3deacd1391ca5469bba79ff05c87b86021f16ee048363e78fcc4`.
+Roots under the authoring Mac temporary directory are
+`taggroove-recovery-export-path-assertion-focused-build-w16h9ajr` and
+`taggroove-recovery-export-path-assertion-focused-runtime-055igegp`.
+Commands, source bindings, original CI log and runtime output are retained.
+The earlier full-workspace/native results keep their earlier source pins;
+no local UI sweep was repeated. A fresh exact-head GitHub Codex code review and
+trusted current-main validation, including Windows, remain required.
