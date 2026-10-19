@@ -76,6 +76,12 @@ export class CoverUI {
     return {state,path,covers,index:Math.min(index,Math.max(0,covers.length-1)),cover};
   }
   canRemove(){return !this.host.reason()&&this.host.selection().length>0&&this.state().state!=='none';}
+  private pendingRead(command:string){return ['extract','copy','cut'].includes(command)&&!!this.host.pending?.();}
+  /** Toolbar aliases use the same eligibility as the cover context menu. */
+  canRun(command:string){
+    if(this.pendingRead(command))return false;
+    return coverMenu(this.menuState()).some(item=>item!=='separator'&&item.command===command&&item.enabled);
+  }
 
   /**
    * `folder` is the first image of the files' folder, shown (and marked as not
@@ -223,7 +229,7 @@ export class CoverUI {
   }
   async run(command:string,value?:string){
     // Shown covers that are pasted but not saved exist only as pending tag edits.
-    if(['extract','copy','cut'].includes(command)&&this.host.pending?.()){this.host.notify('Save tags first: the shown covers are pasted and not written yet.');return;}
+    if(this.pendingRead(command)){this.host.notify('Save tags first: the shown covers are pasted and not written yet.');return;}
     try{await this.perform(command,value);}catch(error){this.host.fail(error);}
   }
   private plan(change:(item:PlanItem,index:number)=>PlanItem|null,all:(item:PlanItem)=>PlanItem|null){

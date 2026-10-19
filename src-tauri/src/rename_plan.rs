@@ -15,6 +15,8 @@ struct Item {
     target: PathBuf,
     size: u64,
     modified: Option<SystemTime>,
+    #[cfg(unix)]
+    identity: (u64, u64),
 }
 struct Plan {
     token: String,
@@ -43,11 +45,15 @@ pub fn record_associated(
         .zip(targets)
         .map(|(path, target)| {
             let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
+            #[cfg(unix)]
+            use std::os::unix::fs::MetadataExt;
             Ok(Item {
                 path: path.clone(),
                 target,
                 size: meta.len(),
                 modified: meta.modified().ok(),
+                #[cfg(unix)]
+                identity: (meta.dev(), meta.ino()),
             })
         })
         .collect::<Result<Vec<_>, String>>()?;
@@ -97,6 +103,13 @@ pub fn consume_associated(
     }
     for item in &plan.items {
         let meta = std::fs::metadata(&item.path).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if (meta.dev(), meta.ino()) != item.identity {
+                return Err("A file changed after preview; preview again".into());
+            }
+        }
         if meta.len() != item.size || meta.modified().ok() != item.modified {
             return Err("A file changed after preview; preview again".into());
         }
@@ -164,6 +177,36 @@ mod tests {
         std::fs::write(&source, "changed-size").unwrap();
         assert!(consume(&token, &paths, "%title%").is_err());
         assert!(!dir.path().join("target").exists());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn rename_identity_rejects_equal_stamp_replacement() {
+        use std::{fs, os::unix::fs::MetadataExt};
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source");
+        let original = dir.path().join("retained-original");
+        let target = dir.path().join("old-title");
+        fs::write(&source, b"AAAA").unwrap();
+        let before = fs::metadata(&source).unwrap();
+        let paths = vec![source.to_string_lossy().into_owned()];
+        let token = record(&paths, "%title%", vec![target.clone()]).unwrap();
+        fs::rename(&source, &original).unwrap();
+        fs::write(&source, b"BBBB").unwrap();
+        fs::File::open(&source)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(before.modified().unwrap()))
+            .unwrap();
+        let after = fs::metadata(&source).unwrap();
+        assert_eq!(before.len(), after.len());
+        assert_eq!(before.modified().unwrap(), after.modified().unwrap());
+        assert_ne!((before.dev(), before.ino()), (after.dev(), after.ino()));
+        assert_eq!(
+            consume(&token, &paths, "%title%").unwrap_err(),
+            "A file changed after preview; preview again"
+        );
+        assert_eq!(fs::read(&source).unwrap(), b"BBBB");
+        assert_eq!(fs::read(&original).unwrap(), b"AAAA");
+        assert!(!target.exists());
     }
     #[test]
     fn companion_receipts_reject_changed_selection_and_expiry() {

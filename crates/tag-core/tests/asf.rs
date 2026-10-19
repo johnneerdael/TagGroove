@@ -717,6 +717,768 @@ fn ffmpeg_reads_values_moved_to_the_metadata_library() {
     assert_eq!(probe_tags(&path)["format"]["tags"]["artist"], "Two");
 }
 
+// These records are deliberately admitted noncanonical text, not valid-Unicode
+// or original-editor fixtures. Observe raw descriptor boundaries independently
+// of the production ASF parser, which exposes a lossy text view of their data.
+#[derive(Debug, PartialEq)]
+struct RawExtendedDescriptor {
+    name: String,
+    kind: u16,
+    value: Vec<u8>,
+    raw: Vec<u8>,
+    value_start: usize,
+}
+
+fn bounded_asf_children(bytes: &[u8]) -> Vec<std::ops::Range<usize>> {
+    assert!(bytes.starts_with(&HEADER));
+    let end = header_size(bytes);
+    assert!((30..=bytes.len()).contains(&end));
+    let count = u32::from_le_bytes(bytes[24..28].try_into().unwrap()) as usize;
+    let mut at = 30;
+    let mut children = Vec::new();
+    while at < end {
+        assert!(end - at >= 24);
+        let size = usize::try_from(u64::from_le_bytes(
+            bytes[at + 16..at + 24].try_into().unwrap(),
+        ))
+        .unwrap();
+        assert!(size >= 24 && size <= end - at);
+        children.push(at..at + size);
+        at += size;
+    }
+    assert_eq!(at, end);
+    assert_eq!(children.len(), count);
+    children
+}
+
+fn extended_descriptor_observation(bytes: &[u8]) -> Vec<RawExtendedDescriptor> {
+    let mut found = Vec::new();
+    for child in bounded_asf_children(bytes) {
+        if bytes[child.start..child.start + 16] != EXTENDED {
+            continue;
+        }
+        let mut at = child.start + 24;
+        let word = |at: usize| u16::from_le_bytes(bytes[at..at + 2].try_into().unwrap());
+        let count = word(at);
+        at += 2;
+        for _ in 0..count {
+            let start = at;
+            assert!(child.end - at >= 2);
+            let name_len = usize::from(word(at));
+            at += 2;
+            assert!(name_len >= 2 && name_len % 2 == 0 && name_len <= child.end - at);
+            let name = bytes[at..at + name_len]
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|b| u16::from_le_bytes(*b))
+                .collect::<Vec<_>>();
+            assert_eq!(name.last(), Some(&0));
+            let name = String::from_utf16(&name[..name.len() - 1]).unwrap();
+            at += name_len;
+            assert!(child.end - at >= 4);
+            let kind = word(at);
+            let length = usize::from(word(at + 2));
+            at += 4;
+            assert!(length <= child.end - at);
+            let value_start = at;
+            at += length;
+            found.push(RawExtendedDescriptor {
+                name,
+                kind,
+                value: bytes[value_start..at].to_vec(),
+                raw: bytes[start..at].to_vec(),
+                value_start,
+            });
+        }
+        assert_eq!(at, child.end);
+    }
+    found
+}
+
+fn noncanonical_descriptor(name: &str, value: &[u8]) -> Vec<u8> {
+    let name = w(name);
+    let mut descriptor = (name.len() as u16).to_le_bytes().to_vec();
+    descriptor.extend(name);
+    descriptor.extend(0u16.to_le_bytes());
+    descriptor.extend((value.len() as u16).to_le_bytes());
+    descriptor.extend(value);
+    descriptor
+}
+
+fn inject_noncanonical_extended_text(original: &[u8]) -> Vec<u8> {
+    let mut children = Vec::new();
+    let mut injected = 0;
+    for child in bounded_asf_children(original) {
+        let bytes = &original[child.clone()];
+        if bytes[..16] == EXTENDED {
+            let count = u16::from_le_bytes(bytes[24..26].try_into().unwrap());
+            let mut body = count.checked_add(2).unwrap().to_le_bytes().to_vec();
+            body.extend(&bytes[26..]);
+            body.extend(noncanonical_descriptor(
+                "KeepSurrogate",
+                &[0x00, 0xd8, 0, 0],
+            ));
+            body.extend(noncanonical_descriptor(
+                "KeepOddByte",
+                &[b'A', 0, 0, 0, 0x55],
+            ));
+            children.extend(object(EXTENDED, &body));
+            injected += 1;
+        } else {
+            children.extend(bytes);
+        }
+    }
+    assert_eq!(injected, 1, "encoded fixture needs one Extended object");
+    let mut bytes = original[..30].to_vec();
+    bytes[16..24].copy_from_slice(&((children.len() + 30) as u64).to_le_bytes());
+    bytes.extend(children);
+    bytes.extend(media(original));
+    let size = bytes.len() as u64;
+    for child in bounded_asf_children(&bytes) {
+        if bytes[child.start..child.start + 16] == FILE_PROPERTIES {
+            assert!(child.len() >= 104);
+            bytes[child.start + 40..child.start + 48].copy_from_slice(&size.to_le_bytes());
+        }
+    }
+    bytes
+}
+
+fn encoded_noncanonical_asf(path: &Path) {
+    let output = Command::new("ffmpeg")
+        .args([
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=523:duration=0.25",
+            "-ac",
+            "1",
+            "-c:a",
+            "wmav2",
+            "-b:a",
+            "64k",
+            "-metadata",
+            "title=Original title",
+            "-metadata",
+            "album=Original album",
+        ])
+        .arg(path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let original = fs::read(path).unwrap();
+    let injected = inject_noncanonical_extended_text(&original);
+    assert_eq!(media(&injected), media(&original));
+    fs::write(path, injected).unwrap();
+}
+
+fn watched_descriptors(bytes: &[u8]) -> Vec<RawExtendedDescriptor> {
+    let watched = extended_descriptor_observation(bytes)
+        .into_iter()
+        .filter(|descriptor| matches!(descriptor.name.as_str(), "KeepSurrogate" | "KeepOddByte"))
+        .collect::<Vec<_>>();
+    assert_eq!(watched.len(), 2);
+    watched
+}
+
+fn admitted_noncanonical_asf_edit(field: &str, explicit: bool) {
+    if !tools() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("admitted.wma");
+    encoded_noncanonical_asf(&path);
+    let before = fs::read(&path).unwrap();
+    let observed = watched_descriptors(&before);
+    assert_eq!(observed[0].kind, 0);
+    assert_eq!(observed[0].value, [0x00, 0xd8, 0, 0]);
+    assert_eq!(observed[1].kind, 0);
+    assert_eq!(observed[1].value, [b'A', 0, 0, 0, 0x55]);
+    let admitted = read_entry(&path).expect("current reader must admit the noncanonical records");
+    assert_eq!(admitted.fields["KeepSurrogate"], ["\u{fffd}"]);
+    assert_eq!(admitted.fields["KeepOddByte"], ["A"]);
+
+    let mut altered = before.clone();
+    altered[observed[1].value_start + 4] ^= 1;
+    let altered = watched_descriptors(&altered);
+    assert_ne!(
+        altered[1].raw, observed[1].raw,
+        "observer missed a changed discarded byte"
+    );
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        before,
+        "observer control touched disk"
+    );
+
+    let mut journal =
+        history::Journal::open(&dir.path().join("journal"), history::Limits::default()).unwrap();
+    let capture = journal.begin(
+        "Admitted ASF edit",
+        None,
+        &[path.to_string_lossy().into_owned()],
+    );
+    let updates = if explicit {
+        fields(&[
+            ("KeepSurrogate", &["Replacement ✓"]),
+            ("KeepOddByte", &["Second replacement"]),
+        ])
+    } else {
+        fields(&[(field, &["Unrelated edit"])])
+    };
+    write_fields(&path, &updates).expect("admitted fixture edit must reach the production writer");
+    journal.commit(capture, &[], &[]);
+    let state = journal.state();
+    assert!(
+        state.notice.is_none(),
+        "current ASF edit did not receive Undo admission"
+    );
+    assert_eq!(state.undo.as_ref().unwrap().label, "Admitted ASF edit");
+    assert_eq!(state.undo.unwrap().files, 1);
+    let saved = fs::read(&path).unwrap();
+    assert_eq!(media(&saved), media(&before));
+    let after = watched_descriptors(&saved);
+    println!(
+        "ASF_ADMITTED_DESCRIPTOR_TRACE {}",
+        serde_json::json!({"field":field,"explicit":explicit,"write_accepted":true,"before":observed.iter().map(|d|&d.value).collect::<Vec<_>>(),"saved":after.iter().map(|d|&d.value).collect::<Vec<_>>(),"media_preserved":true})
+    );
+    if explicit {
+        assert_eq!(after[0].kind, 0);
+        assert_eq!(after[0].value, w("Replacement ✓"));
+        assert_eq!(after[1].kind, 0);
+        assert_eq!(after[1].value, w("Second replacement"));
+    } else {
+        assert_eq!(
+            after.iter().map(|d| &d.raw).collect::<Vec<_>>(),
+            observed.iter().map(|d| &d.raw).collect::<Vec<_>>(),
+            "unrelated edit changed an admitted untouched raw descriptor"
+        );
+    }
+    assert!(journal.undo().unwrap().errors.is_empty());
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert!(journal.redo().unwrap().errors.is_empty());
+    assert_eq!(fs::read(&path).unwrap(), saved);
+}
+
+#[test]
+fn admitted_noncanonical_asf_text_survives_another_object_edit() {
+    // ffmpeg duplicates TITLE in Extended as well as Content Description.
+    // COMMENT instead targets its absent Content Description slot exclusively.
+    admitted_noncanonical_asf_edit("COMMENT", false);
+}
+
+#[test]
+fn admitted_noncanonical_asf_text_survives_same_object_edit() {
+    admitted_noncanonical_asf_edit("ALBUM", false);
+}
+
+#[test]
+fn explicitly_edited_noncanonical_asf_text_uses_normal_unicode_serialization() {
+    admitted_noncanonical_asf_edit("KeepSurrogate", true);
+}
+
+// Independent bounded observers for all shared text codecs. They deliberately
+// retain names/values as bytes rather than asking the ASF implementation to
+// decode its own output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RawTextRecord {
+    name: Vec<u8>,
+    value: Vec<u8>,
+    kind: u16,
+    language: u16,
+    stream: u16,
+}
+fn record_body(records: &[RawTextRecord], extended: bool) -> Vec<u8> {
+    let mut body = (records.len() as u16).to_le_bytes().to_vec();
+    for r in records {
+        if !extended {
+            body.extend(r.language.to_le_bytes());
+            body.extend(r.stream.to_le_bytes());
+        }
+        body.extend((r.name.len() as u16).to_le_bytes());
+        if extended {
+            body.extend(&r.name);
+        }
+        body.extend(r.kind.to_le_bytes());
+        if extended {
+            body.extend((r.value.len() as u16).to_le_bytes());
+        } else {
+            body.extend((r.value.len() as u32).to_le_bytes());
+            body.extend(&r.name);
+        }
+        body.extend(&r.value);
+    }
+    body
+}
+fn observe_record_body(body: &[u8], extended: bool) -> Vec<RawTextRecord> {
+    let mut at = 0;
+    let take = |at: &mut usize, n: usize| {
+        let end = at.checked_add(n).unwrap();
+        assert!(end <= body.len());
+        let value = &body[*at..end];
+        *at = end;
+        value
+    };
+    let word = |at: &mut usize| u16::from_le_bytes(take(at, 2).try_into().unwrap());
+    let count = word(&mut at);
+    let mut out = Vec::new();
+    for _ in 0..count {
+        let language = if extended { 0 } else { word(&mut at) };
+        let stream = if extended { 0 } else { word(&mut at) };
+        let name_len = usize::from(word(&mut at));
+        let mut name = if extended {
+            take(&mut at, name_len).to_vec()
+        } else {
+            vec![]
+        };
+        let kind = word(&mut at);
+        let size = if extended {
+            usize::from(word(&mut at))
+        } else {
+            u32::from_le_bytes(take(&mut at, 4).try_into().unwrap()) as usize
+        };
+        if !extended {
+            name = take(&mut at, name_len).to_vec();
+        }
+        let value = take(&mut at, size).to_vec();
+        out.push(RawTextRecord {
+            name,
+            value,
+            kind,
+            language,
+            stream,
+        });
+    }
+    assert_eq!(at, body.len());
+    out
+}
+fn objects_in(bytes: &[u8]) -> Vec<&[u8]> {
+    let mut at = 0;
+    let mut out = Vec::new();
+    while at < bytes.len() {
+        assert!(bytes.len() - at >= 24);
+        let n = usize::try_from(u64::from_le_bytes(
+            bytes[at + 16..at + 24].try_into().unwrap(),
+        ))
+        .unwrap();
+        assert!(n >= 24 && n <= bytes.len() - at);
+        out.push(&bytes[at..at + n]);
+        at += n;
+    }
+    out
+}
+fn observe_records(bytes: &[u8], location: [u8; 16]) -> Vec<RawTextRecord> {
+    let mut out = Vec::new();
+    for child in bounded_asf_children(bytes) {
+        let b = &bytes[child];
+        if b[..16] == location {
+            out.extend(observe_record_body(&b[24..], true));
+        }
+        if b[..16] == EXTENSION {
+            assert_eq!(
+                u32::from_le_bytes(b[42..46].try_into().unwrap()) as usize,
+                b.len() - 46
+            );
+            for nested in objects_in(&b[46..]) {
+                if nested[..16] == location {
+                    out.extend(observe_record_body(&nested[24..], false));
+                }
+            }
+        }
+    }
+    out
+}
+fn observe_content(bytes: &[u8]) -> Vec<Vec<u8>> {
+    let contents = bounded_asf_children(bytes)
+        .into_iter()
+        .filter(|r| bytes[r.start..r.start + 16] == CONTENT)
+        .collect::<Vec<_>>();
+    assert_eq!(contents.len(), 1);
+    let b = &bytes[contents[0].clone()];
+    assert!(b.len() >= 34);
+    let mut at = 34;
+    let mut out = Vec::new();
+    for i in 0..5 {
+        let size = usize::from(u16::from_le_bytes(
+            b[24 + i * 2..26 + i * 2].try_into().unwrap(),
+        ));
+        assert!(size <= b.len() - at);
+        out.push(b[at..at + size].to_vec());
+        at += size;
+    }
+    assert_eq!(at, b.len());
+    out
+}
+fn rebuild_fixture(original: &[u8], replacements: &[([u8; 16], Vec<u8>)]) -> Vec<u8> {
+    let mut children = Vec::new();
+    for r in bounded_asf_children(original) {
+        let b = &original[r];
+        if b[..16] == EXTENSION {
+            continue;
+        }
+        if replacements.iter().any(|(id, _)| b[..16] == *id) {
+            continue;
+        }
+        children.push(b.to_vec());
+    }
+    let mut nested = Vec::new();
+    for (id, body) in replacements {
+        if *id == METADATA || *id == LIBRARY {
+            nested.extend(object(*id, body));
+        } else {
+            children.push(object(*id, body));
+        }
+    }
+    if !nested.is_empty() {
+        let mut body = EXTENSION_RESERVED.to_vec();
+        body.extend(6u16.to_le_bytes());
+        body.extend((nested.len() as u32).to_le_bytes());
+        body.extend(nested);
+        children.push(object(EXTENSION, &body));
+    }
+    let mut bytes = original[..30].to_vec();
+    bytes[24..28].copy_from_slice(&(children.len() as u32).to_le_bytes());
+    bytes[16..24].copy_from_slice(
+        &((30 + children.iter().map(Vec::len).sum::<usize>()) as u64).to_le_bytes(),
+    );
+    for b in children {
+        bytes.extend(b);
+    }
+    bytes.extend(media(original));
+    let size = bytes.len() as u64;
+    for r in bounded_asf_children(&bytes) {
+        if bytes[r.start..r.start + 16] == FILE_PROPERTIES {
+            bytes[r.start + 40..r.start + 48].copy_from_slice(&size.to_le_bytes());
+        }
+    }
+    bytes
+}
+fn raw_text_records(location: [u8; 16]) -> Vec<RawTextRecord> {
+    let (language, stream) = if location == LIBRARY {
+        (7, 0)
+    } else if location == METADATA {
+        (0, 1)
+    } else {
+        (0, 0)
+    };
+    let mut name1 = w("RawName");
+    name1.splice(name1.len() - 2..name1.len() - 2, [0x00, 0xd8]);
+    let mut name2 = w("RawName");
+    name2.splice(name2.len() - 2..name2.len() - 2, [0x01, 0xd8]);
+    vec![
+        RawTextRecord {
+            name: name1,
+            value: vec![0x00, 0xd8, 0, 0],
+            kind: 0,
+            language,
+            stream,
+        },
+        RawTextRecord {
+            name: name2,
+            value: vec![0x01, 0xd8, 0, 0],
+            kind: 0,
+            language: if location == LIBRARY { 8 } else { language },
+            stream: if location == METADATA { 2 } else { stream },
+        },
+        RawTextRecord {
+            name: {
+                let mut b = w("OddName");
+                b.push(0x99);
+                b
+            },
+            value: vec![b'A', 0, 0, 0, 0x55],
+            kind: 0,
+            language,
+            stream,
+        },
+        RawTextRecord {
+            name: w("TouchRaw"),
+            value: w("before"),
+            kind: 0,
+            language,
+            stream,
+        },
+    ]
+}
+fn journaled_asf_step(
+    path: &Path,
+    updates: &Fields,
+    rules: &[UserFieldMapping],
+    journal: &mut history::Journal,
+) {
+    let before = fs::read(path).unwrap();
+    let capture = journal.begin("ASF raw text", None, &[path.to_string_lossy().into_owned()]);
+    write_fields_with_mappings(path, updates, rules).unwrap();
+    journal.commit(capture, &[], &[]);
+    let state = journal.state();
+    assert!(state.notice.is_none(), "{:?}", state.notice);
+    assert_eq!(state.undo.unwrap().files, 1);
+    let saved = fs::read(path).unwrap();
+    assert_eq!(media(&before), media(&saved));
+    assert!(journal.undo().unwrap().errors.is_empty());
+    assert_eq!(fs::read(path).unwrap(), before);
+    assert!(journal.redo().unwrap().errors.is_empty());
+    assert_eq!(fs::read(path).unwrap(), saved);
+}
+fn noncanonical_asf_shared_location(location: [u8; 16], edit: bool) {
+    if !tools() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("shared.wma");
+    encoded_noncanonical_asf(&path);
+    let records = raw_text_records(location);
+    let before = rebuild_fixture(
+        &fs::read(&path).unwrap(),
+        &[(location, record_body(&records, location == EXTENDED))],
+    );
+    fs::write(&path, &before).unwrap();
+    let entry = read_entry(&path).expect("admitted shared text fixture");
+    assert_eq!(entry.fields["RawName�"], ["�", "�"]);
+    assert_eq!(entry.fields["OddName"], ["A"]);
+    assert_eq!(observe_records(&before, location), records);
+    for mutation in 0..if location == EXTENDED { 2 } else { 4 } {
+        let mut changed = records.clone();
+        match mutation {
+            0 => changed[0].name[0] ^= 1,
+            1 => changed[1].value[0] ^= 1,
+            2 => changed[2].stream ^= 1,
+            _ => changed[2].language ^= 1,
+        }
+        assert_ne!(
+            records,
+            observe_record_body(
+                &record_body(&changed, location == EXTENDED),
+                location == EXTENDED
+            ),
+            "observer missed independent mutation {mutation}"
+        );
+    }
+    assert_eq!(fs::read(&path).unwrap(), before);
+    let mut journal =
+        history::Journal::open(&dir.path().join("journal"), history::Limits::default()).unwrap();
+    if !edit {
+        journaled_asf_step(
+            &path,
+            &fields(&[("TouchRaw", &["after"])]),
+            &[],
+            &mut journal,
+        );
+        let saved = observe_records(&fs::read(&path).unwrap(), location);
+        assert_eq!(
+            &saved[..3],
+            &records[..3],
+            "same-location edit changed raw name/value occurrences"
+        );
+    } else {
+        let rules = [UserFieldMapping {
+            tag_type: "WMA".into(),
+            source: "RawName�".into(),
+            target: "MAPPEDRAW".into(),
+        }];
+        journaled_asf_step(
+            &path,
+            &fields(&[("MAPPEDRAW", &["�"]), ("OddName", &[])]),
+            &rules,
+            &mut journal,
+        );
+        let all = [EXTENDED, METADATA, LIBRARY]
+            .into_iter()
+            .flat_map(|id| observe_records(&fs::read(&path).unwrap(), id))
+            .collect::<Vec<_>>();
+        let replaced = all
+            .iter()
+            .filter(|r| r.name == w("RawName�"))
+            .collect::<Vec<_>>();
+        assert_eq!(replaced.len(), 1);
+        assert_eq!(replaced[0].value, w("�"));
+        assert!(!all.iter().any(|r| r.name.starts_with(&w("OddName")[..14])));
+        journaled_asf_step(
+            &path,
+            &fields(&[("TouchRaw", &["second"])]),
+            &[],
+            &mut journal,
+        );
+        let all = [EXTENDED, METADATA, LIBRARY]
+            .into_iter()
+            .flat_map(|id| observe_records(&fs::read(&path).unwrap(), id))
+            .collect::<Vec<_>>();
+        assert!(
+            !all.iter().any(|r| records[..3].contains(r)),
+            "removed raw occurrence resurrected"
+        );
+    }
+}
+#[test]
+fn noncanonical_asf_extended_name_and_value_occurrences_survive() {
+    noncanonical_asf_shared_location(EXTENDED, false);
+}
+#[test]
+fn noncanonical_asf_metadata_name_and_value_occurrences_survive() {
+    noncanonical_asf_shared_location(METADATA, false);
+}
+#[test]
+fn noncanonical_asf_library_name_and_value_occurrences_survive() {
+    noncanonical_asf_shared_location(LIBRARY, false);
+}
+#[test]
+fn noncanonical_asf_mapped_equal_display_edits_and_removals_are_authored() {
+    for location in [EXTENDED, METADATA, LIBRARY] {
+        noncanonical_asf_shared_location(location, true);
+    }
+}
+fn noncanonical_asf_content(edit: bool) {
+    if !tools() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("content.wma");
+    encoded_noncanonical_asf(&path);
+    let slots = vec![
+        vec![0x00, 0xd8, 0, 0],
+        {
+            let mut raw = w("Artist");
+            raw.extend([0, 0]);
+            raw
+        },
+        vec![0, 0, 0x99],
+        w("before"),
+        vec![],
+    ];
+    let mut body = Vec::new();
+    for slot in &slots {
+        body.extend((slot.len() as u16).to_le_bytes());
+    }
+    body.extend(slots.concat());
+    // Remove ffmpeg's duplicate Extended title, retaining a separate album.
+    let album = RawTextRecord {
+        name: w("WM/AlbumTitle"),
+        value: w("album"),
+        kind: 0,
+        language: 0,
+        stream: 0,
+    };
+    let before = rebuild_fixture(
+        &fs::read(&path).unwrap(),
+        &[(CONTENT, body), (EXTENDED, record_body(&[album], true))],
+    );
+    fs::write(&path, &before).unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(entry.fields["TITLE"], ["�"]);
+    assert!(!entry.fields.contains_key("COPYRIGHT"));
+    assert!(!entry.fields.contains_key("RATING"));
+    assert_eq!(observe_content(&before), slots);
+    let mut altered = before.clone();
+    let r = bounded_asf_children(&altered)
+        .into_iter()
+        .find(|r| altered[r.start..r.start + 16] == CONTENT)
+        .unwrap();
+    altered[r.start + 34 + slots[0].len() + slots[1].len() + 2] ^= 1;
+    assert_ne!(observe_content(&altered), slots);
+    assert_eq!(fs::read(&path).unwrap(), before);
+    let mut journal =
+        history::Journal::open(&dir.path().join("journal"), history::Limits::default()).unwrap();
+    if !edit {
+        journaled_asf_step(
+            &path,
+            &fields(&[("COMMENT", &["after"])]),
+            &[],
+            &mut journal,
+        );
+        let saved = observe_content(&fs::read(&path).unwrap());
+        for i in [0, 1, 2, 4] {
+            assert_eq!(saved[i], slots[i], "untouched Content slot {i} changed");
+        }
+    } else {
+        journaled_asf_step(
+            &path,
+            &fields(&[("TITLE", &["�"]), ("COPYRIGHT", &[])]),
+            &[],
+            &mut journal,
+        );
+        let saved = observe_content(&fs::read(&path).unwrap());
+        assert_eq!(saved[0], w("�"));
+        assert!(saved[2].is_empty());
+        journaled_asf_step(
+            &path,
+            &fields(&[("COMMENT", &["second"])]),
+            &[],
+            &mut journal,
+        );
+        assert!(
+            observe_content(&fs::read(&path).unwrap())[2].is_empty(),
+            "removed empty raw Content slot resurrected"
+        );
+    }
+}
+#[test]
+fn noncanonical_asf_content_slots_survive_sibling_edit() {
+    noncanonical_asf_content(false);
+}
+#[test]
+fn noncanonical_asf_content_equal_display_edit_and_empty_slot_removal() {
+    noncanonical_asf_content(true);
+}
+
+#[test]
+fn noncanonical_asf_empty_content_slots_stay_hidden_and_remove_without_resurrection() {
+    if !tools() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("empty-slots.wma");
+    encoded_noncanonical_asf(&path);
+    let slots = vec![vec![0, 0], vec![], vec![0, 0, 0x99], vec![], vec![]];
+    let mut body = Vec::new();
+    for slot in &slots {
+        body.extend((slot.len() as u16).to_le_bytes());
+    }
+    body.extend(slots.concat());
+    let before = rebuild_fixture(
+        &fs::read(&path).unwrap(),
+        &[(CONTENT, body), (EXTENDED, 0u16.to_le_bytes().to_vec())],
+    );
+    fs::write(&path, &before).unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert!(entry.fields.is_empty());
+    assert!(!entry.technical.contains_key("_TAG"));
+    let mut journal =
+        history::Journal::open(&dir.path().join("journal"), history::Limits::default()).unwrap();
+    journaled_asf_step(
+        &path,
+        &fields(&[("COMMENT", &["sibling"])]),
+        &[],
+        &mut journal,
+    );
+    let saved = observe_content(&fs::read(&path).unwrap());
+    for i in [0, 1, 2, 4] {
+        assert_eq!(saved[i], slots[i]);
+    }
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(entry.fields, fields(&[("COMMENT", &["sibling"])]));
+    journaled_asf_step(
+        &path,
+        &fields(&[("TITLE", &[]), ("COPYRIGHT", &[])]),
+        &[],
+        &mut journal,
+    );
+    journaled_asf_step(
+        &path,
+        &fields(&[("COMMENT", &["later"])]),
+        &[],
+        &mut journal,
+    );
+    let saved = observe_content(&fs::read(&path).unwrap());
+    assert!(saved[0].is_empty() && saved[2].is_empty());
+}
+
 #[test]
 fn cover_plans_reorder_retype_and_add_on_asf() {
     let tmp = tempfile::tempdir().unwrap();

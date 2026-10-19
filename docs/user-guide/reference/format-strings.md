@@ -34,14 +34,15 @@ row says otherwise:
 | `%field%` | The field's value ([placeholder](placeholders.md)) | `%artist%` | `Juniper Vale` |
 | `%_name%` | Information about the file | `%_extension%` | `mp3` |
 | `$function(…)` | A scripting function | `$upper(%album%)` | `HARBOUR LIGHTS` |
-| `[…]` | Optional section: dropped when its fields are empty | `%album%[ (%year%)]` | `Harbour Lights (2024)` |
+| `[…]` | Optional section: kept when its availability flag is true | `%album%[ (%year%)]` | `Harbour Lights (2024)` |
 | `'…'` | Quoted text: everything inside is literal | `'%artist%'` | `%artist%` |
 | `''` | One apostrophe | `%artist%''s best` | `Juniper Vale's best` |
 | `\` or `/` | A folder level (only where the result is a file name) | `%artist%\%album%` | folder `Juniper Vale`, then `Harbour Lights` |
 
 ## Where you use format strings
 
-The same language works everywhere. Only what happens to the result differs.
+These contexts use the same format-string language. What happens to the
+result differs:
 
 | Where | The result becomes |
 |---|---|
@@ -52,8 +53,13 @@ The same language works everywhere. Only what happens to the result differs.
 | Export, playlists | Output file names, partitions and extended playlist info |
 | Cover actions (import, export), Import text file, Text File → Tag | The name of the file to read or write |
 | Guess values (source) | The text that the guessing pattern takes apart |
-| External tools (parameter) | The argument passed to the tool |
 | Filter (left side of an operator) | The value that is compared |
+
+External-tool parameters use a separate language with
+[seven path placeholders](../customize/tools.md#all-seven-supported-placeholders).
+They do not evaluate ordinary tag placeholders or scripting functions. For
+example, `$upper(%_filename%)` expands the filename inside the parentheses,
+but leaves `$upper(…)` as text; it does not uppercase the name.
 
 Two more places look similar but work the other way round: **Filename → Tag**
 and **Guess values** read values *out of* text with a pattern. See
@@ -105,8 +111,17 @@ gives `LANTERNS`.
 - **Arguments are not trimmed.** In `$replace(%title%, on, at)` the search
   text is `·on` (with a leading space). Write `$replace(%title%,on,at)`
   unless you mean the spaces.
-- An unknown function name, or the wrong number of arguments, is an error
-  that the preview shows before anything is changed.
+- A valid unknown function call keeps its name and literal `$name(…)`
+  wrapper, with its arguments evaluated inside. `$Mystery(%year%)` gives
+  `$Mystery(2024)`; bare `$Mystery` stays `$Mystery`. Check spelling when an
+  intended function remains in the output.
+- Unknown calls evaluate arguments eagerly, then replay their original
+  expressions in the containing expression, inside the wrapper. Nested predicates can therefore affect
+  flags during both passes. Field values and returned text are not parsed
+  again as expressions.
+- Malformed syntax and wrong argument counts for known functions are errors.
+  Reserved names without a supported implementation/context also remain
+  errors; they do not use the unknown-name fallback.
 
 Scripting functions cover text, case, numbers, dates, conditions, regular
 expressions and multi-value fields. The examples below show common uses.
@@ -114,8 +129,10 @@ expressions and multi-value fields. The examples below show common uses.
 ### Optional sections: `[…]` { #optional-sections }
 
 Square brackets mark a part that should disappear when it has nothing to say.
-A section is **kept when at least one placeholder inside it has a value**,
-and dropped completely, with its text, when none has:
+A section is **kept when its final availability flag is true**. Usually a
+placeholder with a value establishes availability. `$meta`, `$meta_sep` and
+true predicates can also establish it. A later predicate can reset it to
+false. Without final availability, the section and its text are dropped:
 
 | Format string | With these values | Result |
 |---|---|---|
@@ -128,18 +145,47 @@ and dropped completely, with its text, when none has:
 
 Things to know:
 
-- **"Has a value" means a placeholder inside produced text.** In the fifth
+- **A nonempty placeholder establishes availability.** In the fifth
   row, `ARTIST` is enough to keep the section. Its text is kept even though
   `ALBUMARTIST` is empty. To require both, use
   `$and` with [`$if`](#conditions).
-- **A section with only plain text is always dropped**, because no
-  placeholder in it has a value. Write plain text outside brackets.
+- **A section with only plain text is always dropped**, because literal
+  text does not establish field availability. Write it outside brackets.
 - **Functions count through their arguments.** `[CD$num(%discnumber%,1)]` is
   dropped when `DISCNUMBER` is empty, even though `$num` would have
   returned `0`.
-- Sections can be nested: `[%album%[ (%year%)] - ]%title%`.
+- Sections can be nested: `[%album%[ (%year%)] - ]%title%`. A dropped child
+  section contributes neither text nor flags to its parent.
+- **Predicates can replace earlier availability.**
+  `[%artist%$eql(1,2)]` disappears even with an artist. Conversely,
+  `[match$eql(1,1)]` gives `match`: the true comparison keeps the literal
+  text, while the comparison itself prints nothing.
+- **All function arguments contribute flags.** With an artist,
+  `[$if(1,%artist%,fallback)]` gives `fallback`; the unused branch
+  establishes availability even though literal `1` selects the other text.
 - Commas and brackets inside a section that sits in a function argument are
   plain text: in `$upper([%year%, ]%album%)` the comma does not end the argument.
+
+In TagGroove, a nonempty `$meta` or `$meta_sep` result also establishes
+availability without a `%field%` placeholder. A missing field does not:
+
+<!-- optional-metadata-examples:start -->
+| Format string | With these values | Result |
+|---|---|---|
+| `[Artist: $meta(artist)]` | `ARTIST` = `Juniper Vale` | `Artist: Juniper Vale` |
+| `[Artist: $meta(artist)]` | `ARTIST` absent | *(empty)* |
+| `[Artists: $meta_sep(artist,' & ')]` | `ARTIST` = `Juniper Vale` + `Mira Solberg` | `Artists: Juniper Vale & Mira Solberg` |
+| `[Artists: $meta_sep(artist,' & ')]` | `ARTIST` absent | *(empty)* |
+<!-- optional-metadata-examples:end -->
+
+Availability differs from visible output. Removing all text from an
+available placeholder with a text function can still keep its section.
+Predicates replace both availability and truth with their answer. Use
+[conditions](#conditions) to ask whether a calculation is true, or
+[`$iflonger`](scripting/conditions.md#iflonger) to test its output length;
+square brackets do not test output length.
+
+<!-- verified: crates/tag-core/tests/guide_scripting_details.rs:published_optional_metadata_examples_use_the_written_present_or_missing_fields -->
 
 ### Quoted text: `'…'` { #quotes }
 
@@ -202,16 +248,26 @@ unbalanced opening parenthesis, retains its earlier interpretation.
 
 Functions such as `$if`, `$if2`, `$and`, `$or`
 and `$not` test whether something is *true*. TagGroove doesn't treat text like
-`1` or `yes` as true. Truth comes from where a value came from:
+`1` or `yes` as true. Evaluation proceeds from left to right, tracking flags
+separately from text:
 
-- **A placeholder is true when the field has a value**, and false when it is
-  missing or empty.
-- **Plain text is never true**, not even `1`.
-- **Comparison functions are true or false by their answer:** `$eql`,
-  `$neql`, `$grtr`, `$geql`, `$less`, `$leql`, `$strcmp`, `$stricmp`, `$and`,
-  `$or`, `$not`, `$odd`, `$isdigit`.
-- **Most other functions are true when any of their arguments is**, so
-  `$upper(%title%)` is true when `TITLE` has a value.
+- **A nonempty placeholder contributes a true flag.** A missing or empty
+  field adds no availability or truth; it does not reset earlier flags.
+- **Plain text adds no true flag**, not even `1`.
+- **Predicates produce empty text and replace the current flags with their
+  answer:** `$eql`, `$neql`, `$grtr`, `$geql`, `$less`, `$leql`, `$strcmp`,
+  `$stricmp`, `$and`, `$or`, `$not`, `$odd`, `$isdigit`. A false predicate
+  can reset truth established by an earlier field in the same expression.
+- **Most other functions retain contributions from all arguments**, so
+  `$upper(%title%)` is true when `TITLE` has a value. Each argument is
+  evaluated separately, including unused conditional branches. `$if`,
+  `$if2`, `$ifgreater` and `$iflonger` choose output text, but do not limit
+  flag contributions to the chosen branch.
+
+To display a comparison's answer, select visible output explicitly:
+`$if($eql(%year%,2024),1,0)`. Nested selectors retain flags too:
+`$if($if(%year%,yes,no),present,missing)` gives `present` when the year
+exists, even though the inner result is literal `yes`.
 
 | Format string | With these values | Result |
 |---|---|---|
@@ -403,14 +459,17 @@ nothing is changed. The messages are:
 | Empty field placeholder | `%%` | Write `'%'` |
 | Unterminated quoted literal | An odd number of `'` | Close the quote, or write `''` for an apostrophe |
 | Unterminated optional section / Unexpected closing optional bracket | Unbalanced `[` `]` | Balance them, or quote them: `'['` |
-| Expected function call after $… | A function-like name after `$` without `(` | Complete the call or quote the text; bare `$` and `$1` are already literal |
-| Unsupported scripting function: $… | A misspelt or unknown function | Check the function name in the ► helper menu |
+| Expected function call after $… | A known or reserved function name without `(` | Complete the call or quote the name; a bare unknown name stays literal |
+| Unsupported scripting function: $… | A reserved function unavailable in this context | Check the supported functions and context; ordinary unknown names use literal fallback |
 | $… expects n..=m arguments | Too many or too few arguments, often from an unquoted `,` or `)` | Quote commas and brackets in arguments |
 | $replace requires complete search/replacement pairs | An odd number of search and replace arguments | Add the missing replacement (it may be empty) |
 
 Format strings can nest up to 128 levels deep and produce at most 1 MiB of
-text per file. You'll only reach these limits by accident, for example with
-a runaway `$repeat`.
+text per file. A separate work budget allows 1,048,576 expression-node visits
+per top-level evaluation, counting eager arguments and unknown-call replay.
+Repetition, padding and large comparisons can also reach function-specific
+limits. These are TagGroove safety limits, not established Mp3tag thresholds.
+Reduce the expression or split the work when a limit is reported.
 
 ## Worked examples
 

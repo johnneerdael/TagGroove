@@ -241,9 +241,15 @@ pub async fn load_columns(app: tauri::AppHandle) -> Result<Option<Layout>, Strin
 #[tauri::command]
 pub async fn save_columns(app: tauri::AppHandle, layout: Layout) -> Result<(), String> {
     let path = layout_path(&app)?;
-    tauri::async_runtime::spawn_blocking(move || save(&path, &layout))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = crate::profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        save(&path, &layout)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -255,9 +261,12 @@ pub async fn import_columns(path: String) -> Result<Layout, String> {
 
 #[tauri::command]
 pub async fn export_columns(path: String, layout: Layout) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || save(Path::new(&path), &layout))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = crate::profile_migration::auxiliary_configuration_guard(Path::new(&path))?;
+        save(Path::new(&path), &layout)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Column values are display data only, so evaluation does not wait for file operations.

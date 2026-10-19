@@ -36,24 +36,33 @@ pub fn remove_tag_kinds_with_options(
     if tag_policy::policy(file.file_type()).is_none() {
         return Err("Tag types can only be removed from MPEG, AAC, TTA, APE, Musepack, WavPack, TAK and OptimFROG files".into());
     }
-    if !kinds.iter().any(|kind| file.tag(kind.tag_type()).is_some()) {
+    let dependent =
+        tag_policy::dependent_v1_removal(path, &file, kinds.contains(&RemovableTag::Id3v1))?;
+    if !kinds.iter().any(|kind| file.tag(kind.tag_type()).is_some()) && !dependent {
         return if include_cover_data {
             read_entry_with_options(path, &options.mappings, options)
         } else {
             read_entry_summary_with_options(path, &options.mappings, options)
         };
     }
-    staged_mutation(path, include_cover_data, options, |staging, file, _| {
-        for kind in kinds {
-            if file.tag(kind.tag_type()).is_some() {
-                staging
-                    .seek(SeekFrom::Start(0))
-                    .map_err(|e| e.to_string())?;
-                kind.tag_type()
-                    .remove_from(staging, WriteOptions::default())
-                    .map_err(|e| error_message(&e))?;
+    staged_mutation(
+        path,
+        include_cover_data,
+        options,
+        |staging, file, _, effects| {
+            effects.removed_v1 |= dependent;
+            for kind in [RemovableTag::Ape, RemovableTag::Id3v2, RemovableTag::Id3v1] {
+                if kinds.contains(&kind) && file.tag(kind.tag_type()).is_some() {
+                    staging
+                        .seek(SeekFrom::Start(0))
+                        .map_err(|e| e.to_string())?;
+                    kind.tag_type()
+                        .remove_from(staging, WriteOptions::default())
+                        .map_err(|e| error_message(&e))?;
+                    effects.removed(kind.tag_type());
+                }
             }
-        }
-        Ok(())
-    })
+            Ok(())
+        },
+    )
 }

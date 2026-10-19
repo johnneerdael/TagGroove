@@ -1,4 +1,5 @@
 //! Independent retained carriers shared by the regression suite and paired harness.
+pub mod mp4_atoms;
 pub mod native_id3;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use lofty::{
@@ -103,6 +104,18 @@ pub fn seed(path: &Path) {
             ));
             file.set_ilst(tag);
             file.save_to_path(path, WriteOptions::default()).unwrap();
+            // Set locale structurally: Lofty's native model has no locale field.
+            let bytes = fs::read(path).unwrap();
+            let raw = mp4_atoms::items(&bytes)
+                .into_iter()
+                .map(|mut item| {
+                    if item.identity == mp4_atoms::Identity::Fourcc(*b"xQA!") {
+                        item.raw = mp4_atoms::item(*b"xQA!", &[mp4_atoms::data(0, 1033, OPAQUE)]);
+                    }
+                    item.raw
+                })
+                .collect::<Vec<_>>();
+            fs::write(path, mp4_atoms::with_items(&bytes, &raw, 0)).unwrap();
         }
         _ => unreachable!(),
     }
@@ -359,6 +372,12 @@ pub fn snapshot(path: &Path) -> Value {
         })).collect::<Vec<_>>(),
         "opaque_marker_count": bytes.windows(OPAQUE.len()).filter(|v| *v == OPAQUE).count(),
         "opaque_native": opaque_native,
+        "native_mp4": if path.extension().unwrap().eq_ignore_ascii_case("m4a") {
+            json!(mp4_atoms::items(&bytes).into_iter().filter(|i|i.identity==mp4_atoms::Identity::Fourcc(*b"xQA!")).map(|i|json!({
+                "fourcc_base64": STANDARD.encode(b"xQA!"),
+                "values":i.values.into_iter().map(|v|json!({"type":v.code,"locale":v.locale,"raw_base64":STANDARD.encode(v.raw)})).collect::<Vec<_>>()
+            })).collect::<Vec<_>>())
+        } else { Value::Null },
         "native_id3": if path.extension().unwrap().eq_ignore_ascii_case("mp3") { native_id3::snapshot(&bytes) } else { Value::Null },
         "audio_payload_base64": STANDARD.encode(payload(path)),
         "tag_kinds": entry.technical.get("_TAG"),
@@ -366,6 +385,31 @@ pub fn snapshot(path: &Path) -> Value {
 }
 
 /// Exercise the explicitly configured MPEG policy, including gain data's native location.
+/// Independent full APE span, including original flags/order/header/footer.
+fn complete_ape_bytes(bytes: &[u8]) -> Option<&[u8]> {
+    let end = if bytes.len() >= 128 && &bytes[bytes.len() - 128..bytes.len() - 125] == b"TAG" {
+        bytes.len() - 128
+    } else {
+        bytes.len()
+    };
+    if end < 32 || &bytes[end - 32..end - 24] != b"APETAGEX" {
+        return None;
+    }
+    let number = |at| u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
+    let footer = end - 32;
+    let size = number(footer + 12);
+    assert!(size >= 32 && size <= end);
+    let items = end - size;
+    let start = if number(footer + 20) & 0x8000_0000 != 0 {
+        let start = items.checked_sub(32).unwrap();
+        assert_eq!(&bytes[start..start + 20], &bytes[footer..footer + 20]);
+        start
+    } else {
+        items
+    };
+    Some(&bytes[start..end])
+}
+
 pub fn competing_mpeg(path: &Path, preserve_ape: bool) -> Value {
     use lofty::{
         ape::{ApeItem, ApeTag},
@@ -392,7 +436,14 @@ pub fn competing_mpeg(path: &Path, preserve_ape: bool) -> Value {
     ape.save_to_path(path, WriteOptions::default()).unwrap();
     let before_bytes = fs::read(path).unwrap();
     let before_payload = payload(path);
-    let displayed_before = read_entry(path).unwrap().fields;
+    let mut options = TagOptions::default();
+    options.mpeg.write_ape = preserve_ape;
+    if preserve_ape {
+        options.mpeg.read_ape = true;
+    }
+    let displayed_before = tag_core::read_entry_with_options(path, &[], &options)
+        .unwrap()
+        .fields;
     let temporary = tempfile::tempdir().unwrap();
     let mut journal = tag_core::history::Journal::open(
         &temporary.path().join("journal"),
@@ -400,8 +451,6 @@ pub fn competing_mpeg(path: &Path, preserve_ape: bool) -> Value {
     )
     .unwrap();
     let capture = journal.begin("Save tags", None, &[path.to_string_lossy().into_owned()]);
-    let mut options = TagOptions::default();
-    options.mpeg.write_ape = preserve_ape;
     tag_core::write_fields_with_options(
         path,
         &fields(&[("TITLE", &["Changed café 日本"])]),
@@ -411,6 +460,17 @@ pub fn competing_mpeg(path: &Path, preserve_ape: bool) -> Value {
     )
     .unwrap();
     journal.commit(capture, &[], &[]);
+    let history_notice = journal.state().notice;
+    assert!(
+        history_notice.is_none(),
+        "current MPEG operation was not admitted"
+    );
+    let step = journal.state().undo.unwrap();
+    assert_eq!(step.label, "Save tags");
+    assert_eq!(step.files, 1);
+    let after_bytes = fs::read(path).unwrap();
+    let ape_bytes_unchanged =
+        complete_ape_bytes(&before_bytes).unwrap() == complete_ape_bytes(&after_bytes).unwrap();
     let file =
         lofty::mpeg::MpegFile::read_from(&mut fs::File::open(path).unwrap(), ParseOptions::new())
             .unwrap();
@@ -420,11 +480,16 @@ pub fn competing_mpeg(path: &Path, preserve_ape: bool) -> Value {
         "opaque_companion": tag.get("Opaque gain companion").map(|item| format!("{:?}", item.value())),
     }));
     let audio_preserved = payload(path) == before_payload;
-    let displayed_after = read_entry(path).unwrap().fields;
+    let displayed_after = tag_core::read_entry_with_options(path, &[], &options)
+        .unwrap()
+        .fields;
     let undo_errors = journal.undo().unwrap().errors;
-    json!({"options": options, "displayed_before": displayed_before, "displayed_after": displayed_after,
+    let undo_exact = fs::read(path).unwrap() == before_bytes;
+    let redo_errors = journal.redo().unwrap().errors;
+    let redo_exact = fs::read(path).unwrap() == after_bytes;
+    json!({"ape_bytes_unchanged": ape_bytes_unchanged, "redo_exact": redo_exact, "redo_errors": redo_errors, "history_notice": history_notice, "options": options, "displayed_before": displayed_before, "displayed_after": displayed_after,
         "native_ape_after": native_ape, "audio_preserved": audio_preserved,
-        "undo_errors": undo_errors, "undo_exact": fs::read(path).unwrap() == before_bytes,
+        "undo_errors": undo_errors, "undo_exact": undo_exact,
         "gain_consumer_runtime": "not executed; native APE location inspected only"})
 }
 

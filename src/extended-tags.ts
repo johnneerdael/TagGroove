@@ -1,3 +1,4 @@
+import {ValueSuggestions} from './value-suggestions';
 // View → Extended Tags (docs.mp3tag.de/extended-tags/): every field of the
 // selected files with multi-line values, the cover window, and << / >> to step
 // through the File List one file at a time. Field edits become pending changes
@@ -50,6 +51,8 @@ export class ExtendedTags{
   /** Fields copied with the field list's context menu; kept while TagGroove runs. */
   private clip:FieldClip[]=[];
   private menu?:HTMLElement;
+  private suggestions:ValueSuggestions[]=[];
+  private closeSuggestions(){this.suggestions.forEach(list=>list.dispose());this.suggestions=[];}
   constructor(private host:ExtendedTagsHost){}
   get open(){return !!this.dialog?.open;}
 
@@ -72,7 +75,7 @@ export class ExtendedTags{
     });
     dialog.querySelector('#apply-extended')!.addEventListener('click',()=>{if(this.commit())dialog.close();});
     dialog.addEventListener('close',()=>{
-      this.closeMenu();
+      this.closeMenu();this.closeSuggestions();
       if(this.dialog===dialog)this.dialog=undefined;
       if(this.staged.size)this.host.done([...this.staged]);
     });
@@ -94,6 +97,7 @@ export class ExtendedTags{
     dialog.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button=>{
       button.hidden=!single;button.disabled=!single||!neighbourFile(list,this.files[0],Number(button.dataset.nav) as 1|-1);
     });
+    this.closeSuggestions();
     this.rows().replaceChildren();
     selectionTagRows(this.files.map(path=>this.host.fields(path))).forEach(({name,values,mixed})=>{const added=this.addRow(name,values,mixed);this.rowSetters.set(added.row,added.setValues);});
     dialog.querySelector('.dialog-error')?.remove();
@@ -110,12 +114,16 @@ export class ExtendedTags{
     const addValue=(text:string)=>{
       const item=document.createElement('div');item.className='extended-value';item.innerHTML='<label><span>VALUE</span><textarea aria-label="Field value" spellcheck="false"></textarea></label><button type="button" aria-label="Remove value">×</button>';
       const textarea=item.querySelector('textarea')!;textarea.value=text;this.originals.set(textarea,text);
-      textarea.addEventListener('input',event=>{
+      textarea.addEventListener('input',()=>{
         textarea.dataset.edited='true';changed();
-        const field=fieldNameIdentity(name.value.trim());
-        if(field&&!field.startsWith('_'))this.host.autocomplete()?.(textarea,event,()=>this.host.completions(field));
       });
-      item.querySelector('button')!.addEventListener('click',()=>{item.remove();refreshLabels();changed();});valueList.append(item);refreshLabels();
+      const suggestions=new ValueSuggestions(textarea,{
+        enabled:()=>!!this.host.autocomplete?.()&&!this.navigating&&!row.hidden&&!!name.value.trim()&&!fieldNameIdentity(name.value.trim()).startsWith('_'),
+        candidates:()=>this.host.completions(fieldNameIdentity(name.value.trim())),
+        choose:value=>{this.originals.set(textarea,value);delete textarea.dataset.edited;changed();},
+      });this.suggestions.push(suggestions);
+      name.addEventListener('input',()=>{suggestions.close();suggestions.refresh();});
+      item.querySelector('button')!.addEventListener('click',()=>{suggestions.dispose();item.remove();refreshLabels();changed();});valueList.append(item);refreshLabels();
     };
     values.forEach(addValue);
     const setValues=(next:string[])=>{valueList.replaceChildren();next.forEach(value=>{addValue(value);valueList.lastElementChild!.querySelector('textarea')!.dataset.edited='true';});changed();};

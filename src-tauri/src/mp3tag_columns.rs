@@ -294,7 +294,7 @@ mod tests {
         [#0]\r\nName=Filename\r\nValue=%_filename_ext%\r\nField=%_filename_ext%\r\nWidth=250\r\nPos=0\r\n\
         [#2]\r\nName=Track\r\nValue=$num(%track%,2)\r\nField=TRACK\r\nSort=%track%\r\nWidth=9999\r\nAlign=1\r\nNum=1\r\nShow=0\r\nPos=2\r\n\
         [#3]\r\nName=Length\r\nValue=%_length%\r\nField=%_length%\r\nWidth=50\r\nPos=3\r\n\
-        [#4]\r\nName=Broken\r\nValue=$nosuchfunction(%title%)\r\nPos=4\r\n\
+        [#4]\r\nName=Broken\r\nValue=$substr(%title%)\r\nPos=4\r\n\
         [General]\r\nVersion=3\r\n";
 
     #[test]
@@ -342,21 +342,69 @@ mod tests {
         assert!(parse("[General]\nVersion=1\n")
             .unwrap_err()
             .contains("no column definitions"));
-        assert!(parse("[a]\nValue=$nosuchfunction()\n")
+        assert!(parse("[a]\nValue=$substr()\n")
             .unwrap_err()
             .starts_with("No column could be imported"));
+    }
+    #[test]
+    fn unknown_column_expressions_and_original_diagnostic_fixture_are_accepted() {
+        let import = parse("[a]\nValue=$nosuchfunction()\n").unwrap();
+        assert!(import.skipped.is_empty());
+        assert_eq!(import.layout.columns[0].value, "$nosuchfunction()");
+        assert_eq!(
+            tag_core::evaluate(&import.layout.columns[0].value, &tag_core::Fields::new()).unwrap(),
+            "$nosuchfunction()"
+        );
+
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/import-diagnostics.json"))
+                .unwrap();
+        let text = fixture["columns"]["text"].as_str().unwrap();
+        let report = parse_diagnostic(text).unwrap();
+        assert_eq!(report.result.layout.columns.len(), 3);
+        assert!(report.result.skipped.is_empty());
+        assert!(report.skipped_diagnostics.is_empty());
+        for (index, expression_is_sort) in [(0, true), (1, false)] {
+            let name = fixture["columns"]["skipped_names"][index].as_str().unwrap();
+            let column = report
+                .result
+                .layout
+                .columns
+                .iter()
+                .find(|c| c.name == name)
+                .unwrap();
+            let expression = if expression_is_sort {
+                &column.sort_by
+            } else {
+                &column.value
+            };
+            assert_eq!(expression, "$unknown()");
+            assert_eq!(
+                tag_core::evaluate(expression, &tag_core::Fields::new()).unwrap(),
+                "$unknown()"
+            );
+        }
+        assert_eq!(
+            serde_json::to_value(&report.result).unwrap(),
+            serde_json::to_value(parse(text).unwrap()).unwrap()
+        );
     }
     #[test]
     fn import_column_companions_keep_raw_names_partial_and_all_rejected_english() {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../../tests/fixtures/import-diagnostics.json"))
                 .unwrap();
-        let text = fixture["columns"]["text"].as_str().unwrap();
-        let report = parse_diagnostic(text).unwrap();
-        let legacy = parse(text).unwrap();
+        // Keep the authored fixture unchanged; use a native-known reserved name
+        // to retain real rejection diagnostics under unknown literal fallback.
+        let text = fixture["columns"]["text"]
+            .as_str()
+            .unwrap()
+            .replace("$unknown()", "$substr()");
+        let report = parse_diagnostic(&text).unwrap();
+        let legacy = parse(&text).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("Help; Title.ini");
-        std::fs::write(&file, text).unwrap();
+        std::fs::write(&file, &text).unwrap();
         let old_command = tauri::async_runtime::block_on(import_mp3tag_columns(
             file.to_string_lossy().into_owned(),
         ))
@@ -371,6 +419,13 @@ mod tests {
         );
         assert_eq!(report.result.layout.columns.len(), 1);
         assert_eq!(report.skipped_diagnostics.len(), 2);
+        assert_eq!(
+            legacy.skipped,
+            [
+                "Help: the sort format string is not supported; Title: the sort format string is not supported",
+                "Title: Help: Unsupported scripting function: $substr",
+            ]
+        );
         for (position, item) in report.skipped_diagnostics.iter().enumerate() {
             assert_eq!(item.index, position);
             assert_eq!(item.cause.to_string(), legacy.skipped[position]);

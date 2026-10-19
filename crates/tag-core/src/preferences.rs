@@ -39,7 +39,7 @@ impl Default for MpegTagOptions {
         Self {
             read_id3v1: true,
             read_id3v2: true,
-            read_ape: true,
+            read_ape: false,
             write_id3v1: true,
             write_id3v2: true,
             write_ape: false,
@@ -169,7 +169,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_follow_mp3tag_and_validate() {
+    fn fresh_defaults_validate_and_keep_independent_format_read_choices() {
         let options = TagOptions::default();
         assert!(options.validate().is_ok());
         assert_eq!(options.mpeg.id3v2_format, Id3v2Format::V23Utf16);
@@ -178,11 +178,25 @@ mod tests {
     }
 
     #[test]
+    fn explicit_mpeg_ape_read_choices_survive_partial_json_and_roundtrip() {
+        for enabled in [false, true] {
+            let value = serde_json::json!({"mpeg":{"read_ape":enabled},"ape":{"read_ape":false}});
+            let options: TagOptions = serde_json::from_value(value).unwrap();
+            assert_eq!(options.mpeg.read_ape, enabled);
+            assert!(!options.ape.read_ape);
+            let restored: TagOptions =
+                serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+            assert_eq!(restored, options);
+        }
+    }
+
+    #[test]
     fn partial_json_is_completed_with_defaults_and_invalid_values_rejected() {
         let options: TagOptions =
             serde_json::from_str(r#"{"mpeg":{"id3v2_format":"v24_utf8"}}"#).unwrap();
         assert_eq!(options.mpeg.id3v2_format, Id3v2Format::V24Utf8);
-        assert!(options.mpeg.read_ape);
+        assert!(!options.mpeg.read_ape);
+        assert!(options.ape.read_ape);
         let mut invalid = options.clone();
         invalid.advanced.id3v2_comment_language = "en".into();
         assert!(invalid.validate().is_err());

@@ -11,7 +11,7 @@ fn written_page_fences_have_the_same_literal_contents_in_both_checkout_formats()
         ),
         (
             include_str!("../../../docs/user-guide/reference/regular-expressions.md"),
-            5,
+            6,
         ),
         (
             include_str!("../../../docs/user-guide/learn/first-tagging-session.md"),

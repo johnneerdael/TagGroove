@@ -148,7 +148,14 @@ pub async fn save_helper_lists(
     lists: BTreeMap<String, Value>,
 ) -> Result<(), String> {
     let path = lists_path(&app)?;
-    blocking(move || save(&path, &lists)).await
+    blocking(move || {
+        let _guard = crate::profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        save(&path, &lists)
+    })
+    .await
 }
 
 #[cfg(test)]

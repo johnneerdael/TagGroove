@@ -4087,6 +4087,16 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+ "sha2-asm",
+]
+
+[[package]]
+name = "sha2-asm"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b845214d6175804686b2bd482bcffe96651bb2d1200742b712003504a2dac1ab"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -4375,6 +4385,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "crc32fast",
  "dunce",
  "encoding_rs",
  "image",
@@ -4387,11 +4398,13 @@ dependencies = [
  "regex-compat",
  "serde",
  "serde_json",
+ "sha2",
  "sys-locale",
  "tempfile",
  "url",
  "uuid",
  "walkdir",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

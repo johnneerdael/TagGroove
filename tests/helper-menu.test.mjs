@@ -186,3 +186,15 @@ test('changes made before the configuration has loaded are kept and saved', asyn
   await new Promise(resolve => setTimeout(resolve, 5));
   assert.deepEqual(calls.at(-1), { 'opentag.history.find': [{ value: 'early' }] });
 });
+
+test('helper saves resume after a refused configuration change and retain changes made while paused', async () => {
+  const calls=[],errors=[];let fail=true;
+  const storage=new ConfigListStorage({load:async()=>({exists:true,lists:{}}),save:async lists=>{calls.push(structuredClone(lists));if(fail)throw new Error('controlled ordinary flush refusal');}},undefined,error=>errors.push(String(error)),0);
+  await storage.ready;storage.pause();
+  new FormatHistory(storage).add('find','retained');
+  await new Promise(resolve=>setTimeout(resolve,5));assert.deepEqual(calls,[]);
+  storage.resume();await new Promise(resolve=>setTimeout(resolve,5));assert.equal(errors.length,1);
+  storage.pause();fail=false;new FormatHistory(storage).add('find','newer');
+  storage.resume();await new Promise(resolve=>setTimeout(resolve,5));
+  assert.deepEqual(calls.at(-1),{'opentag.history.find':[{value:'newer'},{value:'retained'}]});
+});

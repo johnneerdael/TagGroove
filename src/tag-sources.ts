@@ -795,6 +795,14 @@ export class TagSourcesUI {
       catch { /* Missing artwork leaves the preview empty. */ }
     };
     const preview = (url:string) => url.startsWith('https://') || (web && url.startsWith('http://')) ? `<button type="button" class="ts-preview" data-url="${html(url)}" title="Open the release page in your browser">Preview</button>` : '';
+    const fullCoverPreview = (url:string|null|undefined) => {
+      if (!url) return '';
+      try {
+        const address = new URL(url);
+        if (!['http:','https:'].includes(address.protocol) || !address.hostname || address.username || address.password) return '';
+      } catch { return ''; }
+      return `<button type="button" class="ts-preview ts-full-cover" data-url="${html(url)}" title="Open the full cover image in your browser">Full cover</button>`;
+    };
     dialog.addEventListener('cancel',event => { if (working) event.preventDefault(); });
     dialog.addEventListener('close',() => { stopLanguage?.(); this.showing = false; void this.host.invoke('tag_source_cancel',{ticket:nextTicket()}).catch(() => undefined); dialog.remove(); });
     dialog.addEventListener('click',event => {
@@ -863,7 +871,7 @@ export class TagSourcesUI {
     const chosenMarkup = () => {
       const r = results[chosen];
       if (!r) return '';
-      if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong translate="no">${html(r.title)}</strong>${r.url ? `<span class="ts-url"><span translate="no">${html(r.url)}</span> ${preview(r.url)}</span>` : ''}</div>`;
+      if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong translate="no">${html(r.title)}</strong>${r.url ? `<span class="ts-url"><span translate="no">${html(r.url)}</span> ${preview(r.url)}</span>` : ''}${fullCoverPreview(webRows[chosen]?.full_cover)}</div>`;
       const value = (text:string) => text ? `<span translate="no">${html(text)}</span>` : '';
       const details = freedb ? [value(r.year),value(r.format),`<span>${html(idLabel)} <span translate="no">${html(freedbId(r).disc)}</span></span>`] : [r.year,r.country,r.label,r.catalog_number,r.format].map(value).concat(r.barcode ? `<span data-verbatim>${html(`Barcode ${r.barcode}`)}</span>` : '');
       return `${freedb || provider === 'lrclib' ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong translate="no">${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).join(' · ')}</span>${r.url ? `<span class="ts-url"><span translate="no">${html(r.url)}</span> ${preview(r.url)}</span>` : ''}</div>`;

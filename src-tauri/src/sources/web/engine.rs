@@ -2102,6 +2102,71 @@ Say "after"
     }
 
     #[test]
+    fn guide_json_index_comparison_uses_fresh_contexts_and_returns_to_root() {
+        let guide = include_str!("../../../../docs/user-guide/tag-sources/web-source-reference.md");
+        let comparison = guide
+            .split_once("<!-- json-index-comparison:start -->")
+            .unwrap()
+            .1
+            .split_once("<!-- json-index-comparison:end -->")
+            .unwrap()
+            .0;
+        let input = comparison
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("**Input:** `")
+                    .and_then(|value| value.strip_suffix('`'))
+            })
+            .unwrap();
+        let mut array_cases = Vec::new();
+        for row in comparison
+            .lines()
+            .filter(|line| line.starts_with("| First |") || line.starts_with("| Second |"))
+        {
+            let columns: Vec<_> = row.split('|').map(str::trim).collect();
+            let expected = columns[4].trim_matches('`');
+            let commands = |cell: &str| {
+                cell.split('`')
+                    .enumerate()
+                    .filter_map(|(index, text)| (index % 2 == 1).then_some(text))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            for cell in &columns[2..=3] {
+                // Each invocation starts from the written complete input and a
+                // fresh JSON context, rather than the preceding track object.
+                assert_eq!(
+                    out(&format!("json \"on\"\n{}\nSayRest", commands(cell)), input),
+                    expected,
+                    "{row}"
+                );
+            }
+            array_cases.push((commands(columns[3]), expected));
+        }
+        assert_eq!(array_cases.len(), 2);
+        assert_eq!(
+            out(
+                &format!(
+                    "json \"on\"\n{}\nSayRest\nSay \"|\"\njson_unselect_object\n{}\nSayRest",
+                    array_cases[0].0, array_cases[1].0
+                ),
+                input
+            ),
+            format!("{}|{}", array_cases[0].1, array_cases[1].1)
+        );
+
+        let mut with_literal_key: Value = serde_json::from_str(input).unwrap();
+        with_literal_key["tracks.0.title"] = Value::String("Printed track label".into());
+        assert_eq!(
+            out(
+                "json \"on\"\njson_select \"tracks.0.title\"\nSayRest",
+                &with_literal_key.to_string()
+            ),
+            "Printed track label"
+        );
+    }
+
+    #[test]
     fn json_mode_errors_and_current_input() {
         assert!(error("json_select \"a\"", "{}")
             .message

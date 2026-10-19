@@ -277,21 +277,34 @@ def run(root, executable):
                           "file_sha256": hashes, "errors": errors})
     passed = all(not any(case["errors"].values()) for case in cases)
     policy = invoke(executable, "policy", root / "mpeg-policy")
-    policy_passed = all(record["audio_preserved"] and record["undo_exact"] and not record["undo_errors"] for record in policy.values())
-    policy_passed = policy_passed and policy["default"]["native_ape_after"] is None
-    native = policy["explicit_write_ape"]["native_ape_after"]
-    policy_passed = policy_passed and native == {"mp3gain_undo": 'Text("+001,+001,N")',
+    if not isinstance(policy, dict) or set(policy) != {"default", "explicit_write_ape"}:
+        raise ValueError("MPEG policy report must contain exactly default and explicit_write_ape")
+    policy_passed = all(record["audio_preserved"] and record["undo_exact"]
+        and record["redo_exact"] and not record["undo_errors"] and not record["redo_errors"]
+        and record["history_notice"] is None for record in policy.values())
+    policy_passed = policy_passed and policy["default"]["ape_bytes_unchanged"] is True
+    expected_native = {"mp3gain_undo": 'Text("+001,+001,N")',
         "mp3gain_minmax": 'Text("094,205")', "opaque_companion": "Binary([1, 0, 255, 17])"}
-    expected_gain = {"MP3GAIN_UNDO": ["+001,+001,N"], "MP3GAIN_MINMAX": ["094,205"],
-                     "REPLAYGAIN_TRACK_GAIN": ["-3.00 dB"]}
-    gain_errors = {name: differences(expected_gain,
-        {field: record["displayed_after"][field] for field in expected_gain if field in record["displayed_after"]})
-        for name, record in policy.items()}
-    policy_passed = policy_passed and not any(gain_errors.values())
+    native_errors = {name: differences(expected_native, record["native_ape_after"])
+                     for name, record in policy.items()}
+    expected_gain = {
+        "default": {"REPLAYGAIN_TRACK_GAIN": ["-7.25 dB"]},
+        "explicit_write_ape": {"MP3GAIN_UNDO": ["+001,+001,N"], "MP3GAIN_MINMAX": ["094,205"],
+                               "REPLAYGAIN_TRACK_GAIN": ["-3.00 dB"]},
+    }
+    gain_errors = {name: differences(expected_gain[name],
+        {field: record["displayed_after"][field] for field in expected_gain[name]
+         if field in record["displayed_after"]}) for name, record in policy.items()}
+    # Hidden APE recovery fields must remain native, rather than reappearing as
+    # a compensating ID3 text migration under the fresh default read policy.
+    gain_errors["default"].extend("/" + field for field in ("MP3GAIN_UNDO", "MP3GAIN_MINMAX")
+        if field in policy["default"]["displayed_after"])
+    policy_passed = policy_passed and not any(gain_errors.values()) and not any(native_errors.values())
     passed = passed and policy_passed
     require_identity(producer, identity(executable, root), "Completed run producer")
     receipt = {"passed": passed, "producer": producer, "reference_comparison": "not performed", "mpeg_policy": policy,
-               "mpeg_policy_passed": policy_passed, "mpeg_policy_gain_errors": gain_errors, "cases": cases}
+               "mpeg_policy_passed": policy_passed, "mpeg_policy_gain_errors": gain_errors,
+               "mpeg_policy_native_errors": native_errors, "cases": cases}
     write_json(receipt_path, receipt)
     return {"passed": passed, "cases": len(cases), "receipt": str(receipt_path), "reference_comparison": "not performed"}
 

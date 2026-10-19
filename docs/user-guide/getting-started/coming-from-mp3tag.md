@@ -53,12 +53,15 @@ items** or **Replace current items**. A replacement export retains its existing
 TagGroove identity and physical filename. Partial imports keep their warnings;
 an unresolved action does not silently become another action type.
 
-For example, a profile might contain two valid columns and a third using an
-unknown function, a panel with Title and Comment plus an unsupported technical
+For example, a profile might contain two valid columns and a third with a
+malformed expression, a panel with Title and Comment plus an unsupported technical
 control, an action group and a text export. Selecting those components imports
 the two supported columns, supported panel fields, the disabled action group
 and export. The skipped column/control and any unknown global-settings file
-remain in the report. This is a partial profile transfer, not full editor parity.
+remain in the report. A syntactically valid unknown function can instead
+remain as literal wrapper text in a column; review its rendered output rather
+than treating successful import as proof that the function was implemented.
+This is a partial profile transfer, not full editor parity.
 
 ## Bring an action group safely
 
@@ -138,7 +141,9 @@ history and document-provider permissions are outside this restore point and
 remain untouched. Browser globals and arbitrary storage keys are not captured.
 The snapshot is local under `.profile-migration` in the current configuration
 folder; it can contain personal paths and definitions and is not a public share
-format. A later completed import replaces the offered restore point.
+format. A later completed setup import or configuration Load replaces the offered
+restore point; its preview discloses that replacement. Keep named backups when
+you need more than this one local checkpoint.
 
 Native file recovery and browser/window restoration are separate phases. A
 failed file replacement attempts rollback; an interrupted applying/restoring
@@ -148,11 +153,14 @@ snapshot and show a recovery error rather than overwrite unknown content.
 Browser-storage failures keep their workspace receipt pending. Read the error
 and use the offered reload/retry; do not delete the recovery journal to hide it.
 
-The older **Save configuration… / Load configuration…** JSON format stays
-compatible. Its [seven-file backup](../customize/configuration.md) has a smaller
-scope and does not include the new local recovery journal, physical export
-files or all browser/workspace state. Keep ordinary named backups and their
-external resources separately.
+New **Save configuration… / Load configuration…** archives include saved
+settings, active physical export templates, supported remembered choices and
+local workspace references. They use the same setup recovery system and latest
+rollback checkpoint. Older version 1 seven-file archives remain supported but
+cannot supply absent templates/preferences/workspace. See
+[Save and restore configuration](../customize/configuration.md) for selections,
+explicit path mapping and saved-only exclusions. Keep audio and separately
+installed resources backed up independently.
 
 ## What remains to qualify
 

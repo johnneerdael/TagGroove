@@ -243,16 +243,33 @@ pub fn import_groups_diagnostic(
 /// Write a group as a UTF-16LE `.mta` file with BOM and CRLF lines, the
 /// layout of the action files shipped with Mp3tag.
 pub fn export_group(path: &Path, group: &ActionGroup) -> Result<(), String> {
-    let text = tag_core::actions::export_mta(group)?;
-    let mut bytes = vec![0xff, 0xfe];
-    bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    let bytes = tag_core::actions::export_mta_utf16(group)?;
     atomic_output(path, &bytes, false)
 }
+fn export_group_worker(directory: &Path, path: &Path, group: &ActionGroup) -> Result<(), String> {
+    let _guard = crate::profile_migration::auxiliary_configuration_guard_in(directory, path)?;
+    export_group(path, group)
+}
+
 #[tauri::command]
-pub async fn export_action_group(path: String, group: ActionGroup) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || export_group(Path::new(&path), &group))
-        .await
-        .map_err(|e| e.to_string())?
+pub async fn export_action_group(
+    app: tauri::AppHandle,
+    path: String,
+    group: ActionGroup,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = crate::utilities::configuration_directory(&app)?;
+        export_group_worker(&directory, Path::new(&path), &group)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn action_group_export_report(
+    group: ActionGroup,
+) -> Result<tag_core::actions::MtaExportReport, String> {
+    tag_core::actions::mta_export_report(&group)
 }
 
 pub(crate) fn atomic_output(path: &Path, bytes: &[u8], append: bool) -> Result<(), String> {
@@ -1401,6 +1418,7 @@ pub fn execute_with_side_file_epochs_diagnostic(
                         partition_template: partition_template.clone(),
                     }),
                     ActionSpec::GeneratePlaylists {
+                        mta_source: _,
                         filename_template,
                         partition_template,
                     } => Some(BatchActionEffect::GeneratePlaylists {
@@ -1515,6 +1533,104 @@ pub fn execute_with_side_file_epochs_diagnostic(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_option_collision_preserves_an_existing_export_destination() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("existing.mta");
+        fs::write(&destination, b"existing destination").unwrap();
+        let mut imported =
+            tag_core::actions::import_mta("Conflict".into(), b"[#0]\nT=18\n1=\n3=3\n", None)
+                .unwrap();
+        assert!(imported.issues.is_empty());
+        let ActionSpec::SetCoverProperties { description, .. } = &mut imported.group.actions[0]
+        else {
+            panic!()
+        };
+        *description = Some("-1".into());
+        assert!(export_group(&destination, &imported.group)
+            .unwrap_err()
+            .contains("meanings conflict"));
+        assert_eq!(fs::read(&destination).unwrap(), b"existing destination");
+    }
+
+    #[test]
+    fn action_group_export_worker_obeys_pending_configuration_guard_and_shared_lock() {
+        use crate::profile_migration as transfer;
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("config");
+        let private = directory.join("settings.json");
+        let after = transfer::Files::from([(
+            "settings.json".into(),
+            serde_json::to_vec(&crate::settings::Settings::default()).unwrap(),
+        )]);
+        let window: transfer::WindowState = serde_json::from_value(
+            serde_json::json!({"version":2,"preferences":{},"workspace":null}),
+        )
+        .unwrap();
+        let report = transfer::Report {
+            legacy_encoding: None,
+            items: Vec::new(),
+            imported: vec!["settings.json".into()],
+            kept: Vec::new(),
+            source_hash: "fixture".into(),
+            operation: Some("configuration".into()),
+            configuration: None,
+        };
+        let pending = serde_json::to_value(
+            transfer::publish_configuration(
+                &directory,
+                transfer::Files::new(),
+                after,
+                window.clone(),
+                window,
+                report,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let id = pending["pending"]["id"].as_str().unwrap();
+        let before = fs::read(&private).unwrap();
+        let group = ActionGroup {
+            name: "Exported".into(),
+            enabled: true,
+            actions: vec![ActionSpec::FormatValue {
+                field: "TITLE".into(),
+                template: "%artist%".into(),
+            }],
+        };
+        assert!(export_group_worker(&directory, &private, &group).is_err());
+        assert_eq!(fs::read(&private).unwrap(), before);
+        let held = transfer::CONFIGURATION_LOCK.lock().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let config = directory.clone();
+        let target = private.clone();
+        let copy = group.clone();
+        let worker = std::thread::spawn(move || {
+            sender
+                .send(export_group_worker(&config, &target, &copy))
+                .unwrap();
+        });
+        assert!(receiver
+            .recv_timeout(std::time::Duration::from_millis(50))
+            .is_err());
+        assert_eq!(fs::read(&private).unwrap(), before);
+        let external = root.path().join("external.mta");
+        export_group_worker(&directory, &external, &group).unwrap();
+        assert!(fs::read(&external).unwrap().starts_with(&[0xff, 0xfe]));
+        drop(held);
+        assert!(receiver
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap()
+            .is_err());
+        worker.join().unwrap();
+        assert_eq!(fs::read(&private).unwrap(), before);
+        transfer::status(&directory, Some(id), None, None).unwrap();
+        transfer::status(&directory, None, Some(id), None).unwrap();
+        let managed = directory.join("export/explicit.mte");
+        export_group_worker(&directory, &managed, &group).unwrap();
+        assert!(fs::read(managed).unwrap().starts_with(&[0xff, 0xfe]));
+    }
     use tag_core::actions::{ActionSpec, CaseMode};
 
     #[test]
@@ -1935,17 +2051,26 @@ mod tests {
             name: "Art".into(),
             enabled: true,
             actions: vec![ActionSpec::AdjustCover {
+                mta_source: None,
                 format: tag_core::actions::CoverImageFormat::Png,
                 quality: 90,
                 resize: None,
             }],
         };
         export_group(&dir.path().join("Art.mta"), &art).unwrap();
+        let imported_art = import_group(&dir.path().join("Art.mta"), None).unwrap();
+        assert!(imported_art.issues.is_empty());
+        assert_eq!(imported_art.group.name, art.name);
+        assert!(
+            matches!(&imported_art.group.actions[0], ActionSpec::AdjustCover {
+            format: tag_core::actions::CoverImageFormat::Png, quality: 90,
+            resize: Some(resize), mta_source: Some(_),
+        } if resize.native_geometry && !resize.size_enabled
+            && resize.scale_mode == tag_core::actions::CoverScaleMode::Proportional)
+        );
         assert_eq!(
-            import_group(&dir.path().join("Art.mta"), None)
-                .unwrap()
-                .group,
-            art
+            tag_core::actions::export_mta_utf16(&imported_art.group).unwrap(),
+            fs::read(dir.path().join("Art.mta")).unwrap()
         );
         // A setting .mta cannot store refuses the export without a file.
         assert!(export_group(
@@ -1961,6 +2086,66 @@ mod tests {
         )
         .is_err());
         assert!(!dir.path().join("lines.mta").exists());
+    }
+
+    #[test]
+    fn mta_utf16_wire_limit_counts_bom_and_preserves_destination_on_refusal() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("Bounded.mta");
+        let limit = 4 * 1_048_576;
+        for extra in [0, 1] {
+            let input = format!(
+                "[#0]\nT=9999\n1={}\n",
+                "a".repeat((limit - 2) / 2 - 20 + extra)
+            );
+            let imported =
+                tag_core::actions::import_mta("Bounded".into(), input.as_bytes(), None).unwrap();
+            if extra == 0 {
+                export_group(&target, &imported.group).unwrap();
+                let bytes = fs::read(&target).unwrap();
+                assert_eq!(bytes.len(), limit);
+                assert_eq!(&bytes[..2], &[0xff, 0xfe]);
+                assert_eq!(
+                    import_group(&target, None).unwrap().group.actions,
+                    imported.group.actions
+                );
+            } else {
+                fs::write(&target, b"keep existing output").unwrap();
+                let error = export_group(&target, &imported.group)
+                    .expect_err("an oversized native wire artifact must never be published");
+                assert!(error.contains("limit"), "{error}");
+                assert!(
+                    error.contains("split") || error.contains("shorten"),
+                    "{error}"
+                );
+                assert_eq!(fs::read(&target).unwrap(), b"keep existing output");
+                let absent = dir.path().join("absent.mta");
+                assert!(export_group(&absent, &imported.group).is_err());
+                assert!(!absent.exists());
+            }
+        }
+    }
+
+    #[test]
+    fn mta_native_utf16_export_preserves_unicode_when_utf8_export_cannot_fit() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = format!("[#0]\r\nT=9999\r\n1={}\r\n", "猫".repeat(4 * 1_048_576 / 3));
+        let bytes = [0xff, 0xfe]
+            .into_iter()
+            .chain(input.encode_utf16().flat_map(u16::to_le_bytes))
+            .collect::<Vec<_>>();
+        let imported = tag_core::actions::import_mta("Unicode wire".into(), &bytes, None).unwrap();
+        let target = dir.path().join("Unicode wire.mta");
+        export_group(&target, &imported.group).unwrap();
+        assert!(fs::metadata(&target).unwrap().len() <= 4 * 1_048_576);
+        assert_eq!(
+            import_group(&target, None).unwrap().group.actions,
+            imported.group.actions
+        );
+        assert!(
+            tag_core::actions::export_mta(&imported.group).is_err(),
+            "UTF-8 output must enforce its own distinct byte budget"
+        );
     }
 
     #[test]
@@ -2112,6 +2297,7 @@ mod tests {
                     filename_template: "%_workingpath%note.txt".into(),
                 },
                 ActionSpec::GeneratePlaylists {
+                    mta_source: None,
                     filename_template: "%_path%.m3u8".into(),
                     partition_template: String::new(),
                 },
@@ -2821,9 +3007,8 @@ mod tests {
         fs::write(path, bytes).unwrap();
     }
 
-    /// Remove Fields Except removes every displayed field but, like Mp3tag,
-    /// leaves frames without a field (left to Utils → Remove unsupported
-    /// fields) and chapters (Utils → Strip chapters).
+    /// Pin TagGroove's retention of unmapped frames and chapters. Original-app
+    /// equivalence requires a separate differential capture (PARITY L14).
     #[test]
     fn remove_fields_except_keeps_frames_that_have_no_field() {
         let dir = tempfile::tempdir().unwrap();
@@ -3116,6 +3301,7 @@ mod tests {
         let original = fs::read(&audio).unwrap();
         let actions = [
             ActionSpec::GeneratePlaylists {
+                mta_source: None,
                 filename_template: "missing/../input.wav".into(),
                 partition_template: "".into(),
             },
@@ -3153,6 +3339,7 @@ mod tests {
         let a = fixture(dir.path(), "a.wav");
         let b = fixture(dir.path(), "b.wav");
         let action = ActionSpec::GeneratePlaylists {
+            mta_source: None,
             filename_template: "same.m3u8".into(),
             partition_template: "%_filename%".into(),
         };
@@ -3537,6 +3724,7 @@ mod tests {
                     filename_template: "%_folderpath%Texts\\%album%.txt".into(),
                 },
                 ActionSpec::GeneratePlaylists {
+                    mta_source: None,
                     filename_template: "Lists\\%album%.m3u8".into(),
                     partition_template: String::new(),
                 },

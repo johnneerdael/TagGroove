@@ -22,11 +22,11 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Mutex,
     },
-    time::UNIX_EPOCH,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tag_core::{
     parallel::{map_ordered, Progress, Silent},
-    AudioEntry, EntryCache, TagOptions,
+    AudioEntry, EntryCache, Fields, TagOptions,
 };
 
 /// Schema of the database file; other versions are discarded and rebuilt.
@@ -487,6 +487,10 @@ impl EntryCache for Session<'_> {
         // A library that cannot be read only costs the time to read the files.
         if let Ok(entries) = self.library.lookup(&keys, &self.fingerprint) {
             for ((index, _), entry) in known.iter().zip(entries) {
+                let entry = entry.and_then(|mut entry| {
+                    refresh_cached_dates(&mut entry)?;
+                    Some(entry)
+                });
                 if entry.is_some() {
                     self.hits.fetch_add(1, Ordering::Relaxed);
                 }
@@ -514,4 +518,53 @@ impl EntryCache for Session<'_> {
             self.stored.fetch_add(rows.len(), Ordering::Relaxed);
         }
     }
+}
+
+/// Formatting is presentation state, not part of the file stamp. Reuse the
+/// actual reader's formatter without reparsing audio, including after restart.
+/// Legacy or invalid timestamp data is a cache miss rather than stale output.
+fn refresh_cached_dates(entry: &mut AudioEntry) -> Option<()> {
+    fn raw_time(fields: &Fields, raw: &str, shown: &[&str]) -> Option<Option<SystemTime>> {
+        let Some(values) = fields.get(raw) else {
+            return (!shown.iter().any(|key| fields.contains_key(*key))).then_some(None);
+        };
+        let [value] = values.as_slice() else {
+            return None;
+        };
+        let seconds = value.parse::<i64>().ok()?;
+        let duration = Duration::from_secs(seconds.unsigned_abs());
+        let time = if seconds < 0 {
+            UNIX_EPOCH.checked_sub(duration)
+        } else {
+            UNIX_EPOCH.checked_add(duration)
+        }?;
+        Some(Some(time))
+    }
+    let modified = raw_time(
+        &entry.technical,
+        "_FILE_MOD_DATETIME_RAW",
+        &["_FILE_MOD_DATE", "_FILE_MOD_DATETIME"],
+    )??;
+    let created = raw_time(
+        &entry.technical,
+        "_FILE_CREATE_DATETIME_RAW",
+        &["_FILE_CREATE_DATE", "_FILE_CREATE_DATETIME"],
+    )?;
+    let current = tag_core::file_time_fields(created, Some(modified));
+    if !current.contains_key("_FILE_MOD_DATETIME")
+        || (created.is_some() && !current.contains_key("_FILE_CREATE_DATETIME"))
+    {
+        return None;
+    }
+    entry.technical.extend(current);
+    for key in ["_MP4_CREATION_TIME", "_MP4_MODIFICATION_TIME"] {
+        let raw = format!("{key}_RAW");
+        if let Some(time) = raw_time(&entry.technical, &raw, &[key])? {
+            let current = tag_core::file_time_fields(None, Some(time));
+            entry
+                .technical
+                .insert(key.into(), current.get("_FILE_MOD_DATETIME")?.clone());
+        }
+    }
+    Some(())
 }

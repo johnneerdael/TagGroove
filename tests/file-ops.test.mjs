@@ -418,3 +418,11 @@ test('opted-in moves retain destination memory while reviewing companions and ap
   assert.equal(host.pickerCalls.at(-1).defaultPath,'/copy-before');
   assert.equal(calls.filter(([command]) => command === 'preview_transfer').length, 2, 'copy never silently adopts the move policy');
 });
+
+test('ordinary workspace restore follows explicit launch priority and precedes directory fallback',async()=>{
+ for(const initial of [true,false]){const {ui,host}=harness();host.prefs.startup='favorite';host.launches=initial?[{directories:['/explicit'],files:[],add:false}]:[];let restored=0;
+ await ui.initialize({restoreWorkspace:async()=>{restored++;return true;}});
+ assert.equal(restored,initial?0:1);assert.deepEqual(host.loads.map(([paths])=>paths),initial?[['/explicit']]:[]);
+ }
+ const {ui,host}=harness();let restored=0;await ui.initialize({restoreWorkspace:async()=>{restored++;host.launches=[{directories:['/queued'],files:[],add:false}];return true;}});assert.equal(restored,1);assert.deepEqual(host.loads.map(([paths])=>paths),[['/queued']]);
+});

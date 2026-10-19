@@ -376,6 +376,8 @@ fn cover_lesson_written_adjustment_dimensions_follow_maximum_proportions_and_ret
                 CoverImageFormat::Original,
                 90,
                 Some(&CoverResize {
+                    native_geometry: false,
+                    size_enabled: true,
                     pixels: size,
                     size_mode: CoverSizeMode::Maximum,
                     scale_mode: CoverScaleMode::Proportional,

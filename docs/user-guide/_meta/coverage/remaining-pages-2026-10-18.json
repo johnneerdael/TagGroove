@@ -1,0 +1,113 @@
+{
+  "recorded_at": "2026-10-18T18:10:22.723447+00:00",
+  "purpose": "Eleven remaining planned pages independently authored, source/editorial reviewed, integrated and added to public navigation",
+  "writing_plan": {
+    "written": 189,
+    "planned": 189,
+    "drafts": 0
+  },
+  "reference_topic_map": {
+    "rows_with_written_pages": 94,
+    "interpretation": "Writing/navigation coverage only; not a detail-by-detail reference, feature, original-runtime or native acceptance audit"
+  },
+  "source_base": "24fdf4cbc77b08fe17345dd3b66f29c1c5071166",
+  "pages": {
+    "getting-started/whats-new.md": {
+      "source_sha256": "1367653b0f7249bd370074c9b0cc0c33cd9c734680acc219b23aeb68e5f74e7d",
+      "built_html_sha256": "ba6cef9fd60eb6077d09ed6b3078c90a8dfed4fa30ae7d64a9586df5872c8cf7",
+      "article_words": 646,
+      "searchable": true,
+      "url": "getting-started/whats-new/"
+    },
+    "platforms/ios.md": {
+      "source_sha256": "48fa40f77e81b355399fb11ce645eb9cef69556b891beb7fb42b2df2d73213d2",
+      "built_html_sha256": "92534d7b6085d98dac64190c571bc1e0277cff88740059e4f09d5997f37dcf7f",
+      "article_words": 567,
+      "searchable": true,
+      "url": "platforms/ios/"
+    },
+    "learn/index.md": {
+      "source_sha256": "3414408c11279149d8508c3d3583a96d93af8e66bebc52acf3400052a4a130f3",
+      "built_html_sha256": "f53759e6d95374c7c4515cc6d4fdee2e454b88bb942f8b46a8171f2475b7d2c0",
+      "article_words": 692,
+      "searchable": true,
+      "url": "learn/"
+    },
+    "learn/tag-from-online-sources.md": {
+      "source_sha256": "efb852c672a432435d51fc3cc772fe6e24eae72b984d3a1e5714072d76945ffe",
+      "built_html_sha256": "0e1352788ba33b5238c74025aa6b1dcfa067bd5a5278815672ea2b21b93de875",
+      "article_words": 1212,
+      "searchable": true,
+      "url": "learn/tag-from-online-sources/"
+    },
+    "guides/index.md": {
+      "source_sha256": "39204814b7192abda41bbd3789b02c606964c24f40bfc85ea49e38169bd62860",
+      "built_html_sha256": "13827ec3d151d35e1212e8130405fe7e79ec661293c56a48df80ec2cfe60650d",
+      "article_words": 482,
+      "searchable": true,
+      "url": "guides/"
+    },
+    "customize/index.md": {
+      "source_sha256": "96024ddfe253a495650521604a8eae2ac504f8cf67b15a1c70c5e713723316f9",
+      "built_html_sha256": "d7b217f33f6d89bfe619ce45e991df4c5e413e09c809d0682fa9eb8543837064",
+      "article_words": 678,
+      "searchable": true,
+      "url": "customize/"
+    },
+    "automate/index.md": {
+      "source_sha256": "0fc83d6b2c56bb7b13f0dc359be5d8c2585e14ed5dbe871f8214101b54ff71dc",
+      "built_html_sha256": "57b228a44d294c428a08158de55741d1672362509f8bad977f101fa14b621aea",
+      "article_words": 681,
+      "searchable": true,
+      "url": "automate/"
+    },
+    "tag-sources/musicbrainz.md": {
+      "source_sha256": "9fd080651ccfec7a3c69ecaa8775b1f61da329c28602e375c3e9aade7e73e1b1",
+      "built_html_sha256": "df71f095de24094d78d58458ad29f0ba539c4e9da2bbd09c2fd04c07bff4eafd",
+      "article_words": 1330,
+      "searchable": true,
+      "url": "tag-sources/musicbrainz/"
+    },
+    "cookbook/index.md": {
+      "source_sha256": "f66a2c5bc5a944501e60ce61b38010701d66514d35a1005bac5b8d5fe25feefb",
+      "built_html_sha256": "3a423174b25e7529dec0abbcf195a17650f2f22f8f24cdea96b1f4962e52cfbe",
+      "article_words": 802,
+      "searchable": true,
+      "url": "cookbook/"
+    },
+    "cookbook/html-album-catalogue.md": {
+      "source_sha256": "421a90a11856f91afc2b235ebd1fb3b578b03f50b815aac6e133cd2c3398b223",
+      "built_html_sha256": "effe336b9329ccf9c20737626db70171f268108024d131ab15624bfe219a039b",
+      "article_words": 1227,
+      "searchable": true,
+      "url": "cookbook/html-album-catalogue/"
+    },
+    "help/glossary.md": {
+      "source_sha256": "ed4d4358558cbef9daa67bf3bde00bc64f7838bc3c6f062844b106c409e9816c",
+      "built_html_sha256": "d49b27291a57fd8457df25d917b91e8043e91de1991f156f68d5eb3f12368bca",
+      "article_words": 2644,
+      "searchable": true,
+      "url": "help/glossary/"
+    }
+  },
+  "portable_regression_source_sha256": {
+    "crates/tag-core/tests/guide_html_catalogue.rs": "ef09c60037e11f48885f2fdaf6e364a751e46f5a3fd0e412cbf869bdeb369d29",
+    "src-tauri/src/sources/musicbrainz.rs": "a67acdd247b94548e3d2182272e7d62ca01a45260aa5eb96f5ade773d064229b",
+    "tests/guide-online-source-lesson.test.mjs": "b6725701f3c1eee78f8ee1ca12f5ebfad57aafadf3b43048004893f1e2b0832c",
+    "tests/fixtures/guide-musicbrainz-lesson.json": "99a01e9fa5cbd66b5d3e5e64a2ed39b8495472cbfefc21b322f58f66d66fdfa0"
+  },
+  "executed_regressions": {
+    "complete_HTML_backend_and_variants": 4,
+    "invented_MusicBrainz_parser_fixture": 1,
+    "frontend_source_lesson_tests": 3
+  },
+  "independent_review": "Local source/editorial review found no required fixes; added explicit append-artwork clarification",
+  "publication_state": "Consolidated draft PR; not merged or deployed",
+  "limits": [
+    "No live provider, native application/browser, picker, physical device or original-Mp3tag execution",
+    "HTML structural/article/search checks do not certify visual layout or ad-blocker behavior",
+    "A simulator package is not device distribution",
+    "Writing-plan/topic-map counts do not prove every reference detail or five-times teaching quality",
+    "Final exact-head GitHub Codex review and required hosted checks remain pending"
+  ]
+}

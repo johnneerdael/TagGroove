@@ -1385,7 +1385,7 @@ mod tests {
         let options = ImportCover {
             replace: false,
             preserve: false,
-            save_as: Some("$unknown()".into()),
+            save_as: Some("$substr()".into()),
         };
         let report = write_import_diagnostic(
             &items,
@@ -1798,6 +1798,11 @@ mod tests {
             )
             .unwrap();
             assert!(result.errors.is_empty(), "{:?}", result.errors);
+            assert_eq!(
+                crate::history::history_state().unwrap().notice,
+                None,
+                "the import must retain its Undo snapshot before this test replays history"
+            );
         };
         run(&save("%album%"));
         run(&save("folder"));
@@ -1805,17 +1810,20 @@ mod tests {
         assert_eq!(std::fs::read(&replaced).unwrap(), png);
         assert_eq!(std::fs::read(&created).unwrap(), png);
         use tauri::async_runtime::block_on;
-        block_on(crate::history::undo_last()).unwrap();
+        let undone = serde_json::to_value(block_on(crate::history::undo_last()).unwrap()).unwrap();
+        assert_eq!(undone["errors"], serde_json::json!([]), "{undone}");
         assert!(
             !created.exists(),
             "the second import's new image is removed"
         );
         assert_eq!(std::fs::read(&replaced).unwrap(), png);
         assert!(crate::history::history_state().unwrap().undo.is_some());
-        block_on(crate::history::undo_last()).unwrap();
+        let undone = serde_json::to_value(block_on(crate::history::undo_last()).unwrap()).unwrap();
+        assert_eq!(undone["errors"], serde_json::json!([]), "{undone}");
         assert_eq!(std::fs::read(&replaced).unwrap(), b"previous image");
         assert_eq!(std::fs::read(&audio).unwrap(), original);
-        block_on(crate::history::redo_last()).unwrap();
+        let redone = serde_json::to_value(block_on(crate::history::redo_last()).unwrap()).unwrap();
+        assert_eq!(redone["errors"], serde_json::json!([]), "{redone}");
         assert_eq!(std::fs::read(&replaced).unwrap(), png);
         assert_eq!(
             tag_core::read_entry(&audio).unwrap().fields["ALBUM"],

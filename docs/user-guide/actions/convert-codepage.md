@@ -49,6 +49,20 @@ An imported action can retain a codepage identifier outside the normal
 list; unsupported codepages report an error when run. Do not select an
 encoding solely because the output happens to look plausible.
 
+## Reuse a confirmed group-editor choice
+
+When editing an action group, **Keep action** remembers a supported codepage
+chosen for **Convert Codepage**. New group actions of that type start with
+that codepage; their field and other defaults are unchanged. Existing actions
+retain their own settings. An imported identifier outside the offered list
+is kept for that action but does not become the new default.
+
+Opening an editor, changing its type or canceling it does not update this
+memory. Keeping an action does, even if the unsaved group is later discarded.
+**Save groups** still controls whether the group definition is saved. Quick
+Actions retain their separate per-type choices. If preference storage is
+unavailable or invalid, the group editor falls back to its normal default.
+
 ## Targets and limitations
 
 Use a named field first. `_TAG` processes every tag field; `_ALL` also

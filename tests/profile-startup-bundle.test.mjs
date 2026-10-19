@@ -15,7 +15,7 @@ const asset=readdirSync(join(output,'assets')).find(name=>/^index-.*\.js$/.test(
 assert.ok(asset,'production main JS exists');
 const bundle=readFileSync(join(output,'assets',asset),'utf8');
 
-for(const mode of ['held','denied','browser','android','ios','storage-none','storage-pending'])test(`production main ${mode}: setup recovery precedes configuration construction`,()=>{
+for(const mode of ['held','denied','browser','android','ios','storage-none','storage-pending','portable-null','portable-held','portable-failed'])test(`production main ${mode}: setup recovery precedes configuration construction`,()=>{
   const program=`
 import assert from 'node:assert/strict';
 import {Window} from ${JSON.stringify(new URL('../node_modules/happy-dom/lib/index.js',import.meta.url).href)};
@@ -25,17 +25,23 @@ for(const key of ['window','document','navigator','localStorage','Node','NodeFil
 globalThis.requestAnimationFrame=window.requestAnimationFrame.bind(window);globalThis.cancelAnimationFrame=window.cancelAnimationFrame.bind(window);
 globalThis.isTauri=${mode!=='browser'};
 for(const key of Object.getOwnPropertyNames(window))if(/^(HTML|SVG)|Event$|Observer$/.test(key)&&typeof window[key]==='function')Object.defineProperty(globalThis,key,{value:window[key],configurable:true});
-const calls=[];let release;
+const calls=[];let release,pendingReceipt=true;
+if(${mode==='portable-held'})window.localStorage.setItem('opentag.history.find','[{"value":"old local history"}]');
 if(${mode.startsWith('storage-')}){Object.defineProperty(window,'localStorage',{get(){throw new Error('controlled storage getter refusal');},configurable:true});Object.defineProperty(globalThis,'localStorage',{get(){throw new Error('controlled storage getter refusal');},configurable:true});}
 window.__TAURI_INTERNALS__={metadata:{currentWindow:{label:'main'},currentWebview:{label:'main'}},transformCallback:()=>1,unregisterCallback:()=>{},convertFileSrc:path=>path,invoke:(command,args)=>{
  calls.push(command);
  if(command==='runtime_platform')return Promise.resolve({family:${JSON.stringify(['android','ios'].includes(mode)?mode:'desktop')},folder_picker_supported:false,document_access_supported:${['android','ios'].includes(mode)}});
  if(command==='profile_migration_status'){
+  if(${mode.startsWith('portable-')}){
+   if(args?.ack)pendingReceipt=false;
+   if(${mode==='portable-held'}&&args?.start)return new Promise(()=>{});
+   return Promise.resolve({desktop:true,phase:'applied',report:null,restorable:true,pending:pendingReceipt?{id:'portable-receipt',attempted:${mode==='portable-failed'},failed:${mode==='portable-failed'},window:{version:2,preferences:{'opentag.language':'nl'},workspace:${mode==='portable-null'?'null':`{version:2,paths:[],selected:[],roots:[],working_directory:null,list_order:'manual',source_order:null,location:'',location_is_data:false,filter:'',filter_draft:null,anchor:null,playlist:null}`}}}:null,preference_keys:['opentag.language'],portable_preference_keys:['opentag.language']});
+  }
   if(${mode==='denied'})return Promise.reject(new Error('controlled recovery refusal'));
   if(${!['held','denied'].includes(mode)})return Promise.resolve({desktop:${!['android','ios'].includes(mode)},phase:${JSON.stringify(['android','ios'].includes(mode)?'unsupported':'none')},report:null,restorable:false,pending:${mode==='storage-pending'?`{id:'pending',attempted:false,window:{version:1,preferences:{'opentag.language':'nl'},workspace:{paths:[],selected:[],roots:[],location:'',location_is_data:false,filter:'',filter_draft:null,anchor:null,playlist:null}}}`:'null'},preference_keys:['opentag.language']});
   return new Promise(resolve=>{release=()=>resolve({desktop:true,phase:'none',report:null,restorable:false,pending:null,preference_keys:[]});});
  }
- if(command==='load_helper_lists')return Promise.resolve({exists:true,lists:{}});
+ if(command==='load_helper_lists')return Promise.resolve({exists:${mode!=='portable-held'},lists:{}});
  return Promise.reject(new Error('unavailable fixture boundary '+command));
 }};
 const unexpected=[];console.warn=(...values)=>unexpected.push(values.map(value=>value instanceof Error?value.message:String(value)).join(' '));console.error=console.warn;process.on('unhandledRejection',error=>unexpected.push(String(error)));process.on('uncaughtException',error=>{console.log(JSON.stringify({uncaught:error.message,calls,stack:String(error.stack).replace(/data:[^\\s)]+/g,'<bundle>')}));process.exit(1);});
@@ -53,6 +59,15 @@ try{
   assert.match(window.document.querySelector('#app').textContent,/controlled recovery refusal/);
   assert.equal(window.document.querySelector('#app button').textContent,'Retry startup recovery');
   assert.equal(window.document.querySelector('#app').inert,false);
+ }else if(${mode==='portable-null'}){
+  assert.equal(pendingReceipt,false,'settings-only pending receipt is durably acknowledged');
+  assert.ok(window.document.querySelector('.app'),'ordinary startup resumes after acknowledgement');
+  assert.equal(window.localStorage.getItem('opentag.language'),'nl');
+  assert.ok(!calls.includes('scan_files'),'explicit settings-only receipt does not load rows or startup folders');
+ }else if(${mode==='portable-held'||mode==='portable-failed'}){
+  assert.equal(pendingReceipt,true);assert.equal(window.document.querySelector('#app').inert,true,'ordinary input remains gated');
+  assert.ok(!calls.some(command=>command==='save_helper_lists'||command==='save_settings'),'eager services cannot write while acknowledgement is pending');
+  if(${mode==='portable-failed'})assert.ok(window.document.querySelector('[data-settings-only]'),'failed recovery exposes an explicit settings-only choice');
  }else if(${mode==='storage-none'}){
   assert.ok(window.document.querySelector('.app'),'no-journal native startup tolerates unavailable browser storage');
  }else if(${mode==='storage-pending'}){

@@ -1,5 +1,7 @@
 # Launch forwarding, Finder "Open With" and Mac Remove from list
 
+Current scope clarification (2026-10-19): [C47](../research/remaining-gaps.md#c47) now also retains historical L69 as native qualification of the already implemented and [documented direct-executable argument route](../user-guide/reference/command-line.md#macos). The historical decisions below already describe the forced-new-process alternative. Actual running-macOS-app invocation remains locally pending; this reconciliation adds no runtime result or launch-code change.
+
 Branch `feat/launch-forwarding`. It covers the remaining-gaps runners-up "Finder Open With and `open --args` forwarding on macOS" and "Mac keyboards have no way to trigger Remove from list", and re-checks single-instance forwarding on all desktop platforms. Reference page: `command-line` (the `/fp:`, `/fn:` and `/add` switches). `getting-started/main-window` says files loaded from the Explorer context menu replace the list, like a drop, and Ctrl+drop adds.
 
 Nothing was launched locally. The evidence is unit tests, a config check and the native suite `tests/e2e/launch-forwarding.js`, which runs headless in the CI `native-e2e` job (Linux, xvfb). The macOS bundle's `Info.plist` is checked in the CI `desktop` job on `macos-latest`.

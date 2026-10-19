@@ -134,10 +134,10 @@ test('Actions (Quick) reopens on the last applied type with its settings', () =>
   assert.equal(items.get('opentag.actions.quick'), '{');
 });
 
-test('action-file export identifies app-only mappings before users transfer the file',()=>{
-  const group=actions=>({name:'Practice',enabled:true,actions});
-  assert.equal(mtaExportWarning(group([{type:'replace',field:'TITLE',from:'x',to:'y'}])), '');
-  const warning=mtaExportWarning(group([{type:'adjust_cover'}, {type:'set_cover_properties'}, {type:'generate_playlists'}, {type:'adjust_cover'}]));
-  assert.match(warning,/app-only extensions/);assert.match(warning,/Adjust Cover/);assert.match(warning,/Set Cover Properties/);assert.match(warning,/Generate Playlists/);
+test('action-file export warnings use the authoritative representation report',()=>{
+  assert.equal(mtaExportWarning({legacy_actions:[]}), '');
+  const warning=mtaExportWarning({legacy_actions:['Adjust Cover','Set Cover Properties','Adjust Cover']});
+  assert.match(warning,/app-only extensions/);assert.match(warning,/Adjust Cover/);assert.match(warning,/Set Cover Properties/);
+  assert.doesNotMatch(warning,/Generate Playlists/);
   assert.match(warning,/will not transfer to Mp3tag/);assert.equal(warning.match(/Adjust Cover/g).length,1);
 });

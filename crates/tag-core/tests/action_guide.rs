@@ -7,7 +7,7 @@ use tag_core::{
         apply_action_spec, ActionSpec, ActionState, CaseMode, CoverImageFormat, CoverResize,
         CoverScaleMode, CoverSizeMode,
     },
-    adjust_cover_image, render_export, ExportOptions, ExportRow, Fields,
+    adjust_cover_image, evaluate, render_export, ExportOptions, ExportRow, Fields,
 };
 
 const CASE: &str = include_str!("../../../docs/user-guide/actions/case-conversion.md");
@@ -205,6 +205,59 @@ fn guess_values_examples_replace_destinations_and_skip_dummy_text() {
 }
 
 #[test]
+fn guess_values_regex_preparation_runs_the_written_stages() {
+    let lf = GUESS.replace("\r\n", "\n");
+    for page in [lf.clone(), lf.replace('\n', "\r\n")] {
+        let section = page
+            .split_once("<!-- guess-regex-stages:start -->")
+            .unwrap()
+            .1
+            .split_once("<!-- guess-regex-stages:end -->")
+            .unwrap()
+            .0;
+        let settings = text_blocks(section);
+        assert_eq!(settings.len(), 2);
+        let rows: Vec<_> = section
+            .lines()
+            .filter(|line| {
+                line.starts_with('|')
+                    && !line.starts_with("| Case |")
+                    && cells(line).get(1).is_some_and(|v| v.starts_with('`'))
+            })
+            .map(cells)
+            .collect();
+        assert_eq!(rows.len(), 4);
+        for row in rows {
+            assert_eq!(row.len(), 5);
+            let comment = inline(row[1]).replace('·', " ").replace('⇥', "\t");
+            let mut input = state("COMMENT", &[&comment]);
+            input.fields.extend([
+                ("YEAR".into(), vec!["1999".into()]),
+                ("ALBUM".into(), vec!["Keep this album".into()]),
+                ("TITLE".into(), vec!["Unchanged title".into()]),
+            ]);
+            assert_eq!(
+                evaluate(&settings[0], &input.fields).unwrap(),
+                inline(row[2])
+            );
+            let effects = apply_action_spec(
+                &mut input,
+                &ActionSpec::GuessValues {
+                    source: settings[0].clone(),
+                    pattern: settings[1].clone(),
+                },
+            )
+            .unwrap();
+            assert!(effects.is_empty());
+            assert_eq!(input.fields["YEAR"], [inline(row[3])]);
+            assert_eq!(input.fields["ALBUM"], [inline(row[4])]);
+            assert_eq!(input.fields["COMMENT"], [comment]);
+            assert_eq!(input.fields["TITLE"], ["Unchanged title"]);
+        }
+    }
+}
+
+#[test]
 fn export_action_configuration_runs_exactly_as_published() {
     let template = text_blocks(EXPORT).remove(0);
     let rows: Vec<_> = [
@@ -246,57 +299,69 @@ fn export_action_configuration_runs_exactly_as_published() {
 
 #[test]
 fn cover_size_table_matches_the_actual_image_resizer() {
-    let original = image::DynamicImage::new_rgb8(1200, 800);
+    let original = image::DynamicImage::new_rgb8(600, 300);
     let mut encoded = std::io::Cursor::new(Vec::new());
     original
         .write_to(&mut encoded, image::ImageFormat::Png)
         .unwrap();
     let mut count = 0;
-    for line in COVER
-        .lines()
-        .filter(|line| line.starts_with("| Maximum +") || line.starts_with("| Minimum +"))
-    {
+    for line in COVER.lines().filter(|line| {
+        line.starts_with("| Maximum ")
+            || line.starts_with("| Minimum ")
+            || line.starts_with("| Size disabled +")
+    }) {
         let row = cells(line);
-        let size_mode = if row[0].starts_with("Maximum") {
-            CoverSizeMode::Maximum
+        let (policy, shape) = row[0].split_once(" + ").unwrap();
+        let enabled = policy != "Size disabled";
+        let pixels = if enabled {
+            policy.split_whitespace().nth(1).unwrap().parse().unwrap()
         } else {
+            0
+        };
+        let size_mode = if policy.starts_with("Minimum") {
             CoverSizeMode::Minimum
-        };
-        let scale_mode = if row[0].ends_with("proportional") {
-            CoverScaleMode::Proportional
-        } else if row[0].ends_with("square") {
-            CoverScaleMode::Square
         } else {
-            CoverScaleMode::CropSquare
+            CoverSizeMode::Maximum
         };
-        let dimensions: Vec<_> = row[1]
+        let modes = match shape {
+            "proportional" => vec![CoverScaleMode::Proportional],
+            "square" => vec![CoverScaleMode::Square],
+            "crop" => vec![CoverScaleMode::CropSquare],
+            "square or crop" => vec![CoverScaleMode::Square, CoverScaleMode::CropSquare],
+            _ => panic!("{line}"),
+        };
+        let dimensions: Vec<u32> = row[1]
             .split(',')
             .next()
             .unwrap()
             .split(" × ")
-            .map(|number| number.parse::<u32>().unwrap())
+            .map(|number| number.parse().unwrap())
             .collect();
-        let result = adjust_cover_image(
-            encoded.get_ref(),
-            CoverImageFormat::Original,
-            90,
-            Some(&CoverResize {
-                pixels: 600,
-                size_mode,
-                scale_mode,
-            }),
-        )
-        .unwrap()
-        .unwrap();
-        let result = image::load_from_memory(&result).unwrap();
-        assert_eq!(
-            (result.width(), result.height()),
-            (dimensions[0], dimensions[1]),
-            "{line}"
-        );
+        for scale_mode in modes {
+            let result = adjust_cover_image(
+                encoded.get_ref(),
+                CoverImageFormat::Original,
+                90,
+                Some(&CoverResize {
+                    native_geometry: true,
+                    size_enabled: enabled,
+                    pixels,
+                    size_mode,
+                    scale_mode,
+                }),
+            )
+            .unwrap()
+            .unwrap();
+            let result = image::load_from_memory(&result).unwrap();
+            assert_eq!(
+                (result.width(), result.height()),
+                (dimensions[0], dimensions[1]),
+                "{line}"
+            );
+        }
         count += 1;
     }
-    assert_eq!(count, 4);
+    assert_eq!(count, 6);
 }
 
 #[test]

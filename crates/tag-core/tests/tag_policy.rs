@@ -142,7 +142,9 @@ fn mpeg_reads_display_one_enabled_tag_kind_by_priority() {
             ape: Some(2000)
         }
     );
-    let entry = read_entry(&path).unwrap();
+    let mut all_enabled = TagOptions::default();
+    all_enabled.mpeg.read_ape = true;
+    let entry = read_entry_with_options(&path, &[], &all_enabled).unwrap();
     assert_eq!(entry.fields["Title"], ["Ape"]);
     assert!(
         !entry.fields.contains_key("YEAR"),
@@ -171,7 +173,7 @@ fn mpeg_reads_display_one_enabled_tag_kind_by_priority() {
 }
 
 #[test]
-fn default_mpeg_write_creates_id3v1_and_utf16_id3v23_and_strips_ape() {
+fn default_mpeg_write_creates_id3v1_and_utf16_id3v23_and_preserves_hidden_ape() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("default.mp3");
     let original_audio = mp3(&path);
@@ -185,12 +187,15 @@ fn default_mpeg_write_creates_id3v1_and_utf16_id3v23_and_strips_ape() {
         Kinds {
             id3v2: Some(3),
             id3v1: true,
-            ape: None
+            ape: Some(2000)
         }
     );
     assert_eq!(audio(&path), original_audio);
-    assert_eq!(entry.fields["TITLE"], ["Ape title"]);
-    assert_eq!(entry.fields["ALBUM"], ["Ape album"]);
+    assert!(!entry.fields.contains_key("TITLE"));
+    assert!(!entry.fields.contains_key("ALBUM"));
+    let preserved = read_entry_with_options(&path, &[], &reading("ape")).unwrap();
+    assert_eq!(preserved.fields["Title"], ["Ape title"]);
+    assert_eq!(preserved.fields["Album"], ["Ape album"]);
     assert_eq!(entry.fields["ARTIST"], ["Artist é"]);
     assert_eq!(entry.technical["_TAG_READ"], ["ID3v2.3"]);
     let tag = id3(&path);
@@ -201,9 +206,9 @@ fn default_mpeg_write_creates_id3v1_and_utf16_id3v23_and_strips_ape() {
         }
     }
     let v1 = read_entry_with_options(&path, &[], &reading("id3v1")).unwrap();
-    assert_eq!(v1.fields["TITLE"], ["Ape title"]);
+    assert!(!v1.fields.contains_key("TITLE"));
     assert_eq!(v1.fields["ARTIST"], ["Artist é"]);
-    assert_eq!(v1.fields["ALBUM"], ["Ape album"]);
+    assert!(!v1.fields.contains_key("ALBUM"));
 }
 
 #[test]
@@ -305,7 +310,7 @@ fn latin1_mode_writes_iso_8859_1_frames() {
 }
 
 #[test]
-fn write_and_remove_sets_produce_exactly_the_selected_tag_kinds() {
+fn mpeg_save_writes_selected_kinds_and_retains_unwritten_kinds_independently_of_remove_switches() {
     let tmp = tempfile::tempdir().unwrap();
     for write in [
         [true, false, false],
@@ -331,19 +336,11 @@ fn write_and_remove_sets_produce_exactly_the_selected_tag_kinds() {
             )
             .unwrap_or_else(|e| panic!("{write:?}/{remove}: {e}"));
             let found = kinds(&path);
-            // Writing APEv2 also updates an existing ID3v1 tag.
-            let v1 = write[0] || write[2];
-            assert_eq!(found.id3v1, v1 || !remove, "{write:?}/{remove}");
-            assert_eq!(
-                found.id3v2.is_some(),
-                write[1] || !remove,
-                "{write:?}/{remove}"
-            );
-            assert_eq!(
-                found.ape.is_some(),
-                write[2] || !remove,
-                "{write:?}/{remove}"
-            );
+            // Remove selections do not delete unwritten kinds during Save.
+            let v1 = write[0];
+            assert!(found.id3v1, "{write:?}/{remove}");
+            assert!(found.id3v2.is_some(), "{write:?}/{remove}");
+            assert!(found.ape.is_some(), "{write:?}/{remove}");
             if write[1] {
                 assert_eq!(found.id3v2, Some(3));
             }
@@ -428,7 +425,7 @@ fn id3v2_is_written_only_when_id3v1_cannot_hold_the_values() {
 }
 
 #[test]
-fn apev1_tags_are_upgraded_to_apev2_and_existing_id3v1_is_updated() {
+fn apev1_tags_are_upgraded_to_apev2_and_unwritten_id3v1_is_preserved() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("apev1.mp3");
     let original_audio = mp3(&path);
@@ -450,12 +447,20 @@ fn apev1_tags_are_upgraded_to_apev2_and_existing_id3v1_is_updated() {
     v1.title = Some("Old v1".into());
     v1.save_to_path(&path, WriteOptions::default()).unwrap();
     assert_eq!(kinds(&path).ape, Some(1000));
-    assert_eq!(read_entry(&path).unwrap().fields["Title"], ["One"]);
+    let v1_before = fs::read(&path).unwrap();
+    let v1_before = v1_before[v1_before.len() - 128..].to_vec();
+    assert_eq!(
+        read_entry_with_options(&path, &[], &reading("ape"))
+            .unwrap()
+            .fields["Title"],
+        ["One"]
+    );
 
     let mut options = TagOptions::default();
     options.mpeg.write_id3v1 = false;
     options.mpeg.write_id3v2 = false;
     options.mpeg.write_ape = true;
+    options.mpeg.read_ape = true;
     let entry = write_fields_with_options(
         &path,
         &fields(&[("Album", &["Upgraded"])]),
@@ -475,8 +480,10 @@ fn apev1_tags_are_upgraded_to_apev2_and_existing_id3v1_is_updated() {
     assert_eq!(entry.fields["Title"], ["One"]);
     assert_eq!(entry.fields["Album"], ["Upgraded"]);
     let v1 = read_entry_with_options(&path, &[], &reading("id3v1")).unwrap();
-    assert_eq!(v1.fields["TITLE"], ["One"]);
-    assert_eq!(v1.fields["ALBUM"], ["Upgraded"]);
+    assert_eq!(v1.fields["TITLE"], ["Old v1"]);
+    assert!(!v1.fields.contains_key("ALBUM"));
+    let after = fs::read(&path).unwrap();
+    assert_eq!(&after[after.len() - 128..], v1_before);
     assert_eq!(audio(&path), original_audio);
 }
 
@@ -757,13 +764,22 @@ fn ape_with_gain(path: &Path, title: &str, track_gain: &str) {
 }
 
 #[test]
-fn removing_a_displayed_ape_tag_keeps_gain_fields_in_id3v2() {
+fn saving_with_ape_read_opt_in_keeps_native_ape_and_mirrors_displayed_gain() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("gain.mp3");
     mp3(&path);
     ape_with_gain(&path, "Ape title", "-6.48 dB");
-    write_fields(&path, &fields(&[("ARTIST", &["Artist"])])).unwrap();
-    assert_eq!(kinds(&path).ape, None);
+    let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
+    write_fields_with_options(
+        &path,
+        &fields(&[("ARTIST", &["Artist"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    assert_eq!(kinds(&path).ape, Some(2000));
     let v2 = read_entry_with_options(&path, &[], &reading("id3v2")).unwrap();
     assert_eq!(v2.fields["REPLAYGAIN_TRACK_GAIN"], ["-6.48 dB"]);
     assert_eq!(v2.fields["REPLAYGAIN_TRACK_PEAK"], ["0.988525"]);
@@ -772,7 +788,7 @@ fn removing_a_displayed_ape_tag_keeps_gain_fields_in_id3v2() {
 }
 
 #[test]
-fn removing_an_unread_ape_tag_migrates_only_gain_fields_into_id3v2() {
+fn saving_an_unread_ape_tag_retains_gain_in_ape_without_importing_hidden_fields() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("hidden-ape.mp3");
     mp3(&path);
@@ -790,7 +806,7 @@ fn removing_an_unread_ape_tag_migrates_only_gain_fields_into_id3v2() {
         &options,
     )
     .unwrap();
-    assert_eq!(kinds(&path).ape, None);
+    assert_eq!(kinds(&path).ape, Some(2000));
     let v2 = read_entry_with_options(&path, &[], &reading("id3v2")).unwrap();
     assert_eq!(
         v2.fields["TITLE"],
@@ -798,12 +814,15 @@ fn removing_an_unread_ape_tag_migrates_only_gain_fields_into_id3v2() {
         "non-gain APE fields are not migrated"
     );
     assert_eq!(v2.fields["ARTIST"], ["Artist"]);
-    assert_eq!(v2.fields["REPLAYGAIN_TRACK_GAIN"], ["-6.48 dB"]);
-    assert_eq!(v2.fields["MP3GAIN_UNDO"], ["+004,+004,N"]);
+    assert!(!v2.fields.contains_key("REPLAYGAIN_TRACK_GAIN"));
+    assert!(!v2.fields.contains_key("MP3GAIN_UNDO"));
+    let native = read_entry_with_options(&path, &[], &reading("ape")).unwrap();
+    assert_eq!(native.fields["REPLAYGAIN_TRACK_GAIN"], ["-6.48 dB"]);
+    assert_eq!(native.fields["MP3GAIN_UNDO"], ["+004,+004,N"]);
 }
 
 #[test]
-fn existing_id3v2_gain_values_win_over_a_removed_ape_tag() {
+fn existing_id3v2_gain_values_and_unwritten_ape_gain_remain_independent() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("both-gain.mp3");
     mp3(&path);
@@ -831,7 +850,13 @@ fn existing_id3v2_gain_values_win_over_a_removed_ape_tag() {
     .unwrap();
     let v2 = read_entry_with_options(&path, &[], &reading("id3v2")).unwrap();
     assert_eq!(v2.fields["REPLAYGAIN_TRACK_GAIN"], ["-1.00 dB"]);
-    assert_eq!(v2.fields["MP3GAIN_UNDO"], ["+004,+004,N"]);
+    assert!(!v2.fields.contains_key("MP3GAIN_UNDO"));
+    assert_eq!(
+        read_entry_with_options(&path, &[], &reading("ape"))
+            .unwrap()
+            .fields["MP3GAIN_UNDO"],
+        ["+004,+004,N"]
+    );
 }
 
 #[test]

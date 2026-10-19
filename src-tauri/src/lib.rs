@@ -5,6 +5,7 @@ use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
 mod associated_files;
 mod columns;
+mod configuration_transfer;
 mod converters;
 mod cover_drag;
 mod covers;
@@ -22,6 +23,7 @@ mod languages;
 mod library;
 mod list_behaviour;
 mod lists;
+mod locale_format;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod mp3tag_columns;
@@ -53,7 +55,14 @@ async fn save_export_library(
     library: exports::Library,
 ) -> Result<(), String> {
     let path = export_library_path(&app)?;
-    io(move || exports::save(&path, &library)).await
+    io(move || {
+        let _guard = profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        exports::save(&path, &library)
+    })
+    .await
 }
 #[tauri::command]
 async fn import_export_configuration(
@@ -131,7 +140,14 @@ async fn save_action_library(
     library: tag_core::actions::ActionLibrary,
 ) -> Result<(), String> {
     let path = action_host::library_path(&app)?;
-    io(move || action_host::save_library(&path, &library)).await
+    io(move || {
+        let _guard = profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        action_host::save_library(&path, &library)
+    })
+    .await
 }
 #[cfg(test)]
 #[tauri::command]
@@ -667,17 +683,29 @@ fn write_row_group(
 /// `job` names the operation for progress events and [`progress::cancel_job`].
 /// `refresh` (File → Reload tags) reads every file even when Options →
 /// Library holds it.
+pub(crate) fn scan_read_options(
+    options: &tag_core::TagOptions,
+    exact_rows: bool,
+) -> tag_core::TagOptions {
+    let mut options = options.clone();
+    if exact_rows {
+        options.advanced.list_chapters = false;
+    }
+    options
+}
+
 #[tauri::command]
 async fn scan_files(
     paths: Vec<String>,
     recursive: bool,
     job: Option<String>,
     refresh: Option<bool>,
+    exact_rows: Option<bool>,
 ) -> Result<ScanResult, String> {
     io(move || {
         #[cfg(target_os = "android")]
         {
-            let _ = (recursive, job, refresh);
+            let _ = (recursive, job, refresh, exact_rows);
             Ok(batch(&paths, documents::reload))
         }
         #[cfg(not(target_os = "android"))]
@@ -686,10 +714,11 @@ async fn scan_files(
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
+            let options = scan_read_options(&settings::tag_options(), exact_rows.unwrap_or(false));
             let mut result = library::scan(
                 &ordinary,
                 recursive,
-                &settings::tag_options(),
+                &options,
                 settings::extensions().as_deref(),
                 &job,
                 refresh.unwrap_or(false),
@@ -1559,6 +1588,7 @@ pub fn run() {
             import_action_groups_with_diagnostics,
             diagnostics_ipc::execute_action_groups_with_diagnostics,
             action_host::export_action_group,
+            action_host::action_group_export_report,
             runtime_platform,
             set_working_directory,
             pick_document_files,
@@ -1598,10 +1628,12 @@ pub fn run() {
             converters::preview_text_import,
             converters::apply_text_import,
             history::history_state,
+            history::export_history_recovery,
             history::ipc::undo_last_with_diagnostics,
             history::ipc::redo_last_with_diagnostics,
             history::ipc::convert_tag_to_tag_with_diagnostics,
             export_csv,
+            playlists::classify_source_paths,
             playlists::ipc::read_playlist_with_diagnostics,
             playlists::plan_playlists,
             playlists::create_playlists,
@@ -1659,6 +1691,9 @@ pub fn run() {
             utilities::apply_util,
             utilities::strip_mp4_chapters,
             utilities::run_tool,
+            configuration_transfer::configuration_transfer_export,
+            configuration_transfer::configuration_transfer_preview,
+            configuration_transfer::configuration_transfer_apply,
             utilities::export_configuration,
             utilities::import_configuration,
             profile_migration::profile_migration_preview,
@@ -1667,6 +1702,8 @@ pub fn run() {
             profile_migration::profile_migration_restore,
             utilities::open_configuration_folder,
             languages::language_catalogs,
+            locale_format::locale_format_state,
+            locale_format::reformat_loaded_timestamps,
             languages::open_languages_folder,
             languages::prepare_languages_folder,
             utilities::open_help_page,
@@ -2015,7 +2052,8 @@ mod tests {
         tag_core::write_fields(&source, &external).unwrap();
         session.rename("Other - Changed.wav");
         let reloaded =
-            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None, None)).unwrap();
+            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None, None, None))
+                .unwrap();
         assert_eq!(reloaded.entries[0].fields["TITLE"], ["External"]);
         assert_eq!(reloaded.entries[0].filename, "Other - Changed.wav");
         let renamed_preview = tauri::async_runtime::block_on(preview_filename(
@@ -2224,7 +2262,8 @@ mod tests {
             .entries
             .iter()
             .any(|e| e.path == session.path && e.fields["TITLE"] == ["Retain edited"]));
-        let blocked = tauri::async_runtime::block_on(scan_files(paths, false, None, None)).unwrap();
+        let blocked =
+            tauri::async_runtime::block_on(scan_files(paths, false, None, None, None)).unwrap();
         assert!(blocked.entries.is_empty());
         assert!(blocked.errors[0].error.contains("recovery"));
         let readonly =
@@ -3026,6 +3065,94 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rename_identity_refusal_preserves_audio_and_fresh_review_undo() {
+        use std::{fs, os::unix::fs::MetadataExt};
+        let _lock = history::TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("source.wav");
+        let original = root.join("retained-original.wav");
+        let replacement = root.join("replacement.wav");
+        for (path, title) in [(&source, "AAAA"), (&replacement, "BBBB")] {
+            wav(path);
+            tag_core::write_fields(path, &Fields::from([("TITLE".into(), vec![title.into()])]))
+                .unwrap();
+        }
+        let original_bytes = fs::read(&source).unwrap();
+        let replacement_bytes = fs::read(&replacement).unwrap();
+        let before = fs::metadata(&source).unwrap();
+        let paths = vec![source.to_string_lossy().into_owned()];
+        let evaluation = evaluation_settings(None).unwrap();
+        let review = || {
+            let entry = settings::read_summary(&source).unwrap();
+            let target = rename_target_with_settings(&entry, "%title%", 1, &evaluation).unwrap();
+            rename_plan::record(&paths, "%title%", vec![target]).unwrap()
+        };
+        let token = review();
+        fs::rename(&source, &original).unwrap();
+        fs::rename(&replacement, &source).unwrap();
+        fs::File::open(&source)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(before.modified().unwrap()))
+            .unwrap();
+        let after = fs::metadata(&source).unwrap();
+        assert_eq!(before.len(), after.len());
+        assert_eq!(before.modified().unwrap(), after.modified().unwrap());
+        assert_ne!((before.dev(), before.ino()), (after.dev(), after.ino()));
+        history::TEST_ROOTS.lock().unwrap().push(root.clone());
+        let refused = rename_files_with_policy(
+            paths.clone(),
+            "%title%",
+            Some(token),
+            &evaluation,
+            false,
+            false,
+        );
+        assert_eq!(
+            refused.err().unwrap(),
+            "A file changed after preview; preview again"
+        );
+        assert_eq!(fs::read(&source).unwrap(), replacement_bytes);
+        assert_eq!(fs::read(&original).unwrap(), original_bytes);
+        assert!(!root.join("AAAA.wav").exists());
+        assert!(!root.join("BBBB.wav").exists());
+
+        let fresh_token = review();
+        let renamed = rename_files_with_policy(
+            paths,
+            "%title%",
+            Some(fresh_token),
+            &evaluation,
+            false,
+            false,
+        )
+        .unwrap();
+        assert!(renamed.result.result.errors.is_empty());
+        assert_eq!(renamed.result.renamed.len(), 1);
+        let target = root.join("BBBB.wav");
+        assert_eq!(fs::read(&target).unwrap(), replacement_bytes);
+        assert!(!source.exists() && !root.join("AAAA.wav").exists());
+        for (undo, expected) in [(true, &source), (false, &target)] {
+            let result = if undo {
+                tauri::async_runtime::block_on(history::undo_last()).unwrap()
+            } else {
+                tauri::async_runtime::block_on(history::redo_last()).unwrap()
+            };
+            assert_eq!(
+                serde_json::to_value(result).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(fs::read(expected).unwrap(), replacement_bytes);
+            assert_eq!(fs::read(&original).unwrap(), original_bytes);
+        }
+        history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .retain(|path| path != &root);
     }
 
     #[test]

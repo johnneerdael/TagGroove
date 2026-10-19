@@ -375,7 +375,23 @@ const INTERNAL = /Injected|fixture/i;
 // Keep offsets while ignoring quoted text/comments when locating error calls
 // and local helper bodies. This only balances delimiters, not Rust grammar.
 const RUST_TOKENS = /r(#+)?"[\s\S]*?"\1|"(?:[^"\\]|\\.)*"|'(?:\\(?:u\{[\da-fA-F]+\}|x[\da-fA-F]{2}|.)|[^'\\])'|\/\/[^\n]*|\/\*[\s\S]*?\*\//gu;
-const rustCode = source => source.replace(RUST_TOKENS, token => token.replace(/[^\n]/g, ' '));
+const rustCode = source => {
+  const tokens=new RegExp(RUST_TOKENS);let code='',from=0,match;
+  while((match=tokens.exec(source))){
+    let end=tokens.lastIndex;
+    if(match[0].startsWith('/*')){
+      let depth=1;end=match.index+2;
+      while(end<source.length&&depth){
+        if(source.startsWith('/*',end)){depth++;end+=2;}
+        else if(source.startsWith('*/',end)){depth--;end+=2;}
+        else end++;
+      }
+      tokens.lastIndex=end;
+    }
+    code+=source.slice(from,match.index)+source.slice(match.index,end).replace(/[^\n]/g,' ');from=end;
+  }
+  return code+source.slice(from);
+};
 function rustEnd(code, start, open='(', close=')') {
   let depth=1;for(let index=start+1;index<code.length;index++){if(code[index]===open)depth++;else if(code[index]===close&&!--depth)return index;}
   return code.length;
@@ -424,6 +440,16 @@ function typedCauseMessages(source) {
 }
 /** Direct errors plus static local factories reached from actual error contexts. */
 export function extractBackendSource(source){
+  // A separately compiled test-support file may not contain `mod tests`.
+  // Read only leading inner attributes; a cfg in a string or nested module
+  // must never suppress the containing file's production diagnostics.
+  const leading=rustCode(source);let at=0;
+  for(;;){
+    const attribute=/^\s*#!\s*\[/.exec(leading.slice(at));if(!attribute)break;
+    const start=at+attribute[0].lastIndexOf('['),end=rustEnd(leading,start,'[',']');
+    if(/^\s*cfg\s*\(\s*test\s*\)\s*$/.test(leading.slice(start+1,end)))return [];
+    at=end+1;
+  }
   const tests=source.search(/#\[cfg\(test\)\]\s*mod tests/);if(tests>=0)source=source.slice(0,tests);
   const code=rustCode(source),keys=new Set(),roots=[],names=new Set(),errorTypes=new Set();
   for(const match of code.matchAll(/\bimpl\s+std::error::Error\s+for\s+([A-Za-z_]\w*)\s*\{/g))errorTypes.add(match[1]);

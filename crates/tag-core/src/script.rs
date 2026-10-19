@@ -13,6 +13,8 @@ use std::sync::OnceLock;
 
 const MAX_OUTPUT: usize = 1_048_576;
 const MAX_DEPTH: usize = 128;
+// Intentional port safety policy, not a threshold established by the native parser.
+const MAX_AST_VISITS: usize = 1_048_576;
 
 #[derive(Clone, Debug, Default)]
 pub struct ScriptValue {
@@ -37,8 +39,8 @@ pub struct ScriptFunctionSpec {
     pub max_args: usize,
 }
 
-/// Optional host functions are accepted only by compile_with_functions. The
-/// normal scripting grammar and its 64 builtins remain strict and unchanged.
+/// Optional host functions dispatch only when registered by compile_with_functions.
+/// Unregistered true-unknown names use literal fallback without host dispatch.
 pub trait ScriptExtension {
     fn call(&self, name: &str, args: &[ScriptValue]) -> Result<ScriptValue, String>;
     fn field(&self, _name: &str) -> Result<Option<Vec<String>>, String> {
@@ -161,6 +163,8 @@ enum Node {
     Optional(Vec<Node>),
     Function(String, Vec<Vec<Node>>),
     Extension(String, Vec<Vec<Node>>),
+    ExportVariable(String, Vec<Vec<Node>>),
+    UnknownFunction(String, Vec<Vec<Node>>),
 }
 
 struct Parser {
@@ -169,6 +173,7 @@ struct Parser {
     functions: BTreeMap<String, (usize, usize)>,
     /// Whether parentheses in argument text nest (see [`Parser::sequence`]).
     nesting: bool,
+    export_variables: bool,
 }
 
 impl Parser {
@@ -268,10 +273,8 @@ impl Parser {
                     {
                         self.pos += 1;
                     }
-                    let name: String = self.chars[start..self.pos]
-                        .iter()
-                        .collect::<String>()
-                        .to_ascii_lowercase();
+                    let original_name: String = self.chars[start..self.pos].iter().collect();
+                    let name = original_name.to_ascii_lowercase();
                     // A `$` that does not start a function name is text: the end
                     // anchor in `^(va)$` or a reference such as `$1` in an
                     // unquoted regular expression replacement.
@@ -280,23 +283,27 @@ impl Parser {
                         literal.extend(&self.chars[start..self.pos]);
                         continue;
                     }
-                    if self.chars.get(self.pos) != Some(&'(') {
-                        return Err(format!("Expected function call after ${name}"));
-                    }
-                    if !SUPPORTED_FUNCTIONS.contains(&name.as_str())
-                        && !self.functions.contains_key(&name)
-                    {
+                    let registered = self.functions.contains_key(&name);
+                    let builtin = SUPPORTED_FUNCTIONS.contains(&name.as_str());
+                    if RESERVED_FUNCTIONS.contains(&name.as_str()) && !registered {
                         return Err(format!("Unsupported scripting function: ${name}"));
+                    }
+                    if self.chars.get(self.pos) != Some(&'(') {
+                        if builtin || registered {
+                            return Err(format!("Expected function call after ${name}"));
+                        }
+                        nodes.push(Node::Literal(format!("${original_name}")));
+                        continue;
                     }
                     self.pos += 1;
                     // Text that only parses without nesting (an unbalanced
                     // `(` in an argument) keeps its earlier meaning.
                     let open = self.pos;
-                    let node = match self.call(name.clone(), depth) {
+                    let node = match self.call(original_name.clone(), depth) {
                         Err(_) if self.nesting => {
                             self.pos = open;
                             self.nesting = false;
-                            let flat = self.call(name, depth);
+                            let flat = self.call(original_name, depth);
                             self.nesting = true;
                             flat?
                         }
@@ -314,7 +321,8 @@ impl Parser {
     }
 
     /// The arguments and closing parenthesis of `$name(`, as a node.
-    fn call(&mut self, name: String, depth: usize) -> Result<Node, String> {
+    fn call(&mut self, original_name: String, depth: usize) -> Result<Node, String> {
+        let name = original_name.to_ascii_lowercase();
         let mut args = Vec::new();
         if self.chars.get(self.pos) == Some(&')') {
             self.pos += 1;
@@ -349,14 +357,36 @@ impl Parser {
             if !(*minimum..=*maximum).contains(&args.len()) {
                 return Err(format!("${name} expects {minimum}..={maximum} arguments"));
             }
-            return Ok(Node::Extension(name, args));
+            return Ok(
+                if self.export_variables && ["get", "put", "puts"].contains(&name.as_str()) {
+                    Node::ExportVariable(name, args)
+                } else {
+                    Node::Extension(name, args)
+                },
+            );
         }
-        validate_arity(&name, args.len())?;
-        Ok(Node::Function(name, args))
+        if SUPPORTED_FUNCTIONS.contains(&name.as_str()) {
+            validate_arity(&name, args.len())?;
+            Ok(Node::Function(name, args))
+        } else {
+            Ok(Node::UnknownFunction(original_name, args))
+        }
     }
 }
 
-/// Documented functions implemented here. Others produce an explicit error.
+// Native-known names without a default implementation must not become literals.
+pub(crate) const RESERVED_FUNCTIONS: &[&str] = &[
+    "fmtdatelocal",
+    "get",
+    "listtec",
+    "put",
+    "puts",
+    "repl",
+    "rg2sc",
+    "substr",
+];
+
+/// Documented functions implemented here. Native-known unsupported names are reserved.
 pub const SUPPORTED_FUNCTIONS: &[&str] = &[
     "lower",
     "upper",
@@ -591,34 +621,104 @@ fn run(
     run_diagnostic(nodes, context, filename_mode, native_path).map_err(|error| error.to_string())
 }
 
+// Share one meter across children and both unknown passes. Consume before a
+// node can invoke a host; host reentry through a public evaluator is separate.
+struct WorkMeter {
+    remaining: usize,
+}
+impl WorkMeter {
+    fn visit(&mut self) -> Result<(), ErrorCause> {
+        self.remaining = self
+            .remaining
+            .checked_sub(1)
+            .ok_or_else(|| ErrorCause::owned("Format string work limit exceeded"))?;
+        Ok(())
+    }
+}
+
 fn run_diagnostic(
     nodes: &[Node],
     context: &EvalContext<'_>,
     filename_mode: bool,
     native_path: bool,
 ) -> Result<Value, ErrorCause> {
+    run_child(
+        nodes,
+        context,
+        filename_mode,
+        native_path,
+        &mut WorkMeter {
+            remaining: MAX_AST_VISITS,
+        },
+    )
+}
+
+fn run_child(
+    nodes: &[Node],
+    context: &EvalContext<'_>,
+    filename_mode: bool,
+    native_path: bool,
+    meter: &mut WorkMeter,
+) -> Result<Value, ErrorCause> {
     let mut output = Value {
         filename: filename_mode.then(String::new),
         ..Value::default()
     };
+    run_into(nodes, context, native_path, &mut output, meter)?;
+    Ok(output)
+}
+
+fn append_value(
+    output: &mut Value,
+    text: &str,
+    filename: &str,
+    limit: usize,
+) -> Result<(), ErrorCause> {
+    if output.text.len().saturating_add(text.len()) > limit {
+        return Err(ErrorCause::owned("Format string output limit exceeded"));
+    }
+    output.text.push_str(text);
+    if let Some(rendered) = &mut output.filename {
+        if rendered.len().saturating_add(filename.len()) > limit {
+            return Err(ErrorCause::owned("Filename output limit exceeded"));
+        }
+        rendered.push_str(filename);
+    }
+    Ok(())
+}
+
+fn append_literal(
+    output: &mut Value,
+    text: &str,
+    native_path: bool,
+    limit: usize,
+) -> Result<(), ErrorCause> {
+    let filename = if output.filename.is_some() && native_path {
+        if cfg!(windows) {
+            text.replace('/', "\\")
+        } else {
+            text.replace('\\', "/")
+        }
+    } else {
+        text.to_owned()
+    };
+    append_value(output, text, &filename, limit)
+}
+
+fn run_into(
+    nodes: &[Node],
+    context: &EvalContext<'_>,
+    native_path: bool,
+    output: &mut Value,
+    meter: &mut WorkMeter,
+) -> Result<(), ErrorCause> {
+    let filename_mode = output.filename.is_some();
     for node in nodes {
-        let value = match node {
-            Node::Literal(text) => Value {
-                text: text.clone(),
-                present: false,
-                truth: false,
-                filename: filename_mode.then(|| {
-                    if native_path {
-                        if cfg!(windows) {
-                            text.replace('/', "\\")
-                        } else {
-                            text.replace('\\', "/")
-                        }
-                    } else {
-                        text.clone()
-                    }
-                }),
-            },
+        meter.visit()?;
+        match node {
+            Node::Literal(text) => {
+                append_literal(output, text, native_path, context.max_output_bytes)?
+            }
             Node::Field(name) => {
                 let text = context_values_diagnostic(context, name)?
                     .as_deref()
@@ -626,38 +726,74 @@ fn run_diagnostic(
                     .cloned()
                     .unwrap_or_default();
                 let present = !text.is_empty();
-                let filename = filename_mode.then(|| {
-                    // A path placeholder already is a path: keep its folders.
-                    if PATH_FIELDS
+                output.present |= present;
+                output.truth |= present;
+                let filename = if filename_mode
+                    && !PATH_FIELDS
                         .iter()
                         .any(|path| name.eq_ignore_ascii_case(path))
-                    {
-                        text.clone()
-                    } else {
-                        filename_component(&text, context)
-                    }
-                });
-                Value {
-                    text,
-                    present,
-                    truth: present,
-                    filename,
-                }
+                {
+                    filename_component(&text, context)
+                } else {
+                    text.clone()
+                };
+                append_value(output, &text, &filename, context.max_output_bytes)?;
             }
             Node::Optional(children) => {
-                let value = run_diagnostic(children, context, filename_mode, native_path)?;
+                let value = run_child(children, context, filename_mode, native_path, meter)?;
                 if value.present {
-                    value
-                } else {
-                    Value::default()
+                    output.present |= value.present;
+                    output.truth |= value.truth;
+                    append_value(
+                        output,
+                        &value.text,
+                        value.filename.as_deref().unwrap_or_default(),
+                        context.max_output_bytes,
+                    )?;
                 }
             }
-            Node::Function(name, arguments) | Node::Extension(name, arguments) => {
-                let values: Vec<Value> = arguments
-                    .iter()
-                    .map(|a| run_diagnostic(a, context, filename_mode, native_path))
-                    .collect::<Result<_, _>>()?;
-                if matches!(node, Node::Extension(_, _)) {
+            Node::Function(name, arguments)
+            | Node::Extension(name, arguments)
+            | Node::ExportVariable(name, arguments)
+            | Node::UnknownFunction(name, arguments) => {
+                let custom_host = matches!(node, Node::Extension(_, _));
+                let context_callback =
+                    matches!(name.as_str(), "getenv" | "columnnames" | "columnvalues");
+                let mut values = Vec::with_capacity(arguments.len());
+                // Every argument gets a fresh frame. Native calls publish child
+                // state eagerly; arbitrary public hosts retain result-only flags.
+                for argument in arguments {
+                    let value = run_child(argument, context, filename_mode, native_path, meter)?;
+                    if !custom_host {
+                        output.present |= value.present;
+                        // These legacy context adapters derive their own truth
+                        // from the returned text, independently of arguments.
+                        if !context_callback {
+                            output.truth |= value.truth;
+                        }
+                    }
+                    values.push(value);
+                }
+                if matches!(node, Node::UnknownFunction(_, _)) {
+                    drop(values);
+                    append_literal(
+                        output,
+                        &format!("${name}("),
+                        native_path,
+                        context.max_output_bytes,
+                    )?;
+                    // Replay the original AST in this frame: predicates may
+                    // replace state accumulated by preceding siblings or passes.
+                    for (index, argument) in arguments.iter().enumerate() {
+                        if index > 0 {
+                            append_literal(output, ",", native_path, context.max_output_bytes)?;
+                        }
+                        run_into(argument, context, native_path, output, meter)?;
+                    }
+                    append_literal(output, ")", native_path, context.max_output_bytes)?;
+                    continue;
+                }
+                if custom_host || matches!(node, Node::ExportVariable(_, _)) {
                     let args: Vec<ScriptValue> = values
                         .into_iter()
                         .map(|value| ScriptValue {
@@ -676,89 +812,64 @@ fn run_diagnostic(
                         })?
                         .call(name, &args)
                         .map_err(ErrorCause::external)?;
-                    let filename = filename_mode.then(|| filename_component(&value.text, context));
-                    Value {
-                        text: bounded_with_limit(value.text, context.max_output_bytes)
-                            .map_err(ErrorCause::owned_text)?,
-                        present: value.present,
-                        truth: value.truth,
-                        filename,
+                    if custom_host {
+                        output.present |= value.present;
+                        output.truth |= value.truth;
                     }
-                } else {
-                    let mut present = values.iter().any(|v| v.present);
-                    let args: Vec<&str> = values.iter().map(|v| v.text.as_str()).collect();
-                    let truths: Vec<bool> = values.iter().map(|v| v.truth).collect();
-                    let text = function_diagnostic(name, &args, &truths, context)?;
-                    let selected = match name.as_str() {
-                        "if" => Some(if truths[0] { 1 } else { 2 }),
-                        "if2" => Some(if truths[0] { 0 } else { 1 }),
-                        "ifgreater" => Some(if number(args[0]) > number(args[1]) {
-                            2
-                        } else {
-                            3
-                        }),
-                        "iflonger" => Some(if args[0].chars().count() > count(args[1]) {
-                            2
-                        } else {
-                            3
-                        }),
-                        _ => None,
+                    let filename = if filename_mode {
+                        filename_component(&value.text, context)
+                    } else {
+                        String::new()
                     };
-                    let filename = filename_mode.then(|| {
-                        selected
-                            .and_then(|index| values[index].filename.clone())
-                            .unwrap_or_else(|| filename_component(&text, context))
-                    });
-                    let truth = match name.as_str() {
-                        "eql" | "neql" | "grtr" | "geql" | "less" | "leql" | "and" | "or"
-                        | "not" | "odd" | "isdigit" | "strcmp" | "stricmp" => text == "1",
-                        "if" => truths[if truths[0] { 1 } else { 2 }],
-                        "if2" => truths[if truths[0] { 0 } else { 1 }],
-                        "ifgreater" => {
-                            truths[if number(args[0]) > number(args[1]) {
-                                2
-                            } else {
-                                3
-                            }]
-                        }
-                        "iflonger" => {
-                            truths[if args[0].chars().count() > count(args[1]) {
-                                2
-                            } else {
-                                3
-                            }]
-                        }
-                        "meta" | "meta_sep" => {
-                            present |= !text.is_empty();
-                            !text.is_empty()
-                        }
-                        "getenv" | "columnnames" | "columnvalues" => !text.is_empty(),
-                        _ => truths.iter().any(|v| *v),
-                    };
-                    Value {
-                        text,
-                        present,
-                        truth,
-                        filename,
-                    }
+                    append_value(output, &value.text, &filename, context.max_output_bytes)?;
+                    continue;
                 }
+                let args: Vec<&str> = values.iter().map(|v| v.text.as_str()).collect();
+                let truths: Vec<bool> = values.iter().map(|v| v.truth).collect();
+                let mut text = function_diagnostic(name, &args, &truths, context)?;
+                let selected = match name.as_str() {
+                    "if" => Some(if truths[0] { 1 } else { 2 }),
+                    "if2" => Some(if truths[0] { 0 } else { 1 }),
+                    "ifgreater" => Some(if number(args[0]) > number(args[1]) {
+                        2
+                    } else {
+                        3
+                    }),
+                    "iflonger" => Some(if args[0].chars().count() > count(args[1]) {
+                        2
+                    } else {
+                        3
+                    }),
+                    _ => None,
+                };
+                match name.as_str() {
+                    "eql" | "neql" | "grtr" | "geql" | "less" | "leql" | "and" | "or" | "not"
+                    | "odd" | "isdigit" | "strcmp" | "stricmp" => {
+                        output.present = text == "1";
+                        output.truth = output.present;
+                        text.clear();
+                    }
+                    "meta" | "meta_sep" => {
+                        output.present |= !text.is_empty();
+                        output.truth |= !text.is_empty();
+                    }
+                    // Preserve these existing contextual adapter contributions.
+                    // Their native callback found effects remain unqualified.
+                    "getenv" | "columnnames" | "columnvalues" => output.truth |= !text.is_empty(),
+                    _ => {}
+                }
+                let filename = if filename_mode {
+                    selected
+                        .and_then(|index| values[index].filename.clone())
+                        .unwrap_or_else(|| filename_component(&text, context))
+                } else {
+                    String::new()
+                };
+                append_value(output, &text, &filename, context.max_output_bytes)?;
             }
-        };
-        if output.text.len().saturating_add(value.text.len()) > context.max_output_bytes {
-            return Err(ErrorCause::owned("Format string output limit exceeded"));
         }
-        output.text.push_str(&value.text);
-        if let Some(rendered) = &mut output.filename {
-            let component = value.filename.as_deref().unwrap_or_default();
-            if rendered.len().saturating_add(component.len()) > context.max_output_bytes {
-                return Err(ErrorCause::owned("Filename output limit exceeded"));
-            }
-            rendered.push_str(component);
-        }
-        output.present |= value.present;
-        output.truth |= value.truth;
     }
-    Ok(output)
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -795,6 +906,21 @@ impl CompiledTemplate {
         template: &str,
         functions: &[ScriptFunctionSpec],
     ) -> Result<Self, String> {
+        Self::compile_functions(template, functions, false)
+    }
+
+    pub(crate) fn compile_export_with_functions(
+        template: &str,
+        functions: &[ScriptFunctionSpec],
+    ) -> Result<Self, String> {
+        Self::compile_functions(template, functions, true)
+    }
+
+    fn compile_functions(
+        template: &str,
+        functions: &[ScriptFunctionSpec],
+        export_variables: bool,
+    ) -> Result<Self, String> {
         if template.len() > MAX_OUTPUT {
             return Err("Format string input limit exceeded".into());
         }
@@ -824,6 +950,7 @@ impl CompiledTemplate {
             pos: 0,
             functions: allowed,
             nesting: true,
+            export_variables,
         };
         Ok(Self {
             nodes: parser.sequence(&[], 0)?,
@@ -954,17 +1081,19 @@ fn slice(text: &str, start: usize, length: usize) -> String {
 }
 
 fn title_case(text: &str, separators: Option<&str>, preserve: bool) -> String {
+    let separators = separators.unwrap_or(" ");
     let mut start = true;
     let mut output = String::new();
     for c in text.chars() {
-        if start {
+        let separator = separators.chars().any(|s| s.eq_ignore_ascii_case(&c));
+        if start && !separator {
             output.extend(c.to_uppercase());
-        } else if preserve {
+        } else if preserve || (start && separator) {
             output.push(c);
         } else {
             output.extend(c.to_lowercase());
         }
-        start = c.is_whitespace() || separators.is_some_and(|s| s.contains(c));
+        start = separator;
     }
     output
 }
@@ -1415,17 +1544,21 @@ fn function(
         }
         "caps3" => {
             arity(name, a, 1, 2)?;
-            let mut uppercase = true;
+            let triggers = a.get(1).copied().unwrap_or_default();
+            let mut first = true;
+            let mut previous_trigger = false;
             let mut value = String::new();
             for character in a[0].chars() {
-                if uppercase {
+                let trigger = triggers.contains(character);
+                if (first || previous_trigger) && !trigger {
                     value.extend(character.to_uppercase());
+                } else if first {
+                    value.push(character);
                 } else {
                     value.extend(character.to_lowercase());
                 }
-                uppercase = a
-                    .get(1)
-                    .is_some_and(|triggers| triggers.contains(character));
+                first = false;
+                previous_trigger = trigger;
             }
             value
         }
@@ -2048,5 +2181,73 @@ mod diagnostic_tests {
             assert!(matches!(&error, ErrorCause::External { .. }));
             assert_eq!(error.to_string(), legacy);
         }
+    }
+    #[test]
+    fn work_meter_stops_both_unknown_passes_before_the_next_host_call() {
+        use std::cell::RefCell;
+        struct Calls(RefCell<Vec<String>>);
+        impl ScriptExtension for Calls {
+            fn call(&self, _: &str, args: &[ScriptValue]) -> Result<ScriptValue, String> {
+                self.0.borrow_mut().push(args[0].text.clone());
+                Ok(ScriptValue::default())
+            }
+        }
+        let fields = Fields::new();
+        let template = CompiledTemplate::compile_with_functions(
+            "$zz_unknown_3361($host(a),$host(b))",
+            &[ScriptFunctionSpec {
+                name: "host".into(),
+                min_args: 1,
+                max_args: 1,
+            }],
+        )
+        .unwrap();
+        for (limit, expected) in [(5, vec!["a", "b"]), (7, vec!["a", "b", "a"])] {
+            for (filename, native) in [(false, false), (true, false), (true, true)] {
+                let calls = Calls(RefCell::new(Vec::new()));
+                let mut context = EvalContext::new(&fields);
+                context.extension = Some(&calls);
+                let error = match run_child(
+                    &template.nodes,
+                    &context,
+                    filename,
+                    native,
+                    &mut WorkMeter { remaining: limit },
+                ) {
+                    Ok(_) => panic!("work meter unexpectedly succeeded"),
+                    Err(error) => error,
+                };
+                assert!(matches!(error, ErrorCause::Owned { .. }));
+                assert_eq!(error.to_string(), "Format string work limit exceeded");
+                assert_eq!(*calls.0.borrow(), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn unknown_ast_retains_one_shared_original_argument_tree() {
+        fn count_nodes(nodes: &[Node]) -> usize {
+            nodes
+                .iter()
+                .map(|node| {
+                    1 + match node {
+                        Node::Optional(children) => count_nodes(children),
+                        Node::Function(_, arguments)
+                        | Node::Extension(_, arguments)
+                        | Node::ExportVariable(_, arguments)
+                        | Node::UnknownFunction(_, arguments) => arguments
+                            .iter()
+                            .map(|argument| count_nodes(argument))
+                            .sum::<usize>(),
+                        _ => 0,
+                    }
+                })
+                .sum()
+        }
+        let source = format!("{}x{}", "$zz_unknown_3361(".repeat(20), ")".repeat(20));
+        assert_eq!(
+            count_nodes(&CompiledTemplate::compile(&source).unwrap().nodes),
+            21
+        );
     }
 }

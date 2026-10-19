@@ -38,7 +38,7 @@ export type OptionsHost={
 };
 
 export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:'',folder_separator:'_'},directories:{subfolders:true},
-  tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:true,remove_id3v2:true,remove_ape:true},
+  tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:false,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:true,remove_id3v2:true,remove_ape:true},
     ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:true,remove_id3v2:false,remove_ape:true},
     advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true,list_chapters:false,mp4_single_atom:true,reuse_mp4_atoms:false,reuse_id3v2_frames:false},preserve_modified_time:false,mappings:[]},pages:{}});
 
@@ -164,7 +164,7 @@ for(const page of [
       {kind:'checkbox',path:'tags.mpeg.write_id3v2',label:'ID3v2'},
       {kind:'checkbox',path:'tags.mpeg.id3v2_only_if_needed',label:'ID3v2 only if ID3v1 too small',enabledWhen:d=>d.tags.mpeg.write_id3v1&&d.tags.mpeg.write_id3v2},
       {kind:'radio',path:'tags.mpeg.id3v2_format',label:'ID3v2 version',enabledWhen:d=>d.tags.mpeg.write_id3v2,choices:[['v24_utf8','ID3v2.4 UTF-8'],['v23_utf16','ID3v2.3 UTF-16'],['v23_latin1','ID3v2.3 ISO-8859-1']]},
-      {kind:'checkbox',path:'tags.mpeg.write_ape',label:'APEv2 (also updates an existing ID3v1 tag)'}]},
+      {kind:'checkbox',path:'tags.mpeg.write_ape',label:'APEv2'}]},
     tagRemove('mpeg')]},
   {id:'tags-ape',parent:'tags',label:'Ape, Mpc',order:20,description:'APE is displayed before ID3v1 when both are read.',controls:[
     tagRead('ape',[['id3v1','ID3v1'],['ape','APE']]),

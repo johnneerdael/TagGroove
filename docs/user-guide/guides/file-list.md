@@ -6,6 +6,28 @@ operation, and supplies the processing order for tasks such as numbering
 and positional text import. The order on screen is separate from filenames
 and track tags on disk.
 
+## Reopen the same list
+
+In the local desktop app, the loaded list and its manual order are remembered
+across restarts. Column sorting and the original playlist/source order remain
+separate choices. Restart reads the saved files again; it does not restore
+unsaved tag or artwork edits. Clearing the list also clears its remembered
+membership. Selection and filter details are captured with list changes and
+again when closing normally.
+
+Explicit command-line/file-open requests take precedence. Requests arriving
+while a remembered list is being restored are applied afterward, in arrival
+order. The startup-directory choice is the fallback when no remembered list
+exists. Provider-document grants and recovery copies use their existing
+separate workflow.
+
+If a saved row is unavailable, restoration reports the failure without
+substituting its containing audio file or publishing a partial list. Open
+files or a folder to start a new list. Corrupt state, storage refusal and an
+oversized restart snapshot are reported without changing audio. Save very
+large lists as playlists; browser storage quotas can be smaller than the
+16 MiB restart snapshot limit.
+
 ## Read the list and selection information
 
 Each row represents a loaded file or a supported chapter/subsong row.
@@ -73,9 +95,11 @@ format. Equal keys retain their prior order. Inspect mixed/empty values and
 numbered disc groups; sorting cannot infer a release's intended track order.
 
 Choose **View → Unsorted (load and playlist order)** to remove active sort
-criteria. This returns to the underlying workspace order, which may already
-have been manually rearranged. It does not reconstruct an earlier order
-after shuffling or manual moves.
+criteria for this view. This returns to the underlying workspace order, which
+may already have been manually rearranged. It does not reconstruct an earlier
+order after shuffling or manual moves. For loaded playlist sources, choose
+**View → Sort by → Playlist order** to recover their remembered source rank.
+These session choices do not erase your saved column-sort preferences.
 
 ## Move rows into a manual order
 
@@ -116,6 +140,12 @@ order. Keep a playlist or other deliberate order record before experimenting
 when the sequence must be restored later. Manual order lasts while the
 files stay listed; it does not write track tags automatically.
 
+Refresh keeps the relative order of surviving exact rows and appends newly
+found rows. Removed rows disappear; a changed chapter identity counts as a new
+row. To see an externally reordered playlist's new source sequence, choose
+**Playlist order** explicitly. Refresh does not erase your saved column sort
+or switch the chosen order mode.
+
 ## Edit a cell
 
 Choose **Edit → Edit in file list** or ++f2++. This starts the first selected
@@ -123,16 +153,32 @@ file's editable filename column when one exists, otherwise its first
 editable column. It does not bulk-fill every selected row.
 
 To edit a particular tag cell, select one file, then make a separate delayed
-second click on that editable cell. A fast double-click normally opens
-Extended tags, or a configured default external tool. Technical/read-only
+second click on that editable cell. A fast double-click runs the configured
+default external tool; **No action** leaves it without an action. Open
+**Edit → Extended tags…** for the additional-field editor. Technical/read-only
 columns cannot be made writable merely by clicking them.
 
 | Key in the cell editor | Effect |
 | --- | --- |
-| Enter | Accept the value; the General option can advance to the next file in the same column. |
-| Escape | Cancel the current cell edit. |
+| Enter | Choose an explicitly highlighted matching suggestion first. A later Enter accepts the cell value; the General option can advance to the next file in the same column. |
+| Escape | Close matching suggestions first; a later Escape cancels the current cell edit. |
 | Tab | Accept and move to the next editable cell, wrapping to the next row. |
 | Shift+Tab | Accept and move backward through editable cells/rows. |
+
+With **Auto-completion at selection boxes** enabled in General options,
+metadata cells show matching custom/loaded values while retaining the first
+inline completion. Up/Down highlights a choice and Enter inserts it without
+committing the cell or saving tags. Tab commits the current editor text using
+its normal navigation policy, without accepting a highlighted alternative.
+Escape closes matching suggestions before a later Escape cancels the cell.
+Whole multiline suggestions keep their line breaks in the cell editor and
+remain pending until the cell is committed. Explicitly choosing a suggestion
+keeps its whole stored value, including leading/trailing spaces, line breaks
+and literal two-backslash text. Typing a value still uses the usual trimming
+and two-backslash separator policy. Enter and Tab still finish a File
+List cell; they do not insert newlines here. For ordinary Enter-to-newline
+editing, use a multiline tag-panel field or Extended Tags. Filename and
+technical controls do not offer metadata suggestions.
 
 Ordinary field edits become pending changes. Save tags explicitly, or use
 the configured save-on-selection-change behavior, when they must reach
@@ -166,7 +212,10 @@ a later unusually long value can still need manual widening.
   edits for removed rows are discarded after the configured confirmation.
 - **File → Clear list** removes all loaded rows and their workspace state.
 - **View → Refresh** (++f5++) rescans the loaded roots under the current
-  subfolder preference. Review its pending-change warning before proceeding.
+  subfolder preference and rereads loaded source playlists. Review its
+  pending-change warning before proceeding. A fatal read, cancellation or
+  stale result keeps the previous list and drafts; successful reads can
+  change membership while keeping the display-order choice.
 - **Reload tags** rereads selected files' tags; it is a different task from
   rebuilding the loaded file list.
 - **Delete files…** and **Delete files permanently…** are actual filesystem
@@ -181,7 +230,8 @@ commands, and keep their scope separate from the filter and selection.
 - Arrange the list before numbering or positional text import. A sorted
   preview is not evidence that tags on disk already contain those numbers.
 - Moving rows does not create an undoable tag edit or restore an earlier
-  shuffle through the **Unsorted** item.
+  shuffle through the **Unsorted** item. **Playlist order** can restore the
+  remembered source rank of currently listed playlist members.
 - Text focus changes shortcut meaning. Ctrl/Command+A in an editor selects
   text, not every loaded file.
 - A rendered column can use an expression, while its editable **Field**

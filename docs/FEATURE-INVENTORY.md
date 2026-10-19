@@ -10,7 +10,9 @@ The catalog currently has **1533 section, functional-reference and authored acce
 
 ## Acceptance and work tracking
 
-Use [PARITY.md](PARITY.md#uncovered-work) for actionable work not covered by an inspected open or merged PR. The [coverage companion](research/remaining-gaps.md) records approved main `179e705cad91ef42f85107310664409271eb2c4c` after all fourteen PRs49–62 merged, with item-level exclusions/remainders. This inventory retains acceptance requirements even where implementation or test infrastructure is delivered or represented by an open PR. Neither these reference counts nor PR existence prove completed original-runtime, native-input, device or released-build qualification.
+Use [PARITY.md](PARITY.md#uncovered-work) for actionable work not covered by an inspected open or merged PR. The [coverage companion](research/remaining-gaps.md) records merged main `bb1c1ecb77c1fed424f054c88cedd55ed11cd069` after PRs49–63 merged, plus bounded represented work in consolidated draft PR64, with item-level exclusions/remainders. This inventory retains acceptance requirements even where implementation or test infrastructure is delivered or represented by an open PR. Neither these reference counts nor PR existence prove completed original-runtime, native-input, device or released-build qualification.
+
+The companion's [qualification register](research/remaining-gaps.md#qualification-of-implemented-scopes) keeps outstanding reference/platform verification out of implementation intake. Demonstrated behavior gaps remain actionable even within a represented feature: current examples include export-variable presence, Lyrics3v2 removal, playlist location identity and Undo's metadata-only external-change checks. The linked ledger and verification notes, rather than this historical requirements count, describe their current status.
 
 ## Capabilities beyond the reference scope
 
@@ -22,7 +24,7 @@ These source-backed capabilities were previously listed in PARITY. Retain them a
 - DFF/DSDIFF and AIFF text-chunk support beyond the documented reference-format list ([format evidence](verification/formats-dsd-mkv.md)).
 - Independently authored JSON language catalogs and live language switching, with user wording overrides ([language verification](verification/i18n.md)).
 - Clone-aware APFS Undo accounting and in-padding FLAC/ID3v2/MP4 writes; non-cloning budgets and other rewrite paths remain qualified separately ([history](verification/edit-history.md), [performance](PERFORMANCE.md)).
-- Validated JSON configuration backup/restore; it does not imply a complete portable workspace/browser-preference backup ([configuration verification](verification/options-utils.md), [C15/current limits](research/remaining-gaps.md#represented-and-delivered-scopes)).
+- Reviewed saved-only portable configuration/browser-preference and local workspace backup in draft PR64, using the existing recoverable setup engine, with raw MTE bytes/encoding and legacy version-1 support. Unsaved edits, audio, credentials and provider grants are excluded; native/original/platform acceptance remains open ([configuration evidence](verification/portable-configuration-2026-10-18.md), [C27/current limits](research/remaining-gaps.md#c27)).
 - MIT source and a project-owned [user guide](https://taggroove.neerdael.nl/); a URL or build alone is not proof of current publication.
 
 ## Open contradiction

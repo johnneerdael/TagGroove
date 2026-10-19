@@ -1,7 +1,8 @@
 /** `file` names the `.mte` in the export folder for configurations found there (e.g. copied from Mp3tag). */
 export type ExportConfiguration={id:string;name:string;template:string;file?:string};
 export type ExportPreferences={configuration:string|null;filename:string;append:boolean;partition:string|null;write_bom:boolean;create_directories:boolean};
-export type ExportLibrary={version:number;configurations:ExportConfiguration[];preferences:ExportPreferences};
+/** `observed_files` is the backend's removal baseline; preserve it across edits and saves. */
+export type ExportLibrary={version:number;configurations:ExportConfiguration[];preferences:ExportPreferences;observed_files?:string[]};
 function uniqueName(library:ExportLibrary,base:string):string {
   let name=base,index=2;while(library.configurations.some(c=>c.name.toLowerCase()===name.toLowerCase()))name=`${base} ${index++}`;return name;
 }

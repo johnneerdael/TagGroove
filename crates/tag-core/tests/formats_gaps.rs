@@ -11,6 +11,8 @@ use lofty::{
     tag::ItemValue,
     TextEncoding,
 };
+#[path = "support/mp4_atoms.rs"]
+mod mp4_atoms;
 use std::{fs, path::Path};
 use tag_core::{
     add_cover_bytes_with_options, read_entry, read_entry_with_options,
@@ -724,6 +726,7 @@ fn headerless_ape(items: &[(&str, &str)]) -> Vec<u8> {
 }
 fn ape_only() -> TagOptions {
     let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
     options.mpeg.write_ape = true;
     options.mpeg.remove_ape = false;
     options.mpeg.write_id3v1 = false;
@@ -733,6 +736,7 @@ fn ape_only() -> TagOptions {
 }
 fn id3v2_only() -> TagOptions {
     let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
     options.mpeg.write_ape = false;
     options.mpeg.remove_ape = false;
     options.mpeg.write_id3v1 = false;
@@ -752,7 +756,9 @@ fn adts_after_junk_is_a_raw_aac_stream() {
     let path = dir.path().join("junk.aac");
     fs::write(&path, &bytes).unwrap();
 
-    let entry = read_entry(&path).unwrap();
+    let mut ape_read = TagOptions::default();
+    ape_read.mpeg.read_ape = true;
+    let entry = read_entry_with_options(&path, &[], &ape_read).unwrap();
     assert_eq!(entry.format, "AAC");
     assert_eq!(technical(&entry, "_CODEC"), "AAC");
     assert_eq!((entry.sample_rate, entry.channels), (44_100, 2));
@@ -763,6 +769,7 @@ fn adts_after_junk_is_a_raw_aac_stream() {
     // The APE/ID3v1 policy applies; junk and frames are kept as they are.
     let mut options = TagOptions::default();
     options.mpeg.write_ape = true;
+    options.mpeg.read_ape = true;
     options.mpeg.remove_ape = false;
     write_fields_with_options(
         &path,
@@ -793,7 +800,7 @@ fn headerless_apev2_tags_are_read_and_written_without_losing_audio() {
     ] {
         let path = dir.path().join(name);
         fs::write(&path, [stream.as_slice(), &ape].concat()).unwrap();
-        let entry = read_entry(&path).unwrap();
+        let entry = read_entry_with_options(&path, &[], &ape_only()).unwrap();
         assert_eq!(
             value(&entry, "TITLE").as_deref(),
             Some("APE title"),
@@ -863,7 +870,7 @@ fn tag_inside_ape_items_is_not_taken_for_id3v1() {
     let path = dir.path().join("collide.mp3");
     fs::write(&path, &original).unwrap();
 
-    let entry = read_entry(&path).unwrap();
+    let entry = read_entry_with_options(&path, &[], &ape_only()).unwrap();
     assert_eq!(value(&entry, "COMMENT").as_deref(), Some(comment.as_str()));
     assert!(!technical(&entry, "_TAG").contains("ID3v1"));
     assert_eq!(technical(&entry, "_TAG_READ"), "APEv2");
@@ -933,7 +940,10 @@ fn a_131_byte_ape_tag_keeps_its_header() {
     .unwrap();
     assert!(fs::read(&path).unwrap().ends_with(&original));
     assert_eq!(
-        value(&read_entry(&path).unwrap(), "ENCODER"),
+        value(
+            &read_entry_with_options(&path, &[], &ape_only()).unwrap(),
+            "ENCODER"
+        ),
         Some("L".repeat(51))
     );
 }
@@ -1097,4 +1107,528 @@ fn dsd_files_keep_compressed_and_encrypted_id3v2_frames() {
         );
         assert!(Path::new(&path).exists());
     }
+}
+
+// Real retained AAC carrier, independently authored Nero metadata and observers.
+fn replace_box(bytes: &[u8], ids: &[[u8; 4]], replacement: &[u8]) -> Vec<u8> {
+    let chain = mp4_atoms::path(bytes, ids);
+    let target = chain.last().unwrap();
+    let delta = replacement.len() as i64 - (target.end - target.start) as i64;
+    let mut result = [&bytes[..target.start], replacement, &bytes[target.end..]].concat();
+    for ancestor in &chain[..chain.len() - 1] {
+        assert_eq!(ancestor.body - ancestor.start, 8);
+        result[ancestor.start..ancestor.start + 4].copy_from_slice(
+            &u32::try_from((ancestor.end - ancestor.start) as i64 + delta)
+                .unwrap()
+                .to_be_bytes(),
+        );
+    }
+    result
+}
+fn raw_box(bytes: &[u8], ids: &[[u8; 4]]) -> Vec<u8> {
+    let chain = mp4_atoms::path(bytes, ids);
+    let a = chain.last().unwrap();
+    bytes[a.start..a.end].to_vec()
+}
+struct PhysicalNeroField {
+    flag: u8,
+    values: Vec<Vec<u8>>,
+    raw: Vec<u8>,
+}
+fn physical_nero_records(bytes: &[u8]) -> std::collections::BTreeMap<String, PhysicalNeroField> {
+    let chain = mp4_atoms::path(bytes, &[*b"moov", *b"udta", *b"tags"]);
+    let tags = chain.last().unwrap();
+    let Some(meta) = mp4_atoms::boxes(bytes, tags.body..tags.end)
+        .into_iter()
+        .find(|a| a.kind == *b"meta")
+    else {
+        return std::collections::BTreeMap::new();
+    };
+    let mut at = meta.body;
+    let count = u32::from_be_bytes(bytes[at..at + 4].try_into().unwrap());
+    at += 4;
+    let mut result = std::collections::BTreeMap::new();
+    for _ in 0..count {
+        let start = at;
+        let flag = bytes[at];
+        assert_eq!(bytes[at + 1], 0);
+        let length = usize::from(bytes[at + 2]);
+        at += 3;
+        let name = String::from_utf8(bytes[at..at + length].to_vec()).unwrap();
+        at += length;
+        let count = u16::from_be_bytes(bytes[at..at + 2].try_into().unwrap());
+        at += 2;
+        let mut values = Vec::new();
+        for _ in 0..count {
+            let size = u32::from_be_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
+            at += 4;
+            values.push(bytes[at..at + size].to_vec());
+            at += size;
+        }
+        result.insert(
+            name,
+            PhysicalNeroField {
+                flag,
+                values,
+                raw: bytes[start..at].to_vec(),
+            },
+        );
+    }
+    assert_eq!(at, meta.end);
+    result
+}
+fn physical_nero_fields(bytes: &[u8]) -> Fields {
+    physical_nero_records(bytes)
+        .into_iter()
+        .filter(|(_, f)| f.flag == 0x80)
+        .map(|(name, f)| {
+            (
+                name,
+                f.values
+                    .into_iter()
+                    .map(|v| String::from_utf8(v).unwrap())
+                    .collect(),
+            )
+        })
+        .collect()
+}
+fn chapterless_nero_carrier(old: &str, front: bool, wide: bool) -> Vec<u8> {
+    let carrier = include_bytes!("fixtures/save-corpus/tone.m4a");
+    let mut ilst = mp4_atoms::items(carrier)
+        .into_iter()
+        .map(|i| i.raw)
+        .collect::<Vec<_>>();
+    ilst.push(mp4_atoms::item(
+        *b"xQA!",
+        &[mp4_atoms::data(0, 1033, b"opaque localized")],
+    ));
+    let mut bytes = mp4_atoms::with_items(carrier, &ilst, 0);
+    let udta = raw_box(&bytes, &[*b"moov", *b"udta"]);
+    let segment = boxed(
+        b"tseg",
+        &[
+            boxed(b"tshd", &0u32.to_be_bytes()),
+            nero_meta(&[("artist", "segment retained")]),
+        ]
+        .concat(),
+    );
+    let mut global = nero_meta(&[("title", old), ("genre", "unchanged")]);
+    global[8..12].copy_from_slice(&3u32.to_be_bytes());
+    global.extend([0x81, 0, 6]);
+    global.extend(b"opaque");
+    global.extend(1u16.to_be_bytes());
+    global.extend(4u32.to_be_bytes());
+    global.extend([0xff, 0, 0x80, 0x41]);
+    let length = global.len() as u32;
+    global[..4].copy_from_slice(&length.to_be_bytes());
+    let additions = [
+        boxed(
+            b"tags",
+            &[
+                global,
+                cvrx(&[("image/png", 3, &png())]),
+                segment,
+                boxed(b"zzZZ", b"opaque Nero sibling"),
+            ]
+            .concat(),
+        ),
+        indx(),
+        boxed(b"zzAA", b"opaque udta sibling"),
+        chpl(&[]),
+    ]
+    .concat();
+    bytes = replace_box(
+        &bytes,
+        &[*b"moov", *b"udta"],
+        &boxed(b"udta", &[udta[8..].to_vec(), additions].concat()),
+    );
+    // A dangling chapter relation with no chapter track is retained, not fixed.
+    let trak = raw_box(&bytes, &[*b"moov", *b"trak"]);
+    bytes = replace_box(
+        &bytes,
+        &[*b"moov", *b"trak"],
+        &boxed(
+            b"trak",
+            &[
+                trak[8..].to_vec(),
+                boxed(b"tref", &boxed(b"chap", &999u32.to_be_bytes())),
+            ]
+            .concat(),
+        ),
+    );
+    if wide {
+        let table = mp4_atoms::path(
+            &bytes,
+            &[*b"moov", *b"trak", *b"mdia", *b"minf", *b"stbl", *b"stco"],
+        )
+        .last()
+        .unwrap()
+        .clone();
+        let offset = u32::from_be_bytes(bytes[table.body + 8..table.body + 12].try_into().unwrap());
+        bytes = replace_box(
+            &bytes,
+            &[*b"moov", *b"trak", *b"mdia", *b"minf", *b"stbl", *b"stco"],
+            &full(
+                b"co64",
+                0,
+                &[
+                    1u32.to_be_bytes().as_slice(),
+                    u64::from(offset).to_be_bytes().as_slice(),
+                ]
+                .concat(),
+            ),
+        );
+    }
+    if front {
+        let top = mp4_atoms::boxes(&bytes, 0..bytes.len());
+        let movie = top.iter().find(|a| a.kind == *b"moov").unwrap();
+        let original_mdat = top.iter().find(|a| a.kind == *b"mdat").unwrap().body;
+        let mut result = Vec::new();
+        for atom in &top {
+            if atom.kind == *b"moov" {
+                continue;
+            }
+            result.extend_from_slice(&bytes[atom.start..atom.end]);
+            if atom.kind == *b"ftyp" {
+                result.extend_from_slice(&bytes[movie.start..movie.end]);
+            }
+        }
+        let new_mdat = mp4_atoms::boxes(&result, 0..result.len())
+            .into_iter()
+            .find(|a| a.kind == *b"mdat")
+            .unwrap()
+            .body;
+        let kind = if wide { *b"co64" } else { *b"stco" };
+        let table = mp4_atoms::path(
+            &result,
+            &[*b"moov", *b"trak", *b"mdia", *b"minf", *b"stbl", kind],
+        )
+        .last()
+        .unwrap()
+        .clone();
+        let old_offset = if wide {
+            u64::from_be_bytes(result[table.body + 8..table.body + 16].try_into().unwrap())
+        } else {
+            u64::from(u32::from_be_bytes(
+                result[table.body + 8..table.body + 12].try_into().unwrap(),
+            ))
+        };
+        let offset = old_offset + u64::try_from(new_mdat - original_mdat).unwrap();
+        if wide {
+            result[table.body + 8..table.body + 16].copy_from_slice(&offset.to_be_bytes());
+        } else {
+            result[table.body + 8..table.body + 12].copy_from_slice(&(offset as u32).to_be_bytes());
+        }
+        bytes = result;
+    }
+    mp4_atoms::chunk_offsets(&bytes);
+    bytes
+}
+fn track_without_chunk_offsets(bytes: &[u8]) -> Vec<u8> {
+    let track = mp4_atoms::path(bytes, &[*b"moov", *b"trak"])[1].clone();
+    let mut result = bytes[track.start..track.end].to_vec();
+    let stbl = mp4_atoms::path(bytes, &[*b"moov", *b"trak", *b"mdia", *b"minf", *b"stbl"])
+        .last()
+        .unwrap()
+        .clone();
+    for table in mp4_atoms::boxes(bytes, stbl.body..stbl.end)
+        .into_iter()
+        .filter(|a| matches!(&a.kind, b"stco" | b"co64"))
+    {
+        result[table.body + 8 - track.start..table.end - track.start].fill(0);
+    }
+    result
+}
+#[test]
+fn chapterless_nero_growth_updates_physical_metadata_and_preserves_exact_replay() {
+    use tag_core::history::{Journal, Limits};
+    for front in [false, true] {
+        for wide in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join("real-nero.m4a");
+            let before = chapterless_nero_carrier("X", front, wide);
+            fs::write(&path, &before).unwrap();
+            assert_eq!(read_entry(&path).unwrap().chapters.len(), 0);
+            assert_eq!(physical_nero_fields(&before)["title"], ["X"]);
+            let mut journal =
+                Journal::open(&root.path().join("journal"), Limits::default()).unwrap();
+            let capture =
+                journal.begin("Nero growth", None, &[path.to_string_lossy().into_owned()]);
+            let wanted = "Changed Nero title café 日本";
+            write_fields(&path, &fields(&[("TITLE", &[wanted])])).unwrap();
+            journal.commit(capture, &[], &[]);
+            let saved = fs::read(&path).unwrap();
+            assert_eq!(physical_nero_fields(&saved)["title"], [wanted]);
+            assert_eq!(
+                value(&read_entry(&path).unwrap(), "TITLE").as_deref(),
+                Some(wanted)
+            );
+            assert_eq!(physical_nero_fields(&saved)["genre"], ["unchanged"]);
+            assert_eq!(
+                physical_nero_records(&saved)["opaque"].raw,
+                physical_nero_records(&before)["opaque"].raw
+            );
+            assert!(read_entry(&path).unwrap().chapters.is_empty());
+            assert_eq!(mp4_atoms::media(&saved), mp4_atoms::media(&before));
+            assert_eq!(
+                track_without_chunk_offsets(&saved),
+                track_without_chunk_offsets(&before)
+            );
+            mp4_atoms::chunk_offsets(&saved);
+            for ids in [
+                vec![*b"moov", *b"udta", *b"indx"],
+                vec![*b"moov", *b"udta", *b"zzAA"],
+                vec![*b"moov", *b"udta", *b"chpl"],
+                vec![*b"moov", *b"udta", *b"tags", *b"zzZZ"],
+                vec![*b"moov", *b"udta", *b"tags", *b"cvrx"],
+                vec![*b"moov", *b"udta", *b"tags", *b"tseg"],
+            ] {
+                assert_eq!(raw_box(&saved, &ids), raw_box(&before, &ids));
+            }
+            let retained = |b: &[u8]| {
+                mp4_atoms::items(b)
+                    .into_iter()
+                    .filter(|i| i.identity != mp4_atoms::Identity::Fourcc(*b"\xa9nam"))
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(retained(&saved), retained(&before));
+            // Remove only the iTunes title on another disposable copy. Nero
+            // must expose the same new value, not an older hidden value.
+            let title = raw_box(
+                &saved,
+                &[*b"moov", *b"udta", *b"meta", *b"ilst", *b"\xa9nam"],
+            );
+            let shadow = replace_box(
+                &saved,
+                &[*b"moov", *b"udta", *b"meta", *b"ilst", *b"\xa9nam"],
+                &boxed(b"free", &vec![0; title.len() - 8]),
+            );
+            let shadow_path = root.path().join("itunes-title-removed.m4a");
+            fs::write(&shadow_path, &shadow).unwrap();
+            assert_eq!(
+                value(&read_entry(&shadow_path).unwrap(), "TITLE").as_deref(),
+                Some(wanted)
+            );
+            assert_eq!(mp4_atoms::media(&shadow), mp4_atoms::media(&saved));
+            assert!(journal.undo().unwrap().errors.is_empty());
+            assert_eq!(fs::read(&path).unwrap(), before);
+            assert!(journal.redo().unwrap().errors.is_empty());
+            assert_eq!(fs::read(&path).unwrap(), saved);
+            write_fields(&path, &fields(&[("TITLE", &[])])).unwrap();
+            assert!(!physical_nero_fields(&fs::read(&path).unwrap()).contains_key("title"));
+            assert_eq!(value(&read_entry(&path).unwrap(), "TITLE"), None);
+        }
+    }
+}
+#[test]
+fn chapterless_nero_shrink_with_one_to_seven_spare_bytes_updates_physical_copy() {
+    for spare in 1..8 {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("spare.m4a");
+        let old = format!("New{}", "x".repeat(spare));
+        fs::write(&path, chapterless_nero_carrier(&old, false, false)).unwrap();
+        write_fields(&path, &fields(&[("TITLE", &["New"])])).unwrap();
+        assert_eq!(
+            physical_nero_fields(&fs::read(&path).unwrap())["title"],
+            ["New"]
+        );
+    }
+}
+
+fn fragmented_nero_carrier(held: Option<&[(&str, &str)]>) -> Vec<u8> {
+    let carrier = include_bytes!("fixtures/save-corpus/tone-fragmented.m4a");
+    let Some(held) = held else {
+        return carrier.to_vec();
+    };
+    let udta = raw_box(carrier, &[*b"moov", *b"udta"]);
+    let mut body = if held.is_empty() {
+        Vec::new()
+    } else {
+        nero_meta(held)
+    };
+    body.extend(boxed(b"zzZZ", b"unchanged Nero opaque"));
+    replace_box(
+        carrier,
+        &[*b"moov", *b"udta"],
+        &boxed(
+            b"udta",
+            &[udta[8..].to_vec(), boxed(b"tags", &body)].concat(),
+        ),
+    )
+}
+#[test]
+fn nero_guarded_layouts_keep_fit_removal_absence_and_unrelated_operations() {
+    for case in [
+        "fit",
+        "same",
+        "remove",
+        "unrelated",
+        "absent",
+        "no-global",
+        "no-matching",
+    ] {
+        let held = match case {
+            "absent" => None,
+            "no-global" => Some(vec![]),
+            "no-matching" => Some(vec![("genre", "kept")]),
+            "same" => Some(vec![("title", "Same")]),
+            "unrelated" => Some(vec![("title", "X")]),
+            _ => Some(vec![("title", "A sufficiently long original Nero title")]),
+        };
+        let before = fragmented_nero_carrier(held.as_deref());
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("fragmented.m4a");
+        fs::write(&path, &before).unwrap();
+        read_entry(&path).unwrap();
+        let updates = match case {
+            "remove" => fields(&[("TITLE", &[])]),
+            "unrelated" => fields(&[("COMMENT", &["changed unrelated field"])]),
+            "same" => fields(&[("TITLE", &["Same"])]),
+            _ => fields(&[("TITLE", &["New title"])]),
+        };
+        write_fields(&path, &updates).unwrap();
+        let after = fs::read(&path).unwrap();
+        assert_eq!(mp4_atoms::media(&after), mp4_atoms::media(&before));
+        if matches!(case, "same" | "unrelated" | "no-global" | "no-matching") {
+            assert_eq!(
+                raw_box(&after, &[*b"moov", *b"udta", *b"tags"]),
+                raw_box(&before, &[*b"moov", *b"udta", *b"tags"])
+            );
+        }
+        match case {
+            "fit" => assert_eq!(physical_nero_fields(&after)["title"], ["New title"]),
+            "remove" => {
+                assert!(!physical_nero_fields(&after).contains_key("title"));
+                assert_eq!(value(&read_entry(&path).unwrap(), "TITLE"), None);
+            }
+            "absent" => {
+                let udta = mp4_atoms::path(&after, &[*b"moov", *b"udta"])
+                    .last()
+                    .unwrap()
+                    .clone();
+                assert!(!mp4_atoms::boxes(&after, udta.body..udta.end)
+                    .iter()
+                    .any(|a| a.kind == *b"tags"));
+            }
+            _ => {}
+        }
+    }
+}
+#[test]
+fn nero_growth_unsupported_or_ambiguous_layout_refuses_whole_save_unchanged() {
+    for case in [
+        "fragmented",
+        "top-meta",
+        "iloc",
+        "bad-offset",
+        "duplicate-tags",
+        "duplicate-udta",
+    ] {
+        let mut before = if case == "fragmented" {
+            fragmented_nero_carrier(Some(&[("title", "X")]))
+        } else {
+            chapterless_nero_carrier("X", false, false)
+        };
+        match case {
+            "top-meta" => before.extend(boxed(b"meta", &[0; 4])),
+            "iloc" | "duplicate-tags" => {
+                let udta = raw_box(&before, &[*b"moov", *b"udta"]);
+                let extra = if case == "iloc" {
+                    boxed(b"iloc", &[0; 8])
+                } else {
+                    boxed(b"tags", &nero_meta(&[("title", "Other")]))
+                };
+                before = replace_box(
+                    &before,
+                    &[*b"moov", *b"udta"],
+                    &boxed(b"udta", &[udta[8..].to_vec(), extra].concat()),
+                );
+            }
+            "duplicate-udta" => {
+                let moov = raw_box(&before, &[*b"moov"]);
+                before = replace_box(
+                    &before,
+                    &[*b"moov"],
+                    &boxed(
+                        b"moov",
+                        &[
+                            moov[8..].to_vec(),
+                            boxed(b"udta", &boxed(b"tags", &nero_meta(&[("title", "Other")]))),
+                        ]
+                        .concat(),
+                    ),
+                );
+            }
+            "bad-offset" => {
+                let t = mp4_atoms::path(
+                    &before,
+                    &[*b"moov", *b"trak", *b"mdia", *b"minf", *b"stbl", *b"stco"],
+                )
+                .last()
+                .unwrap()
+                .clone();
+                before[t.body + 8..t.body + 12].fill(0);
+            }
+            _ => {}
+        }
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("guard.m4a");
+        fs::write(&path, &before).unwrap();
+        assert_eq!(
+            value(&read_entry(&path).unwrap(), "TITLE").as_deref(),
+            Some("X"),
+            "{case}: input accepted"
+        );
+        let error = write_fields(
+            &path,
+            &fields(&[(
+                "TITLE",
+                &["A requested Nero value requiring additional space"],
+            )]),
+        )
+        .unwrap_err();
+        if case.starts_with("duplicate") {
+            assert!(
+                error.contains("The Nero tag location is ambiguous"),
+                "{error}"
+            );
+        }
+        assert_eq!(
+            fs::read(&path).unwrap(),
+            before,
+            "{case}: no partial tag publication"
+        );
+    }
+}
+#[test]
+fn chapterless_nero_growth_applies_reverse_user_mapping_to_physical_copy() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("mapped.m4a");
+    let before = chapterless_nero_carrier("X", true, false);
+    fs::write(&path, &before).unwrap();
+    let rules = [UserFieldMapping {
+        tag_type: "MP4".into(),
+        source: "TITLE".into(),
+        target: "DISPLAY".into(),
+    }];
+    let wanted = "New mapped Nero title café 日本";
+    write_fields_with_options(
+        &path,
+        &fields(&[("DISPLAY", &[wanted])]),
+        false,
+        &rules,
+        &TagOptions::default(),
+    )
+    .unwrap();
+    let after = fs::read(&path).unwrap();
+    assert_eq!(physical_nero_fields(&after)["title"], [wanted]);
+    assert_eq!(
+        value(
+            &read_entry_with_options(&path, &rules, &TagOptions::default()).unwrap(),
+            "DISPLAY"
+        )
+        .as_deref(),
+        Some(wanted)
+    );
+    assert_eq!(mp4_atoms::media(&after), mp4_atoms::media(&before));
 }

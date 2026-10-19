@@ -11,6 +11,8 @@ mod compat;
 mod engine;
 mod installer;
 mod source;
+#[cfg(test)]
+mod workflow_replay;
 
 use super::http::{self, Channel};
 use super::model::{self, Provider, SourceCover, SourceRelease, SourceTrack};
@@ -447,6 +449,21 @@ fn script_failure(
     }
 }
 
+/// Check actual parser capabilities without comparing another application's
+/// minimum-version declarations or executing a script/downloading a page.
+fn validate_scripts(file: &SourceFile) -> Result<(), String> {
+    for (block, section) in [
+        (file.index_script.as_ref(), "[ParserScriptIndex]"),
+        (file.album_script.as_ref(), "[ParserScriptAlbum]"),
+    ] {
+        if let Some(block) = block {
+            engine::Script::compile(&block.lines)
+                .map_err(|error| script_failure(block, section, error, None).to_string())?;
+        }
+    }
+    Ok(())
+}
+
 /// Run one parser script over a downloaded page.
 fn execute(
     folder: &Path,
@@ -490,6 +507,9 @@ fn execute(
 pub struct WebResult {
     pub url: String,
     pub cover: Option<String>,
+    /// Optional full-size image, distinct from the thumbnail and release page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub full_cover: Option<String>,
     pub preview: Option<String>,
     /// One value per column.
     pub values: Vec<String>,
@@ -651,7 +671,11 @@ fn index_results(file: &SourceFile, output: &str, page: &Url) -> Result<WebSearc
     let names = file.index_fields();
     let position = |name: &str| names.iter().position(|n| n.eq_ignore_ascii_case(name));
     let url_at = position("_url").ok_or("[IndexFormat] has no %_url% field")?;
-    let (cover_at, preview_at) = (position("_coverurl"), position("_preview"));
+    let (cover_at, full_cover_at, preview_at) = (
+        position("_coverurl"),
+        position("_coverfullurl"),
+        position("_preview"),
+    );
     let visible: Vec<usize> = (0..names.len())
         .filter(|&i| !names[i].is_empty() && !names[i].starts_with('_'))
         .collect();
@@ -678,6 +702,7 @@ fn index_results(file: &SourceFile, output: &str, page: &Url) -> Result<WebSearc
         results.push(WebResult {
             url: url.to_string(),
             cover: address(cover_at),
+            full_cover: address(full_cover_at),
             preview: address(preview_at),
             values: visible.iter().map(|&i| get(i).to_owned()).collect(),
         });
@@ -698,21 +723,17 @@ fn field_values(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// `m:ss`, `h:mm:ss`, or a plain number of milliseconds. Mp3tag documents
-/// no format for `_LENGTH`; its own MusicBrainz source writes the API's
-/// milliseconds there, and so do the iTunes sources, so a plain number is
-/// read as milliseconds whatever its size.
+/// `m:ss`, `h:mm:ss`, or Mp3tag's signed integer-prefix duration convention:
+/// positive values through 6000 are seconds; larger values are milliseconds
+/// truncated to whole seconds. Zero and negative integers mean no duration.
 fn parse_length(text: &str) -> Option<f64> {
     let text = text.trim();
     if text.is_empty() {
         return None;
     }
     if !text.contains(':') {
-        return text
-            .parse::<f64>()
-            .ok()
-            .filter(|ms| *ms >= 0.0)
-            .map(|ms| ms / 1000.0);
+        let value = parse_source_integer_prefix(text);
+        return (value > 0).then(|| f64::from(if value > 6000 { value / 1000 } else { value }));
     }
     text.split(':').try_fold(0.0, |total, part| {
         part.trim()
@@ -721,6 +742,54 @@ fn parse_length(text: &str) -> Option<f64> {
             .filter(|v| *v >= 0.0)
             .map(|v| total * 60.0 + v)
     })
+}
+
+/// Decimal-prefix conversion used by the shipped source parser. Keep its
+/// explicit BMP digit blocks rather than accepting every Unicode number.
+fn parse_source_integer_prefix(text: &str) -> i32 {
+    const DIGIT_STARTS: [u32; 18] = [
+        0x0030, 0x0660, 0x06f0, 0x0966, 0x09e6, 0x0a66, 0x0ae6, 0x0b66, 0x0c66, 0x0ce6, 0x0d66,
+        0x0e50, 0x0ed0, 0x0f20, 0x1040, 0x17e0, 0x1810, 0xff10,
+    ];
+    let mut chars = text.chars().peekable();
+    while chars
+        .peek()
+        .is_some_and(|c| matches!(*c, '\u{0009}'..='\u{000d}' | ' ' | '\u{0085}' | '\u{00a0}'))
+    {
+        chars.next();
+    }
+    let negative = chars.peek() == Some(&'-');
+    if chars.peek().is_some_and(|c| matches!(*c, '+' | '-')) {
+        chars.next();
+    }
+    let limit = if negative {
+        i32::MAX as u32 + 1
+    } else {
+        i32::MAX as u32
+    };
+    let mut magnitude = 0_u32;
+    for c in chars {
+        let codepoint = u32::from(c);
+        let Some(digit) = DIGIT_STARTS
+            .iter()
+            .find_map(|start| codepoint.checked_sub(*start).filter(|digit| *digit < 10))
+        else {
+            break;
+        };
+        magnitude = magnitude
+            .saturating_mul(10)
+            .saturating_add(digit)
+            .min(limit);
+    }
+    if negative {
+        if magnitude == i32::MAX as u32 + 1 {
+            i32::MIN
+        } else {
+            -(magnitude as i32)
+        }
+    } else {
+        magnitude as i32
+    }
 }
 
 fn leading_number(text: &str) -> Option<u32> {
@@ -863,7 +932,12 @@ async fn prepare(
     app: &tauri::AppHandle,
     id: &str,
 ) -> Result<(PathBuf, SourceFile, BTreeMap<String, String>), String> {
-    let folder = folder(app)?;
+    prepare_in(folder(app)?, id).await
+}
+
+type PreparedSource = (PathBuf, SourceFile, BTreeMap<String, String>);
+
+async fn prepare_in(folder: PathBuf, id: &str) -> Result<PreparedSource, String> {
     let id = id.to_owned();
     blocking(move || {
         let _guard = installer::LOCK.lock().map_err(|e| e.to_string())?;
@@ -921,8 +995,17 @@ pub async fn web_source_search(
     values: Vec<String>,
     ticket: u64,
 ) -> Result<WebSearchPage, WebSourceError> {
+    search_with_preparation(source.clone(), values, ticket, prepare(&app, &source)).await
+}
+
+async fn search_with_preparation(
+    source: String,
+    values: Vec<String>,
+    ticket: u64,
+    preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+) -> Result<WebSearchPage, WebSourceError> {
     http::claim(Channel::Search, ticket);
-    let (folder, file, vars) = prepare(&app, &source).await?;
+    let (folder, file, vars) = preparation.await?;
     if file.direct() {
         let raw = file.direct_url(&values);
         let url = Url::parse(&raw)
@@ -983,6 +1066,7 @@ pub async fn web_source_search(
         for address in [
             Some(&result.url),
             result.cover.as_ref(),
+            result.full_cover.as_ref(),
             result.preview.as_ref(),
         ]
         .into_iter()
@@ -1003,12 +1087,21 @@ pub async fn web_source_release(
     url: String,
     ticket: u64,
 ) -> Result<SourceRelease, WebSourceError> {
+    release_with_preparation(source.clone(), url, ticket, prepare(&app, &source)).await
+}
+
+async fn release_with_preparation(
+    source: String,
+    url: String,
+    ticket: u64,
+    preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+) -> Result<SourceRelease, WebSourceError> {
     http::claim(Channel::Release, ticket);
     let address = Url::parse(&url)
         .ok()
         .filter(http::web_registered)
         .ok_or("This address did not come from the tag source's search. Search again.")?;
-    let (folder, file, vars) = prepare(&app, &source).await?;
+    let (folder, file, vars) = preparation.await?;
     let page = http::web_page(
         &file.name,
         address.as_str(),
@@ -1286,6 +1379,40 @@ mod tests {
     }
 
     #[test]
+    fn index_full_cover_stays_separate_from_thumbnail_preview_and_parser_url() {
+        let file = SourceFile {
+            album_url: "https://source.example/album/".into(),
+            index_format: "%_url%|%Title%|%_coverurl%|%_CoVeRfUlLuRl%|%_preview%".into(),
+            ..SourceFile::default()
+        };
+        let page = Url::parse("https://source.example/search").unwrap();
+        let found = index_results(
+            &file,
+            "7|Release|/thumb.jpg|/full.jpg|/release-page\n8|No full||javascript:alert(1)|\n9|Credentials||https://user:password@source.example/full.jpg|\n10|Missing|||",
+            &page,
+        )
+        .unwrap();
+        assert_eq!(found.columns, ["Title"]);
+        let serialized = serde_json::to_value(&found).unwrap();
+        assert_eq!(
+            serialized["results"][0]["full_cover"],
+            "https://source.example/full.jpg"
+        );
+        assert_eq!(
+            found.results[0].cover.as_deref(),
+            Some("https://source.example/thumb.jpg")
+        );
+        assert_eq!(
+            found.results[0].preview.as_deref(),
+            Some("https://source.example/release-page")
+        );
+        assert_eq!(found.results[0].url, "https://source.example/album/7");
+        for result in serialized["results"].as_array().unwrap().iter().skip(1) {
+            assert!(result.get("full_cover").is_none());
+        }
+    }
+
+    #[test]
     fn index_output_becomes_search_results() {
         let file = SourceFile {
             album_url: "https://shop.example/album/".into(),
@@ -1305,12 +1432,14 @@ mod tests {
                 WebResult {
                     url: "https://shop.example/album/12".into(),
                     cover: Some("https://shop.example/img/12.jpg".into()),
+                    full_cover: None,
                     preview: Some("https://shop.example/p/12".into()),
                     values: vec!["Band".into(), "One|Two".into()],
                 },
                 WebResult {
                     url: "https://other.example/a".into(),
                     cover: None,
+                    full_cover: None,
                     preview: None,
                     values: vec!["X".into(), "Y".into()],
                 },
@@ -1323,6 +1452,160 @@ mod tests {
         assert!(index_results(&no_url, "", &page)
             .unwrap_err()
             .contains("%_url%"));
+    }
+
+    fn reserved_duration(text: &str) -> Option<f64> {
+        let outputs = [
+            ("TRACKS".to_owned(), "Track|".to_owned()),
+            ("_LENGTH".to_owned(), format!("{text}|")),
+        ]
+        .into();
+        let release = release_from(
+            outputs,
+            &Url::parse("https://source-length.invalid/release/1").unwrap(),
+            "reserved-duration",
+        );
+        assert_eq!(release.tracks.len(), 1);
+        assert!(!release.fields.contains_key("_LENGTH"));
+        assert!(!release.tracks[0].fields.contains_key("_LENGTH"));
+        release.tracks[0].length
+    }
+
+    #[test]
+    fn reserved_integer_lengths_follow_native_prefix_and_saturation() {
+        // Literal outcomes derived from the pinned converter and numeric helper,
+        // not from a second duration implementation.
+        for (text, seconds) in [
+            ("0", None),
+            ("1", Some(1.0)),
+            ("5000", Some(5000.0)),
+            ("6000", Some(6000.0)),
+            ("6001", Some(6.0)),
+            ("61500", Some(61.0)),
+            ("320357", Some(320.0)),
+            ("10800000", Some(10800.0)),
+            ("006000", Some(6000.0)),
+            ("+6000", Some(6000.0)),
+            (" \t\r\n\u{000b}\u{000c}+006000suffix", Some(6000.0)),
+            ("\u{0085}\u{00a0}+6000", Some(6000.0)),
+            ("6000.9", Some(6000.0)),
+            ("6001.5", Some(6.0)),
+            ("320357.9", Some(320.0)),
+            ("1e3", Some(1.0)),
+            ("0x1770", None),
+            ("nonnumeric", None),
+            ("-6000", None),
+            ("-0", None),
+            ("+ 6000", None),
+            ("++6000", None),
+            ("2147483647", Some(2147483.0)),
+            ("2147483648", Some(2147483.0)),
+            ("999999999999999999999", Some(2147483.0)),
+            ("-2147483648", None),
+            ("-2147483649", None),
+        ] {
+            assert_eq!(reserved_duration(text), seconds, "{text:?}");
+        }
+        assert_eq!(
+            reserved_duration(&format!("{}6000", "0".repeat(100_000))),
+            Some(6000.0)
+        );
+        assert_eq!(reserved_duration(&"9".repeat(100_000)), Some(2147483.0));
+    }
+
+    #[test]
+    fn reserved_integer_lengths_accept_exact_native_bmp_digit_blocks() {
+        for text in [
+            "6000",
+            "٦٠٠٠",
+            "۶۰۰۰",
+            "६०००",
+            "৬০০০",
+            "੬੦੦੦",
+            "૬૦૦૦",
+            "୬୦୦୦",
+            "౬౦౦౦",
+            "೬೦೦೦",
+            "൬൦൦൦",
+            "๖๐๐๐",
+            "໖໐໐໐",
+            "༦༠༠༠",
+            "၆၀၀၀",
+            "៦០០០",
+            "᠖᠐᠐᠐",
+            "６０００",
+            "+０6٠۰0suffix",
+        ] {
+            assert_eq!(reserved_duration(text), Some(6000.0), "{text}");
+        }
+        // The native list does not include every Unicode decimal block.
+        assert_eq!(reserved_duration("௬௦௦௦"), None);
+        assert_eq!(reserved_duration("𝟔𝟎𝟎𝟎"), None);
+    }
+
+    #[test]
+    fn reserved_integer_length_contract_feeds_engine_and_serialized_release() {
+        let fixture: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../tests/fixtures/web-source-length-contract.json"
+        )))
+        .unwrap();
+        assert_eq!(fixture["version"], 1);
+        let lines = fixture["script"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .map(|(index, line)| (index + 1, line.as_str().unwrap().to_owned()))
+            .collect::<Vec<_>>();
+        let script = engine::Script::compile(&lines).unwrap();
+        let env = engine::Environment {
+            current_url: fixture["url"].as_str().unwrap(),
+            ..Default::default()
+        };
+        let outputs = engine::run(&script, "", &env).result.unwrap();
+        assert_eq!(serde_json::to_value(&outputs).unwrap(), fixture["outputs"]);
+        let release = release_from(
+            outputs,
+            &Url::parse(env.current_url).unwrap(),
+            "length-contract",
+        );
+        assert_eq!(
+            serde_json::to_value(&release).unwrap(),
+            fixture["expected_release"]
+        );
+    }
+
+    #[test]
+    fn reserved_integer_lengths_keep_colon_and_scalar_field_conventions() {
+        for (text, seconds) in [
+            ("5:20", Some(320.0)),
+            ("1:02:03", Some(3723.0)),
+            ("0:00", Some(0.0)),
+            ("", None),
+        ] {
+            assert_eq!(reserved_duration(text), seconds, "{text:?}");
+        }
+        let page = Url::parse("https://source-length.invalid/release/1").unwrap();
+        for outputs in [
+            [("LENGTH".to_owned(), "5000".to_owned())].into(),
+            [
+                ("LENGTH".to_owned(), "5000".to_owned()),
+                ("_LENGTH".to_owned(), "6000|6001|".to_owned()),
+            ]
+            .into(),
+        ] {
+            let release = release_from(outputs, &page, "scalar-length");
+            assert!(release.tracks.is_empty());
+            assert_eq!(release.fields["LENGTH"], ["5000"]);
+            assert!(!release.fields.contains_key("_LENGTH"));
+        }
+        let duration_only = release_from(
+            [("_LENGTH".to_owned(), "6000|6001|".to_owned())].into(),
+            &page,
+            "duration-only",
+        );
+        assert!(duration_only.tracks.is_empty() && duration_only.fields.is_empty());
     }
 
     #[test]
@@ -1384,8 +1667,8 @@ mod tests {
         assert!(release.tracks.is_empty());
         assert_eq!(release.covers.len(), 2);
         assert_eq!(parse_length("1:02:03"), Some(3723.0));
-        assert_eq!(parse_length("61500"), Some(61.5));
-        assert_eq!(parse_length("5000"), Some(5.0));
+        assert_eq!(parse_length("61500"), Some(61.0));
+        assert_eq!(parse_length("5000"), Some(5000.0));
         assert_eq!(parse_length("10800000"), Some(10800.0));
         assert_eq!(parse_length("3:00:00"), Some(10800.0));
         assert_eq!(parse_length("x"), None);
@@ -1498,7 +1781,7 @@ mod tests {
             ("URL", "x\\u005c\\u005cy"),
             // A pipe kept as `$verticalBar()` text by Replace on the input.
             ("NOTE", "a$verticalBar()b"),
-            // Plain lengths are milliseconds.
+            // Large integer lengths are milliseconds truncated to seconds.
             ("_LENGTH", "320357|5:20|"),
             ("COVERURL", "/img?a=1&amp;b=2"),
             ("OUTPUT", "default buffer"),
@@ -1512,7 +1795,7 @@ mod tests {
             .iter()
             .map(|t| (t.title.as_str(), t.length))
             .collect();
-        assert_eq!(titles, [("One", Some(320.357)), ("Two", Some(320.0))]);
+        assert_eq!(titles, [("One", Some(320.0)), ("Two", Some(320.0))]);
         assert_eq!(release.fields["PUBLISHER"], ["R&B \u{2019}n' Co"]);
         assert_eq!(release.fields["COMMENT"], ["a\tb\r\nc"]);
         assert_eq!(release.fields["URL"], ["x", "y"]);

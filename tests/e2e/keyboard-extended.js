@@ -125,14 +125,23 @@
       return 'TITLE on disk: ' + entry.fields.TITLE[0];
     });
 
-    await step('field values auto-complete from loaded values', async () => {
+    await step('multiline values offer filtered choices without implicit replacement', async () => {
       await clickRow('sine-b.mp3'); press(row('sine-b.mp3'), 't', { code: 'KeyT', altKey: true });
       const dlg = await waitFor(() => extended(), 3000, 'Extended tags');
       const value = fieldRow(dlg, 'ARTIST').querySelector('textarea');
+      const priorStatus = status();
       value.focus(); value.value = 'Test'; value.setSelectionRange(4, 4);
       value.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 't' }));
-      if (value.value !== 'Test Artist' || value.selectionStart !== 4 || value.selectionEnd !== 11) throw new Error(`"${value.value}" ${value.selectionStart}-${value.selectionEnd}`);
-      return 'Test → Test Artist (completion selected)';
+      if (value.value !== 'Test' || value.selectionStart !== 4 || value.selectionEnd !== 4) throw new Error(`Implicit multiline replacement: "${value.value}" ${value.selectionStart}-${value.selectionEnd}`);
+      const option = await waitFor(() => [...(document.getElementById(value.getAttribute('aria-controls'))?.querySelectorAll('[role="option"]') || [])].find(item => item.textContent === 'Test Artist'), 3000, 'filtered Test Artist choice');
+      const ordinaryEnter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+      value.dispatchEvent(ordinaryEnter);
+      if (ordinaryEnter.defaultPrevented || !dlg.open || value.value !== 'Test') throw new Error('Unselected Enter was consumed instead of leaving ordinary textarea editing');
+      if ((await scan('sine-b.mp3')).fields.ARTIST?.[0] !== 'Test Artist') throw new Error('Typing a suggestion prefix saved tags');
+      option.click();
+      if (value.value !== 'Test Artist' || value.selectionStart !== 11 || value.selectionEnd !== 11 || value.getAttribute('aria-expanded') !== 'false') throw new Error('Explicit choice did not replace the complete value and close the list');
+      if (!dlg.open || status() !== priorStatus) throw new Error('Choosing a value changed the operation status or closed the editor');
+      return 'Test stays typed; ordinary Enter is not consumed; explicit Test Artist choice replaces the value';
     });
 
     await step('cover window in Extended tags: paste embeds, Remove cover removes', async () => {

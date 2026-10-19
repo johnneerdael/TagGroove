@@ -119,10 +119,19 @@ also needs its separator to distinguish a track list from one album value.
 values supply titles when `TITLE` is absent. Otherwise `TITLE`, or another
 track-valued output, supplies the count. Keep TRACK, TITLE, per-track ARTIST
 and other lists aligned. `COVERURL`/`_COVERURL` supplies image addresses.
-`_LENGTH` accepts m:ss or h:mm:ss; a plain number is milliseconds at every
-magnitude (`5000` means five seconds). A script supplying plain seconds must
-convert them before output. Other
-underscore-prefixed buffers are internal and are not written as ordinary tags.
+`_LENGTH` supplies track durations in m:ss or h:mm:ss form. For a value without
+a colon, the leading decimal integer determines the duration: positive values
+up to and including `6000` are seconds; larger values are divided by 1000 and
+truncated to whole seconds. Thus `5000` means 5000 seconds, `6001` means six
+seconds, and `320357` means 320 seconds. Use `0:05` for a five-second duration.
+Leading whitespace, a sign and leading zeros are accepted. A decimal point or
+other trailing text stops the integer prefix, so `006000`, `+6000` and `6000.9`
+all mean 6000 seconds. Zero, negative values and values without a numeric prefix
+give no duration. Integer overflow saturates at the signed 32-bit limits before
+the duration rule is applied.
+
+Ordinary `LENGTH` remains editable metadata, separate from `_LENGTH` duration.
+Other underscore-prefixed buffers are internal and are not written as ordinary tags.
 Double backslashes separate multiple values within a field, as in `Juniper Vale\\Mira Solberg`.
 
 Stored values decode semicolon-terminated HTML character references and `\uXXXX` escapes.
@@ -142,10 +151,9 @@ conversion restores to a literal pipe after splitting. Literal `$verticalBar()`
 text supplied by a script is handled the same way. A raw `|` splits the output
 instead.
 
-This parser-level description does not establish later duration-unit handling
-or automatic file-order suggestions. Check titles/positions and review the
-mapping manually where needed; parser output, release conversion and matching
-are separate stages.
+These output-buffer rules do not guarantee automatic file-order suggestions.
+Check titles/positions and review the mapping manually where needed; parser
+output, release conversion and matching are separate stages.
 
 ### Includes and settings
 
@@ -1847,7 +1855,7 @@ Juniper Vale
 
 **Syntax:** `json_select_array "array" index ["separator"]`
 
-Select a one-based array element, or -1 for all elements joined by the supplied separator. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. Selecting one object element also enters its context until json_unselect_object. This one-based index differs from a numeric component in a dotted JSON path.
+Select a one-based array element, or -1 for all elements joined by the supplied separator. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. Selecting one object element also enters its context until json_unselect_object. In a dotted JSON path, array indices instead start at 0.
 
 **Input**
 
@@ -1868,6 +1876,35 @@ SayRest
 ```text
 Paper Boats / Lanterns
 ```
+
+#### Compare the two index rules
+
+<!-- json-index-comparison:start -->
+
+**Input:** `{"tracks":[{"title":"Paper Boats"},{"title":"Lanterns on the Water"}]}`
+
+Run each command cell separately in a fresh parser context with this same
+complete JSON input. Start with `json "on"`, run the commands in that cell,
+then use `SayRest` to read the result. The two columns reach the same title
+using different index origins:
+
+| Track | Dotted-path commands | Array-selector commands | Result |
+|---|---|---|---|
+| First | `json_select "tracks.0.title"` | `json_select_array "tracks" 1` then `json_select "title"` | `Paper Boats` |
+| Second | `json_select "tracks.1.title"` | `json_select_array "tracks" 2` then `json_select "title"` | `Lanterns on the Water` |
+
+<!-- json-index-comparison:end -->
+
+After the array selector enters a track object, subsequent JSON selections
+are relative to that object. To read the second track in the **same run**,
+use `json_unselect_object` after reading the first title, then
+`json_select_array "tracks" 2` and `json_select "title"` from the root.
+
+An exact key still takes precedence over a dotted path. If the root object
+has a key literally named `tracks.0.title`, `json_select "tracks.0.title"`
+reads that key instead of traversing the array.
+
+<!-- verified: src-tauri/src/sources/web/engine.rs:guide_json_index_comparison_uses_fresh_contexts_and_returns_to_root -->
 
 <!-- web-example:json_select_many -->
 

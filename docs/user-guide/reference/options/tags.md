@@ -36,7 +36,7 @@ The format pages separate three decisions:
 
 - **Read** chooses which existing tag is displayed.
 - **Write** chooses which tag types receive saved values.
-- **Remove** chooses tag types stripped by **Remove tag**; saving also strips a selected type when it is not being written.
+- **Remove** chooses tag types stripped by **Remove tag**. MPEG ordinary Save preserves unwritten types; the [Ape, Mpc policy](tags-ape-mpc.md) has its own write/remove interaction.
 
 Read selection is not a merge of every stored tag. Two programs can show different values when they prioritize different blocks in the same file. Changes to the policy can also affect more metadata than the single field edited: written tag types are synchronized from the displayed values.
 

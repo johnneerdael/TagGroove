@@ -1660,8 +1660,9 @@ pub(super) fn save_id3(
     kind: lofty::file::FileType,
     tag: &Id3v2Tag,
     target: &Id3Target,
+    placeholders: &[(String, String)],
 ) -> Result<(), String> {
-    save_id3_diagnostic(file, kind, tag, target).map_err(|error| error.to_string())
+    save_id3_diagnostic(file, kind, tag, target, placeholders).map_err(|error| error.to_string())
 }
 
 pub(super) fn save_id3_diagnostic(
@@ -1669,11 +1670,12 @@ pub(super) fn save_id3_diagnostic(
     kind: lofty::file::FileType,
     tag: &Id3v2Tag,
     target: &Id3Target,
+    placeholders: &[(String, String)],
 ) -> Result<(), ErrorCause> {
     // Unedited compressed and encrypted frames are copied from the stored tag.
     let split;
-    let (tag, copied) = if crate::id3_frames::needs_split(tag) {
-        let (stored, original) = if crate::id3_frames::has_flagged(tag) {
+    let (tag, copied) = if crate::id3_frames::needs_split(tag, placeholders) {
+        let (stored, original) = if crate::id3_frames::has_flagged(tag, placeholders) {
             let stored = crate::id3_frames::scan(file).map_err(ErrorCause::external)?;
             (stored, super::native_tags_diagnostic(file, kind)?.id3)
         } else {
@@ -1684,6 +1686,7 @@ pub(super) fn save_id3_diagnostic(
             target.major(),
             original.as_ref(),
             stored.as_ref(),
+            placeholders,
         )?;
         (&split.0, &split.1)
     } else {
@@ -1721,11 +1724,12 @@ pub(super) fn render_id3_diagnostic(
     tag: &Id3v2Tag,
     target: &Id3Target,
     stored: Option<(&Id3v2Tag, &[u8])>,
+    placeholders: &[(String, String)],
 ) -> Result<Vec<u8>, ErrorCause> {
-    if !crate::id3_frames::needs_split(tag) {
+    if !crate::id3_frames::needs_split(tag, placeholders) {
         return render_id3_padded_diagnostic(tag, target, None);
     }
-    let raw = match stored.filter(|_| crate::id3_frames::has_flagged(tag)) {
+    let raw = match stored.filter(|_| crate::id3_frames::has_flagged(tag, placeholders)) {
         Some((_, bytes)) => crate::id3_frames::scan(&mut std::io::Cursor::new(bytes))
             .map_err(ErrorCause::external)?,
         None => None,
@@ -1735,6 +1739,7 @@ pub(super) fn render_id3_diagnostic(
         target.major(),
         stored.map(|(tag, _)| tag),
         raw.as_ref(),
+        placeholders,
     )?;
     copied.splice_diagnostic(
         render_id3_padded_diagnostic(&tag, target, None)?,
@@ -1797,6 +1802,7 @@ fn version_native(field: &str, version: Id3v2Version) -> String {
 pub(super) fn convert_id3_version_diagnostic(
     tag: &mut Id3v2Tag,
     target: &Id3Target,
+    placeholders: &[(String, String)],
 ) -> Result<(), ErrorCause> {
     let from = if tag.original_version() == Id3v2Version::V3 {
         Id3v2Version::V3
@@ -1901,7 +1907,7 @@ pub(super) fn convert_id3_version_diagnostic(
     let mut failure = None;
     tag.retain_mut(|frame| {
         let mut flags = frame.flags();
-        if flags.encryption.is_some() || crate::id3_frames::is_placeholder(frame) {
+        if flags.encryption.is_some() || crate::id3_frames::is_placeholder(frame, placeholders) {
             failure = Some(ErrorCause::owned(
                 "Encrypted ID3v2 frames cannot be converted to another ID3v2 revision; original file preserved",
             ));
@@ -2484,7 +2490,7 @@ fn mp4_ident(name: &str) -> Result<AtomIdent<'static>, String> {
     mp4_ident_diagnostic(name).map_err(|error| error.to_string())
 }
 
-fn mp4_ident_diagnostic(name: &str) -> Result<AtomIdent<'static>, ErrorCause> {
+pub(super) fn mp4_ident_diagnostic(name: &str) -> Result<AtomIdent<'static>, ErrorCause> {
     let mapped = field_mapping(name)
         .map(|r| r.mp4)
         .filter(|s| !s.is_empty())

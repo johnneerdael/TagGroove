@@ -10,6 +10,7 @@ the tags of selected files; deleting a file is different from removing its row.
 | --- | --- |
 | **Undo** | Restore the last recorded operation; its label shows the operation/file count when available |
 | **Redo** / **Repeat** | Redo an undone operation, or repeat the available last action/group; the current label identifies which |
+| **Export recovery copies…** | Export retained interruption recovery into a new folder with a manifest; keep current files and history unchanged |
 | **Cut tags** | Copy tag/cover data and stage its removal from selected files |
 | **Copy tags** | Copy selected tag values and available artwork data |
 | **Copy as Text…** | Evaluate a format string for the selected files and copy a textual representation |
@@ -26,7 +27,9 @@ For **Copy as Text…**, `%artist% - %title%` makes a readable artist/title line
 for each selected track. This is calculated text, not a new audio tag. Functions
 and placeholders follow the [format-string reference](../format-strings.md).
 
-History concerns operations actually recorded in the current desktop session.
+History concerns retained recorded operations, including eligible steps reopened
+from an earlier desktop launch. See the [Undo and recovery guide](../../guides/undo-history.md)
+for restart behavior, storage limits and interruption recovery.
 Check its label and any errors; do not assume every external change, file
 transfer, export or deletion can be reversed with tag-edit undo. If the menu
 says **Repeat**, it means another action execution, not restoration of a saved

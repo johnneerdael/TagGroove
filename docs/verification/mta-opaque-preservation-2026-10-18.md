@@ -1,5 +1,31 @@
 # R06: preserve opaque action settings through export
 
+## Consolidated PR64 follow-up: readable own exports
+
+Two further independently authored accepted-input defects were reproduced:
+an opaque key starting `[#` with a decoded final `]` exported a line mistaken
+for a section header on re-import; repeated Unicode settings expanded into an
+oversized native UTF-16 file that the same importer refused.
+
+The draft now escapes that final bracket contextually, including a preceding
+literal-backslash run, while preserving the actual opaque key/value/order.
+Opaque Unicode stays compact; recognized-action serialization retains its
+existing spelling. UTF-8 export and native BOM-inclusive UTF-16 export each
+enforce the existing 4 MiB reader budget against their own final wire encoding.
+The host checks before atomic publication; refusal preserves an old destination
+and does not create an absent one. UTF-16 can admit a BMP-heavy group that does
+not fit the independent UTF-8 budget.
+
+The current focused batch passes **nine interop, eight catalog and three native
+host tests**. Controls cover section-like keys, literal/control/backslash and
+Unicode boundaries, supplementary UTF-16 surrogates, exact/over-limit output,
+encoding-specific admission and destination preservation. The new defects first
+failed before the fixes. Independent source review found no remaining issue in
+this bounded diff. These tests do not establish original-app readback.
+
+The earlier PR58 receipt below is retained as historical evidence for its named
+head and decoded-control-character scope.
+
 PR58 branch: `codex/parity-automation-mta-next`. The current change is scoped
 against approved main `0bc9d82963cb007374079bf16d10eded3467a4e7`, including
 the merged PR57 diagnostics. Earlier validation below predates that integration

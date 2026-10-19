@@ -1,10 +1,8 @@
+import {loadProductionModule} from './helpers/load-production-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import ts from 'typescript';
-const source=await readFile(new URL('../src/tag-panel.ts',import.meta.url),'utf8');
-const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-const panel=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const panel=await loadProductionModule('tag-panel.ts');
 const {KEEP,BLANK,comboOptions,choiceText,selectionState,checkState,splitValues,mnemonic,defaultLayout,defaultSettings,layoutError,settingsError,parseValueList,withCustomValue,withLists,moveField,defaultText,directoryOptions,STANDARD_GENRES}=panel;
 const values=options=>options.map(option=>option.value);
 

@@ -1,5 +1,8 @@
 //! Read-only format placeholders. Missing evidence stays absent; raw stored
 //! metadata is never populated with these values.
+#[cfg(target_os = "macos")]
+#[path = "technical/locale_macos.rs"]
+mod locale_macos;
 use super::{media_info::Stream, CoverInfo, Fields, NativeTags};
 use chrono::{DateTime, Local, Locale, Utc};
 use lofty::{
@@ -18,7 +21,6 @@ use lofty::{
 use std::{
     fs::Metadata,
     path::{Path, MAIN_SEPARATOR},
-    sync::OnceLock,
     time::{Duration, SystemTime},
 };
 
@@ -144,17 +146,113 @@ pub(super) fn aiff(properties: &AiffProperties) -> Fields {
 }
 
 fn locale() -> Locale {
-    static LOCALE: OnceLock<Locale> = OnceLock::new();
-    *LOCALE.get_or_init(|| {
-        sys_locale::get_locale()
-            .and_then(|name| {
-                let name = name.split('.').next().unwrap_or(&name).replace('-', "_");
-                Locale::try_from(name.as_str()).ok()
-            })
-            .unwrap_or(Locale::en_US)
-    })
+    sys_locale::get_locale()
+        .and_then(|name| {
+            let name = name.split('.').next().unwrap_or(&name).replace('-', "_");
+            Locale::try_from(name.as_str()).ok()
+        })
+        .unwrap_or(Locale::en_US)
 }
-fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime) {
+struct TimestampFormatter {
+    locale: Locale,
+    #[cfg(target_os = "macos")]
+    native: Option<locale_macos::Formatter>,
+}
+pub(super) fn reformat_technical_time_fields<'a>(items: impl IntoIterator<Item = &'a mut Fields>) {
+    let formatter = TimestampFormatter::current();
+    reformat_time_fields_with(items, &formatter);
+}
+
+fn reformat_time_fields_with<'a>(
+    items: impl IntoIterator<Item = &'a mut Fields>,
+    formatter: &TimestampFormatter,
+) {
+    for fields in items {
+        for (raw, displayed) in [
+            (
+                "_FILE_MOD_DATETIME_RAW",
+                &["_FILE_MOD_DATE", "_FILE_MOD_DATETIME"][..],
+            ),
+            (
+                "_FILE_CREATE_DATETIME_RAW",
+                &["_FILE_CREATE_DATE", "_FILE_CREATE_DATETIME"][..],
+            ),
+            ("_MP4_CREATION_TIME_RAW", &["_MP4_CREATION_TIME"][..]),
+            (
+                "_MP4_MODIFICATION_TIME_RAW",
+                &["_MP4_MODIFICATION_TIME"][..],
+            ),
+        ] {
+            let current = fields.get(raw).and_then(|values| {
+                let [value] = values.as_slice() else {
+                    return None;
+                };
+                let seconds = value.parse::<i64>().ok()?;
+                let duration = Duration::from_secs(seconds.unsigned_abs());
+                // Retain the reader's platform SystemTime range checks as well
+                // as Chrono's calendar bounds, without allocating temporary Fields.
+                let _time = if seconds < 0 {
+                    std::time::UNIX_EPOCH.checked_sub(duration)
+                } else {
+                    std::time::UNIX_EPOCH.checked_add(duration)
+                }?;
+                Some(formatter.format(DateTime::<Utc>::from_timestamp(seconds, 0)?))
+            });
+            for key in displayed {
+                // Missing/invalid evidence cannot justify an old formatted date.
+                fields.remove(*key);
+                if let Some((date, datetime)) = &current {
+                    let shown = if key.ends_with("_DATE") {
+                        date
+                    } else {
+                        datetime
+                    };
+                    fields.insert((*key).into(), vec![shown.clone()]);
+                }
+            }
+        }
+    }
+}
+impl TimestampFormatter {
+    fn current() -> Self {
+        Self {
+            locale: locale(),
+            #[cfg(target_os = "macos")]
+            native: locale_macos::Formatter::current(),
+        }
+    }
+    fn format(&self, utc: DateTime<Utc>) -> (String, String) {
+        #[cfg(target_os = "macos")]
+        if let Some(formatted) = self
+            .native
+            .as_ref()
+            .and_then(|native| native.format(utc.timestamp()))
+        {
+            return formatted;
+        }
+        let local: DateTime<Local> = utc.with_timezone(&Local);
+        (
+            local.format_localized("%x", self.locale).to_string(),
+            local.format_localized("%x %X", self.locale).to_string(),
+        )
+    }
+}
+
+pub(super) fn locale_format_state() -> String {
+    #[cfg(target_os = "macos")]
+    if let Some(native) = locale_macos::Formatter::current() {
+        return native.state();
+    }
+    let formatter = TimestampFormatter::current();
+    let samples = [980_258_706, 995_897_106].map(|seconds| {
+        let utc = DateTime::<Utc>::from_timestamp(seconds, 0).expect("fixed sample date");
+        let local: DateTime<Local> = utc.with_timezone(&Local);
+        (formatter.format(utc), local.format("%z %Z").to_string())
+    });
+    format!("{:?}", ("chrono", sys_locale::get_locale(), samples))
+}
+
+fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime, formatter: &TimestampFormatter) {
     // Provider timestamps may exceed Chrono's representable calendar range.
     // Unlike From<SystemTime>, this checked conversion leaves unknown fields absent.
     let (seconds, nanos) = match time.duration_since(std::time::UNIX_EPOCH) {
@@ -179,18 +277,10 @@ fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime) {
     let Some(utc) = DateTime::<Utc>::from_timestamp(seconds, nanos) else {
         return;
     };
-    let local: DateTime<Local> = utc.with_timezone(&Local);
+    let (date, datetime) = formatter.format(utc);
     put(fields, &format!("{prefix}_DATETIME_RAW"), utc.timestamp());
-    put(
-        fields,
-        &format!("{prefix}_DATE"),
-        local.format_localized("%x", locale()),
-    );
-    put(
-        fields,
-        &format!("{prefix}_DATETIME"),
-        local.format_localized("%x %X", locale()),
-    );
+    put(fields, &format!("{prefix}_DATE"), date);
+    put(fields, &format!("{prefix}_DATETIME"), datetime);
 }
 
 /// A timestamp placeholder: `name` as the long local date and time, and
@@ -199,9 +289,8 @@ pub(super) fn datetime(fields: &mut Fields, name: &str, unix_seconds: i64) {
     let Some(utc) = DateTime::<Utc>::from_timestamp(unix_seconds, 0) else {
         return;
     };
-    let local: DateTime<Local> = utc.with_timezone(&Local);
     put(fields, &format!("{name}_RAW"), unix_seconds);
-    put(fields, name, local.format_localized("%x %X", locale()));
+    put(fields, name, TimestampFormatter::current().format(utc).1);
 }
 
 pub(super) fn file_time_fields(
@@ -209,11 +298,12 @@ pub(super) fn file_time_fields(
     modified: Option<SystemTime>,
 ) -> Fields {
     let mut fields = Fields::new();
+    let formatter = TimestampFormatter::current();
     if let Some(time) = modified {
-        timestamp(&mut fields, "_FILE_MOD", time);
+        timestamp(&mut fields, "_FILE_MOD", time, &formatter);
     }
     if let Some(time) = created {
-        timestamp(&mut fields, "_FILE_CREATE", time);
+        timestamp(&mut fields, "_FILE_CREATE", time, &formatter);
     }
     fields
 }

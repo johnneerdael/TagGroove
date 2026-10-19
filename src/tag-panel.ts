@@ -1,10 +1,11 @@
+import {ValueSuggestions,suggestionText} from './value-suggestions';
 export type Control='text'|'check'|'multiline';
 export type Size='full'|'larger'|'large'|'medium'|'normal'|'small'|'smaller'|'tiny';
 export type PanelField={name:string;field:string;type:Control;size:Size;rows:number;default_value:string;visible:boolean};
 export type PanelLayout={fields:PanelField[];show_panel:boolean;show_cover:boolean};
 export type FieldValues={lists:Record<string,string[]>;only_user_genres:boolean;prefer_tag_values:boolean};
 export type TagPanelSettings={version:number;panel:PanelLayout;field_values:FieldValues};
-export type ComboOption={kind:'keep'|'blank'|'value'|'browse';value:string;group:'special'|'selection'|'custom'|'genre'|'directory'};
+export type ComboOption={kind:'keep'|'blank'|'value'|'browse';value:string;values?:readonly string[];group:'special'|'selection'|'custom'|'genre'|'directory'};
 export const KEEP='< keep >',BLANK='< blank >',DIRECTORY='_DIRECTORY',SEPARATOR='_SEPARATOR';
 export const SIZES:[Size,string][]=[['full','Full'],['larger','Larger'],['large','Large'],['medium','Medium'],['normal','Normal'],['small','Small'],['smaller','Smaller'],['tiny','Tiny']];
 // Spans of a 12-column panel grid; consecutive fields share a row while they fit.
@@ -106,19 +107,26 @@ export function localMnemonic(name:string,translate?:(label:string)=>string):{la
 }
 export const splitValues=(text:string)=>text?text.split('\\\\').map(value=>value.trim()):[];
 /** Panel text for the selection: shared value, or empty plus mixed when files differ. */
-export function selectionState(values:string[]):{value:string;mixed:boolean}{
-  const mixed=values.some(value=>value!==values[0]);return {value:mixed?'':values[0]||'',mixed};
+type PanelValue=string|readonly string[];
+const panelValueText=(value:PanelValue)=>typeof value==='string'?value:value.join(' \\\\ ');
+const panelValueArray=(value:PanelValue)=>typeof value==='string'?[value]:[...value];
+export function selectionState(values:PanelValue[]):{value:string;mixed:boolean}{
+  const identity=JSON.stringify(values.length?panelValueArray(values[0]):[]);
+  const mixed=values.some(value=>JSON.stringify(panelValueArray(value))!==identity);return {value:mixed?'':values.length?panelValueText(values[0]):'',mixed};
 }
 const truthy=(value:string)=>!!value.trim()&&!/^(0|false|no)$/i.test(value.trim());
 export function checkState(values:string[]):'on'|'off'|'mixed'{const on=values.filter(truthy).length;return on&&on===values.length?'on':on?'mixed':'off';}
 /** Dropdown entries: keep/blank, the selection's values, custom values and (for GENRE) the genre list. */
-export function comboOptions(options:{field:string;values:string[];custom?:string[];onlyUserGenres?:boolean;preferTagValues?:boolean}):ComboOption[]{
+export function comboOptions(options:{field:string;values:PanelValue[];custom?:string[];onlyUserGenres?:boolean;preferTagValues?:boolean}):ComboOption[]{
   const result:ComboOption[]=[],seen=new Set<string>();
-  const add=(kind:ComboOption['kind'],value:string,group:ComboOption['group'])=>{if(kind==='value'&&(!value||seen.has(value)))return;seen.add(value);result.push({kind,value,group});};
+  const add=(kind:ComboOption['kind'],value:string,group:ComboOption['group'],values:readonly string[]=[value])=>{
+    const identity=JSON.stringify(values);if(kind==='value'){if(!value||seen.has(identity))return;seen.add(identity);}
+    result.push({kind,value,group,...(kind==='value'?{values:[...values]}:{})});
+  };
   if(options.values.length>1)add('keep',KEEP,'special');
   if(options.values.length)add('blank',BLANK,'special');
-  const selection=[...new Set(options.values.filter(Boolean))].sort(collator.compare);
-  selection.forEach(value=>add('value',value,'selection'));
+  const selection=options.values.map(value=>({value:panelValueText(value),values:panelValueArray(value)})).filter(option=>!!option.value).sort((a,b)=>collator.compare(a.value,b.value));
+  selection.forEach(option=>add('value',option.value,'selection',option.values));
   if(options.preferTagValues&&selection.length)return result;
   (options.custom||[]).forEach(value=>add('value',value,'custom'));
   if(normalizeField(options.field)==='GENRE'&&!options.onlyUserGenres)[...STANDARD_GENRES].sort(collator.compare).forEach(value=>add('value',value,'genre'));
@@ -168,16 +176,16 @@ export type TagPanelHost={
   columns?:(items:{span:number;height:number;separator:boolean}[])=>number[][]|undefined;
   /** Docking position: the choices, the current one and how to change it. */
   dock?:{choices:[string,string][];current:()=>string;set:(side:string)=>void};
-  values:(field:string)=>string[];disabled:()=>boolean;
+  values:(field:string)=>PanelValue[];disabled:()=>boolean;
   directories:()=>{selected:string[];all:string[]};selectDirectory:(directory:string)=>void;openFolder:()=>void;
   /** Field labels in the UI language (Options → Language); configured names are shown as they are without it. */
   translateLabel?:(label:string)=>string;
   /** A folder path typed into the _DIRECTORY field: make it the working directory. */
   changeDirectory:(path:string)=>void;
-  draft:(field:string,value:string)=>void;keep:(field:string)=>void;
+  draft:(field:string,value:string,exactValues?:readonly string[])=>void;keep:(field:string)=>void;
   changed:()=>void;notify:(message:string)=>void;fail:(error:unknown)=>void;
   /** Options → General → Auto-completion at selection boxes: the completer while it is enabled. */
-  autocomplete?:()=>((input:HTMLInputElement,event:Event,candidates:()=>Iterable<string>)=>boolean)|undefined;
+  autocomplete?:()=>((input:HTMLInputElement|HTMLTextAreaElement,event:Event,candidates:()=>Iterable<string>)=>boolean)|undefined;
   /** Whether an Alt chord is a shortcut rather than typed text (macOS Option in text fields, AltGr). */
   altShortcut:(event:KeyboardEvent)=>boolean;
 };
@@ -187,6 +195,10 @@ type OpenList={input:HTMLInputElement|HTMLTextAreaElement;field:PanelField;optio
 export class TagPanel {
   settings=defaultSettings();
   private list?:OpenList;
+  private suggestions:ValueSuggestions[]=[];
+  // Bound-control origins include pending values shown at render time. Own typing
+  // changes their observed signature, not the candidate inventory. Rerenders reset it.
+  private valueOrigins=new Map<number,{field:string;values:string[][];observed:string}>();
   private contextPoint?:{x:number;y:number};
   private dialogOpen=false;
   constructor(private host:TagPanelHost){}
@@ -212,7 +224,7 @@ export class TagPanel {
     return `<details class="menu panel-menu"><summary aria-label="Tag panel options" title="Tag panel options">⋯</summary><div class="menu-list">${item('configure','Customize tag panel…')}${item('values','Field values…')}${item('defaults','Default values in input fields')}<hr>${fields.map(([field,index])=>item(`field:${index}`,this.fieldLabel(field).label||field.field,field.visible,true)).join('')}${item('cover','Display cover art',this.showCover)}<hr>${item('save','Save configuration…')}${item('load','Load configuration…')}${this.host.importMp3tag?item('import-mp3tag','Import Mp3tag configuration…'):''}${position}<hr>${item('hide','Hide tag panel')}</div></details>`;
   }
   fieldsHTML(){
-    this.closeList();
+    this.closeList();this.suggestions.forEach(list=>list.dispose());this.suggestions=[];this.valueOrigins.clear();
     const disabled=this.host.disabled(),fields=this.settings.panel.fields;
     const shown=fields.map((field,index)=>({field,index})).filter(({field})=>field.visible);
     // Rough heights of a label with its control, for filling the columns of a horizontal panel.
@@ -233,9 +245,10 @@ export class TagPanel {
     }
     const values=this.host.values(field.field),state=selectionState(values);
     if(field.type==='check'){
-      const check=checkState(values);
+      const check=checkState(values.map(panelValueText));
       return `<div class="panel-field panel-check-field" ${span}><label class="action-check"><input type="checkbox" id="${id}" data-check="${html(field.field)}" data-panel-index="${index}" ${check==='on'?'checked':''} data-mixed="${check==='mixed'}" ${off} ${shortcut}> <span translate="no">${label.html}</span></label></div>`;
     }
+    const origins=values.map(panelValueArray);this.valueOrigins.set(index,{field:field.field,values:origins,observed:JSON.stringify(origins)});
     const placeholder=state.mixed?keep:'',inline=field.type==='text'&&!!this.host.autocomplete?.();
     const common=`id="${id}" data-field="${html(field.field)}" data-panel-index="${index}" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="${inline?'inline':'none'}" placeholder="${placeholder}" autocomplete="off" ${off} ${shortcut}`;
     const control=field.type==='multiline'?`<textarea ${common} rows="${field.rows}">${html(state.value)}</textarea>`:`<input ${common} value="${html(state.value)}">`;
@@ -254,12 +267,16 @@ export class TagPanel {
     }));
     root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('.combo [data-panel-index]').forEach(input=>{
       input.addEventListener('keydown',event=>this.comboKey(event as KeyboardEvent,input));
-      input.addEventListener('input',event=>{
-        this.closeList();
-        const field=this.settings.panel.fields[Number(input.dataset.panelIndex)];
-        const complete=this.host.autocomplete?.();
-        if(complete&&input instanceof HTMLInputElement&&field?.type==='text'&&input.dataset.field)complete(input,event,()=>this.optionsFor(field).filter(option=>option.kind==='value').map(option=>option.value));
-      });
+      input.addEventListener('input',()=>this.closeList());
+      input.addEventListener('compositionstart',()=>this.closeList());
+      const field=this.settings.panel.fields[Number(input.dataset.panelIndex)];
+      if(input.dataset.field&&field)this.suggestions.push(new ValueSuggestions(input,{
+        candidates:()=>this.optionsFor(field,input).filter(option=>option.kind==='value').map(option=>({value:option.value,values:option.values,group:this.host.translateLabel?.(groupLabels[option.group])??groupLabels[option.group]})),
+        enabled:()=>!!this.host.autocomplete?.()&&!this.host.disabled(),
+        inline:field.type==='text'?(control,event,candidates)=>this.host.autocomplete?.()?.(control,event,candidates)??false:undefined,
+        beforeOpen:()=>this.closeList(),manualList:true,
+        choose:(value,values)=>{this.host.draft(field.field,value,values);this.host.changed();},
+      }));
       input.addEventListener('blur',()=>{if(this.list?.input===input)this.closeList();});
     });
     const menu=root.querySelector<HTMLDetailsElement>('.panel-menu');
@@ -277,7 +294,7 @@ export class TagPanel {
    * (Control+Option+mnemonic while typing on macOS, where Option+letter types). */
   install(root:Document){
     root.addEventListener('keydown',event=>{
-      if(event.defaultPrevented||root.querySelector('dialog[open]'))return;
+      if(event.isComposing||event.defaultPrevented||root.querySelector('dialog[open]'))return;
       if(event.ctrlKey&&!event.metaKey&&!event.altKey&&!event.shiftKey&&event.code==='KeyQ'){event.preventDefault();this.toggle();return;}
       if(!event.altKey||!this.visible||!this.host.altShortcut(event))return;
       const letter=/^Key([A-Z])$|^Digit([0-9])$/.exec(event.code);if(!letter)return;
@@ -302,6 +319,7 @@ export class TagPanel {
     window.addEventListener('resize',()=>this.closeList());
   }
   private comboKey(event:KeyboardEvent,input:HTMLInputElement|HTMLTextAreaElement){
+    if(event.isComposing)return;
     const open=this.list?.input===input,multiline=input instanceof HTMLTextAreaElement;
     if(event.key==='ArrowDown'||event.key==='ArrowUp'){
       if(!open){if(multiline&&!event.altKey)return;event.preventDefault();this.openList(input,event.key==='ArrowUp'?-1:1);return;}
@@ -317,22 +335,35 @@ export class TagPanel {
     }
     if(event.key==='Tab'&&open)this.closeList();
   }
-  private optionsFor(field:PanelField):ComboOption[]{
+  /** Record the existing draft publisher's result without reading candidates (including IME input). */
+  inputDrafted(input:HTMLInputElement|HTMLTextAreaElement,values:readonly string[]){
+    const origin=this.valueOrigins.get(Number(input.dataset.panelIndex));
+    if(origin&&origin.field===input.dataset.field)origin.observed=JSON.stringify(origin.values.map(()=>values));
+  }
+  private optionsFor(field:PanelField,input?:HTMLInputElement|HTMLTextAreaElement):ComboOption[]{
     if(field.field===DIRECTORY)return directoryOptions(this.host.directories().all);
-    const values=this.host.values(field.field),fv=this.settings.field_values;
+    let values=this.host.values(field.field);const fv=this.settings.field_values;
+    if(input){
+      const index=Number(input.dataset.panelIndex),observed=JSON.stringify(values.map(panelValueArray));
+      let origin=this.valueOrigins.get(index);
+      // A real source change replaces origins; only the input publisher may mark
+      // an observed change as this control's own draft publication.
+      if(!origin||origin.field!==field.field||origin.observed!==observed){origin={field:field.field,values:values.map(panelValueArray),observed};this.valueOrigins.set(index,origin);}
+      values=origin.values;
+    }
     return comboOptions({field:field.field,values,custom:fv.lists[field.field],onlyUserGenres:fv.only_user_genres,preferTagValues:fv.prefer_tag_values});
   }
   private openList(input:HTMLInputElement|HTMLTextAreaElement,step=0){
-    this.closeList();
+    this.closeList();this.suggestions.forEach(list=>list.close());
     const field=this.settings.panel.fields[Number(input.dataset.panelIndex)];if(!field||input.disabled)return;
-    const options=this.optionsFor(field),popup=document.createElement('div');
+    const options=this.optionsFor(field,input),popup=document.createElement('div');
     // Group headings, Open folder… and No values are UI text; the values themselves and the field label are not translated.
     const label=this.fieldLabel(field).label;
     popup.className='combo-list';popup.id='tag-panel-listbox';popup.setAttribute('role','listbox');if(label)popup.dataset.verbatim=label;popup.setAttribute('aria-label',`${label} values`);
     let group:ComboOption['group']|undefined,markup='';
     options.forEach((option,index)=>{
       if(option.group!==group){if(group!==undefined)markup+='</div>';group=option.group;markup+=`<div role="group" ${groupLabels[group]?`aria-label="${groupLabels[group]}"`:''}>${groupLabels[group]?`<div class="combo-group" aria-hidden="true">${groupLabels[group]}</div>`:''}`;}
-      markup+=`<div role="option" id="tag-panel-option-${index}" data-option="${index}" class="${option.kind==='value'?'':'special'}" ${option.kind==='value'?'translate="no"':''} aria-selected="false">${html(option.value)}</div>`;
+      markup+=`<div role="option" id="tag-panel-option-${index}" data-option="${index}" class="${option.kind==='value'?'':'special'}" ${option.kind==='value'?'translate="no"':''} aria-selected="false">${html(suggestionText(option))}</div>`;
     });
     popup.innerHTML=options.length?`${markup}</div>`:'<div class="combo-empty">No values</div>';
     popup.addEventListener('pointerdown',event=>event.preventDefault());
@@ -362,7 +393,7 @@ export class TagPanel {
     const {input,field}=list;this.closeList();
     if(field.field===DIRECTORY){if(option.kind==='browse')this.host.openFolder();else this.host.selectDirectory(option.value);return;}
     const text=choiceText(option);
-    if(text===null)this.host.keep(field.field);else{input.value=text;this.host.draft(field.field,text);}
+    if(text===null)this.host.keep(field.field);else{input.value=text;this.host.draft(field.field,text,option.kind==='blank'?[]:option.values??[text]);}
     this.host.changed();
   }
   private addCurrent(input:HTMLInputElement|HTMLTextAreaElement){

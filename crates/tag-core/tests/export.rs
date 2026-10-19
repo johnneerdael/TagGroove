@@ -87,7 +87,7 @@ fn nested_loops_form_groups_and_restore_outer_counters() {
 }
 
 #[test]
-fn variables_work_inside_normal_functions_and_retain_typed_flags() {
+fn variables_work_inside_normal_functions_with_string_only_storage() {
     let text=render_export("$puts(n,0)$puts(flag,$eql(a,b))$if($get(flag),bad,good):$loop(1)$put(n,$add($get(n),1))=%title%;$loopend()/$get(n)",&rows(),&options()).unwrap().remove(0).text;
     assert_eq!(text, "good:1=Second;2=First;3=Third;/3");
     assert_eq!(
@@ -98,7 +98,7 @@ fn variables_work_inside_normal_functions_and_retain_typed_flags() {
         )
         .unwrap()[0]
             .text,
-        "goodA"
+        ""
     );
 }
 
@@ -407,6 +407,10 @@ fn escaped_export_literals_and_empty_selection_are_supported() {
 
 #[test]
 fn malformed_templates_invalid_rows_and_colliding_partitions_fail_before_writes() {
+    assert_eq!(
+        render_export("$not_known(x)", &rows(), &options()).unwrap()[0].text,
+        "$not_known(x)"
+    );
     for template in [
         "$loop(1)x",
         "$loopend()",
@@ -416,7 +420,7 @@ fn malformed_templates_invalid_rows_and_colliding_partitions_fail_before_writes(
         "$puts(x)",
         "$filename(a,b,c)",
         "$filename(a,utf-32)",
-        "$not_known(x)",
+        "$substr(x)",
     ] {
         assert!(
             render_export(template, &rows(), &options()).is_err(),
@@ -691,4 +695,93 @@ fn a_relative_filename_prefill_agrees_with_the_template_destination() {
     )
     .unwrap();
     assert_eq!(old_prefill[0].filename, "/audio/sub/report.csv");
+}
+
+// Static export-variable native predictions; no native runtime is invoked.
+#[test]
+fn export_variables_publish_eager_presence_without_storing_flags() {
+    let mut input = row("/music/a.mp3", "A", "Z", "Rock", "1", 1., 1);
+    input.fields.insert("KEY".into(), vec!["k".into()]);
+    for (expression, expected) in [
+        ("$put(k,v)$get(k)", "vv"),
+        ("$puts(k,v)$get(k)", "v"),
+        ("$put(k,%TITLE%)", "Rock"),
+        ("$puts(k,%TITLE%)[X$get(k)]", ""),
+        ("[X$puts(k,%TITLE%)]", "X"),
+        ("[X$get(%TITLE%)]", "X"),
+        ("$puts(k,v)[X$get(%KEY%)]", "Xv"),
+        ("$puts(k,%TITLE%)$if($get(k),yes,no)", "no"),
+        ("$puts(k,%TITLE%)$if($get(%KEY%),yes,no)", "yes"),
+        ("$puts(k,v)$put(k,w)$get(k)", "ww"),
+        ("$puts(Key,v)$get(key)", "v"),
+    ] {
+        assert_eq!(
+            render_export(expression, std::slice::from_ref(&input), &options()).unwrap()[0].text,
+            expected,
+            "{expression}"
+        );
+    }
+}
+
+#[test]
+fn unknown_export_expressions_delegate_to_shared_original_ast_replay() {
+    let input = [row("/a.mp3", "A", "Z", "Rock", "1", 1., 1)];
+    for (expression, expected) in [
+        ("$Zz_Unknown_3361(%TITLE%)", "$Zz_Unknown_3361(Rock)"),
+        ("$bare_unknown", "$bare_unknown"),
+        ("[%TITLE%$zz_unknown_3361($not(%TITLE%))]", ""),
+        (
+            "$puts(n,0)$zz_unknown_3361($put(n,$add($get(n),1)))$get(n)",
+            "$zz_unknown_3361(2)2",
+        ),
+    ] {
+        assert_eq!(
+            render_export(expression, &input, &options()).unwrap()[0].text,
+            expected,
+            "{expression}"
+        );
+    }
+}
+#[test]
+fn unknown_export_fallback_keeps_known_directive_reserved_and_syntax_errors() {
+    for expression in [
+        "$loopend()",
+        "$loop()",
+        "$loop(x)",
+        "$loop(x)$loopend(x)",
+        "x$filename(report.txt)",
+        "$filename(a,b,c)",
+        "$substr(x)",
+        "$fmtdatelocal(x)",
+        "$upper()",
+        "$put(k)",
+        "$zz_unknown_3361('%TITLE%)",
+        "$zz_unknown_3361(%TITLE)",
+        "$zz_unknown_3361([x)",
+    ] {
+        assert!(
+            render_export(expression, &rows(), &options()).is_err(),
+            "{expression}"
+        );
+    }
+}
+
+#[test]
+fn review_boundary_export_rejects_malformed_function_identifiers_before_delegation() {
+    for expression in ["$()", "$1(x)"] {
+        assert!(
+            render_export(expression, &rows(), &options()).is_err(),
+            "{expression}"
+        );
+    }
+    for (expression, expected) in [
+        ("$Zz_Unknown_3361(%TITLE%)", "$Zz_Unknown_3361(Second)"),
+        ("$bare_unknown", "$bare_unknown"),
+    ] {
+        assert_eq!(
+            render_export(expression, &rows(), &options()).unwrap()[0].text,
+            expected,
+            "{expression}"
+        );
+    }
 }

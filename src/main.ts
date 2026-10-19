@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+import { observeLocale } from './locale-refresh';
+import { savedWorkspace, WorkspaceRows } from './workspace-session';
 import { audioLicenses } from './audio-licenses';
 import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core';
 import { buildFilterFields } from './filter-fields';
@@ -28,7 +30,8 @@ import { removeTagTypesDialog, mp4ChapterFiles, stripChaptersPrompt, copyAsTextD
 import { ExtendedTags } from './extended-tags';
 import { isMacPlatform, isTextEntry, altChord, nextPane, windowShortcut, type Pane, type WindowShortcut } from './keyboard';
 import { WebSourcesUI, menuLabel } from './web-sources';
-import { ProfileMigrationUI, bootstrapProfileMigration, showProfileRecoveryFailure, type ProfileWorkspace } from './profile-migration';
+import { ProfileMigrationUI, bootstrapProfileMigration, captureProfileWindow, showProfileRecoveryFailure, type ProfileWorkspace, type ProfileWorkspaceV2 } from './profile-migration';
+import { ConfigurationTransferUI, SavedConfigurationWrites } from './configuration-transfer';
 import { TagSourcesUI, webScriptErrorText, tagSourcesOptionsPages, type IndexStatus } from './tag-sources';
 import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
 import { ColumnUI, ColumnValueCache, columnFields, columnName, setColumnNameTranslation, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
@@ -47,9 +50,10 @@ import { openTagToTag } from './tag-tag-ui';
 import { ConfigListStorage, installHelperMenus } from './helper-menu';
 import { FileOpsUI, fileShortcut, startupChoice, startupOptionsPage, type FileOperation } from './file-ops';
 import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, playlistValues, type PlaylistPlan } from './playlist-ui';
+import { mergeSourceOrder, rankSourceRows, sourceFolders, type ListOrderMode, type SourceRootKind } from './playlist-order';
 import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
-import { imageExtensions, type CoverInfo } from './cover-model';
+import { imageExtensions, type CoverInfo, type CoverCommand } from './cover-model';
 import { chapterRowReason, replaceFileRows, rowFile } from './chapters';
 import { libraryOptionsPage, type CleanupReport, type LibraryStatus } from './library';
 import logoLightUrl from '../assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light.svg';
@@ -82,7 +86,13 @@ const perfSink=()=>(window as Window&{__OPENTAG_TIMINGS__?:PerfRecord[]}).__OPEN
 type DialogSeam={requests:{title:string;defaultPath?:string}[];answers:(string|null)[]};
 const dialogSeam=()=>(window as Window&{__OPENTAG_E2E_DIALOGS__?:DialogSeam}).__OPENTAG_E2E_DIALOGS__;
 const DIAGNOSTIC_COMMANDS=new Set(['execute_action_groups','apply_action','undo_last','redo_last','rename_files','read_playlist','tag_source_apply','convert_tag_to_tag']);
+const configurationWrites=new SavedConfigurationWrites();
+const savedConfigurationCommands=new Set(['save_settings','save_action_library','save_export_library','save_columns','save_tag_panel','save_directory_state','save_helper_lists']);
 function invoke<T>(command:string,args?:InvokeArgs):Promise<T>{
+  if(savedConfigurationCommands.has(command))return configurationWrites.run(()=>invokeUntracked<T>(command,args));
+  return invokeUntracked<T>(command,args);
+}
+function invokeUntracked<T>(command:string,args?:InvokeArgs):Promise<T>{
   const normalized=(result:T)=>normalizeBatchDiagnostics(result,DIAGNOSTIC_COMMANDS.has(command));
   const sink=perfSink();if(!sink)return coreInvoke<T>(command,args).then(normalized);
   const record:PerfRecord={name:`ipc ${command}`,at:performance.now(),ms:0,pending:true,in:JSON.stringify(args??{}).length};sink.push(record);
@@ -98,8 +108,10 @@ type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string;associated?:{from:string;to:string}[]};
 // A file whose name does not match the pattern has no fields and is left unchanged.
 type FilenamePreview = { path: string; fields: Fields|null; error?: string };
-type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-itunes'|'source-deezer'|'source-lastfm'|'source-acoustid'|'source-lrclib'|'source-cover-itunes'|'source-cover-deezer'|'source-cover-fanart'|'source-keys'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'profile-import'|'profile-restore'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|ListOperation|FileOperation;
+type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'list-playlist-order'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'history-recovery'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-itunes'|'source-deezer'|'source-lastfm'|'source-acoustid'|'source-lrclib'|'source-cover-itunes'|'source-cover-deezer'|'source-cover-fanart'|'source-keys'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'profile-import'|'profile-restore'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|CoverOperation|ListOperation|FileOperation;
 type UtilOperation='util-unsupported'|'util-optimize';
+type CoverOperation='cover-replace'|'cover-extract'|'cover-adjust'|'cover-description'|'cover-cut'|'cover-copy'|'cover-paste';
+const coverOperations:Record<CoverOperation,CoverCommand>={'cover-replace':'replace','cover-extract':'extract','cover-adjust':'adjust','cover-description':'description','cover-cut':'cut','cover-copy':'copy','cover-paste':'paste'};
 const utilOperations:Record<UtilOperation,Util>={'util-unsupported':'remove_unsupported_fields','util-optimize':'optimize'};
 const tagSourceOperations:Operation[]=['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-freedb','source-cover-musicbrainz','source-cover-discogs','source-itunes','source-deezer','source-lastfm','source-acoustid','source-lrclib','source-cover-itunes','source-cover-deezer','source-cover-fanart','source-last','source-last-quick'];
 type ListOperation='unselect-all'|'invert-selection'|'select-next'|'select-similar'|'select-next-similar'|'remove-from-list'|'clear-list'|'refresh'|'find'|'edit-cell'|'columns'|'autosize-columns'|'shuffle-list';
@@ -111,7 +123,9 @@ const profileBootstrap=desktop?await bootstrapProfileMigration(invoke,()=>window
   showProfileRecoveryFailure(document.querySelector<HTMLElement>('#app')!,error,()=>window.location.reload());
   return await new Promise<never>(()=>{});
 }):undefined;
-const profileWorkspacePending=profileBootstrap?.desktop===true&&!!profileBootstrap.pending&&!profileBootstrap.pending.failed;
+const profileWorkspacePending=!!profileBootstrap?.pending;
+let configurationRecoveryActive=profileWorkspacePending;
+if(profileWorkspacePending)configurationWrites.pause();
 const appearanceAssets = {
   light: {logo:logoLightUrl,mark:markLightUrl,artwork:artworkLightUrl,about:aboutLightUrl},
   dark: {logo:logoDarkUrl,mark:markDarkUrl,artwork:artworkDarkUrl,about:aboutDarkUrl},
@@ -176,7 +190,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.style.visibility = desktop ? 'hidden' : '';
 app.inert = desktop;
 document.addEventListener('keydown',event=>{if(app.inert){event.preventDefault();event.stopImmediatePropagation();}},true);
-const entries = new Map<string, Entry>();
+const entries = new WorkspaceRows<Entry>();
 const drafts = new Map<string, Fields>();
 // Covers pasted with Paste/Cut tags, written by the next save. A file with pending covers always has a (possibly empty) draft.
 const pendingCovers = new Map<string, PendingCover[]>();
@@ -187,7 +201,9 @@ const clipCovers = new Map<string, ClipCover>(), clipImages = new Map<string, st
 const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
-let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],slowEditTimer=0;
+let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],listRootKinds:Record<string,SourceRootKind>={},slowEditTimer=0;
+// Source rank and display mode belong to this workspace, not saved columns.
+let listOrder:ListOrderMode='columns',sourceOrder:string[]|undefined,sourceGeneration=0;
 let filter = '', anchor: string | undefined, busy = false, status: string|ColumnImportStatus = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
@@ -234,6 +250,7 @@ const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?err
   save:library=>invoke<void>('save_action_library',{library}),
   import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
   importIssues:mtaImportFailure,
+  exportReport:group=>invoke('action_group_export_report',{group}),
   execute:executeGroups,
   pickFile:async kind=>{const extensions=kind==='mta'?['mta']:kind==='image'?['jpg','jpeg','png','webp','gif']:kind==='export'?['mte']:['txt','lrc'];const path=await open({multiple:false,title:kind==='mta'?'Import action group':kind==='image'?'Choose cover image':kind==='export'?'Choose export configuration':'Choose text file',filters:[{name:kind==='mta'?'Action groups':kind==='image'?'Images':kind==='export'?'Export configurations':'Text files',extensions}]});return typeof path==='string'?path:null;},
   confirm:message=>ask(message,{title:'Action groups',kind:'warning'}),
@@ -314,7 +331,7 @@ const extendedTags=new ExtendedTags({
   describe:path=>{const entry=entries.get(path);return{name:entry?.filename||displayName(path),tag:entry?.technical?._TAG?.[0]};},
   stage:changes=>changes.forEach(({path,updates})=>Object.entries(updates).forEach(([key,values])=>updateDraft(path,key,values))),
   select:path=>{const previous=paths();selected.clear();selected.add(path);anchor=path;coverIndex=0;coverError=undefined;if(activeCover?.path!==path)activeCover=undefined;refreshSelection();revealRow(path,false);saveOnMove(previous);},
-  completions:cellCompletions,autocomplete:()=>generalPrefs().autocomplete?completeInput:undefined,
+  completions:cellCompletions,autocomplete:()=>generalPrefs().autocomplete&&!busy?completeInput:undefined,
   coverMarkup:()=>coverMarkup(`<button type="button" data-cover="add">Add cover…</button><button type="button" data-cover="remove" ${coverUI.canRemove()?'':'disabled'}>Remove cover</button><button type="button" data-cover="extract" ${coverUI.state().state==='same'&&coversFor(active()).length?'':'disabled'}>Extract cover…</button>`),
   bindCover:root=>{coverUI.bind(root);coverUI.paint();},
   modal:(title,content,buttons)=>modal(title,content,buttons),modalError:(dialog,error)=>modalError(dialog,error),
@@ -357,7 +374,7 @@ const tagPanel=new TagPanel({
   importList:path=>invoke<string[]>('import_value_list',{path}),exportList:(path,values)=>invoke<void>('export_value_list',{path,values}),
   pickOpen:async kind=>{const path=await open({multiple:false,title:kind==='layout'?'Load tag panel configuration':kind==='mp3tag'?'Import Mp3tag tag panel configuration (usrfields.ini)':'Import custom values',filters:kind==='mp3tag'?[{name:'Mp3tag configuration',extensions:['ini']},{name:'All files',extensions:['*']}]:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]});return typeof path==='string'?path:null;},
   pickSave:(kind,name)=>save({title:kind==='layout'?'Save tag panel configuration':'Export custom values',defaultPath:name,filters:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]}),
-  values:key=>paths().map(path=>field(entries.get(path)!,key)),disabled:()=>!selected.size||busy,
+  values:key=>paths().map(path=>{const entry=entries.get(path)!,fields=merged(entry);return fields[panelKey({format:entry.format,fields},key)]??[];}),disabled:()=>!selected.size||busy,
   directories:()=>{const local=(list:Entry[])=>list.filter(entry=>!providerEntry(entry)).map(entry=>dirname(entry.path));return{selected:local(paths().map(path=>entries.get(path)!)),all:local([...entries.values()])};},
   selectDirectory:directory=>{selected.clear();visible().filter(entry=>!providerEntry(entry)&&dirname(entry.path)===directory).forEach(entry=>selected.add(entry.path));anchor=paths()[0];coverIndex=0;render();},
   openFolder:()=>void operate('folder'),draft:draftField,keep:keepField,changed:()=>render(),
@@ -396,7 +413,7 @@ let lastActionGroups:ActionGroup[]|undefined;
 const repeatState=()=>redoOrRepeat(history,enabled('action')?lastActionGroups:undefined);
 const toolsUI=new ToolsUI({
   values:()=>optionsUI.page('tools'),mac:macPlatform,
-  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?listRoots[0]:null}),
+  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?sourceFolders(listRoots,listRootKinds)[0]??null:null}),
   selection:()=>paths(),reason:()=>!desktop?'Tools require the desktop app.':!selected.size?'Select files first.':operationReason('file-play'),
   confirm:(text,title)=>ask(text,{title,kind:'warning'}),
   report:text=>{status=text;render();},fail:error=>{errors=[{path:'Tools',label:'Tools',error:publicMessage(error)}];status='Tool failed';render();},
@@ -533,33 +550,100 @@ const webSourcesUI=new WebSourcesUI({
   report:message=>{status=message;render();},
   fail:error=>{errors=[{path:'Tag sources',label:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
 });
+let ordinaryWorkspaceReady=false,ordinaryWorkspaceSaved='',ordinaryWorkspaceRestoreFailed=false;
+let ordinaryWorkspaceState:unknown[]=[];
+function rememberOrdinaryWorkspace(force=false){
+  if(!desktop||!ordinaryWorkspaceReady||configurationRecoveryActive||runtimePlatform.family!=='desktop')return;
+  const state=[entries.revision,entries.size,listRoots,listRootKinds,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+  const same=state.every((value,index)=>value===ordinaryWorkspaceState[index]);
+  if(same&&(ordinaryWorkspaceRestoreFailed||!force))return;
+  ordinaryWorkspaceRestoreFailed=false;ordinaryWorkspaceState=state;
+  const workspace=captureConfigurationWorkspace();
+  if(!workspace)return;
+  const text=JSON.stringify(workspace);if(text===ordinaryWorkspaceSaved)return;
+  try{if(text.length>16*1024*1024)throw new Error('The file list exceeds the 16 MiB restart limit. Save this larger list as a playlist.');localStorage.setItem('opentag.workspace',text);ordinaryWorkspaceSaved=text;const prior=errors.length;errors=errors.filter(e=>e.path!=='File list persistence');if(errors.length!==prior)render();}catch(error){errors=[...errors.filter(e=>e.path!=='File list persistence'),{path:'File list persistence',label:'File list persistence',error:`The file list could not be saved for restart: ${String(error)}`}];render();}
+}
+async function restoreOrdinaryWorkspace(){
+  try{
+    const text=localStorage.getItem('opentag.workspace');if(text===null)return false;
+    if(text.length>16*1024*1024)throw new Error('The saved file list exceeds the 16 MiB restart limit. Open files or a folder to start a new list.');
+    let workspace;try{workspace=savedWorkspace(JSON.parse(text));}catch{throw new Error('The saved file list is corrupt. Open files or a folder to start a new list.');}
+    if(!workspace)throw new Error('The saved file list has an unsupported structure. Open files or a folder to start a new list.');
+    return await restoreConfigurationWorkspace(workspace);
+  }catch(error){
+    // Automatic renders and close must retain failed recovery input. A real
+    // membership/order/root change starts a new ordinary workspace explicitly.
+    ordinaryWorkspaceState=[entries.revision,entries.size,listRoots,listRootKinds,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+    ordinaryWorkspaceRestoreFailed=true;throw error;
+  }
+}
+let configurationLaunchesPending=0;
+async function coordinateConfigurationLaunches<T>(load:()=>Promise<T>):Promise<T>{
+  while(busy)await new Promise(resolve=>setTimeout(resolve,100));
+  configurationLaunchesPending++;
+  try{return await load();}finally{configurationLaunchesPending--;}
+}
+async function prepareConfigurationLoad(){
+  if(busy||configurationLaunchesPending)return false;
+  if(actionUI.hasUnsavedChanges)throw new Error('Save or close the action group editor before changing setup.');
+  const pending=new Set([...drafts.keys(),...pendingCovers.keys()]);
+  return !pending.size||await messages.confirm('unsaved_changes',`Discard pending audio and artwork changes in ${pending.size} files only after the selected setup is successfully applied? Unsaved edits are not included in configuration backups.`,'Unsaved changes');
+}
+async function flushSavedConfiguration(){
+  if(configurationRecoveryActive)return;
+  if(layoutSaveTimer){window.clearTimeout(layoutSaveTimer);layoutSaveTimer=0;const saving=mainLayout;ownLayoutSave=JSON.stringify(normalizeMainLayout(saving));await optionsUI.updatePage('layout',saving);}
+  await configurationWrites.flush();await helperLists.ready;await helperLists.flush();await configurationWrites.flush();
+}
+function captureConfigurationWorkspace():ProfileWorkspaceV2|null {
+  const paths=[...entries.keys()];
+  const local=(path:string)=>path.startsWith('/')||/^[A-Za-z]:[\\/]/.test(path)||path.startsWith('\\\\');
+  const references=[...listRoots,...(fileOps.history.current?[fileOps.history.current]:[]),...(loadedPlaylist?[loadedPlaylist]:[]),...(locationIsData?[location]:[])];
+  if(references.some(path=>!local(path))||paths.some(path=>!local(rowFile(path))||!!documentAccess.states[rowFile(path)]))return null;
+  return{version:2,paths,selected:[...selected],roots:[...listRoots],root_kinds:listRoots.map(root=>listRootKinds[root]??'unknown'),working_directory:fileOps.history.current??null,list_order:listOrder,source_order:sourceOrder?rankSourceRows([...entries.values()],sourceOrder).map(entry=>entry.path):null,location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null};
+}
+async function readConfigurationWorkspace(workspace:ProfileWorkspace){
+  const batch=workspace.paths.length?await invoke<Batch>('scan_files',{paths:[...workspace.paths],recursive:false,exactRows:true}):{entries:[],errors:[]};
+  const available=new Map(batch.entries.map(entry=>[entry.path,entry]));
+  const unavailable=[...new Set([...batch.errors.map(error=>error.path),...workspace.paths.filter(path=>!available.has(path))])];
+  return{batch,available,unavailable};
+}
+async function restoreConfigurationWorkspace(workspace:ProfileWorkspace){
+  status='Restoring setup workspace…';render();
+  const {available,unavailable}=await readConfigurationWorkspace(workspace);
+  if(unavailable.length)throw new Error(`Workspace restoration is incomplete: ${unavailable.length} unavailable rows. ${unavailable.join('\n')}`);
+  const restored=workspace.paths.map(path=>available.get(path)!);
+  // Recheck even captured kinds: an offline move or portable mapping can change the root type.
+  const sourcePaths=workspace.playlist&&!workspace.roots.includes(workspace.playlist)?[...workspace.roots,workspace.playlist]:workspace.roots;
+  const rootKinds=await invoke<SourceRootKind[]>('classify_source_paths',{paths:sourcePaths});
+  if('version'in workspace){await invoke('set_working_directory',{path:workspace.working_directory});fileOps.history.current=workspace.working_directory??undefined;}
+  clearWorkspace();accept({entries:restored,errors:[]},'Restored setup workspace',false);
+  entries.clear();restored.forEach(entry=>entries.set(entry.path,entry));
+  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,rootKinds[index]]));location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist&&rootKinds[sourcePaths.indexOf(workspace.playlist)]==='file'&&isPlaylistPath(workspace.playlist)?workspace.playlist:undefined;
+  if('version'in workspace){sourceOrder=workspace.source_order??undefined;listOrder=workspace.list_order;}
+  changedData();render();return true;
+}
 const profileMigrationUI=new ProfileMigrationUI({
   invoke,
   pick:async folder=>{const result=await open(folder?{directory:true,multiple:false,title:'Choose Mp3tag setup folder'}:{multiple:false,title:'Choose Mp3tag setup ZIP',filters:[{name:'Setup ZIP',extensions:['zip']}]});return typeof result==='string'?result:null;},
-  prepare:async()=>{
-    if(busy)return false;
-    if(actionUI.hasUnsavedChanges)throw new Error('Save or close the action group editor before changing setup.');
-    const pending=new Set([...drafts.keys(),...pendingCovers.keys()]);
-    if(pending.size){
-      if(!await messages.confirm('unsaved_changes',`Discard pending audio and artwork changes in ${pending.size} files before changing setup? Setup restore cannot recover unsaved audio edits.`,'Unsaved changes'))return false;
-      [...pending].forEach(discardDrafts);changedData();render();
-    }
-    return true;
-  },
-  flush:async()=>{await helperLists.ready;await helperLists.flush();},pause:()=>helperLists.pause(),storage:()=>window.localStorage,
-  workspace:()=>({paths:[...entries.keys()],selected:[...selected],roots:[...listRoots],location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null}),
-  restoreWorkspace:async(workspace:ProfileWorkspace)=>{
-    status='Restoring setup workspace…';render();
-    const batch=workspace.paths.length?await invoke<Batch>('scan_files',{paths:[...new Set(workspace.paths.map(rowFile))],recursive:false}):{entries:[],errors:[]};
-    const available=new Set(batch.entries.map(entry=>entry.path));
-    if(batch.errors.length||workspace.paths.some(path=>!available.has(path)))throw new Error('Some workspace files are unavailable. Retry workspace restoration from Restore setup when they are accessible.');
-    clearWorkspace();accept(batch,'Restored setup workspace',false);
-    const restored=workspace.paths.map(path=>entries.get(path)!);entries.clear();restored.forEach(entry=>entries.set(entry.path,entry));
-    selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist??undefined;changedData();render();return true;
-  },
+  prepare:prepareConfigurationLoad,
+  flush:flushSavedConfiguration,pause:()=>{configurationWrites.pause();helperLists.pause();},storage:()=>window.localStorage,
+  workspace:captureConfigurationWorkspace,restoreWorkspace:restoreConfigurationWorkspace,
   reload:()=>window.location.reload(),
+  recovered:state=>{const summary=state.report?.configuration;if(summary){status=`Saved configuration restoration completed: ${summary.files} saved components, ${summary.export_assets} export templates, ${summary.preferences} saved preference values and ${summary.workspace_rows} imported workspace rows. ${summary.omitted.join(' ')}`;render();}},
   fail:error=>{errors=[{path:'Setup migration',label:'Setup migration',error:publicMessage(error)}];status='Setup migration requires attention.';render();},
 },profileBootstrap);
+const configurationTransferUI=new ConfigurationTransferUI({
+  invoke,preferenceKeys:()=>profileBootstrap?.preference_keys??[],recoveryPending:()=>configurationRecoveryActive,
+  pickSave:()=>save({title:'Save configuration',defaultPath:configurationFileName(),filters:[CONFIGURATION_FILTER]}),
+  pickLoad:async()=>{const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});return typeof path==='string'?path:null;},
+  capture:keys=>captureProfileWindow(window.localStorage,keys,captureConfigurationWorkspace()),
+  flush:flushSavedConfiguration,prepare:prepareConfigurationLoad,
+  pause:()=>{configurationWrites.pause();helperLists.pause();},resume:()=>{configurationWrites.resume();helperLists.resume();},
+  hold:held=>{busy=held;app.inert=held;render();},
+  inspectWorkspace:async workspace=>(await readConfigurationWorkspace(workspace)).unavailable,
+  reload:()=>window.location.reload(),report:text=>{status=text;render();},
+  fail:error=>{errors=[{path:'Configuration',label:'Configuration',error:publicMessage(error)}];status='Configuration transfer failed';render();},
+});
 
 async function executeGroups(groups:ActionGroup[]){
   if(!enabled('action'))throw new Error(operationReason('action')||'Select files and save pending tag edits before applying actions.');
@@ -597,6 +681,14 @@ const columnValues=new ColumnValueCache({
   updated:()=>{if(document.querySelector('.table-wrap'))updateVirtualRows(true);},
   failed:error=>{status=`Column values could not be evaluated: ${String(error)}`;},
 });
+/** Reformat saved raw timestamps without reading audio or replacing pending edits. */
+async function refreshLoadedLocale(){
+  const baseline=new Map(entries),items=[...baseline.values()].map(entry=>({path:entry.path,technical:entry.technical??{}}));
+  if(!items.length)return;
+  const refreshed=await invoke<{path:string;technical:Fields}[]>('reformat_loaded_timestamps',{items});
+  for(const item of refreshed){const before=baseline.get(item.path);if(before&&entries.get(item.path)===before)entries.set(item.path,{...before,technical:item.technical});}
+  columnValues.clear();orderCacheKey='';filterCacheKey='';searchRevision=-1;changedData();render();
+}
 function cellValue(entry:Entry,template:string){return columnValues.get(entry.path,template)??quickValue(template,columnItem(entry).fields)??'';}
 const cellEditor=new CellEditor({
   cell:target=>{const cell=revealRow(target.path,false)?.querySelector<HTMLTableCellElement>(`td[data-col="${CSS.escape(target.column)}"]`)||null;cell?.scrollIntoView({block:'nearest',inline:'nearest'});return cell;},
@@ -611,9 +703,15 @@ const cellEditor=new CellEditor({
   },
   ended:()=>{const path=anchor&&selected.has(anchor)?anchor:paths()[0];if(path&&!document.querySelector('dialog[open]'))document.querySelector<HTMLElement>(`tr[data-path="${CSS.escape(path)}"]`)?.focus({preventScroll:true});},
   advance:()=>generalPrefs().auto_select_next,
-  complete:(input,event,target)=>{
+  autocomplete:()=>generalPrefs().autocomplete&&!busy,
+  multiline:target=>{const key=editKey(columnLayout.columns.find(c=>c.id===target.column)||{field:''});return!!key&&!key.startsWith('_');},
+  candidates:target=>{
     const key=editKey(columnLayout.columns.find(c=>c.id===target.column)||{field:''});
-    if(generalPrefs().autocomplete&&key&&!key.startsWith('_'))completeInput(input,event,()=>cellCompletions(key));
+    return key&&!key.startsWith('_')?cellCompletions(key):[];
+  },
+  complete:(input,event,target,candidates)=>{
+    const key=editKey(columnLayout.columns.find(c=>c.id===target.column)||{field:''});
+    if(generalPrefs().autocomplete&&key&&!key.startsWith('_'))completeInput(input,event,candidates);
   },
 });
 /** Values offered while editing a File List cell: custom field values, then the values of loaded files. */
@@ -655,7 +753,7 @@ async function autoSizeColumns(ids:string[]){
   const widths=new Map(shown.map(column=>{
     const header=table.querySelector<HTMLElement>(`th[data-col="${CSS.escape(column.id)}"] button`),cell=table.querySelector<HTMLElement>(`td[data-col="${CSS.escape(column.id)}"]`)||table.querySelector<HTMLElement>('tbody td[data-col]');
     const headStyle=header?getComputedStyle(header):getComputedStyle(table),cellStyle=cell?getComputedStyle(cell):headStyle;
-    const label=`${columnName(column)}${sortIndicator(columnLayout.sort,column.id).replace(/<[^>]*>/g,'')}`;
+    const label=`${columnName(column)}${sortIndicator(activeSort(),column.id).replace(/<[^>]*>/g,'')}`;
     const marker=column.id===first&&drafts.size?textWidths(['●'],font(cellStyle))[0]+6:0;
     const headerWidth=fitWidth(textWidths([label],font(headStyle)),space(headStyle)+4,limits);
     return[column.id,Math.max(headerWidth,fitWidth(textWidths(rows.map(entry=>cellValue(entry,column.value)),font(cellStyle)),space(cellStyle)+marker+1,limits))] as const;
@@ -670,9 +768,10 @@ const findUI=new FindUI({
   listed:path=>visible().some(entry=>entry.path===path),
 });
 /** Apply a column layout. Verified layouts (the Customize dialog) are saved first; quick header changes apply immediately. */
-async function applyColumns(layout:ColumnLayout,verified=false){
+async function applyColumns(layout:ColumnLayout,verified=false,sorting=false){
   const next=normalizeLayout(layout),sortOnly=JSON.stringify(next.columns)===JSON.stringify(columnLayout.columns);
   if(verified&&desktop)await invoke('save_columns',{layout:next});
+  if(verified||sorting||JSON.stringify(next.sort)!==JSON.stringify(columnLayout.sort))listOrder='columns';
   columnLayout=next;if(sortOnly)refreshList();else render();
   if(!verified&&desktop)await invoke('save_columns',{layout:next});
 }
@@ -684,22 +783,27 @@ function revealRow(path:string,focus=true){
   const row=wrap.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(path)}"]`);if(focus)row?.focus({preventScroll:true});return row;
 }
 function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
+function activeSort(){return listOrder==='columns'?columnLayout.sort:[];}
+function setListOrder(mode:ListOrderMode){listOrder=mode;orderCacheKey='';filterCacheKey='';refreshList();}
+/** Exclude hydrated artwork/cache revisions; refuse replacing new edits or a changed workspace. */
+function sourceReadContext(){return JSON.stringify([listRoots,listRootKinds,[...entries.keys()],[...drafts],[...pendingCovers]]);}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
   const ms=performance.now()-start;
   perfSink()?.push({name,at:start,ms,...extra});
   if(dev)console.debug(`[TagGroove performance] ${name}`,{milliseconds:Math.round(ms*100)/100,files:entries.size,...extra});
 }
 function ordered(): Entry[] {
-  const key=`${dataRevision}:${columnValues.revision}:${JSON.stringify(columnLayout.sort)}`;
+  const key=`${dataRevision}:${columnValues.revision}:${listOrder}:${JSON.stringify(activeSort())}`;
   if(orderCacheKey===key)return orderCache;
   const start=performance.now();
-  const criteria=columnLayout.sort.flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[{sort,column,template:sortTemplate(column)}]:[];});
-  orderCache=sortRows([...entries.values()].map(entry=>({item:entry,keys:criteria.map(({template})=>cellValue(entry,template))})),criteria.map(({sort,column})=>({ascending:sort.ascending,numeric:column.numeric})),collator);orderCacheKey=key;
+  const criteria=activeSort().flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[{sort,column,template:sortTemplate(column)}]:[];});
+  const base=listOrder==='playlist'&&sourceOrder?rankSourceRows([...entries.values()],sourceOrder):[...entries.values()];
+  orderCache=sortRows(base.map(entry=>({item:entry,keys:criteria.map(({template})=>cellValue(entry,template))})),criteria.map(({sort,column})=>({ascending:sort.ascending,numeric:column.numeric})),collator);orderCacheKey=key;
   timing('sort',start,{criteria:criteria.length});return orderCache;
 }
 function sortValueOf(path:string){
   const entry=entries.get(path);if(!entry)return '';
-  const criteria=columnLayout.sort.flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[sortTemplate(column)]:[];});
+  const criteria=activeSort().flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[sortTemplate(column)]:[];});
   return criteria.length?criteria.map(template=>cellValue(entry,template).toLocaleLowerCase()).join('\u0000'):entry.filename.toLocaleLowerCase();
 }
 function providerEntry(entry:Entry){return runtimePlatform.document_access_supported||!!documentAccess.states[entry.path]||!!entry.technical?._PATH?.[0]?.startsWith('content://');}
@@ -746,7 +850,7 @@ function requestFilter(query:string){
     }).catch(error=>{if(filterRequestKey===key&&filter===query&&filterContextKey()===context){filterPending=false;filterFailure=String(error);filterCacheKey='';refreshList();}});
   },120);
 }
-function filterContextKey(){return`${dataRevision}:${JSON.stringify(columnLayout.sort)}:${compactScreen()}`;}
+function filterContextKey(){return`${dataRevision}:${listOrder}:${JSON.stringify(activeSort())}:${compactScreen()}`;}
 function visible(): Entry[] {
   const query = filter.toLocaleLowerCase();
   const all=ordered(),key=`${orderCacheKey}:${query}`;
@@ -867,6 +971,11 @@ function updateVirtualRows(force=false){
   timing('table window',startTime,{rendered:end-start,first:start,last:end});
 }
 function operationReason(op:Operation):string {
+  if(op==='history-recovery')return desktop&&runtimePlatform.family==='desktop'&&runtimePlatform.folder_picker_supported?'':'History recovery is available in the desktop app.';
+  if((op==='config-save'||op==='config-load')&&(profileBootstrap?.desktop!==true||runtimePlatform.family!=='desktop'))return 'Configuration backup and restore are available in the desktop app.';
+  // Cover aliases share the cover window's edit policy; reading a saved cover
+  // remains possible when tag edits or source write access prevent mutations.
+  if(op in coverOperations)return op==='cover-copy'||op==='cover-extract'?'':operationReason('add-cover');
   const policy=sourcePolicy();
   if((op==='folder'||op==='playlist-load'||op.startsWith('dir-'))&&!runtimePlatform.folder_picker_supported)return 'Folder access is not available here. Use Add files.';
   if(op.startsWith('file-')&&runtimePlatform.family!=='desktop')return 'File operations are available in the desktop app.';
@@ -879,7 +988,7 @@ function operationReason(op:Operation):string {
   if(op==='reload'&&policy.reloadReason)return policy.reloadReason;
   if(op==='number'&&dirtySelected()&&!sourcePolicy().unsupportedReason)return 'Save pending changes first.';
   if(/^(dir|file)-/.test(op)&&fileOps.reason(op as FileOperation))return fileOps.reason(op as FileOperation);
-  if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups','toggle-panel','panel-options','field-values','panel-defaults','options','undo','redo','copy-tags','cut-tags','paste-tags','source-token','source-keys','source-options','source-install','source-folder','copy-text','tools-options','config-save','config-load','config-folder','profile-import','profile-restore','help-shortcuts','help-docs','help-issues','help-releases','help-updates','list-unsorted','toggle-filter','toggle-toolbar','toolbar-customize','toggle-custom-toolbar','custom-toolbar-customize','source-last','source-last-quick',...listOperations].includes(op))return 'Save pending changes first.';
+  if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups','toggle-panel','panel-options','field-values','panel-defaults','options','undo','redo','copy-tags','cut-tags','paste-tags','source-token','source-keys','source-options','source-install','source-folder','copy-text','tools-options','config-save','config-load','config-folder','profile-import','profile-restore','help-shortcuts','help-docs','help-issues','help-releases','help-updates','list-unsorted','list-playlist-order','toggle-filter','toggle-toolbar','toolbar-customize','toggle-custom-toolbar','custom-toolbar-customize','source-last','source-last-quick',...listOperations].includes(op))return 'Save pending changes first.';
   if(op==='source-last'||op==='source-last-quick')return operationReason(lastSourceOp(op==='source-last-quick'));
   if(tagSourceOperations.includes(op)&&tagSourcesUI.keyReason(op))return tagSourcesUI.keyReason(op);
   return '';
@@ -888,10 +997,14 @@ function enabled(op: Operation): boolean {
   if (op === 'about' || op === 'toggle-panel' || op === 'help-shortcuts' || op === 'toggle-filter' || op === 'toggle-toolbar' || op === 'toolbar-customize' || op === 'toggle-custom-toolbar' || op === 'custom-toolbar-customize') return true;
   if (op === 'source-last' || op === 'source-last-quick') return enabled(lastSourceOp(op==='source-last-quick'));
   if (busy) return false;
+  if(op==='history-recovery')return desktop&&runtimePlatform.family==='desktop'&&runtimePlatform.folder_picker_supported&&!!history.recovery;
+  if(op==='config-save'||op==='config-load')return profileBootstrap?.desktop===true&&runtimePlatform.family==='desktop';
+  if(op in coverOperations)return coverUI.canRun(coverOperations[op as CoverOperation]);
   if (op === 'select-all') return visible().length > 0;
   if (op === 'discard') return dirtySelected();
   if (listOperations.includes(op)) return listEnabled(op);
-  if (op === 'list-unsorted') return columnLayout.sort.length > 0;
+  if (op === 'list-unsorted') return activeSort().length > 0||listOrder==='playlist';
+  if (op === 'list-playlist-order') return !!sourceOrder&&listRoots.some(root=>listRootKinds[root]==='file'&&isPlaylistPath(root));
   if (!desktop) return false;
   if(op==='groups'||op==='export-config'||op==='export-folders'||op==='panel-options'||op==='field-values'||op==='options'||op==='source-token'||op==='source-keys'||op==='source-options'||op==='source-install'||op==='source-folder'||op==='tools-options'||op.startsWith('config-')||op.startsWith('help-'))return true;
   if(op==='refresh-source')return runtimePlatform.document_access_supported;
@@ -913,8 +1026,8 @@ const viewListItems:[Operation,string,string?][]=[['refresh','Refresh','F5'],['c
 function lastSourceOp(quick=false):Operation{return quick?tagSourcesUI.lastBuiltInOperation:tagSourcesUI.lastOperation;}
 /** View menu submenus: Sort by (each shown column; again reverses the order) and Toolbars. */
 function sortMenuItems(){
-  const primary=columnLayout.sort[0];
-  return tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}<span translate="no">${esc(columnName(column))}</span>${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
+  const primary=activeSort()[0],playlist=enabled('list-playlist-order')?`<button type="button" data-op="list-playlist-order" role="menuitemradio" aria-checked="${listOrder==='playlist'}"><span>${listOrder==='playlist'?'✓ ':'<span class="column-check-space"></span>'}Playlist order</span></button>`:'';
+  return playlist+tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}<span translate="no">${esc(columnName(column))}</span>${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
 }
 function viewMenuHTML(){
   const sortItems=sortMenuItems();
@@ -954,7 +1067,9 @@ function customToolbarMarkup(){
 }
 /** The toolbars, with the filter docked to their left or right when chosen (desktop layout only). */
 function toolbarsMarkup(filterbar:string){
-  const toolbars=toolbarMarkup()+customToolbarMarkup();
+  const arrangement=toolbarConfig.arrangement??'main-first',main=toolbarMarkup(),custom=customToolbarMarkup();
+  const bands=arrangement==='custom-first'||arrangement==='stacked-custom'?custom+main:main+custom;
+  const toolbars=bands?`<div class="toolbar-bands" data-toolbar-stack="${arrangement.startsWith('stacked')}">${bands}</div>`:'';
   if(compactScreen())return toolbars;
   if(mainLayout.filter==='list')return toolbars?`<div class="toolbar-row">${toolbars}</div>`:'';
   return`<div class="toolbar-row" data-filter="${mainLayout.filter}">${mainLayout.filter==='toolbar-left'?filterbar:''}${toolbars}${mainLayout.filter==='toolbar-right'?filterbar:''}</div>`;
@@ -1008,7 +1123,7 @@ function listEnabled(op:Operation){
   if(op==='columns')return true;
   if(op==='autosize-columns')return visible().length>0;
   if(op==='shuffle-list')return visible().length>1;
-  if(op==='refresh')return desktop&&!runtimePlatform.document_access_supported&&listRoots.length>0;
+  if(op==='refresh')return desktop&&!runtimePlatform.document_access_supported&&listRoots.length>0&&!listRoots.some(root=>root.includes('://'));
   if(op==='clear-list'||op==='find')return entries.size>0;
   if(op==='invert-selection'||op==='select-next')return visible().length>0;
   if(op==='edit-cell')return selected.size>0&&tableColumns().some(column=>editKey(column));
@@ -1039,12 +1154,12 @@ function render() {
   const filterbar=`<div class="filterbar" ${filterShown?'':'hidden'}><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div>`,filterInList=compactScreen()||mainLayout.filter==='list';
   const dock=mainLayout.dock,across=horizontalDock(dock),range=across?PANEL_HEIGHT:PANEL_WIDTH;
   app.innerHTML = `<div class="app" data-pane="${mobilePane}" data-panel="${tagPanel.visible?'shown':'hidden'}" data-dock="${dock}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="TagGroove"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
-  <nav class="menubar" aria-label="Main menu">${menu('File',[['save','Save tags','⌘/Ctrl S'],['remove-tags','Remove tag…','⌘/Ctrl R'],['save-copy','Save a copy…'],['reload','Reload tags','⌘/Ctrl T'],['playlist-all','Playlist (all files)','⌘/Ctrl P'],['playlist-selected','Playlist (selected files)'],['playlist-folders','Playlist per folder (all files)','⌘/Ctrl ⇧ P'],['playlist-generate','Generate playlists…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…'],['folder','Change directory…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl D'],['dir-add','Add directory…','Ctrl H'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl D':undefined],['playlist-load','Load playlist/cue sheet…'],['dir-up','Upper directory','⌘/Ctrl ⇧ D'],['dir-back','Previous directory','Alt ←'],['dir-forward','Next directory','Alt →'],['dir-favorite','Favorite directory','Ctrl M'],['dir-manage','Favorite directories…'],['clear-list','Clear list'],['file-reveal',`Open in ${fileOps.fileManager}`],['file-play','Play','F4'],['options','Options…','⌘/Ctrl O'],['config-save','Save configuration…'],['config-load','Load configuration…'],...(profileBootstrap?.desktop===true&&runtimePlatform.folder_picker_supported?[['profile-import','Import Mp3tag setup…'],['profile-restore','Restore setup…']] as [Operation,string][]:[]),['config-folder','Open configuration folder']])}${menu('Edit',[['undo',esc(historyLabel('Undo',history.undo)),'⌘/Ctrl Z'],['redo',esc(repeatState().label),'⌘/Ctrl Y'],['cut-tags','Cut tags','⌘/Ctrl X'],['copy-tags','Copy tags','⌘/Ctrl C'],['copy-text','Copy as Text…'],['paste-tags','Paste tags','⌘/Ctrl V'],['select-all','Select all','⌘/Ctrl A'],['invert-selection','Invert selection','⌘/Ctrl ⇧A'],['unselect-all','Unselect all','⌘/Ctrl U'],['select-next','Select next file','⌘/Ctrl N'],['select-similar','Select similar files','⌘/Ctrl G'],['select-next-similar','Select next similar files','⌘/Ctrl ⇧G'],['find','Find…','⌘/Ctrl F'],['edit-cell','Edit in file list','F2'],['file-copy','Copy files to…','⌘/Ctrl ⇧ C'],['file-move','Move files to…','⌘/Ctrl ⇧ V'],['remove-from-list','Remove from list',macPlatform?'⌫ / Del':'Del'],['file-delete','Delete files…','⌘/Ctrl Del'],['file-delete-permanent','Delete files permanently…',macPlatform?'⌘⇧⌫ / ⌘⇧Del':'Ctrl ⇧ Del'],['discard','Discard pending changes','⌘/Ctrl B'],['cover-manage','Manage covers…',macPlatform?'⌘⌥M':'Ctrl Alt M']])}${menu('View',[viewListItems[0],['toggle-panel',tagPanel.visible?'Hide tag panel':'Show tag panel','Ctrl Q'],['extended','Extended tags…','Alt T'],['toggle-filter',filterShown?'Hide filter':'Show filter','F3'],['panel-defaults','Default values in input fields'],['panel-options','Customize tag panel…'],['field-values','Field values…'],...viewListItems.slice(1)])}${menu('Convert',[['tags-filename','Tag → Filename…','Alt 1'],['filename-tags','Filename → Tag…','Alt 2'],['filename-filename','Filename → Filename…','Alt 3'],['text-tags','Text File → Tag…','Alt 4'],['tag-tag','Tag → Tag…','Alt 5'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Tag Sources',([['source-musicbrainz','MusicBrainz…'],['source-discogs','Discogs…'],['source-discogs-release','Discogs Release ID…'],['source-itunes','iTunes…'],['source-deezer','Deezer…'],['source-lastfm','Last.fm…'],['source-acoustid','AcoustID (fingerprints)…'],['source-freedb','freedb…'],['source-local-freedb','freedb (local)…','⌘/Ctrl L'],['source-lrclib','Lyrics: LRCLIB…'],['source-cover-freedb','Covers: freedb (gnudb)…'],['source-cover-musicbrainz','Covers: MusicBrainz…'],['source-cover-discogs','Covers: Discogs…'],['source-cover-itunes','Covers: iTunes…'],['source-cover-deezer','Covers: Deezer…'],['source-cover-fanart','Covers: fanart.tv…'],...(desktop&&runtimePlatform.folder_picker_supported?[['source-install','Install tag sources…'],['source-folder','Open sources folder']] as [Operation,string][]:[]),['source-token','Discogs access token…'],['source-keys','API keys…'],['source-options','Options…']] as [Operation,string,string?][]).map(([op,label,key])=>[op,label,!lastWebSource()&&op===tagSourcesUI.lastOperation?'⌘/Ctrl I':key] as [Operation,string,string?]))}${menu('Tools',[['remove-tag-types','Remove tag types…'],['strip-mp4-chapters','Strip chapters MP4…'],['util-unsupported','Remove unsupported fields…'],['util-optimize','Optimize…'],['tools-options','Configure tools…']])}${menu('Help',[['help-docs','Documentation'],['help-shortcuts','Keyboard shortcuts'],['help-issues','Report an issue'],['help-updates','Check for updates…'],['help-releases','Releases'],['about','About TagGroove']])}</nav>
+  <nav class="menubar" aria-label="Main menu">${menu('File',[['save','Save tags','⌘/Ctrl S'],['remove-tags','Remove tag…','⌘/Ctrl R'],['save-copy','Save a copy…'],['reload','Reload tags','⌘/Ctrl T'],['playlist-all','Playlist (all files)','⌘/Ctrl P'],['playlist-selected','Playlist (selected files)'],['playlist-folders','Playlist per folder (all files)','⌘/Ctrl ⇧ P'],['playlist-generate','Generate playlists…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…'],['folder','Change directory…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl D'],['dir-add','Add directory…','Ctrl H'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl D':undefined],['playlist-load','Load playlist/cue sheet…'],['dir-up','Upper directory','⌘/Ctrl ⇧ D'],['dir-back','Previous directory','Alt ←'],['dir-forward','Next directory','Alt →'],['dir-favorite','Favorite directory','Ctrl M'],['dir-manage','Favorite directories…'],['clear-list','Clear list'],['file-reveal',`Open in ${fileOps.fileManager}`],['file-play','Play','F4'],['options','Options…','⌘/Ctrl O'],['config-save','Save configuration…'],['config-load','Load configuration…'],...(profileBootstrap?.desktop===true&&runtimePlatform.folder_picker_supported?[['profile-import','Import Mp3tag setup…'],['profile-restore','Restore setup…']] as [Operation,string][]:[]),['config-folder','Open configuration folder']])}${menu('Edit',[['undo',esc(historyLabel('Undo',history.undo)),'⌘/Ctrl Z'],['redo',esc(repeatState().label),'⌘/Ctrl Y'],['history-recovery','Export recovery copies…'],['cut-tags','Cut tags','⌘/Ctrl X'],['copy-tags','Copy tags','⌘/Ctrl C'],['copy-text','Copy as Text…'],['paste-tags','Paste tags','⌘/Ctrl V'],['select-all','Select all','⌘/Ctrl A'],['invert-selection','Invert selection','⌘/Ctrl ⇧A'],['unselect-all','Unselect all','⌘/Ctrl U'],['select-next','Select next file','⌘/Ctrl N'],['select-similar','Select similar files','⌘/Ctrl G'],['select-next-similar','Select next similar files','⌘/Ctrl ⇧G'],['find','Find…','⌘/Ctrl F'],['edit-cell','Edit in file list','F2'],['file-copy','Copy files to…','⌘/Ctrl ⇧ C'],['file-move','Move files to…','⌘/Ctrl ⇧ V'],['remove-from-list','Remove from list',macPlatform?'⌫ / Del':'Del'],['file-delete','Delete files…','⌘/Ctrl Del'],['file-delete-permanent','Delete files permanently…',macPlatform?'⌘⇧⌫ / ⌘⇧Del':'Ctrl ⇧ Del'],['discard','Discard pending changes','⌘/Ctrl B'],['cover-manage','Manage covers…',macPlatform?'⌘⌥M':'Ctrl Alt M']])}${menu('View',[viewListItems[0],['toggle-panel',tagPanel.visible?'Hide tag panel':'Show tag panel','Ctrl Q'],['extended','Extended tags…','Alt T'],['toggle-filter',filterShown?'Hide filter':'Show filter','F3'],['panel-defaults','Default values in input fields'],['panel-options','Customize tag panel…'],['field-values','Field values…'],...viewListItems.slice(1)])}${menu('Convert',[['tags-filename','Tag → Filename…','Alt 1'],['filename-tags','Filename → Tag…','Alt 2'],['filename-filename','Filename → Filename…','Alt 3'],['text-tags','Text File → Tag…','Alt 4'],['tag-tag','Tag → Tag…','Alt 5'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Tag Sources',([['source-musicbrainz','MusicBrainz…'],['source-discogs','Discogs…'],['source-discogs-release','Discogs Release ID…'],['source-itunes','iTunes…'],['source-deezer','Deezer…'],['source-lastfm','Last.fm…'],['source-acoustid','AcoustID (fingerprints)…'],['source-freedb','freedb…'],['source-local-freedb','freedb (local)…','⌘/Ctrl L'],['source-lrclib','Lyrics: LRCLIB…'],['source-cover-freedb','Covers: freedb (gnudb)…'],['source-cover-musicbrainz','Covers: MusicBrainz…'],['source-cover-discogs','Covers: Discogs…'],['source-cover-itunes','Covers: iTunes…'],['source-cover-deezer','Covers: Deezer…'],['source-cover-fanart','Covers: fanart.tv…'],...(desktop&&runtimePlatform.folder_picker_supported?[['source-install','Install tag sources…'],['source-folder','Open sources folder']] as [Operation,string][]:[]),['source-token','Discogs access token…'],['source-keys','API keys…'],['source-options','Options…']] as [Operation,string,string?][]).map(([op,label,key])=>[op,label,!lastWebSource()&&op===tagSourcesUI.lastOperation?'⌘/Ctrl I':key] as [Operation,string,string?]))}${menu('Tools',[['remove-tag-types','Remove tag types…'],['strip-mp4-chapters','Strip chapters MP4…'],['util-unsupported','Remove unsupported fields…'],['util-optimize','Optimize…'],['tools-options','Configure tools…']])}${menu('Help',[['help-docs','Documentation'],['help-shortcuts','Keyboard shortcuts'],['help-issues','Report an issue'],['help-updates','Check for updates…'],['help-releases','Releases'],['about','About TagGroove']])}</nav>
   ${toolbarsMarkup(filterbar)}
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
+  <section class="files" aria-label="Audio files">${historyRecoveryMarkup()}<div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,activeSort(),!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):e.diagnostic?.kind==='history_folders_failed'?e.path:displayName(e.path))}:</strong> ${e.diagnostic||e.diagnosticRaw||e.cause||e.rollback?`<span translate="no">${esc(fileErrorText(e,t,translate,publicMessage))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${statusMarkup()}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
@@ -1055,6 +1170,7 @@ function render() {
   columnUI.bindHeader(wrap.querySelector('table')!,()=>void operate('columns'));cellEditor.reattach();
   if(focusSelector){const replacement=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(focusSelector);replacement?.focus({preventScroll:true});if(replacement&&caretStart!=null&&caretEnd!=null){try{replacement.setSelectionRange(caretStart,caretEnd);}catch{/* Search selection is not supported by every webview. */}}}
   syncWindowTitle();
+  rememberOrdinaryWorkspace();
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
 }
 function emptyMarkup(){
@@ -1066,7 +1182,7 @@ function selectionInfoMarkup(selectedEntries:Entry[],list:Entry[]){
   const current=selected.size===1?active():undefined,technical=current?technicalSummary(current):undefined;
   return listSummary(selectedEntries,list,entries.size).map(segment=>`<span>${esc(segment)}</span>`).join('')+(technical?`<span>${[technical.codec?`<span translate="no">${esc(technical.codec)}</span>`:'',...technical.details.map(detail=>`<span>${esc(detail)}</span>`)].filter(Boolean).join(' · ')}</span>`:'');
 }
-function bindFields(root:ParentNode){root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el=>el.addEventListener('input',()=>draftField(el.dataset.field!,el.value)));}
+function bindFields(root:ParentNode){root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el=>el.addEventListener('input',()=>{const values=draftField(el.dataset.field!,el.value);tagPanel.inputDrafted(el,values);}));}
 /**
  * Selection changes update only what depends on the selection: table rows, tag panel fields, cover,
  * counts and command states. A full render rebuilds every menu and forces layout of the whole window,
@@ -1120,7 +1236,7 @@ function refreshList(){
   reviewedConverterContextChanged?.();
   const list=visible();
   table.setAttribute('aria-rowcount',String(list.length+1));
-  updateSortHeader(table.querySelectorAll<HTMLElement>('thead th[data-col]'),tableColumns(),columnLayout.sort);
+  updateSortHeader(table.querySelectorAll<HTMLElement>('thead th[data-col]'),tableColumns(),activeSort());
   const sortMenu=document.querySelector('.view-sort-menu > div');if(sortMenu)sortMenu.innerHTML=sortMenuItems();
   wrap.querySelector('.empty')?.remove();
   if(!list.length)wrap.insertAdjacentHTML('beforeend',emptyMarkup());
@@ -1128,6 +1244,7 @@ function refreshList(){
   document.querySelector('.filterbar .count')!.textContent=countText(list);
   document.querySelector('.selection-info')!.innerHTML=selectionInfoMarkup(paths().map(path=>entries.get(path)!),list);
   refreshCommandStates();
+  rememberOrdinaryWorkspace();
   timing('list refresh',started,{visible:list.length});
 }
 function refreshCommandStates(){
@@ -1160,8 +1277,8 @@ function updateDraft(path: string, key: string, values: string[]) {
   if (Object.keys(draft).length||pendingCovers.has(path)) drafts.set(path,draft); else drafts.delete(path);
   changedData();
 }
-function draftField(key: string, value: string) {
-  const values = value ? value.split('\\\\').map(v => v.trim()) : [];
+function draftField(key: string, value: string, exactValues?:readonly string[]) {
+  const values = exactValues===undefined?(value ? value.split('\\\\').map(v => v.trim()) : []):[...exactValues];
   paths().forEach(path => {const entry=entries.get(path)!;updateDraft(path,panelKey({format:entry.format,fields:merged(entry)},key),values);});
   status = `Pending changes for ${selected.size} file${selected.size===1?'':'s'}. ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
   document.querySelector('.status-message')!.textContent = status;
@@ -1172,6 +1289,7 @@ function draftField(key: string, value: string) {
   if(!drafts.size) oldCount?.remove();
   updateVirtualRows(true);
   document.querySelector('.filterbar .count')!.textContent=countText(visible());
+  return values;
 }
 function keepField(key:string){
   paths().forEach(path=>{const entry=entries.get(path)!,name=panelKey({format:entry.format,fields:merged(entry)},key);updateDraft(path,name,[...(entry.fields[name]||[])]);});
@@ -1213,8 +1331,7 @@ async function reorderFiles(change:(shown:string[])=>string[]){
   const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
   entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
   orderCacheKey='';filterCacheKey='';
-  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
-  else refreshList();
+  setListOrder('manual');
   const focus=anchor&&selected.has(anchor)?anchor:paths()[0];if(focus)revealRow(focus);
   status=`Moved ${selected.size} file${selected.size===1?'':'s'}. Playlists and numbering use the list order.`;
   const element=document.querySelector('.status-message');if(element)element.textContent=status;
@@ -1226,8 +1343,7 @@ async function shuffleFiles(){
   const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
   entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
   orderCacheKey='';filterCacheKey='';document.querySelector('.table-wrap')!.scrollTop=0;
-  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
-  else refreshList();
+  setListOrder('manual');
   status=`Shuffled ${shown.length} files. Playlists and numbering use the list order.`;
   const element=document.querySelector('.status-message');if(element)element.textContent=status;
 }
@@ -1308,6 +1424,14 @@ function bindPanelDock(){
     floatObserver.observe(editor);
   }
 }
+function filterInputChanged(event:Event){
+  const el=event.target as HTMLInputElement,position=el.selectionStart;
+  if((event as InputEvent).isComposing||!filterAutoApply){filterDraft=el.value;return;}
+  if(filter===el.value&&filterDraft===undefined)return;
+  filter=el.value;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;refreshList();
+  const replacement=document.querySelector<HTMLInputElement>('#filter')!;
+  if(replacement!==el){replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}}
+}
 function bind() {
   document.querySelector<HTMLSelectElement>('#appearance')!.addEventListener('change',event=>appearance.set((event.target as HTMLSelectElement).value));
   bindSplitter();bindPanelDock();
@@ -1322,22 +1446,18 @@ function bind() {
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
   bindFields(app);
-  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('keydown',event=>{if(event.key==='Enter'&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;refreshList();document.querySelector<HTMLInputElement>('#filter')?.focus();}});
-  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('input',event => {
-    const el = event.target as HTMLInputElement, position = el.selectionStart;
-    if(!filterAutoApply){filterDraft=el.value;return;}
-    filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;refreshList();
-    const replacement = document.querySelector<HTMLInputElement>('#filter')!;if(replacement!==el){replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}}
-  });
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('keydown',event=>{if(!event.isComposing&&event.key==='Enter'&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;refreshList();document.querySelector<HTMLInputElement>('#filter')?.focus();}});
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('input',filterInputChanged);
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('compositionend',filterInputChanged);
   document.querySelector('.view-sort-menu')?.addEventListener('click',event=>{
     const el=(event.target as Element).closest<HTMLButtonElement>('[data-sort-menu]');if(!el)return;
     document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);
-    const id=el.dataset.sortMenu!,primary=columnLayout.sort[0];document.querySelector('.table-wrap')!.scrollTop=0;
-    applyColumns({...columnLayout,sort:[{id,ascending:primary?.id===id?!primary.ascending:true}]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
+    const id=el.dataset.sortMenu!,primary=activeSort()[0];document.querySelector('.table-wrap')!.scrollTop=0;
+    applyColumns({...columnLayout,sort:[{id,ascending:primary?.id===id?!primary.ascending:true}]},false,true).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   });
   document.querySelector<HTMLButtonElement>('[data-shuffle]')?.addEventListener('click',event=>{event.stopPropagation();void operate('shuffle-list');});
   bindToolbarHints();
-  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(columnLayout.sort,el.dataset.sort!,event.shiftKey)}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();}); }));
+  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(activeSort(),el.dataset.sort!,event.shiftKey)},false,true).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();}); }));
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   let scrollFrame=0;
   wrap.addEventListener('scroll',()=>{if(wrap.clientHeight){tableScrollTop=wrap.scrollTop;tableScrollLeft=wrap.scrollLeft;}if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;if(wrap.isConnected&&wrap.clientHeight)updateVirtualRows();});},{passive:true});
@@ -1357,7 +1477,7 @@ function bind() {
   rowMenu.bind(wrap);
   bindRowDrag(wrap,{rows:()=>visible().map(entry=>entry.path),rowHeight:()=>rowHeight,headerHeight,selected:()=>selected,
     select:path=>select(path,new MouseEvent('click')),drop:(moving,before)=>void reorderFiles(shown=>dropSelection(shown,new Set(moving),before))});
-  wrap.addEventListener('dblclick',e=>{window.clearTimeout(slowEditTimer);if(rowFor(e)){if(toolsUI.defaultTool>=0)void toolsUI.run(toolsUI.defaultTool);else void operate('extended');}});
+  wrap.addEventListener('dblclick',e=>{window.clearTimeout(slowEditTimer);if(rowFor(e)&&toolsUI.defaultTool>=0)void toolsUI.run(toolsUI.defaultTool);});
   wrap.addEventListener('keydown',e=>{
     const row=rowFor(e);if(!row||e.target instanceof HTMLInputElement)return;
     const move:ReorderMove|undefined=reorderKey(e);if(move){e.preventDefault();void reorderFiles(shown=>moveSelection(shown,selected,move));return;}
@@ -1397,7 +1517,8 @@ function cancelProgress(){
 const movedOut=new Set<string>();
 // `whole` names the files a whole-file command ran on: their listed chapter rows are replaced by what came back.
 function accept(batch: Batch, message: string, clearDrafts = true, whole: string[] = []) {
-  const order=[...entries.keys()],next=replaceFileRows(order,batch.entries.map(entry=>entry.path),whole);
+  const returned=batch.entries.map(entry=>entry.path),order=[...entries.keys()],next=replaceFileRows(order,returned,whole);
+  if(sourceOrder)sourceOrder=replaceFileRows(sourceOrder,returned,whole);
   if(next!==order)spliceRows(order,next);
   batch.entries.forEach(entry=>{if(!movedOut.has(entry.path))storeEntry(entry);});movedOut.clear();
   if(next!==order){const listed=next.flatMap(path=>{const entry=entries.get(path);return entry?[[path,entry] as const]:[];}),placed=new Set(next),rest=[...entries].filter(([path])=>!placed.has(path));entries.clear();[...listed,...rest].forEach(([path,entry])=>entries.set(path,entry));changedData();}reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);pendingCovers.delete(entry.path);});
@@ -1421,9 +1542,17 @@ function spliceRows(order:string[],next:string[]){
 }
 function applyRenamed(batch:Batch){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
-  listRoots=rebaseCaseOnly(listRoots,batch.moved_directories||[]);
+  rebaseSourceRoots(roots=>rebaseCaseOnly(roots,batch.moved_directories||[]));
   // Listed folders, taken before files added on their own are renamed away.
-  const folders=listRoots.map(root=>entries.has(root)?dirname(root):root);
+  const folders=sourceFolders(listRoots.filter(root=>!(listRootKinds[root]==='file'&&isPlaylistPath(root))),listRootKinds);
+  if(listRoots.some(root=>listRootKinds[root]==='file'&&isPlaylistPath(root)))folders.push(...[...entries.keys()].map(path=>dirname(rowFile(path))));
+  const rebase=(targets:string[])=>{const moved=resolvePathChanges(targets,batch.renamed||[],batch.moved_directories||[]);return targets.map(path=>moved.get(path)??path);};
+  rebaseSourceRoots(rebase);
+  if(loadedPlaylist)loadedPlaylist=rebase([loadedPlaylist])[0];
+  if(locationIsData)location=rebase([location])[0];
+  const working=fileOps.history.current;
+  if(working){const next=rebase([working])[0];if(next!==working)fileOps.history.visit(next);}
+  if(sourceOrder)sourceOrder=sourceOrder.map(path=>changes.get(path)??path);
   const snapshots=[...changes].map(([from,to])=>({from,to,entry:entries.get(from)!,draft:drafts.get(from),covers:pendingCovers.get(from),selected:selected.has(from)}));
   const order=snapshots.length?[...entries.keys()].map(path=>changes.get(path)??path):[];
   snapshots.forEach(({from})=>{invalidateCovers(from);entries.delete(from);drafts.delete(from);pendingCovers.delete(from);selected.delete(from);});
@@ -1433,31 +1562,52 @@ function applyRenamed(batch:Batch){
   // Options → General → Keep moved files: without it, files moved out of the listed folders leave the list (unless they have pending edits).
   if(!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));gone.forEach(path=>movedOut.add(path));if(gone.length)removeEntries(gone);}
 }
+/** Rebase paths and their filesystem kinds together, including case-only moves. */
+function rebaseSourceRoots(rebase:(roots:string[])=>string[]){
+  const previous=listRoots;
+  listRoots=rebase(previous);
+  listRootKinds=Object.fromEntries(previous.map((root,index)=>[listRoots[index],listRootKinds[root]??'unknown']));
+}
 // Replacing the list (Change directory) happens only after the new scan succeeds.
-async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[]}={}) {
-  folderImages.clear();
-  return !!await run('Reading audio files…',async job=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job});if(options.replace)clearWorkspace();const empty=!entries.size;accept(result,'Loaded',false);if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}listRoots=options.replace?[...newPaths]:[...new Set([...listRoots,...newPaths])];if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}if(empty||!options.location){location=options.location??(newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`);locationIsData=options.location?options.locationIsData!==false:newPaths.length===1;}if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}if(progressJob?.cancelling)status+=' (reading cancelled)';return true; },{progress:true});
+async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];rootKinds?:SourceRootKind[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {
+  const generation=options.generation??++sourceGeneration,context=options.context??sourceReadContext(),roots=options.roots??newPaths;
+  return !!await run('Reading audio files…',async job=>{
+    const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+    if(!result)return false;
+    if(progressJob?.cancelling){status='Reading cancelled. The list is unchanged.';return false;}
+    if(generation!==sourceGeneration||context!==sourceReadContext()){status='Files or pending changes changed while reading. The list is unchanged.';return false;}
+    if(options.replace)clearWorkspace();
+    const empty=!entries.size,keepPlaylist=!!options.playlist&&!options.replace&&!!loadedPlaylist;
+    folderImages.clear();accept(result,'Loaded',false);
+    sourceOrder=sourceOrder?mergeSourceOrder(sourceOrder,result.entries.map(entry=>entry.path),false):empty?mergeSourceOrder([],result.entries.map(entry=>entry.path),true):undefined;
+    if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}
+    listRoots=mergeSourceOrder(listRoots,roots,!!options.replace);
+    const incomingKinds=Object.fromEntries(roots.map((root,index)=>[root,options.rootKinds?.[index]??'unknown']));
+    listRootKinds=Object.fromEntries(listRoots.map(root=>[root,incomingKinds[root]??listRootKinds[root]??'unknown']));
+    if(options.playlist&&!keepPlaylist&&(options.replace||empty)){loadedPlaylist=options.playlist;listOrder='playlist';}
+    if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}
+    if(!keepPlaylist&&(empty||!options.location)){location=options.location??(roots.length===1?roots[0]:`${roots.length} added locations`);locationIsData=options.location?options.locationIsData!==false:roots.length===1;}
+    if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}
+    return true;
+  },{progress:true});
 }
 // Playlists and cue sheets among the paths load their entries in playlist order (https://docs.mp3tag.de/playlists/).
-async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean}={}){
-  if(!newPaths.some(isPlaylistPath))return scan(newPaths,options);
+async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean}={}):Promise<boolean>{
+  if(busy)return false;
+  if(newPaths.some(path=>path.includes('://'))){errors=[{path:'Playlist',label:'Playlist',error:'Playlist and folder sources require local file paths.'}];status='Source could not be read';render();return false;}
+  const generation=++sourceGeneration,context=sourceReadContext();
   let expanded;
-  try{expanded=await playlistUI.expand(newPaths);}catch(error){errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();return false;}
-  const wasEmpty=!entries.size,playlist=expanded.playlist;
-  const loaded=await scan(expanded.paths,{...options,errors:expanded.errors,location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true});
-  if(loaded&&playlist&&(options.replace||wasEmpty)){
-    loadedPlaylist=playlist;
-    // Playlist order is the list's load order; a column sort would hide it.
-    if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[...errors,{path:'Columns',label:'Columns',error:String(error)}];render();});
-  }
-  return loaded;
+  try{expanded=await playlistUI.expand(newPaths);}catch(error){if(generation===sourceGeneration&&context===sourceReadContext()){errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();}return false;}
+  if(generation!==sourceGeneration||context!==sourceReadContext())return false;
+  const playlist=expanded.playlist;
+  return scan(expanded.paths,{...options,roots:newPaths,rootKinds:expanded.rootKinds,generation,context,playlist,errors:expanded.errors,...(playlist?{location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true}:{})});
 }
 // Drop entries and everything cached for them (Remove from list, Clear list, Refresh, Delete, Change directory).
 function removeEntries(removed:string[]){
   removed.forEach(path=>{invalidateCovers(path);entries.delete(path);drafts.delete(path);pendingCovers.delete(path);copyOverrides.delete(path);workingReadErrors.delete(path);selected.delete(path);if(anchor===path)anchor=undefined;});
   columnValues.retain(path=>entries.has(path));changedData();
 }
-function clearWorkspace(){cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];coverIndex=0;loadedPlaylist=undefined;}
+function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];listRootKinds={};coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
 // Immediate mutations may change retained bytes even when publication fails.
 // Keep those local contents separate from source success and pending field intent.
 async function reconcileWorkingEntries(targets:string[]){
@@ -1686,6 +1836,19 @@ function reviewedConverter(kind:'filename'|'text') {
   });
   syncControls();dialog.querySelector<HTMLInputElement|HTMLSelectElement>(rename?'#old-pattern':'#text-source-kind')!.focus({preventScroll:true});
 }
+function historyRecoveryMarkup(){
+  if(!desktop||runtimePlatform.family!=='desktop'||!history.recovery)return '';
+  return `<section class="source-access history-recovery" role="status" aria-label="History recovery"><div><strong>Recovery copies available</strong></div><p>An operation was interrupted. Current files were left unchanged on reopening. Export the retained copies before making many new changes; older copies are removed when history reaches its limit.</p><div class="source-actions">${button('history-recovery','Export recovery copies…')}</div></section>`;
+}
+async function exportHistoryRecovery(){
+  if(!desktop||runtimePlatform.family!=='desktop'||!runtimePlatform.folder_picker_supported||!history.recovery)return;
+  const destination=await open({directory:true,multiple:false,title:'Export recovery copies'});
+  if(typeof destination!=='string')return;
+  await run('Exporting recovery copies…',async()=>{
+    const path=await invoke<string>('export_history_recovery',{destination});
+    status=t('Exported recovery copies to {path}',{path});
+  });
+}
 async function refreshHistory(){
   if(!desktop)return;
   try{const next=await invoke<HistoryState>('history_state');if(next.notice&&next.notice!==history.notice)status=status instanceof ColumnImportStatus?status.withNotice(next.notice):`${status}. ${next.notice}`;history=next;}catch{/* Undo history is optional; operations still complete. */}
@@ -1892,6 +2055,7 @@ async function operateImpl(op: Operation) {
   if(op==='files'){const result=await open({multiple:true,title:'Add audio files'});if(result)await loadPaths(Array.isArray(result)?result:[result]);return;}
   if(op==='save'){await saveDrafts();return;}
   if(op==='redo'&&repeatState().kind==='repeat'){await executeGroups(lastActionGroups!).catch(error=>{errors=[{path:'Repeat',label:'Repeat',error:publicMessage(error)}];status='Repeat failed';render();});return;}
+  if(op==='history-recovery'){await exportHistoryRecovery();return;}
   if(op==='undo'||op==='redo'){await replayHistory(op);return;}
   if(op==='cut-tags'&&!await messages.confirm('confirm_cut_tags',`Cut the tags of ${selected.size} selected file${selected.size===1?'':'s'}? The fields are cleared as pending changes.`,'Cut tags'))return;
   if(op==='paste-tags'&&!await messages.confirm('confirm_paste_tags',`Paste tags to ${selected.size} selected file${selected.size===1?'':'s'}?`,'Paste tags'))return;
@@ -1916,7 +2080,8 @@ async function operateImpl(op: Operation) {
   if(op==='toolbar-customize'){customizeToolbar({config:()=>toolbarConfig,save:saveToolbar,mac:macKeyboard});return;}
   if(op==='toggle-custom-toolbar'){await saveCustomToolbar({...customToolbar,shown:!customToolbar.shown});status=customToolbar.shown?customToolbar.items.length?'Custom toolbar shown':'Custom toolbar shown. Add commands, tools and action groups with View → Toolbars → Customize custom toolbar.':'Custom toolbar hidden';render();return;}
   if(op==='custom-toolbar-customize'){await actionUI.initialize().catch(()=>undefined);customizeToolbar({config:()=>customToolbar,save:saveCustomToolbar,mac:macKeyboard,custom:{choices:customToolbarChoices}});return;}
-  if(op==='list-unsorted'){await applyColumns({...columnLayout,sort:[]});status='Files are shown in load order (playlist order)';render();return;}
+  if(op==='list-unsorted'){setListOrder('manual');status='Files are shown in load order (playlist order)';render();return;}
+  if(op==='list-playlist-order'){setListOrder('playlist');status='Files are shown in playlist source order';render();return;}
   if(op==='options'){await optionsUI.open();return;}
   if(op==='number'){numbering();return;}
   // Ctrl+I repeats a web source too; Ctrl+Shift+I's quick search is for the built-in sources.
@@ -1933,6 +2098,7 @@ async function operateImpl(op: Operation) {
   if(op==='field-values'){tagPanel.fieldValues();return;}
   if(op==='panel-defaults'){tagPanel.applyDefaults();return;}
   if(op==='add-cover'||op==='remove-cover'||op==='cover-manage'){await coverUI.run(op==='add-cover'?'add':op==='remove-cover'?'remove':'manage');return;}
+  if(op in coverOperations){await coverUI.run(coverOperations[op as CoverOperation]);return;}
   if(op==='remove-tags'){if(await messages.confirm('confirm_remove_tags',{parts:removeTagParts(selected.size,optionsUI.settings.tags),separator:'\n'},'Remove tag'))await mutate('remove_tags',{},'Removed tags');return;}
   if(op==='strip-mp4-chapters'){const found=mp4ChapterFiles(selectedFiles());if(await messages.confirm('confirm_remove_tags',stripChaptersPrompt(found),'Strip chapters MP4'))await mutate('strip_mp4_chapters',{},'Stripped MP4 chapters');return;}
   if(op==='remove-tag-types'){removeTagTypesDialog({modal,modalError,tags:()=>paths().map(path=>entries.get(path)?.technical?._TAG?.[0]),remove:async kinds=>{await mutate('remove_tag_types',{kinds:kinds as RemovableTag[]},'Removed tag types');}});return;}
@@ -1947,15 +2113,8 @@ async function operateImpl(op: Operation) {
   if(op==='profile-import'){await profileMigrationUI.open();return;}
   if(op==='profile-restore'){await profileMigrationUI.restore();return;}
   if(op==='config-folder'){await invoke('open_configuration_folder');return;}
-  if(op==='config-save'){const outputPath=await save({title:'Save configuration',defaultPath:configurationFileName(),filters:[CONFIGURATION_FILTER]});if(outputPath){const count=await invoke<number>('export_configuration',{outputPath});status=`Saved ${count} configuration file${count===1?'':'s'} to ${basename(outputPath)}`;render();}return;}
-  if(op==='config-load'){
-    const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});if(typeof path!=='string')return;
-    // Pass source paragraphs to the native boundary; it translates once, then joins the layout.
-    if(!await ask({parts:[`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}`,'TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.'],separator:'\n\n'},{title:'Load configuration',kind:'warning'}))return;
-    // Remembered lists are part of the configuration; nothing may save over the restored ones.
-    await helperLists.flush().catch(()=>{});helperLists.pause();
-    const restored=await invoke<string[]>('import_configuration',{path});drafts.clear();status=`Loaded ${restored.length} configuration file${restored.length===1?'':'s'}`;window.location.reload();return;
-  }
+  if(op==='config-save'){await configurationTransferUI.save();return;}
+  if(op==='config-load'){await configurationTransferUI.load();return;}
   if(op==='csv'){const outputPath=await save({title:'Export tags as CSV',defaultPath:'tags.csv',filters:[{name:'CSV file',extensions:['csv']}]});if(outputPath&&await run('Exporting…',async()=>{await invoke('export_csv',{paths:paths(),outputPath});status=`Exported ${selected.size} files to ${basename(outputPath)}`;return true;}))await offerOpen([outputPath]);}
 }
 async function listOperation(op:Operation){
@@ -1982,30 +2141,47 @@ async function listOperation(op:Operation){
     if(pending&&!await messages.confirm('unsaved_changes',`${pending} file${pending===1?' has':'s have'} pending tag changes. Remove ${targets.length===1?'it':'them'} from the list and discard the changes? Files on disk are not changed.`,op==='clear-list'?'Clear list':'Remove from list'))return;
     const removed=new Set(targets),next=list.slice(Math.max(0,...list.map((path,index)=>removed.has(path)?index:-1))).find(path=>!removed.has(path))||[...list].reverse().find(path=>!removed.has(path));
     cellEditor.cancel();removeEntries(targets);
-    if(op==='clear-list'||!entries.size){listRoots=[];location='No folder loaded';locationIsData=false;errors=[];}
+    if(op==='clear-list'||!entries.size){listRoots=[];listRootKinds={};loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
     status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
     choose(next?[next]:[],next,true);return;
   }
   if(op==='refresh'){
-    if(drafts.size&&!await messages.confirm('unsaved_changes',`Refresh the file list and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}?`,'Refresh'))return;
+    const generation=++sourceGeneration,context=sourceReadContext(),pending=new Set([...drafts.keys(),...pendingCovers.keys()]);
+    if(pending.size&&!await messages.confirm('unsaved_changes',`Refresh the file list and discard pending changes in ${pending.size} file${pending.size===1?'':'s'}?`,'Refresh'))return;
+    if(generation!==sourceGeneration||context!==sourceReadContext())return;
     cellEditor.cancel();
     await run('Refreshing file list…',async job=>{
-      const batch=await invoke<Batch>('scan_files',{paths:listRoots,recursive:optionsUI.settings.directories.subfolders,job}),found=new Set(batch.entries.map(entry=>entry.path));
+      const expanded=await playlistUI.expand(listRoots).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+      if(!expanded||generation!==sourceGeneration||context!==sourceReadContext())return;
+      const playlistKind=loadedPlaylist?(listRoots.includes(loadedPlaylist)?expanded.rootKinds[listRoots.indexOf(loadedPlaylist)]:(await invoke<SourceRootKind[]>('classify_source_paths',{paths:[loadedPlaylist]}))[0]):undefined;
+      if(generation!==sourceGeneration||context!==sourceReadContext())return;
       if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
+      const batch=await invoke<Batch>('scan_files',{paths:expanded.paths,recursive:optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+      if(!batch)return;
+      const found=new Set(batch.entries.map(entry=>entry.path));
+      if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
+      if(generation!==sourceGeneration||context!==sourceReadContext()){status='Files or pending changes changed while refreshing. The list is unchanged.';return;}
       removeEntries([...entries.keys()].filter(path=>!found.has(path)));
+      const retainedOrder=[...entries.keys()];
       drafts.clear();pendingCovers.clear();copyOverrides.clear();workingReadErrors.clear();folderImages.clear();
       accept(batch,'Refreshed');
+      sourceOrder=mergeSourceOrder([],batch.entries.map(entry=>entry.path),true);
+      listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,expanded.rootKinds[index]]));
+      if(loadedPlaylist&&playlistKind!=='file')loadedPlaylist=undefined;
+      const refreshed=mergeSourceOrder(retainedOrder,[...sourceOrder,...entries.keys()],false).map(path=>entries.get(path)!);entries.clear();refreshed.forEach(entry=>entries.set(entry.path,entry));orderCacheKey='';filterCacheKey='';
+      if(expanded.errors.length){errors=[...expanded.errors,...errors];status+=`, ${expanded.errors.length} playlist entr${expanded.errors.length===1?'y':'ies'} not loaded`;}
       if(!anchor||!selected.has(anchor))anchor=paths()[0];
       if(!selected.size&&batch.entries.length){const first=ordered()[0].path;selected.add(first);anchor=first;}
     },{progress:true});
   }
 }
-async function commitCell(target:CellTarget,value:string):Promise<string|undefined>{
+async function commitCell(target:CellTarget,value:string,exactValues?:readonly string[]):Promise<string|undefined>{
   const entry=entries.get(target.path),column=columnLayout.columns.find(c=>c.id===target.column);if(!entry||!column)return undefined;
   const key=editKey(column);if(!key)return target.path;
   if(key==='_FILENAME'||key==='_FILENAME_EXT')return renameFromList(entry,key,value);
-  if(value===field(entry,key))return target.path;
-  updateDraft(target.path,panelKey({format:entry.format,fields:merged(entry)},key),value?value.split('\\\\').map(v=>v.trim()):[]);
+  const fields=merged(entry),native=panelKey({format:entry.format,fields},key);
+  if(exactValues===undefined?value===field(entry,key):JSON.stringify(exactValues)===JSON.stringify(fields[native]??[]))return target.path;
+  updateDraft(target.path,native,exactValues===undefined?(value?value.split('\\\\').map(v=>v.trim()):[]):[...exactValues]);
   status=`Pending changes for ${drafts.size} file${drafts.size===1?'':'s'}. ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
   render();return target.path;
 }
@@ -2056,9 +2232,10 @@ function focusPane(backward:boolean){
   if(target==='filter')app.querySelector<HTMLInputElement>('#filter')?.focus();
   if(target==='list'){const path=anchor&&selected.has(anchor)?anchor:paths()[0]||visible()[0]?.path;if(path)revealRow(path);}
 }
-// Ctrl+R (⌘R) is File → Remove tag. Captured first and always consumed, so
+// Outside text composition, Ctrl+R (⌘R) is File → Remove tag. Captured first and always consumed, so
 // WebView2 never reloads the page, even while a dialog or text field has focus.
 document.addEventListener('keydown',event=>{
+  if(event.isComposing)return;
   const typing=event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement;
   const command=removeTagShortcut(event,typing,macPlatform);
   if(!command)return;
@@ -2066,7 +2243,7 @@ document.addEventListener('keydown',event=>{
   if(command==='remove-tags'&&!document.querySelector('dialog[open]')&&enabled('remove-tags')){menubar.close();void operate('remove-tags');}
 },true);
 document.addEventListener('keydown',event=>{
-  if(event.defaultPrevented||document.querySelector('dialog[open]:not(.find-dialog):not(.cover-viewer)'))return;
+  if(event.isComposing||event.defaultPrevented||document.querySelector('dialog[open]:not(.find-dialog):not(.cover-viewer)'))return;
   const typing=isTextEntry(event.target),mac=macKeyboard();
   const shortcut=windowShortcut(event,{typing,mac});
   if(shortcut){event.preventDefault();menubar.close();windowCommand(shortcut);return;}
@@ -2093,7 +2270,7 @@ document.addEventListener('keydown',event=>{
 });
 tagPanel.install(document);
 coverUI.install(document);
-window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
+window.addEventListener('beforeunload',event=>{rememberOrdinaryWorkspace(true);if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 installHelperMenus({
   translateNow,
   storage:helperLists,
@@ -2116,11 +2293,13 @@ if(desktop){
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',label:'Action groups',error:String(error)}];render();});
   void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',label:'Tag panel',error:String(error)}];render();});
-  const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',label:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',label:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=profileWorkspacePending;app.style.visibility='';syncWindowTitle();});
-  const profileWorkspaceReady=profileWorkspacePending?optionsReady.then(()=>profileMigrationUI.restoreAfterStartup()).catch(async error=>{showProfileRecoveryFailure(app,error,()=>window.location.reload());return await new Promise<never>(()=>{});}):Promise.resolve(false);
+  const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout){mainLayout=normalizeMainLayout(response.settings.pages.layout);applyLayoutVars();}await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',label:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',label:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=profileWorkspacePending;app.style.visibility='';syncWindowTitle();});
+  const profileWorkspaceReady=profileWorkspacePending?optionsReady.then(async()=>{const restored=await profileMigrationUI.finishStartupRecovery();configurationRecoveryActive=false;configurationWrites.resume();return restored;}).catch(async error=>{showProfileRecoveryFailure(app,error,()=>window.location.reload());return await new Promise<never>(()=>{});}):Promise.resolve(false);
   let directoriesReady:Promise<unknown>=profileWorkspaceReady;
-  void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
-  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(async()=>fileOps.initialize({skipStartup:await profileWorkspaceReady})).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
+  void Promise.all([optionsReady,versionReady,profileWorkspaceReady]).then(([,version])=>version?startupUpdates(version):undefined);
+  let localeRefreshFailed=false;
+  void optionsReady.then(()=>observeLocale({window,document,state:()=>invoke<string>('locale_format_state'),refresh:refreshLoadedLocale,ready:()=>!busy&&!configurationRecoveryActive,fail:error=>{if(localeRefreshFailed)return;localeRefreshFailed=true;errors=[...errors,{path:'Regional formats',label:'Regional formats',error:String(error)}];render();}}));
+  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(async()=>{const skipStartup=await profileWorkspaceReady;return coordinateConfigurationLaunches(()=>fileOps.initialize({skipStartup,restoreWorkspace:restoreOrdinaryWorkspace}).then(()=>{ordinaryWorkspaceReady=true;rememberOrdinaryWorkspace();}));}).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();ordinaryWorkspaceReady=true;});if(platform.family==='desktop'){await refreshHistory();render();}if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
   if(profileWorkspacePending)void Promise.all([optionsReady,platformReady]).then(async()=>{await directoriesReady;profileMigrationUI.reportStartupFailure();app.inert=false;syncWindowTitle();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
@@ -2129,9 +2308,10 @@ if(desktop){
   // Sources copied into the folder by hand appear when the window is used again.
   void listen('opentag://web-sources',()=>void webSourcesUI.refresh()).catch(()=>{/* The menu also refreshes on focus. */});
   window.addEventListener('focus',()=>void webSourcesUI.refresh());
-  void listen('opentag://launch',()=>{void platformReady.then(async()=>{await optionsReady;await directoriesReady;if(runtimePlatform.folder_picker_supported)await fileOps.takeLaunches();}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});
+  void listen('opentag://launch',()=>{void platformReady.then(async()=>{await optionsReady;await directoriesReady;if(runtimePlatform.folder_picker_supported)await coordinateConfigurationLaunches(()=>fileOps.takeLaunches());}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
+    rememberOrdinaryWorkspace(true);
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;
     event.preventDefault();
     const message=drafts.size?`Close TagGroove and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}${actionUI.hasUnsavedChanges?' and unsaved action group changes':''}?`:'Close TagGroove and discard unsaved action group changes?';

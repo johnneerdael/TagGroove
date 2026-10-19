@@ -1,4 +1,5 @@
 export type ActionSpec = { type: string; [key: string]: unknown };
+export type MtaExportReport = { legacy_actions: string[] };
 export type ActionGroup = { name: string; enabled: boolean; actions: ActionSpec[] };
 export type ActionLibrary = { groups: ActionGroup[]; presets: { name: string; enabled_groups: string[] }[] };
 export type ImportedGroup = { group: ActionGroup; issues: { index: number; type_id: string; reason: string }[]; issue_diagnostics?:unknown };
@@ -21,8 +22,9 @@ export type ActionUIHost = {
   selectedCount: () => number;
   fieldNames?: () => string[];
   exportGroup?: (group: ActionGroup) => Promise<string|null>;
+  exportReport?: (group: ActionGroup) => Promise<MtaExportReport>;
   changed: () => void;
-  /** Remembers the Actions (Quick) type and settings between uses. */
+  /** Remembers Quick settings and the last confirmed group-editor codepage. */
   storage?: QuickStorage;
 };
 export type QuickStorage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void };
@@ -110,9 +112,9 @@ export function sortGroups(library:ActionLibrary,by:'name'|'state'):ActionLibrar
   const result=clone(library),label=(group:ActionGroup)=>menuSegments(group.name).map(s=>s.label).join('#');
   result.groups=by==='name'?result.groups.sort((a,b)=>label(a).localeCompare(label(b),undefined,{sensitivity:'base',numeric:true})):[...result.groups.filter(g=>g.enabled),...result.groups.filter(g=>!g.enabled)];return result;
 }
-/** These mappings preserve app round-trips; their original Mp3tag serialization is unqualified. */
-export function mtaExportWarning(group:ActionGroup,translateLabel:(label:string)=>string=label=>label):string{
-  const titles=[...new Set(group.actions.filter(action=>['adjust_cover','set_cover_properties','generate_playlists'].includes(action.type)).map(title))];
+/** Describe only fallbacks selected by the backend serializer. */
+export function mtaExportWarning(report:MtaExportReport|undefined,translateLabel:(label:string)=>string=label=>label):string{
+  const titles=[...new Set(report?.legacy_actions||[])];
   // The verbatim names role prevents a second lookup of translated titles.
   const names=titles.map(translateLabel).join(', ');
   return titles.length?`This .mta export contains app-only extensions (${names}). These actions will not transfer to Mp3tag; keep this file for use in this app.`:'';
@@ -164,9 +166,9 @@ function defaultAction(type:string):ActionSpec{
   }
 }
 const QUICK_KEY='opentag.actions.quick';
-type QuickMemory={last?:string;actions:Record<string,ActionSpec>};
+type QuickMemory={last?:string;actions:Record<string,ActionSpec>;groupCodepage?:string};
 function quickMemory(storage?:QuickStorage):QuickMemory{
-  try{const value=JSON.parse(storage?.getItem(QUICK_KEY)||'null');if(value&&typeof value==='object'&&value.actions&&typeof value.actions==='object')return{last:typeof value.last==='string'?value.last:undefined,actions:value.actions};}catch{/* A damaged entry falls back to the defaults. */}
+  try{const value=JSON.parse(storage?.getItem(QUICK_KEY)||'null');if(value&&typeof value==='object'&&value.actions&&typeof value.actions==='object')return{last:typeof value.last==='string'?value.last:undefined,actions:value.actions,groupCodepage:codepageChoices.some(([id])=>id===value.groupCodepage)?value.groupCodepage:undefined};}catch{/* A damaged entry falls back to the defaults. */}
   return{actions:{}};
 }
 /** Actions (Quick) settings last applied for `type` (default: the last type used), over that type's defaults. */
@@ -176,12 +178,25 @@ export function recallQuick(storage:QuickStorage|undefined,type?:string):ActionS
   const chosen=known(wanted)?wanted:'format_value',saved=memory.actions[chosen];
   const base=defaultAction(chosen);
   if(!saved||typeof saved!=='object')return base;
-  return Object.fromEntries(Object.keys(base).map(key=>[key,key==='type'||!(key in saved)?base[key]:saved[key]])) as ActionSpec;
+  const action=Object.fromEntries(Object.keys(base).map(key=>[key,key==='type'||!(key in saved)?base[key]:saved[key]])) as ActionSpec;
+  if(['adjust_cover','set_cover_properties','generate_playlists'].includes(chosen)&&saved.mta_source&&typeof saved.mta_source==='object')action.mta_source=clone(saved.mta_source);
+  return action;
 }
 /** Records the applied quick action; `last` moves only when `asLast` (the cover dialogs share Adjust Cover's settings without changing it). */
 export function rememberQuick(storage:QuickStorage|undefined,action:ActionSpec,asLast=true){
   if(!storage||!actionCatalog.some(([key])=>key===action.type))return;
   const memory=quickMemory(storage);memory.actions[action.type]=clone(action);if(asLast)memory.last=action.type;
+  try{storage.setItem(QUICK_KEY,JSON.stringify(memory));}catch{/* Preferences are optional. */}
+}
+/** Reuse only the confirmed codepage; new group actions keep their usual field/defaults. */
+function groupDefault(storage:QuickStorage|undefined,type:string):ActionSpec{
+  const action=defaultAction(type);
+  if(type==='convert_codepage')action.codepage=quickMemory(storage).groupCodepage??action.codepage;
+  return action;
+}
+function rememberGroupCodepage(storage:QuickStorage|undefined,action:ActionSpec){
+  if(!storage||action.type!=='convert_codepage'||!codepageChoices.some(([id])=>id===action.codepage))return;
+  const memory=quickMemory(storage);memory.groupCodepage=action.codepage as string;
   try{storage.setItem(QUICK_KEY,JSON.stringify(memory));}catch{/* Preferences are optional. */}
 }
 function dialog(title:string,content:string,footer:string):HTMLDialogElement{
@@ -199,7 +214,8 @@ function controls(action:ActionSpec){
   const field='field'in action?text('FIELD','field',action.field,undefined,false,`data-helper="field" data-specials="${fieldSpecials(action.type).join(',')}"`):'';
   const coverOptions:[string,string][]=[['','〈 keep existing type 〉'],...coverTypes];
   switch(action.type){
-    case'adjust_cover':{const resize=action.resize as {pixels:number;size_mode:string;scale_mode:string}|null;const preset=qualityPresets.find(([value])=>Number(value)===action.quality)?.[0]||'custom';return select('IMAGE FORMAT','format',action.format,[['original','Original'],['jpeg','JPEG'],['png','PNG']])+`<div class="field-pair">${select('QUALITY','quality_preset',preset,[...qualityPresets,['custom','Custom']])}<label class="field"><span>QUALITY (0–100)</span><input type="number" data-key="quality" min="0" max="100" value="${html(action.quality)}"></label></div>`+check('Resize cover','resize_enabled',!!resize)+`<div class="resize-options" ${resize?'':'hidden'}>`+`<label class="field"><span>SIZE IN PIXELS</span><input type="number" min="1" data-key="pixels" value="${resize?.pixels||600}"></label>`+select('SIZE POLICY','size_mode',resize?.size_mode||'maximum',[['maximum','Maximum size'],['minimum','Minimum size']])+select('SCALING','scale_mode',resize?.scale_mode||'proportional',[['proportional','Scale proportionally'],['square','Scale to square'],['crop_square','Crop to square']])+'</div>';}
+    case'adjust_cover':{const resize=action.resize as {pixels:number;size_mode:string;scale_mode:string;size_enabled?:boolean;native_geometry?:boolean}|null;const native=!resize||resize.native_geometry===true;const enabled=!!resize&&(resize.size_enabled??true);const preset=qualityPresets.find(([value])=>Number(value)===action.quality)?.[0]||'custom';return select('IMAGE FORMAT','format',action.format,[['original','Original'],['jpeg','JPEG'],['png','PNG']])+`<div class="field-pair">${select('QUALITY','quality_preset',preset,[...qualityPresets,['custom','Custom']])}<label class="field"><span>QUALITY (0–100)</span><input type="number" data-key="quality" min="0" max="100" value="${html(action.quality)}"></label></div>`+check('Resize cover','resize_enabled',enabled)+`<div class="resize-options" ${enabled||native?'':'hidden'}>`+`<label class="field"><span>SIZE IN PIXELS</span><input type="number" min="${native?0:1}" data-key="pixels" value="${resize?.pixels??600}"></label>`+select('SIZE POLICY','size_mode',resize?.size_mode||'maximum',[['maximum','Maximum size'],['minimum','Minimum size']])+select('SCALING','scale_mode',resize?.scale_mode||'proportional',[['proportional','Scale proportionally'],['square','Scale to square'],['crop_square','Crop to square']])+(native?'<p>With size disabled, square shapes still apply. Enabled sizes outside 10–10000 skip the adjustment.</p>':'')+'</div>';}
+
     case'case_conversion':return field+select('CASE','mode',action.mode,[['lower','lower case'],['mixed','Mixed Case'],['sentence','Sentence'],['upper','UPPER CASE']])+text('WORDS BEGIN AFTER','word_separators',action.word_separators);
     case'convert_codepage':{const known=codepageChoices.some(([id])=>id===String(action.codepage));return field+select('CODEPAGE','codepage',String(action.codepage),[...(known?[]:[[String(action.codepage),String(action.codepage)] as [string,string]]),...codepageChoices])+'<p>Choose the codepage the tags were originally written in. Their characters are converted to Unicode.</p>';}
     case'export':return text('EXPORT CONFIGURATION','template',action.template,'export')+text('OUTPUT FILENAME FORMAT','filename_template',action.filename_template,undefined,false,exportFormat)+check('Append data','append',action.append)+check('Create one output file per partition','partition_enabled',action.partition_template!==null)+text('PARTITION FORMAT','partition_template',action.partition_template||'',undefined,false,format());
@@ -218,12 +234,13 @@ function controls(action:ActionSpec){
     default:return`<p>${html(action.reason||'This imported action has settings that cannot yet be interpreted.')}</p><pre class="unresolved-settings">${html(JSON.stringify(action.properties||{},null,2))}</pre><p>Select a different action type to replace this record explicitly.</p>`;
   }
 }
-function readAction(el:HTMLDialogElement,type:string):ActionSpec{
-  const result=defaultAction(type);const inputs=new Map([...el.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[data-key]')].map(input=>[input.dataset.key!,input]));
+function readAction(el:HTMLDialogElement,type:string,original?:ActionSpec):ActionSpec{
+  const result=original?.type===type?clone(original):defaultAction(type);const inputs=new Map([...el.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[data-key]')].map(input=>[input.dataset.key!,input]));
   for(const [key,input]of inputs){if(['resize_enabled','pixels','size_mode','scale_mode','partition_enabled','description_keep','quality_preset'].includes(key))continue;result[key]=input instanceof HTMLInputElement&&input.type==='checkbox'?input.checked:input instanceof HTMLInputElement&&input.type==='number'?Number(input.value):input.value;}
   if('field'in result){result.field=String(result.field).trim().toUpperCase();if(!result.field)throw new Error('Enter a field name.');}
   if('fields'in result)result.fields=String(result.fields).split(';').map(field=>field.trim().toUpperCase()).filter(Boolean);
-  if(type==='adjust_cover'){const quality=Number(result.quality);if(!Number.isInteger(quality)||quality<0||quality>100)throw new Error('Quality must be a whole number between 0 and 100.');const enabled=(inputs.get('resize_enabled') as HTMLInputElement).checked;const pixels=Number(inputs.get('pixels')!.value);if(enabled&&(!Number.isInteger(pixels)||pixels<1))throw new Error('Enter a positive cover size.');result.resize=enabled?{pixels,size_mode:inputs.get('size_mode')!.value,scale_mode:inputs.get('scale_mode')!.value}:null;}
+  if(type==='adjust_cover'){const quality=Number(result.quality);if(!Number.isInteger(quality)||quality<0||quality>100)throw new Error('Quality must be a whole number between 0 and 100.');const enabled=(inputs.get('resize_enabled') as HTMLInputElement).checked;const pixels=Number(inputs.get('pixels')!.value);const previous=original?.resize as {native_geometry?:boolean;size_enabled?:boolean}|null;const native=!previous||previous.native_geometry===true;if(!Number.isInteger(pixels)||pixels<0||pixels>4294967295||(!native&&enabled&&pixels<1))throw new Error('Enter a positive cover size.');const shape=inputs.get('scale_mode')!.value;result.resize=enabled||native&&(!!previous||shape!=='proportional')?{pixels,size_mode:inputs.get('size_mode')!.value,scale_mode:shape,...(native?{native_geometry:true,size_enabled:enabled}:{})}:null;}
+
   if(type==='export')result.partition_template=(inputs.get('partition_enabled') as HTMLInputElement).checked?result.partition_template:null;
   if(type==='export_cover'||type==='set_cover_properties'){if(result.picture_type==='')result.picture_type=null;}
   if(type==='import_cover'&&(result.picture_type===''||result.picture_type==='CoverFront'))result.picture_type=null;
@@ -289,10 +306,10 @@ export class ActionUI {
       content.innerHTML=controls(current);keep.disabled=current.type==='unresolved_mta'||(quick&&!this.host.canExecute());
       const quality=content.querySelector<HTMLInputElement>('[data-key="quality"]'),preset=content.querySelector<HTMLSelectElement>('[data-key="quality_preset"]');
       if(quality&&preset){preset.addEventListener('change',()=>{if(preset.value!=='custom')quality.value=preset.value;});quality.addEventListener('input',()=>{preset.value=qualityPresets.find(([value])=>value===String(Number(quality.value)))?.[0]||'custom';});}
-      content.querySelectorAll<HTMLButtonElement>('[data-browse]').forEach(button=>button.addEventListener('click',async()=>{try{const path=await this.host.pickFile(button.dataset.browse as 'image'|'text'|'export');if(path)content.querySelector<HTMLInputElement>(`[data-key="${button.dataset.target}"]`)!.value=path;}catch(e){this.showError(el,e);}}));content.querySelector<HTMLInputElement>('[data-key="resize_enabled"]')?.addEventListener('change',e=>{content.querySelector<HTMLElement>('.resize-options')!.hidden=!(e.target as HTMLInputElement).checked;});
+      content.querySelectorAll<HTMLButtonElement>('[data-browse]').forEach(button=>button.addEventListener('click',async()=>{try{const path=await this.host.pickFile(button.dataset.browse as 'image'|'text'|'export');if(path)content.querySelector<HTMLInputElement>(`[data-key="${button.dataset.target}"]`)!.value=path;}catch(e){this.showError(el,e);}}));content.querySelector<HTMLInputElement>('[data-key="resize_enabled"]')?.addEventListener('change',e=>{const resize=current.resize as {native_geometry?:boolean}|null;content.querySelector<HTMLElement>('.resize-options')!.hidden=!(e.target as HTMLInputElement).checked&&!!resize&&!resize.native_geometry;});
     };
-    show();typeControl.addEventListener('change',()=>{current=mode==='group'?defaultAction(typeControl.value):recallQuick(this.host.storage,typeControl.value);show();this.clearError(el);el.querySelector('.dialog-error')?.remove();});el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());
-    keep.addEventListener('click',async()=>{try{const action=readAction(el,current.type);if(mode!=='group')rememberQuick(this.host.storage,action,quick);keep.disabled=true;await onKeep(action);el.close();}catch(e){this.showError(el,e);keep.disabled=false;}});
+    show();typeControl.addEventListener('change',()=>{current=mode==='group'?groupDefault(this.host.storage,typeControl.value):recallQuick(this.host.storage,typeControl.value);show();this.clearError(el);el.querySelector('.dialog-error')?.remove();});el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());
+    keep.addEventListener('click',async()=>{try{const action=readAction(el,current.type,current);if(mode!=='group')rememberQuick(this.host.storage,action,quick);keep.disabled=true;await onKeep(action);if(mode==='group')rememberGroupCodepage(this.host.storage,action);el.close();}catch(e){this.showError(el,e);keep.disabled=false;}});
     return el;
   }
   /** Actions (Quick) reopens on the last applied type and its settings; `type` preselects one action, e.g. Adjust Cover from the cover window. */
@@ -309,10 +326,13 @@ export class ActionUI {
     const el=dialog('Action groups','',`<button data-close>Close</button><button id="save-groups">Save groups</button><button class="primary" id="apply-groups">Apply checked groups</button>`);el.classList.add('action-groups-dialog');
     el.addEventListener('close',()=>{this.dirtyGroupDialogs.delete(el);stopNoticeLanguage?.();});
     const content=el.querySelector('.dialog-content')!;
+    let exportReport:MtaExportReport|undefined,reportGeneration=0;
     const refreshExportNotices=()=>{
       const warning=content.querySelector<HTMLElement>('.mta-export-warning'),notice=content.querySelector<HTMLElement>('.group-notice');
-      if(warning){warning.textContent=mtaExportWarning(draft.groups[index],this.host.translateLabel);this.host.translateNow?.(warning);}
+      if(warning){warning.textContent=mtaExportWarning(exportReport,this.host.translateLabel);warning.hidden=!warning.textContent;this.host.translateNow?.(warning);}
       if(notice&&groupNotice){notice.textContent=groupNotice();this.host.translateNow?.(notice);}
+      if(groupNotice||mtaExportWarning(exportReport,this.host.translateLabel))stopNoticeLanguage??=this.host.onLanguageChange?.(refreshExportNotices);
+      else{stopNoticeLanguage?.();stopNoticeLanguage=undefined;}
     };
     const mark=()=>{dirty=true;groupError='';groupNotice=undefined;this.dirtyGroupDialogs.add(el);update();};
     const persist=async()=>{await this.host.save(draft);this.library=clone(draft);dirty=false;this.dirtyGroupDialogs.delete(el);this.host.changed();};
@@ -322,8 +342,10 @@ export class ActionUI {
     const update=()=>{
       this.clearError(el);
       const selected=draft.groups[index];
+      exportReport=undefined;const generation=++reportGeneration;
+      if(selected&&this.host.exportReport)void this.host.exportReport(clone(selected)).then(report=>{if(generation===reportGeneration&&el.isConnected){exportReport=report;refreshExportNotices();}}).catch(()=>{});
       marked=new Set([...marked].filter(i=>i<draft.groups.length));if(index>=0&&!marked.has(index))marked=new Set([index]);
-      content.innerHTML=`<p>Checked groups run in order on ${this.host.selectedCount()} selected file${this.host.selectedCount()===1?'':'s'}. Save groups to keep your workflows.</p><div class="group-layout"><section class="group-library"><div class="action-section-title">GROUPS</div><p class="group-summary" role="status">${enabledSummary(draft.groups)}</p><div class="group-list" role="listbox" aria-multiselectable="true" aria-label="Action groups">${draft.groups.map((group,i)=>`<div class="group-row ${i===index?'current':''} ${marked.has(i)?'marked':''}" data-group-row="${i}" role="option" aria-selected="${marked.has(i)}" tabindex="0"><input type="checkbox" data-verbatim="${html(group.name)}" aria-label="Enable ${html(group.name)}" data-enable="${i}" ${group.enabled?'checked':''}><span translate="no">${html(group.name)}</span><small>${group.actions.length}</small></div>`).join('')||'<p class="group-empty">No groups yet. Create a group or import an .mta file.</p>'}</div><div class="group-buttons"><button data-command="new">New…</button><button data-command="duplicate" ${selected?'':'disabled'}>Duplicate…</button><button data-command="rename" ${selected?'':'disabled'}>Rename…</button><button data-command="remove" ${selected?'':'disabled'}>Remove</button><button data-command="up" ${index>0||block()?'':'disabled'}>↑ Move up</button><button data-command="down" ${index>=0&&(index<draft.groups.length-1||block())?'':'disabled'}>↓ Move down</button><button data-command="sort-name" ${draft.groups.length>1?'':'disabled'}>Sort by name</button><button data-command="sort-state" ${draft.groups.length>1?'':'disabled'}>Sort by state</button><button data-command="import">Import .mta…</button><button data-command="export" ${selected&&this.host.exportGroup?'':'disabled'}>Export .mta…</button></div><div class="preset-controls"><label for="group-preset">Selection preset</label><select id="group-preset"><option value="">Choose a preset…</option>${draft.presets.map(p=>`<option value="${html(p.name)}" translate="no">${html(p.name)}</option>`).join('')}</select><button data-command="save-preset">Save preset…</button><button data-command="remove-preset" ${draft.presets.length?'':'disabled'}>Remove preset…</button></div></section><section class="group-actions"><div class="action-section-title">${selected?`<span translate="no">${html(selected.name)}</span>`:'ACTIONS'}</div><ol class="action-summary-list">${selected?.actions.map((action,i)=>`<li><button data-edit-action="${i}"><strong>${html(title(action))}</strong><span translate="no">${html(action.field||action.filename_template||action.pattern||(Array.isArray(action.fields)?action.fields.join('; '):''))}</span></button></li>`).join('')||'<li class="group-empty">Select a group to edit its actions.</li>'}</ol><button data-command="edit" ${selected?'':'disabled'}>Edit actions…</button>${selected&&mtaExportWarning(selected,this.host.translateLabel)?`<p class="import-issues mta-export-warning">${html(mtaExportWarning(selected,this.host.translateLabel))}</p>`:''}${selected?.actions.some(a=>a.type==='unresolved_mta')?'<p class="import-issues">This group contains unresolved imported actions. Edit or replace them before applying.</p>':''}</section></div>`;
+      content.innerHTML=`<p>Checked groups run in order on ${this.host.selectedCount()} selected file${this.host.selectedCount()===1?'':'s'}. Save groups to keep your workflows.</p><div class="group-layout"><section class="group-library"><div class="action-section-title">GROUPS</div><p class="group-summary" role="status">${enabledSummary(draft.groups)}</p><div class="group-list" role="listbox" aria-multiselectable="true" aria-label="Action groups">${draft.groups.map((group,i)=>`<div class="group-row ${i===index?'current':''} ${marked.has(i)?'marked':''}" data-group-row="${i}" role="option" aria-selected="${marked.has(i)}" tabindex="0"><input type="checkbox" data-verbatim="${html(group.name)}" aria-label="Enable ${html(group.name)}" data-enable="${i}" ${group.enabled?'checked':''}><span translate="no">${html(group.name)}</span><small>${group.actions.length}</small></div>`).join('')||'<p class="group-empty">No groups yet. Create a group or import an .mta file.</p>'}</div><div class="group-buttons"><button data-command="new">New…</button><button data-command="duplicate" ${selected?'':'disabled'}>Duplicate…</button><button data-command="rename" ${selected?'':'disabled'}>Rename…</button><button data-command="remove" ${selected?'':'disabled'}>Remove</button><button data-command="up" ${index>0||block()?'':'disabled'}>↑ Move up</button><button data-command="down" ${index>=0&&(index<draft.groups.length-1||block())?'':'disabled'}>↓ Move down</button><button data-command="sort-name" ${draft.groups.length>1?'':'disabled'}>Sort by name</button><button data-command="sort-state" ${draft.groups.length>1?'':'disabled'}>Sort by state</button><button data-command="import">Import .mta…</button><button data-command="export" ${selected&&this.host.exportGroup?'':'disabled'}>Export .mta…</button></div><div class="preset-controls"><label for="group-preset">Selection preset</label><select id="group-preset"><option value="">Choose a preset…</option>${draft.presets.map(p=>`<option value="${html(p.name)}" translate="no">${html(p.name)}</option>`).join('')}</select><button data-command="save-preset">Save preset…</button><button data-command="remove-preset" ${draft.presets.length?'':'disabled'}>Remove preset…</button></div></section><section class="group-actions"><div class="action-section-title">${selected?`<span translate="no">${html(selected.name)}</span>`:'ACTIONS'}</div><ol class="action-summary-list">${selected?.actions.map((action,i)=>`<li><button data-edit-action="${i}"><strong>${html(title(action))}</strong><span translate="no">${html(action.field||action.filename_template||action.pattern||(Array.isArray(action.fields)?action.fields.join('; '):''))}</span></button></li>`).join('')||'<li class="group-empty">Select a group to edit its actions.</li>'}</ol><button data-command="edit" ${selected?'':'disabled'}>Edit actions…</button>${selected?'<p class="import-issues mta-export-warning" hidden></p>':''}${selected?.actions.some(a=>a.type==='unresolved_mta')?'<p class="import-issues">This group contains unresolved imported actions. Edit or replace them before applying.</p>':''}</section></div>`;
       el.querySelector<HTMLButtonElement>('#save-groups')!.disabled=!dirty||working;
       el.querySelector<HTMLButtonElement>('#apply-groups')!.disabled=working||!this.host.canExecute()||!draft.groups.some(group=>group.enabled&&group.actions.length)||draft.groups.some(group=>group.enabled&&group.actions.some(action=>action.type==='unresolved_mta'));
       const blockedReason=this.host.executeReason?.();
@@ -335,8 +357,7 @@ export class ActionUI {
       content.querySelectorAll<HTMLButtonElement>('[data-edit-action]').forEach(button=>button.addEventListener('click',()=>editGroup(Number(button.dataset.editAction))));
       content.querySelector<HTMLSelectElement>('#group-preset')!.addEventListener('change',event=>{const name=(event.target as HTMLSelectElement).value;if(name){draft=applyPreset(draft,name);mark();}});
       content.querySelectorAll<HTMLButtonElement>('[data-command]').forEach(button=>button.addEventListener('click',event=>command(button.dataset.command!,event.altKey)));
-      if(content.querySelector('.mta-export-warning')||groupNotice)stopNoticeLanguage??=this.host.onLanguageChange?.(refreshExportNotices);
-      else{stopNoticeLanguage?.();stopNoticeLanguage=undefined;}
+      refreshExportNotices();
     };
     const rename=()=>{if(index<0)return;nameDialog('Rename action group',draft.groups[index].name,name=>{draft=renameGroup(draft,index,name);});};
     el.addEventListener('keydown',event=>{
@@ -387,7 +408,7 @@ export class ActionUI {
       }
       if(name==='edit')editGroup();
       if(name==='sort-name'||name==='sort-state'){const current=draft.groups[index];draft=sortGroups(draft,name==='sort-name'?'name':'state');index=current?draft.groups.findIndex(group=>group.name===current.name):-1;mark();}
-      if(name==='export'&&index>=0&&this.host.exportGroup){const group=clone(draft.groups[index]);void run(async()=>{const path=await this.host.exportGroup!(group);if(path)groupNotice=()=>`Exported ${group.name} to ${path}${mtaExportWarning(group,this.host.translateLabel)?`. ${mtaExportWarning(group,this.host.translateLabel)}`:''}`;});}
+      if(name==='export'&&index>=0&&this.host.exportGroup){const group=clone(draft.groups[index]);void run(async()=>{const report=await this.host.exportReport?.(group);const path=await this.host.exportGroup!(group);if(path)groupNotice=()=>`Exported ${group.name} to ${path}${mtaExportWarning(report,this.host.translateLabel)?`. ${mtaExportWarning(report,this.host.translateLabel)}`:''}`;});}
       if(name==='save-preset')nameDialog('Save selection preset','',value=>{const preset={name:value,enabled_groups:draft.groups.filter(g=>g.enabled).map(g=>g.name)},old=draft.presets.findIndex(p=>p.name===value);if(old>=0)draft.presets[old]=preset;else draft.presets.push(preset);});
       if(name==='remove-preset'){const child=dialog('Remove selection preset',select('PRESET','preset',draft.presets[0]?.name,draft.presets.map(p=>[p.name,p.name]),true), '<button data-close>Cancel</button><button data-remove>Remove preset</button>');child.querySelector('[data-close]')!.addEventListener('click',()=>child.close());child.querySelector('[data-remove]')!.addEventListener('click',()=>{const selected=child.querySelector<HTMLSelectElement>('[data-key="preset"]')!.value;draft.presets=draft.presets.filter(p=>p.name!==selected);mark();child.close();});}
       if(name==='import')void run(async()=>{const path=await this.host.pickFile('mta');if(!path)return;const child=dialog('Import action group',`<p translate="no">${html(path)}</p>${text('ORIGINAL LEGACY ENCODING (BLANK FOR UTF-8 OR UTF-16 BOM)','encoding','')}<p>For older action files, enter the original codepage such as Windows-1251 or Windows-1252.</p>`,'<button data-close>Cancel</button><button class="primary" data-import>Import group</button>');child.querySelector('[data-close]')!.addEventListener('click',()=>child.close());const button=child.querySelector<HTMLButtonElement>('[data-import]')!;button.addEventListener('click',async()=>{button.disabled=true;try{const encoding=child.querySelector<HTMLInputElement>('[data-key="encoding"]')!.value.trim();const imported=await this.host.import(path,encoding||undefined);let name=imported.group.name,suffix=2;while(draft.groups.some(g=>g.name.toLocaleLowerCase()===name.toLocaleLowerCase()))name=`${imported.group.name} (${suffix++})`;draft.groups.push({...imported.group,name});index=draft.groups.length-1;dirty=true;this.dirtyGroupDialogs.add(el);groupError=imported.issues.length?(this.host.importIssues?.(imported)??imported.issues.map(issue=>`Action ${issue.index+1}: ${issue.reason}`).join('\n')):'';update();child.close();}catch(e){this.showError(child,e);}finally{button.disabled=false;}});});

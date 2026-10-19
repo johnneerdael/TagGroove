@@ -4,6 +4,9 @@
 mod asf;
 #[path = "container_formats.rs"]
 mod container_formats;
+#[cfg(test)]
+#[path = "tags_content_guard_tests.rs"]
+mod content_guard_tests;
 #[path = "cover_manage.rs"]
 mod cover_manage;
 #[path = "cover_ops.rs"]
@@ -128,6 +131,15 @@ pub fn file_time_fields(
     modified: Option<std::time::SystemTime>,
 ) -> Fields {
     technical::file_time_fields(created, modified)
+}
+/// Stable fingerprint of the current file-timestamp formatter, independent of the clock.
+pub fn locale_format_state() -> String {
+    technical::locale_format_state()
+}
+/// Refresh retained file/MP4 timestamp presentation using one locale/zone
+/// snapshot for the entire in-memory batch. Preserve raw and unrelated fields.
+pub fn reformat_technical_time_fields<'a>(items: impl IntoIterator<Item = &'a mut Fields>) {
+    technical::reformat_technical_time_fields(items)
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverInfo {
@@ -370,6 +382,7 @@ struct NativeTags {
     vorbis: Option<VorbisComments>,
     ape: Option<ApeTag>,
     id3: Option<Id3v2Tag>,
+    id3_placeholders: crate::id3_frames::Placeholders,
     ilst: Option<Ilst>,
     riff: Option<RiffInfoList>,
     technical: Fields,
@@ -386,7 +399,10 @@ fn native_tags_diagnostic(reader: &mut fs::File, kind: FileType) -> Result<Nativ
         crate::id3_frames::read_with_fallback_diagnostic(reader, |reader| {
             native_tags_with_diagnostic(reader, kind, mode)
         })
-        .map(|(native, _, _)| native)
+        .map(|(mut native, names, _)| {
+            native.id3_placeholders = names;
+            native
+        })
     })
 }
 fn native_tags_with_diagnostic(
@@ -764,8 +780,6 @@ fn read_description_diagnostic(
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
     let mut reader = probe.into_inner();
-    // Stored identifiers of encrypted ID3v2 frames read as placeholders.
-    let mut placeholders = Vec::new();
     macro_rules! read {
         ($ty:ty,$snapshot:expr) => {{
             let (media, names, phantom) = strict_or_lenient_id3v1_diagnostic(|mode| {
@@ -778,8 +792,8 @@ fn read_description_diagnostic(
                         .map_err(|e| ErrorCause::external(error_message(&e)))
                 })
             })?;
-            placeholders = names;
-            let native: NativeTags = ($snapshot)(&media);
+            let mut native: NativeTags = ($snapshot)(&media);
+            native.id3_placeholders = names;
             (without_phantom(TaggedFile::from(media), phantom), native)
         }};
     }
@@ -865,7 +879,7 @@ fn read_description_diagnostic(
     if kind == FileType::Mp4 {
         mp4_chapters::describe(&path, &mut entry, rules);
     }
-    name_placeholders(&mut entry.technical, &placeholders);
+    name_placeholders(&mut entry.technical, &native.id3_placeholders);
     Ok(entry)
 }
 
@@ -996,10 +1010,13 @@ pub fn scan_paths_cached(
     let mut seen = HashSet::new();
     let mut candidates = Vec::new();
     let mut rows = Vec::new();
+    let mut input_position = 0usize;
+    let mut input_ranks = std::collections::HashMap::new();
     for raw in paths {
         // Chapter and cue sheet rows are read as they are.
         if subsong_parts(raw).is_some() {
-            rows.push(raw);
+            rows.push((input_position, raw));
+            input_position += 1;
             continue;
         }
         let path = PathBuf::from(raw);
@@ -1011,7 +1028,8 @@ pub fn scan_paths_cached(
                     match item {
                         Ok(item) if item.file_type().is_file() || item.file_type().is_symlink() => {
                             if audio_extension(item.path(), extensions) {
-                                candidates.push(item.into_path());
+                                candidates.push((input_position, item.into_path()));
+                                input_position += 1;
                             }
                         }
                         Ok(_) => {}
@@ -1022,18 +1040,25 @@ pub fn scan_paths_cached(
                     }
                 }
             }
-            Ok(_) => candidates.push(path),
+            Ok(_) => {
+                candidates.push((input_position, path));
+                input_position += 1;
+            }
             Err(e) => result.errors.push(FileError {
                 path: raw.clone(),
                 error: e.to_string(),
             }),
         }
     }
+    let has_explicit_rows = !rows.is_empty();
     let mut unique = Vec::new();
-    for path in candidates {
+    for (position, path) in candidates {
         match dunce::canonicalize(&path) {
             Ok(canonical) => {
                 if seen.insert(canonical.clone()) {
+                    if has_explicit_rows {
+                        input_ranks.insert(canonical.clone(), position);
+                    }
                     unique.push(canonical);
                 }
             }
@@ -1084,10 +1109,11 @@ pub fn scan_paths_cached(
     if options.advanced.list_chapters {
         result.entries = expand_chapter_rows(std::mem::take(&mut result.entries));
     }
-    for raw in rows {
+    for (position, raw) in rows {
         if !seen.insert(PathBuf::from(raw)) {
             continue;
         }
+        input_ranks.insert(PathBuf::from(raw), position);
         match read_entry_summary_with_options(Path::new(raw), &options.mappings, options) {
             Ok(entry) => result.entries.push(entry),
             Err(error) => result.errors.push(FileError {
@@ -1095,6 +1121,21 @@ pub fn scan_paths_cached(
                 error,
             }),
         }
+    }
+    // Ordinary audio is read in parallel and explicit CUE/chapter rows are
+    // read afterwards, but the combined result must retain their input order.
+    // Rows expanded from one ordinary file keep their existing relative order.
+    if has_explicit_rows {
+        result.entries.sort_by_key(|entry| {
+            input_ranks
+                .get(Path::new(&entry.path))
+                .or_else(|| {
+                    subsong_parts(&entry.path)
+                        .and_then(|(path, _)| input_ranks.get(Path::new(path)))
+                })
+                .copied()
+                .unwrap_or(usize::MAX)
+        });
     }
     result
 }
@@ -1215,14 +1256,14 @@ fn staged_mutation<F>(
     mutation: F,
 ) -> Result<AudioEntry, String>
 where
-    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
+    F: FnOnce(&mut fs::File, TaggedFile, &Path, &mut crate::lyrics3::Effects) -> Result<(), String>,
 {
     staged_mutation_diagnostic(
         path,
         include_cover_data,
         options,
-        |staging, file, staged_path| {
-            mutation(staging, file, staged_path).map_err(ErrorCause::external)
+        |staging, file, staged_path, effects| {
+            mutation(staging, file, staged_path, effects).map_err(ErrorCause::external)
         },
     )
     .map_err(|error| error.to_string())
@@ -1235,7 +1276,12 @@ fn staged_mutation_diagnostic<F>(
     mutation: F,
 ) -> Result<AudioEntry, ErrorCause>
 where
-    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), ErrorCause>,
+    F: FnOnce(
+        &mut fs::File,
+        TaggedFile,
+        &Path,
+        &mut crate::lyrics3::Effects,
+    ) -> Result<(), ErrorCause>,
 {
     staged_mutation_with_mappings_diagnostic(
         path,
@@ -1254,7 +1300,12 @@ fn staged_mutation_with_mappings_diagnostic<F>(
     mutation: F,
 ) -> Result<AudioEntry, ErrorCause>
 where
-    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), ErrorCause>,
+    F: FnOnce(
+        &mut fs::File,
+        TaggedFile,
+        &Path,
+        &mut crate::lyrics3::Effects,
+    ) -> Result<(), ErrorCause>,
 {
     staged_write_diagnostic(
         path,
@@ -1269,21 +1320,34 @@ where
                 staged_path,
                 stream,
                 |staging, original, staged_path| {
-                    let guard =
-                        crate::ape_footer::Guard::prepare(staging).map_err(ErrorCause::external)?;
-                    mutation(staging, load_diagnostic(original)?, staged_path)?;
-                    guard.finish(staging).map_err(ErrorCause::external)
+                    let file = load_diagnostic(original)?;
+                    let guard = crate::ape_footer::Guard::prepare(
+                        staging,
+                        tag_policy::policy(file.file_type()).is_some(),
+                    )
+                    .map_err(ErrorCause::external)?;
+                    let mut effects = guard.effects();
+                    mutation(staging, file, staged_path, &mut effects)?;
+                    guard
+                        .finish(staging, &effects)
+                        .map_err(ErrorCause::external)
                 },
             ),
             None => {
                 // Trailing APE tags lofty's writers would misplace.
-                let guard =
-                    crate::ape_footer::Guard::prepare(staging).map_err(ErrorCause::external)?;
                 let file = load_diagnostic(original)?;
+                let guard = crate::ape_footer::Guard::prepare(
+                    staging,
+                    tag_policy::policy(file.file_type()).is_some(),
+                )
+                .map_err(ErrorCause::external)?;
+                let mut effects = guard.effects();
                 let flac_id3 =
                     file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
-                mutation(staging, file, staged_path)?;
-                guard.finish(staging).map_err(ErrorCause::external)?;
+                mutation(staging, file, staged_path, &mut effects)?;
+                guard
+                    .finish(staging, &effects)
+                    .map_err(ErrorCause::external)?;
                 if flac_id3 {
                     strip_flac_id3v2_diagnostic(staging)?;
                 }
@@ -1353,6 +1417,7 @@ where
     if subsongs::split_path(path).is_some() {
         return Err(ErrorCause::owned(subsongs::ROW_OPERATION));
     }
+    let requested = path;
     let path = dunce::canonicalize(path).map_err(ErrorCause::external)?;
     let original = fs::metadata(&path).map_err(ErrorCause::external)?;
     if !original.is_file() {
@@ -1360,6 +1425,12 @@ where
     }
     if original.permissions().readonly() {
         return Err(ErrorCause::owned("The audio file is read-only"));
+    }
+    let expected = crate::file_baseline::fingerprint_for_edit_diagnostic(&path)?;
+    if !crate::history::captured_source_matches(requested, &path, expected) {
+        return Err(ErrorCause::owned(
+            "The file changed during editing; reload it before saving",
+        ));
     }
     let (mut staging, cloned) = staging_clone(
         &path,
@@ -1369,6 +1440,13 @@ where
         "",
     )
     .map_err(ErrorCause::external)?;
+    if !crate::file_baseline::fingerprint_for_edit_diagnostic(staging.path())?
+        .same_content(&expected)
+    {
+        return Err(ErrorCause::owned(
+            "The file changed during editing; reload it before saving",
+        ));
+    }
     let staged_path = staging.path().to_path_buf();
     let scope = crate::write_cost::Scope::begin();
     mutation(staging.as_file_mut(), &path, &staged_path)?;
@@ -1391,8 +1469,10 @@ where
     let mut entry =
         read_description_diagnostic(staging.path(), include_cover_data, rules, options)?;
     fs::set_permissions(staging.path(), original.permissions()).map_err(ErrorCause::external)?;
-    let current = fs::metadata(&path).map_err(ErrorCause::external)?;
-    if current.len() != original.len() || current.modified().ok() != original.modified().ok() {
+    let produced = crate::file_baseline::fingerprint_for_edit_diagnostic(staging.path())?;
+    if crate::file_baseline::fingerprint_for_edit_diagnostic(&path)? != expected
+        || !crate::history::captured_source_matches(requested, &path, expected)
+    {
         return Err(ErrorCause::owned(
             "The file changed during editing; reload it before saving",
         ));
@@ -1400,7 +1480,7 @@ where
     staging
         .persist(&path)
         .map_err(|e| ErrorCause::external(e.error))?;
-    crate::history::note_write(&path, cloned, rewritten);
+    crate::history::note_write(&path, cloned, rewritten, produced);
     entry.path = path.to_string_lossy().into_owned();
     entry.filename = path
         .file_name()
@@ -1548,13 +1628,14 @@ fn save_preserving_native_diagnostic(
     let originals = native_tags_diagnostic(staging, file_type)?;
     match tag.tag_type() {
         TagType::Id3v2 => {
+            let placeholders = originals.id3_placeholders;
             let mut native = originals.id3.unwrap_or_default();
             let target = match id3.revision {
                 Id3Revision::Preserve(language) => {
                     mapping::Id3Target::preserving(&native, language)
                 }
                 Id3Revision::Convert(target) => {
-                    mapping::convert_id3_version_diagnostic(&mut native, &target)?;
+                    mapping::convert_id3_version_diagnostic(&mut native, &target, &placeholders)?;
                     target
                 }
             };
@@ -1578,10 +1659,11 @@ fn save_preserving_native_diagnostic(
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(ErrorCause::external)?;
-            mapping::save_id3_diagnostic(staging, file_type, &native, &target)
+            mapping::save_id3_diagnostic(staging, file_type, &native, &target, &placeholders)
         }
         TagType::Mp4Ilst => {
             let mut native = originals.ilst.unwrap_or_default();
+            let before = native.clone();
             let mut updates = Cow::Borrowed(updates);
             if !id3.reuse_mp4_atoms {
                 let moved = mapping::remap_mp4(&mut native, &updates);
@@ -1596,8 +1678,18 @@ fn save_preserving_native_diagnostic(
                     native.insert_picture(picture.clone());
                 }
             }
-            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)
-                .map_err(ErrorCause::external)?;
+            let mut touched = updates
+                .keys()
+                .map(|name| match name.as_str() {
+                    "TRACK" | "TOTALTRACKS" => Ok(lofty::mp4::AtomIdent::Fourcc(*b"trkn")),
+                    "DISCNUMBER" | "TOTALDISCS" => Ok(lofty::mp4::AtomIdent::Fourcc(*b"disk")),
+                    _ => mapping::mp4_ident_diagnostic(name),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if covers_changed {
+                touched.push(lofty::mp4::AtomIdent::Fourcc(*b"covr"));
+            }
+            crate::mp4_metadata::save(staging, &before, &native, &touched, id3.mp4_single_atom)?;
             if covers_changed {
                 // The covers shown, Nero ones included, are now the iTunes covers.
                 mp4_chapters::drop_nero_covers_diagnostic(staging)?;
@@ -1976,7 +2068,7 @@ fn write_fields_result_with_lyrics_diagnostic(
         include_cover_data,
         rules,
         options,
-        |staging, file, staged_path| {
+        |staging, file, staged_path, effects| {
             // MP4 chapters are boxes of their own, written after the tag.
             let mut updates = updates.clone();
             let chapters = match file.file_type() {
@@ -2003,6 +2095,7 @@ fn write_fields_result_with_lyrics_diagnostic(
                         rules,
                         options,
                         raw_lyrics,
+                        effects,
                     )?;
                 }
                 return mp4_chapters::write_diagnostic(staging, staged_path, &values);
@@ -2015,6 +2108,7 @@ fn write_fields_result_with_lyrics_diagnostic(
                 rules,
                 options,
                 raw_lyrics,
+                effects,
             )
         },
     )
@@ -2028,6 +2122,7 @@ fn write_tag_fields_diagnostic(
     updates: &Fields,
     rules: &[UserFieldMapping],
     options: &TagOptions,
+    effects: &mut crate::lyrics3::Effects,
 ) -> Result<(), ErrorCause> {
     write_tag_fields_with_lyrics_diagnostic(
         staging,
@@ -2037,9 +2132,12 @@ fn write_tag_fields_diagnostic(
         rules,
         options,
         false,
+        effects,
     )
 }
 
+// Keep operation-local tail effects separate from the caller's serialization inputs.
+#[allow(clippy::too_many_arguments)]
 fn write_tag_fields_with_lyrics_diagnostic(
     staging: &mut fs::File,
     mut file: TaggedFile,
@@ -2048,6 +2146,7 @@ fn write_tag_fields_with_lyrics_diagnostic(
     rules: &[UserFieldMapping],
     options: &TagOptions,
     raw_lyrics: bool,
+    effects: &mut crate::lyrics3::Effects,
 ) -> Result<(), ErrorCause> {
     if tag_policy::policy(file.file_type()).is_some() {
         let updates = normalized_updates_diagnostic(updates, TagType::Ape)?;
@@ -2061,6 +2160,7 @@ fn write_tag_fields_with_lyrics_diagnostic(
             } else {
                 tag_policy::Change::Fields(&updates)
             },
+            effects,
         )?;
         return tag_policy::verify_fields_diagnostic(
             staged_path,
@@ -2210,14 +2310,18 @@ fn remove_tags_result(
     // Nero tags (per-chapter fields of MP4 files) go with the iTunes tag.
     let nero = loaded.file_type() == FileType::Mp4
         && mp4_chapters::scan(path).is_ok_and(|c| c.nero_tags.is_some());
-    if !nero && tag_policy::removed_kinds(&loaded, options)?.is_empty() {
+    let dependent = tag_policy::dependent_v1_removal(path, &loaded, options.mpeg.remove_id3v1)?;
+    if !nero && tag_policy::removed_kinds(&loaded, options)?.is_empty() && !dependent {
         return read_description(path, include_cover_data, &options.mappings, options);
     }
     staged_mutation(
         path,
         include_cover_data,
         options,
-        |staging, file, staged_path| {
+        |staging, file, staged_path, effects| {
+            // The guard revalidates the recognized physical span on this staged
+            // copy. Keep selected removal separate from the reported tag kinds.
+            effects.removed_v1 |= dependent;
             for kind in tag_policy::removed_kinds(&file, options)? {
                 staging
                     .seek(SeekFrom::Start(0))
@@ -2225,6 +2329,7 @@ fn remove_tags_result(
                 crate::write_cost::rewrote_all();
                 kind.remove_from(staging, WriteOptions::default())
                     .map_err(|e| e.to_string())?;
+                effects.removed(kind);
             }
             if nero {
                 staging.sync_all().map_err(|e| e.to_string())?;
@@ -2393,7 +2498,7 @@ fn add_picture_result_diagnostic(
         path,
         include_cover_data,
         options,
-        |staging, mut file, staged_path| {
+        |staging, mut file, staged_path, effects| {
             if tag_policy::policy(file.file_type()).is_some() {
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
                 describe_repeated_cover(&pictures, &mut picture, label);
@@ -2404,6 +2509,7 @@ fn add_picture_result_diagnostic(
                     &options.mappings,
                     options,
                     tag_policy::Change::Pictures(pictures.clone()),
+                    effects,
                 )?;
                 return tag_policy::verify_pictures_diagnostic(
                     staged_path,
@@ -2496,7 +2602,7 @@ fn remove_cover_result(
         path,
         include_cover_data,
         options,
-        |staging, mut file, staged_path| {
+        |staging, mut file, staged_path, effects| {
             if tag_policy::policy(file.file_type()).is_some() {
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
                 if index >= pictures.len() {
@@ -2509,6 +2615,7 @@ fn remove_cover_result(
                     &options.mappings,
                     options,
                     tag_policy::Change::Pictures(pictures.clone()),
+                    effects,
                 )?;
                 return tag_policy::verify_pictures(
                     staged_path,

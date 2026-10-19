@@ -93,11 +93,16 @@
 
     await step('Alt+↑ / Alt+Page keys move the selected file and leave the sorted view', async () => {
       if (order() !== 'sine-a.mp3,sine-b.mp3,sine-c.mp3') throw new Error('start order ' + order());
+      const savedSort = (await inv('load_columns')).sort;
+      if (!savedSort.length) throw new Error('Fixture needs a saved column sort before entering manual mode');
+      const sourceRank = JSON.parse(localStorage.getItem('opentag.workspace')).source_order;
       await clickRow('sine-c.mp3');
       key('ArrowUp', { altKey: true }, row('sine-c.mp3'));
       await waitFor(() => order() === 'sine-a.mp3,sine-c.mp3,sine-b.mp3', 5000, 'moved up: ' + order());
       if ([...document.querySelectorAll('th[data-col]')].some(th => th.getAttribute('aria-sort') !== 'none')) throw new Error('still sorted');
-      await waitFor(async () => (await inv('load_columns')).sort.length === 0, 5000, 'unsorted layout saved');
+      const workspace = await waitFor(() => { const value = JSON.parse(localStorage.getItem('opentag.workspace') || 'null'); return value?.list_order === 'manual' && value; }, 5000, 'manual workspace mode saved');
+      if (JSON.stringify((await inv('load_columns')).sort) !== JSON.stringify(savedSort)) throw new Error('Manual order overwrote the retained column sort');
+      if (JSON.stringify(workspace.source_order) !== JSON.stringify(sourceRank)) throw new Error('Manual order overwrote the source rank');
       key('PageUp', { altKey: true }, row('sine-c.mp3'));
       await waitFor(() => order() === 'sine-c.mp3,sine-a.mp3,sine-b.mp3', 5000, 'moved to the beginning: ' + order());
       key('PageDown', { altKey: true }, row('sine-c.mp3'));

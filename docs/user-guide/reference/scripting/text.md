@@ -51,12 +51,12 @@ Unicode uppercasing can change the number of characters; do not assume it preser
 
 ### `$caps(x[,separators])` { #caps }
 
-**Returns** text with each word's first character uppercased and its remaining characters lowercased.
+**Returns** text with word starts uppercased and other characters lowercased.
 
 | Argument | Meaning |
 |---|---|
 | `x` | Text to transform. |
-| `separators` | Optional additional characters that start the next word; whitespace always does. |
+| `separators` | Characters that start the next word. Omit for an ordinary space; a supplied set replaces that default, including an empty set. |
 
 | Format string | With these values | Result |
 |---|---|---|
@@ -64,18 +64,38 @@ Unicode uppercasing can change the number of characters; do not assume it preser
 | `$caps(DJ NIMBUS)` | Any file | `Dj Nimbus` |
 | `$caps($replace(low_tide,_,' '))` | Any file | `Low Tide` |
 
-This is mechanical capitalization, not a language-aware title style. `DJ` becomes `Dj`. The separator argument is a set of characters, not a regex.
+This is mechanical capitalization, not a language-aware title style. `DJ`
+becomes `Dj`. Separators are individual characters, not a regex. ASCII letters
+in that set match either case: `d` also recognizes `D`. A separator at the
+start of the text is kept as written; a non-separator starts uppercase at the
+start or immediately after a separator.
+
+The default is only the ordinary space (U+0020). Tabs and line breaks are not
+word starts unless included explicitly. For example, a second argument of
+`' '$char(9)$char(10)$char(13)` includes space, tab, LF and CR.
+To retain spaces as word starts when adding a hyphen, include both characters:
+
+<!-- caps-separator-examples:start -->
+| Format string | With these values | Result |
+|---|---|---|
+| `$caps('LOW-TIDE HIGH WIND')` | Any file | `Low-tide High Wind` |
+| `$caps('LOW-TIDE HIGH WIND',-)` | Any file | `Low-Tide high wind` |
+| `$caps('LOW-TIDE HIGH WIND','- ')` | Any file | `Low-Tide High Wind` |
+| `$caps('LOW TIDE',)` | Any file | `Low tide` |
+| `$caps(aDb,d)` | Any file | `AdB` |
+| `$caps(dABC,d)` | Any file | `dAbc` |
+<!-- caps-separator-examples:end -->
 
 **Related:** [`$caps2`](#caps2).
 
 ### `$caps2(x[,separators])` { #caps2 }
 
-**Returns** text with each word's first character uppercased and its remaining characters preserved as written.
+**Returns** text with word starts uppercased while preserving other characters.
 
 | Argument | Meaning |
 |---|---|
 | `x` | Text to transform. |
-| `separators` | Optional extra word-boundary characters; whitespace always starts a word. |
+| `separators` | The same replacement trigger set as `$caps`: omitted means ordinary space; an explicit empty set means no separators. ASCII letter triggers match either case. |
 
 | Format string | With these values | Result |
 |---|---|---|
@@ -83,18 +103,33 @@ This is mechanical capitalization, not a language-aware title style. `DJ` become
 | `$caps2(DJ NIMBUS)` | Any file | `DJ NIMBUS` |
 | `$caps2($lower(%title%))` | `TITLE` = `Paper Boats` | `Paper Boats` |
 
-This does not repair arbitrary uppercase text: existing uppercase letters after the first character remain uppercase.
+This does not repair arbitrary uppercase text: existing uppercase letters
+after the first character remain uppercase. As with `$caps`, adding `-`
+replaces the default space trigger unless the set includes a space too:
+
+<!-- caps2-separator-examples:start -->
+| Format string | With these values | Result |
+|---|---|---|
+| `$caps2('low-tide dj')` | Any file | `Low-tide Dj` |
+| `$caps2('low-tide dj',-)` | Any file | `Low-Tide dj` |
+| `$caps2('low-tide dj','- ')` | Any file | `Low-Tide Dj` |
+| `$caps2('a b',)` | Any file | `A b` |
+| `$caps2(aDb,d)` | Any file | `ADB` |
+| `$caps2(dABC,d)` | Any file | `dABC` |
+<!-- caps2-separator-examples:end -->
 
 **Related:** [`$caps`](#caps).
 
 ### `$caps3(x[,triggers])` { #caps3 }
 
-**Returns** text with the first character uppercased, subsequent characters lowercased, and another uppercase character immediately after each trigger.
+**Returns** text with a non-trigger uppercased at the first position or
+immediately after a trigger. Other later characters are lowercased. An initial
+trigger is kept as written.
 
 | Argument | Meaning |
 |---|---|
 | `x` | Text to transform. |
-| `triggers` | Optional characters after which the very next character is uppercased. |
+| `triggers` | Optional characters that trigger the next position. Omitted means no triggers. Matching is exact, including ASCII case. |
 
 | Format string | With these values | Result |
 |---|---|---|
@@ -102,7 +137,21 @@ This does not repair arbitrary uppercase text: existing uppercase letters after 
 | `$caps3('FIRST. SECOND',.)` | Any file | `First. second` |
 | `$caps3($upper(%title%))` | `TITLE` = `Paper Boats` | `Paper boats` |
 
-A trigger affects the next character, even when that character is a space. This is not sentence recognition; in the second example the period triggers the space, and `second` remains lowercase.
+A trigger affects the next position without skipping spaces. In the period
+example it triggers the space, and `second` remains lowercase. Consecutive
+triggers are lowercased after the initial position, and can trigger the
+following non-trigger. Unlike `$caps` and `$caps2`, `d` does not recognize `D`:
+
+<!-- caps3-trigger-examples:start -->
+| Format string | With these values | Result |
+|---|---|---|
+| `$caps3(dABC,d)` | Any file | `dAbc` |
+| `$caps3(ddA,d)` | Any file | `ddA` |
+| `$caps3(aDb,d)` | Any file | `Adb` |
+| `$caps3('FIRST..SECOND',.)` | Any file | `First..Second` |
+<!-- caps3-trigger-examples:end -->
+
+<!-- verified: crates/tag-core/tests/guide_scripting_details.rs:published_caps_examples_cover_replacement_ascii_folding_and_distinct_sentence_case -->
 
 **Related:** [`$caps`](#caps).
 

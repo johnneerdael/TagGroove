@@ -1,5 +1,7 @@
 # R09 toolbar catalog qualification — 18 October 2026
 
+Current scope update (2026-10-19): C58 now provides explicit keyboard-accessible band order and row placement, separately from this command-catalog checkpoint. Vendor layout/symbol import and native input/accessibility acceptance remain distinct. See the [daily-workflow receipt](daily-workflows-2026-10-19.md). The observations below retain their original checkpoint scope.
+
 This batch exposes useful commands that already have application routes. It
 does not add a second toolbar, new file/source operations, or vendor website
 buttons. The original catalog work started from verified branding commit

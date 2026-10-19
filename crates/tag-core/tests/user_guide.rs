@@ -249,6 +249,45 @@ fn every_regex_text_pattern_replacement_result_table_runs_as_written() {
 }
 
 #[test]
+fn published_regex_replacement_context_tracks_each_global_match() {
+    let lf = REGEX.replace("\r\n", "\n");
+    for page in [&lf, &lf.replace('\n', "\r\n")] {
+        let example = page
+            .split_once("<!-- regex-replacement-context:start -->")
+            .expect("replacement-context example start marker")
+            .1
+            .split_once("<!-- regex-replacement-context:end -->")
+            .expect("replacement-context example end marker")
+            .0;
+        let lines: Vec<_> = example.lines().filter(|line| !line.is_empty()).collect();
+        assert_eq!(lines.len(), 6, "one fenced four-line example");
+        assert_eq!(lines[0], "```text");
+        assert_eq!(lines[5], "```");
+        let input = lines[1].strip_prefix("Input: ").expect("input label");
+        let pattern = lines[2].strip_prefix("Pattern: ").expect("pattern label");
+        let replacement = lines[3]
+            .strip_prefix("Replacement: ")
+            .expect("replacement label");
+        let expected = lines[4].strip_prefix("Result: ").expect("result label");
+        let mut state = ActionState {
+            fields: [("TITLE".into(), vec![input.into()])].into(),
+            context: Fields::new(),
+        };
+        apply_action_spec(
+            &mut state,
+            &ActionSpec::RegexReplace {
+                field: "TITLE".into(),
+                pattern: pattern.into(),
+                replacement: replacement.into(),
+                case_sensitive: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(state.fields["TITLE"], [expected]);
+    }
+}
+
+#[test]
 fn every_copyable_regexp_expression_table_matches_its_result() {
     let mut values = fields();
     let mut count = 0;

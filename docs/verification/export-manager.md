@@ -50,4 +50,6 @@ Structured results are in [export-manager.json](export-manager.json). Raw fixtur
 
 ## Remaining parity requirements
 
-This is not exact Mp3tag certification. Skip-selection-dialog and open-output preferences, the bundled template catalog, discovery of manually added MTE files without import, full original sort/locale/encoding comparisons, audio-only MD5, cuesheets and playlist imports remain open. Windows/Linux native and provider/mobile exports remain unqualified. Output files commit individually, and settings interruption behavior across multiple files remains unqualified. The broader inventory's acceptance statuses did not change.
+This is not exact Mp3tag certification. The original checkpoint above predates later export and playlist work; use the [current export guide](../user-guide/export/index.md) and [uncovered ledger](../PARITY.md) for current capabilities and remaining requirements. Manually copied MTE discovery is implemented. The [snapshot-save follow-up](export-library-snapshot-2026-10-18.md) records the reproduced stale-save defect and its bounded backend fix, including explicit removal and recovery controls.
+
+Full original sort/locale/encoding comparisons and Windows/Linux native and provider/mobile export qualification remain open. Output files commit individually, and settings interruption behavior across multiple files remains unqualified. These local regressions do not change broader acceptance statuses.

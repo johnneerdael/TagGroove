@@ -139,13 +139,27 @@ fn malformed_queries_and_unsupported_regex_never_succeed_silently() {
         "artist IS x)",
         "artist IS \"unfinished",
         "title MATCHES \"(\"",
-        "\"$not_a_function(%title%)\" IS x",
+        "\"$substr(%title%)\" IS x",
+        "\"$upper()\" IS x",
+        "\"$not_a_function(%title%\" IS x",
         "* PRESENT",
         "* IS x",
         "artist MATCH x",
     ] {
         assert!(compile_filter(query).is_err(), "{query}");
     }
+}
+
+#[test]
+fn true_unknown_selector_functions_match_their_evaluated_literal_output() {
+    let f = fields();
+    assert!(matches_filter(
+        "\"$not_a_function(%title%)\" IS \"$not_a_function(Symphony No. 3 (猫))\"",
+        &f,
+    )
+    .unwrap());
+    assert!(!matches_filter("\"$not_a_function(%title%)\" IS x", &f).unwrap());
+    assert!(matches_filter("\"$unknown(x)\" IS \"$unknown(x)\"", &f).unwrap());
 }
 
 #[test]
@@ -195,7 +209,8 @@ fn ordinary_search_preserves_literal_parentheses_and_brackets() {
     assert!(matches_filter("symphony (猫)", &f).unwrap());
     assert!(matches_filter("(猫)", &f).unwrap());
     assert!(!matches_filter("(wrong)", &f).unwrap());
-    assert!(matches_filter("\"symphony (猫)\"", &f).unwrap());
+    assert!(!matches_filter("\"symphony (猫)\"", &f).unwrap());
+    assert!(matches_filter("\"Symphony No. 3 (猫)\"", &f).unwrap());
     assert!(matches_filter("genre HAS electronic AND title HAS (猫)", &f).unwrap());
 }
 
@@ -263,18 +278,30 @@ fn error_messages_identify_the_failed_filter_context() {
     assert!(compile_filter("title MATCHES \"(\"")
         .unwrap_err()
         .contains("Invalid regular expression in MATCHES operand"));
-    assert!(compile_filter("\"$unknown(x)\" IS yes")
+    assert!(compile_filter("\"$substr(x)\" IS yes")
         .unwrap_err()
         .contains("Invalid format string in filter selector"));
     let error = compile_filter("猫 HAS \"unfinished").unwrap_err();
     assert!(error.contains("character 7"), "{error}");
     assert!(error.contains("Close the double quote"), "{error}");
-    // Preserve the current explicit refusal until original mixed-quote semantics
-    // are qualified; never silently turn a fragment into another expression.
-    assert!(compile_filter("hidden \"orchestra\"")
-        .unwrap_err()
-        .contains("complete search string"));
-    assert!(compile_filter("artist HAS hidden \"orchestra\"")
-        .unwrap_err()
-        .contains("complete filter operand"));
+    // Bare embedded quotes are literal; a leading quoted prefix is a phrase.
+    assert!(!matches_filter("hidden \"orchestra\"", &fields()).unwrap());
+    assert!(!matches_filter("artist HAS hidden \"orchestra\"", &fields()).unwrap());
+    assert!(matches_filter("\"hidden\" ignored", &fields()).unwrap());
+}
+
+#[test]
+fn quoted_search_and_has_require_contiguous_text_inside_one_value() {
+    let f = Fields::from([("TITLE".into(), vec!["blue".into(), "sky".into()])]);
+    assert!(matches_filter("blue sky", &f).unwrap());
+    assert!(matches_filter("TITLE HAS blue sky", &f).unwrap());
+    assert!(!matches_filter("\"blue sky\"", &f).unwrap());
+    assert!(!matches_filter("TITLE HAS \"blue sky\"", &f).unwrap());
+    assert!(!matches_filter("\"blue sky\" OR TITLE IS missing", &f).unwrap());
+    let f = Fields::from([("TITLE".into(), vec!["blue sky".into()])]);
+    assert!(matches_filter("\"blue sky\"", &f).unwrap());
+    assert!(matches_filter("TITLE HAS \"blue sky\"", &f).unwrap());
+    let f = Fields::from([("TITLE".into(), vec!["blue \"sky\"".into()])]);
+    assert!(matches_filter("blue \"sky\"", &f).unwrap());
+    assert!(matches_filter("TITLE HAS blue \"sky\"", &f).unwrap());
 }

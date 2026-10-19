@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 const LIMIT: usize = 1_048_576;
+const MTA_BYTE_LIMIT: usize = 4 * LIMIT;
 /// Separates several values of one field in a Format Value result.
 const MULTI_VALUE_SEPARATOR: &str = "\\\\";
 pub const ACTION_CATALOG: [(&str, &str); 18] = [
@@ -37,7 +38,7 @@ pub const ACTION_CATALOG: [(&str, &str); 18] = [
 /// have settings verified on original action files; the settings of the
 /// others follow the same layout (`F` and numbered settings in dialog order)
 /// and are recorded in docs/verification/script-export.md.
-pub const MTA_TYPE_REGISTRY: [(u32, &str); 15] = [
+pub const MTA_TYPE_REGISTRY: [(u32, &str); 18] = [
     (1, "Case Conversion"),
     (2, "Replace"),
     (4, "Replace with Regular Expression"),
@@ -53,6 +54,9 @@ pub const MTA_TYPE_REGISTRY: [(u32, &str); 15] = [
     (14, "Import Text File"),
     (15, "Export"),
     (16, "Split Field by Separator"),
+    (17, "Adjust Cover"),
+    (18, "Set Cover Properties"),
+    (19, "Generate Playlists"),
 ];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -85,9 +89,35 @@ pub enum CoverScaleMode {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CoverResize {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub native_geometry: bool,
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub size_enabled: bool,
     pub pixels: u32,
     pub size_mode: CoverSizeMode,
     pub scale_mode: CoverScaleMode,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+fn default_true() -> bool {
+    true
+}
+fn is_true(value: &bool) -> bool {
+    *value
+}
+impl CoverResize {
+    pub fn native_preflight_skips_adjustment(&self) -> bool {
+        self.native_geometry && self.size_enabled && !(10..=10000).contains(&self.pixels)
+    }
+}
+
+/// Original decoded native options, bounded and re-parsed before export.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MtaSource {
+    pub properties: BTreeMap<String, String>,
 }
 
 /// One variant for every action type listed in the official documentation.
@@ -95,6 +125,8 @@ pub struct CoverResize {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ActionSpec {
     AdjustCover {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mta_source: Option<MtaSource>,
         format: CoverImageFormat,
         quality: u8,
         resize: Option<CoverResize>,
@@ -124,6 +156,8 @@ pub enum ActionSpec {
         template: String,
     },
     GeneratePlaylists {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mta_source: Option<MtaSource>,
         filename_template: String,
         partition_template: String,
     },
@@ -172,6 +206,8 @@ pub enum ActionSpec {
         case_sensitive: bool,
     },
     SetCoverProperties {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mta_source: Option<MtaSource>,
         picture_type: Option<String>,
         description: Option<String>,
         only_picture_type: Option<String>,
@@ -765,6 +801,7 @@ fn decode_codepage_diagnostic(value: &str, codepage: &str) -> Result<String, Err
 }
 
 pub fn validate_action(action: &ActionSpec) -> Result<(), String> {
+    source_projection(action)?;
     match action {
         ActionSpec::UnresolvedMta {
             type_id, reason, ..
@@ -772,8 +809,18 @@ pub fn validate_action(action: &ActionSpec) -> Result<(), String> {
             "Unresolved imported action type {type_id}: {reason}"
         )),
         ActionSpec::AdjustCover {
+            resize: Some(resize),
+            ..
+        } if !resize.native_geometry && !resize.size_enabled => {
+            Err("Disabled cover size requires native geometry".into())
+        }
+        ActionSpec::AdjustCover {
             quality, resize, ..
-        } if *quality > 100 || resize.as_ref().is_some_and(|s| s.pixels == 0) => {
+        } if *quality > 100
+            || resize
+                .as_ref()
+                .is_some_and(|s| !s.native_geometry && s.pixels == 0) =>
+        {
             Err("Cover quality must be 0–100 and resize pixels must be positive".into())
         }
         ActionSpec::Replace { from, .. } if from.is_empty() => {
@@ -1045,11 +1092,22 @@ where
             let mut fields = state.fields.clone();
             for key in metadata_keys(&fields, field).map_err(ErrorCause::owned_text)? {
                 if let Some(values) = fields.get(&key) {
-                    let split = values
+                    let mut split: Vec<String> = values
                         .iter()
+                        .filter(|value| !value.is_empty())
                         .flat_map(|value| value.split(separator).map(|part| part.trim().to_owned()))
                         .collect();
-                    fields.insert(key, split);
+                    // Native publication compares raw piece count, before
+                    // removing empties, with the original value count.
+                    if split.len() == values.len() {
+                        continue;
+                    }
+                    split.retain(|value| !value.is_empty());
+                    if split.is_empty() {
+                        fields.remove(&key);
+                    } else {
+                        fields.insert(key, split);
+                    }
                 }
             }
             state.fields = fields;
@@ -1112,6 +1170,7 @@ where
             }])
         }
         ActionSpec::AdjustCover {
+            mta_source: _,
             format,
             quality,
             resize,
@@ -1121,6 +1180,7 @@ where
             resize: resize.clone(),
         }]),
         ActionSpec::SetCoverProperties {
+            mta_source: _,
             picture_type,
             description,
             only_picture_type,
@@ -1163,6 +1223,7 @@ pub fn execute_groups<H: ActionHost>(
                     partition_template: partition_template.clone(),
                 }),
                 ActionSpec::GeneratePlaylists {
+                    mta_source: _,
                     filename_template,
                     partition_template,
                 } => Some(BatchActionEffect::GeneratePlaylists {
@@ -1462,8 +1523,8 @@ fn mta_value(value: &str) -> Result<String, String> {
     }
     Ok(out)
 }
-/// `.mta` type IDs TagGroove assigns to action types with no known Mp3tag ID.
-/// Mp3tag lists them as unknown actions; TagGroove reads them back.
+/// Legacy TagGroove extension IDs retained for older files and options whose
+/// behavior cannot be expressed in native records. Mp3tag cannot load them.
 pub const MTA_OPENTAG_TYPES: [(u32, &str); 3] = [
     (1001, "Adjust Cover"),
     (1002, "Set Cover Properties"),
@@ -1534,6 +1595,195 @@ fn mta_picture_type(name: &Option<String>) -> Result<String, String> {
         .map(Option::unwrap_or_default)
 }
 
+fn native_integer(value: &str) -> Result<i64, String> {
+    let number = value
+        .parse::<i64>()
+        .map_err(|_| "Unqualified native numeric setting")?;
+    if number.to_string() != value {
+        return Err("Unqualified native numeric spelling".into());
+    }
+    Ok(number)
+}
+fn native_picture_type(value: Option<&String>) -> Result<Option<String>, String> {
+    let value = value.map(String::as_str).unwrap_or("-1");
+    if value == "-1" {
+        return Ok(None);
+    }
+    let number = if value.is_empty() {
+        0
+    } else {
+        native_integer(value)?
+    };
+    if !(0..=20).contains(&number) {
+        return Err("Unknown native picture type".into());
+    }
+    Ok(Some(format!(
+        "{:?}",
+        lofty::picture::PictureType::from_u8(number as u8)
+    )))
+}
+fn numeric_description(value: &str) -> bool {
+    let value = value.trim_start().trim_start_matches(['+', '-']);
+    value.as_bytes().first().is_some_and(u8::is_ascii_digit)
+}
+fn native_mta_shape(record: &MtaRecord, retain_source: bool) -> Result<ActionSpec, String> {
+    let id = record.properties.get("T").map(String::as_str).unwrap_or("");
+    let allowed: &[&str] = match id {
+        "17" => &["T", "1", "2", "3"],
+        "18" => &["T", "F", "1", "2", "3"], // 3 is proven inactive, retained below.
+        "19" => &["T", "F", "1"],
+        _ => return Err("Not a native cover/playlist record".into()),
+    };
+    if record
+        .properties
+        .keys()
+        .any(|key| !allowed.contains(&key.as_str()))
+    {
+        return Err("Unknown native action setting".into());
+    }
+    let size = record
+        .properties
+        .iter()
+        .try_fold(0usize, |size, (key, value)| {
+            size.checked_add(key.len())
+                .and_then(|size| size.checked_add(value.len()))
+        })
+        .ok_or("Native source metadata exceeds the MTA limit")?;
+    if size > MTA_BYTE_LIMIT {
+        return Err("Native source metadata exceeds the MTA limit".into());
+    }
+    let source = retain_source.then(|| MtaSource {
+        properties: record.properties.clone(),
+    });
+    let get = |key: &str| record.properties.get(key);
+    Ok(match id {
+        "17" => {
+            let format = match get("1").map(String::as_str).unwrap_or("0") {
+                "0" | "" => CoverImageFormat::Original,
+                "1" => CoverImageFormat::Jpeg,
+                "2" => CoverImageFormat::Png,
+                _ => return Err("Unknown native cover format".into()),
+            };
+            let packed = get("2").map(String::as_str).unwrap_or("");
+            let resize = if packed.is_empty() {
+                CoverResize {
+                    pixels: 0,
+                    size_mode: CoverSizeMode::Maximum,
+                    scale_mode: CoverScaleMode::Proportional,
+                    size_enabled: true,
+                    native_geometry: true,
+                }
+            } else {
+                let parts: Vec<_> = packed.split('|').collect();
+                if parts.len() != 4 {
+                    return Err("Unqualified native resize tuple".into());
+                }
+                let number = native_integer(parts[0])?;
+                let pixels = u32::try_from(number).map_err(|_| "Invalid native cover size")?;
+                CoverResize {
+                    pixels,
+                    native_geometry: true,
+                    size_mode: match parts[2] {
+                        "max" => CoverSizeMode::Maximum,
+                        "min" => CoverSizeMode::Minimum,
+                        _ => return Err("Unknown native cover size policy".into()),
+                    },
+                    scale_mode: match parts[1] {
+                        "scaleProportionally" => CoverScaleMode::Proportional,
+                        "scaleToSquare" => CoverScaleMode::Square,
+                        "cropToSquare" => CoverScaleMode::CropSquare,
+                        _ => return Err("Unknown native cover shape".into()),
+                    },
+                    size_enabled: match parts[3] {
+                        "enabled" => true,
+                        "disabled" => false,
+                        _ => return Err("Unknown native resize state".into()),
+                    },
+                }
+            };
+            let quality = match get("3").map(String::as_str) {
+                None | Some("") => 80,
+                Some(value) => {
+                    let value = native_integer(value)?;
+                    if (20..=100).contains(&value) {
+                        value as u8
+                    } else {
+                        80
+                    }
+                }
+            };
+            ActionSpec::AdjustCover {
+                format,
+                quality,
+                resize: Some(resize),
+                mta_source: source,
+            }
+        }
+        "18" => {
+            let description = match get("2").map(String::as_str) {
+                None | Some("-1") => None,
+                Some(value) if numeric_description(value) => {
+                    // Canonical nonnegative integers cannot be the signed keep sentinel.
+                    if native_integer(value).is_err() || value.starts_with('-') {
+                        return Err("Unqualified native description sentinel spelling".into());
+                    }
+                    Some(value.into())
+                }
+                Some(value) => Some(value.into()),
+            };
+            ActionSpec::SetCoverProperties {
+                picture_type: native_picture_type(get("1"))?,
+                description,
+                only_picture_type: native_picture_type(get("F"))?,
+                mta_source: source,
+            }
+        }
+        "19" => ActionSpec::GeneratePlaylists {
+            filename_template: get("F").cloned().ok_or("Missing MTA setting F")?,
+            partition_template: get("1").cloned().unwrap_or_default(),
+            mta_source: source,
+        },
+        _ => unreachable!(),
+    })
+}
+fn without_mta_source(action: &ActionSpec) -> ActionSpec {
+    let mut action = action.clone();
+    match &mut action {
+        ActionSpec::AdjustCover { mta_source, .. }
+        | ActionSpec::SetCoverProperties { mta_source, .. }
+        | ActionSpec::GeneratePlaylists { mta_source, .. } => *mta_source = None,
+        _ => {}
+    }
+    action
+}
+fn source_projection(action: &ActionSpec) -> Result<Option<ActionSpec>, String> {
+    let source = match action {
+        ActionSpec::AdjustCover { mta_source, .. }
+        | ActionSpec::SetCoverProperties { mta_source, .. }
+        | ActionSpec::GeneratePlaylists { mta_source, .. } => mta_source,
+        _ => return Ok(None),
+    };
+    let Some(source) = source else {
+        return Ok(None);
+    };
+    let id = match action {
+        ActionSpec::AdjustCover { .. } => "17",
+        ActionSpec::SetCoverProperties { .. } => "18",
+        _ => "19",
+    };
+    if source.properties.get("T").map(String::as_str) != Some(id) {
+        return Err("Native source type does not match its action".into());
+    }
+    native_mta_shape(
+        &MtaRecord {
+            index: 0,
+            properties: source.properties.clone(),
+        },
+        false,
+    )
+    .map(Some)
+}
+
 // Every shape/setting parser failure is a TagGroove-owned guard. Validation is
 // separate because regex/codepage validation also returns foreign diagnostics.
 fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
@@ -1548,6 +1798,7 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
     };
     let field = || settings.required("F");
     let action = match type_id.as_str() {
+        "17" | "18" | "19" => native_mta_shape(record, true)?,
         // Verified on the 3.36.1 action files: mode 1 with its word starts.
         // The other modes follow the documented order of the conversions.
         "1" => {
@@ -1694,6 +1945,8 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
                 None
             } else {
                 Some(CoverResize {
+                    native_geometry: false,
+                    size_enabled: true,
                     pixels,
                     size_mode: match settings.required("4")?.as_str() {
                         "0" => CoverSizeMode::Maximum,
@@ -1709,6 +1962,7 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
                 })
             };
             ActionSpec::AdjustCover {
+                mta_source: None,
                 format,
                 quality,
                 resize,
@@ -1717,6 +1971,7 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
         "1002" => {
             settings.only(&["1", "2", "3"])?;
             ActionSpec::SetCoverProperties {
+                mta_source: None,
                 picture_type: settings.picture_type("1")?,
                 description: settings.optional("2"),
                 only_picture_type: settings.picture_type("3")?,
@@ -1725,6 +1980,7 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
         "1003" => {
             settings.only(&["1"])?;
             ActionSpec::GeneratePlaylists {
+                mta_source: None,
                 filename_template: field()?,
                 partition_template: settings.optional("1").unwrap_or_default(),
             }
@@ -1763,7 +2019,7 @@ pub fn import_mta_diagnostic(
     bytes: &[u8],
     legacy_encoding: Option<&str>,
 ) -> Result<MtaImportReport, String> {
-    if bytes.len() > 4 * LIMIT {
+    if bytes.len() > MTA_BYTE_LIMIT {
         return Err("Action group import limit exceeded".into());
     }
     let (encoding, input) = if bytes.starts_with(&[0xff, 0xfe]) {
@@ -1879,7 +2135,7 @@ pub fn import_mta_diagnostic(
     })
 }
 
-fn mta_escape(value: &str, opaque: bool) -> Result<String, String> {
+fn mta_escape(value: &str, opaque: bool, escape_final_bracket: bool) -> Result<String, String> {
     if !opaque && value.contains(['\r', '\n']) {
         return Err("Line breaks cannot be stored in an .mta setting".into());
     }
@@ -1891,19 +2147,21 @@ fn mta_escape(value: &str, opaque: bool) -> Result<String, String> {
             // Preserve them without assigning executable semantics to the action.
             '\r' => out.push_str("\\x0d"),
             '\n' => out.push_str("\\x0a"),
+            ']' if escape_final_bracket && index + 1 == chars.len() => out.push_str("\\x5d"),
             // A backslash stays literal unless the importer would read it as
             // the start of an escape sequence (including one written below).
             '\\' if chars.get(index + 1).is_some_and(|next| {
                 matches!(next, 'x' | 'u' | '\\' | '\r' | '\n')
-                    || (0x80..=0xffff).contains(&u32::from(*next))
+                    || (!opaque && (0x80..=0xffff).contains(&u32::from(*next)))
+                    || (escape_final_bracket && index + 2 == chars.len() && *next == ']')
             }) =>
             {
                 out.push_str("\\\\")
             }
-            c if u32::from(c) > 0x7f && u32::from(c) <= 0xff => {
+            c if !opaque && u32::from(c) > 0x7f && u32::from(c) <= 0xff => {
                 out.push_str(&format!("\\x{:02x}", u32::from(c)))
             }
-            c if u32::from(c) > 0xff && u32::from(c) <= 0xffff => {
+            c if !opaque && u32::from(c) > 0xff && u32::from(c) <= 0xffff => {
                 out.push_str(&format!("\\u{:04x}", u32::from(c)))
             }
             c => out.push(c),
@@ -1916,6 +2174,267 @@ fn mta_escape(value: &str, opaque: bool) -> Result<String, String> {
 /// opaque values use the existing escape grammar; resolved actions still refuse
 /// line breaks because their original serialized semantics are unqualified.
 pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
+    let text = serialize_mta(group)?;
+    check_mta_export_size(text.len())?;
+    Ok(text)
+}
+
+/// Encode the native host's BOM-marked UTF-16LE wire format within the import
+/// byte budget. UTF-8 and UTF-16 can fit different groups, so validate the actual
+/// output encoding rather than passing through the UTF-8 export budget.
+pub fn export_mta_utf16(group: &ActionGroup) -> Result<Vec<u8>, String> {
+    let text = serialize_mta(group)?;
+    let size = text
+        .encode_utf16()
+        .count()
+        .checked_mul(2)
+        .and_then(|size| size.checked_add(2))
+        .unwrap_or(usize::MAX);
+    check_mta_export_size(size)?;
+    let mut bytes = Vec::with_capacity(size);
+    bytes.extend([0xff, 0xfe]);
+    bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    Ok(bytes)
+}
+
+fn check_mta_export_size(size: usize) -> Result<(), String> {
+    if size > MTA_BYTE_LIMIT {
+        return Err("Action group export exceeds the 4 MiB .mta limit; split the group or shorten its settings.".into());
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MtaExportReport {
+    pub legacy_actions: Vec<String>,
+}
+/// Use the same record selector as export; callers must not guess fallback rules.
+pub fn mta_export_report(group: &ActionGroup) -> Result<MtaExportReport, String> {
+    export_mta_utf16(group)?;
+    let mut legacy_actions = Vec::new();
+    for action in &group.actions {
+        if let Some((_, Some(name))) = cover_playlist_mta(action)? {
+            if !legacy_actions.contains(&name) {
+                legacy_actions.push(name);
+            }
+        }
+    }
+    Ok(MtaExportReport { legacy_actions })
+}
+type MtaExportRecord = (Vec<(String, String)>, Option<String>);
+fn cover_playlist_mta(action: &ActionSpec) -> Result<Option<MtaExportRecord>, String> {
+    let mut map = BTreeMap::new();
+    let mut legacy = None;
+    let source = match action {
+        ActionSpec::AdjustCover { mta_source, .. }
+        | ActionSpec::SetCoverProperties { mta_source, .. }
+        | ActionSpec::GeneratePlaylists { mta_source, .. } => mta_source,
+        _ => return Ok(None),
+    };
+    match action {
+        ActionSpec::AdjustCover {
+            format,
+            quality,
+            resize,
+            ..
+        } => {
+            let representable = *quality >= 20
+                && resize.as_ref().is_none_or(|resize| {
+                    resize.native_geometry
+                        || (resize.size_enabled
+                            && (10..=10000).contains(&resize.pixels)
+                            && resize.scale_mode == CoverScaleMode::Proportional)
+                });
+            let format = match format {
+                CoverImageFormat::Original => "0",
+                CoverImageFormat::Jpeg => "1",
+                CoverImageFormat::Png => "2",
+            };
+            map.insert("1".into(), format.into());
+            if representable {
+                map.insert("T".into(), "17".into());
+                let packed = resize
+                    .as_ref()
+                    .map(|resize| {
+                        format!(
+                            "{}|{}|{}|{}",
+                            resize.pixels,
+                            match resize.scale_mode {
+                                CoverScaleMode::Proportional => "scaleProportionally",
+                                CoverScaleMode::Square => "scaleToSquare",
+                                CoverScaleMode::CropSquare => "cropToSquare",
+                            },
+                            match resize.size_mode {
+                                CoverSizeMode::Maximum => "max",
+                                CoverSizeMode::Minimum => "min",
+                            },
+                            if resize.size_enabled {
+                                "enabled"
+                            } else {
+                                "disabled"
+                            }
+                        )
+                    })
+                    .unwrap_or_else(|| "0|scaleProportionally|max|disabled".into());
+                map.insert("2".into(), packed);
+                map.insert("3".into(), quality.to_string());
+            } else {
+                if resize.as_ref().is_some_and(|resize| {
+                    resize.native_geometry
+                        && (!resize.size_enabled
+                            || resize.native_preflight_skips_adjustment()
+                            || resize.scale_mode != CoverScaleMode::Proportional)
+                }) {
+                    return Err("Native cover geometry with this quality cannot be represented by the legacy MTA schema".into());
+                }
+                map.insert("T".into(), "1001".into());
+                map.insert("2".into(), quality.to_string());
+                if let Some(resize) = resize {
+                    map.insert("3".into(), resize.pixels.to_string());
+                    map.insert(
+                        "4".into(),
+                        match resize.size_mode {
+                            CoverSizeMode::Maximum => "0",
+                            CoverSizeMode::Minimum => "1",
+                        }
+                        .into(),
+                    );
+                    map.insert(
+                        "5".into(),
+                        match resize.scale_mode {
+                            CoverScaleMode::Proportional => "0",
+                            CoverScaleMode::Square => "1",
+                            CoverScaleMode::CropSquare => "2",
+                        }
+                        .into(),
+                    );
+                }
+                legacy = Some("Adjust Cover".into());
+            }
+        }
+        ActionSpec::SetCoverProperties {
+            picture_type,
+            description,
+            only_picture_type,
+            ..
+        } => {
+            let native = description.as_deref().is_none_or(|value| {
+                !numeric_description(value) || native_integer(value).is_ok_and(|number| number >= 0)
+            });
+            map.insert("T".into(), if native { "18" } else { "1002" }.into());
+            let type_value = mta_picture_type(picture_type)?;
+            let filter = mta_picture_type(only_picture_type)?;
+            map.insert(
+                "1".into(),
+                if native && type_value.is_empty() {
+                    "-1".into()
+                } else {
+                    type_value
+                },
+            );
+            if let Some(description) = description {
+                map.insert("2".into(), description.clone());
+            } else if native {
+                map.insert("2".into(), "-1".into());
+            }
+            map.insert(
+                if native { "F" } else { "3" }.into(),
+                if native && filter.is_empty() {
+                    "-1".into()
+                } else {
+                    filter
+                },
+            );
+            if !native {
+                if source
+                    .as_ref()
+                    .is_some_and(|source| source.properties.contains_key("3"))
+                {
+                    return Err("Cannot export a legacy cover-properties filter while retaining native option 3; its meanings conflict".into());
+                }
+                legacy = Some("Set Cover Properties".into());
+            }
+        }
+        ActionSpec::GeneratePlaylists {
+            filename_template,
+            partition_template,
+            ..
+        } => {
+            map.insert("T".into(), "19".into());
+            map.insert("F".into(), filename_template.clone());
+            map.insert("1".into(), partition_template.clone());
+        }
+        _ => unreachable!(),
+    }
+    if legacy.is_none() {
+        if let Some(original) = source_projection(action)? {
+            let source = &source.as_ref().unwrap().properties;
+            if original == without_mta_source(action) {
+                map = source.clone();
+            } else {
+                let keys: &[(&str, bool)] = match (&original, action) {
+                    (
+                        ActionSpec::AdjustCover {
+                            format: a,
+                            quality: b,
+                            resize: c,
+                            ..
+                        },
+                        ActionSpec::AdjustCover {
+                            format: x,
+                            quality: y,
+                            resize: z,
+                            ..
+                        },
+                    ) => &[("1", a == x), ("2", c == z), ("3", b == y)],
+                    (
+                        ActionSpec::SetCoverProperties {
+                            picture_type: a,
+                            description: b,
+                            only_picture_type: c,
+                            ..
+                        },
+                        ActionSpec::SetCoverProperties {
+                            picture_type: x,
+                            description: y,
+                            only_picture_type: z,
+                            ..
+                        },
+                    ) => &[("1", a == x), ("2", b == y), ("F", c == z)],
+                    (
+                        ActionSpec::GeneratePlaylists {
+                            filename_template: a,
+                            partition_template: b,
+                            ..
+                        },
+                        ActionSpec::GeneratePlaylists {
+                            filename_template: x,
+                            partition_template: y,
+                            ..
+                        },
+                    ) => &[("F", a == x), ("1", b == y)],
+                    _ => unreachable!(),
+                };
+                for &(key, unchanged) in keys {
+                    if unchanged {
+                        map.remove(key);
+                        if let Some(value) = source.get(key) {
+                            map.insert(key.into(), value.clone());
+                        }
+                    }
+                }
+                if source.get("T").map(String::as_str) == Some("18") {
+                    if let Some(value) = source.get("3") {
+                        map.insert("3".into(), value.clone());
+                    }
+                }
+            }
+        }
+    }
+    Ok(Some((map.into_iter().collect(), legacy)))
+}
+
+fn serialize_mta(group: &ActionGroup) -> Result<String, String> {
     if group.actions.is_empty() {
         return Err("Action group contains no actions".into());
     }
@@ -2053,71 +2572,9 @@ pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
                 }
                 settings
             }
-            ActionSpec::AdjustCover {
-                format,
-                quality,
-                resize,
-            } => {
-                let mut settings = vec![
-                    pair("T", "1001".into()),
-                    pair(
-                        "1",
-                        match format {
-                            CoverImageFormat::Original => "0",
-                            CoverImageFormat::Jpeg => "1",
-                            CoverImageFormat::Png => "2",
-                        }
-                        .into(),
-                    ),
-                    pair("2", quality.to_string()),
-                ];
-                if let Some(resize) = resize {
-                    settings.extend([
-                        pair("3", resize.pixels.to_string()),
-                        pair(
-                            "4",
-                            match resize.size_mode {
-                                CoverSizeMode::Maximum => "0",
-                                CoverSizeMode::Minimum => "1",
-                            }
-                            .into(),
-                        ),
-                        pair(
-                            "5",
-                            match resize.scale_mode {
-                                CoverScaleMode::Proportional => "0",
-                                CoverScaleMode::Square => "1",
-                                CoverScaleMode::CropSquare => "2",
-                            }
-                            .into(),
-                        ),
-                    ]);
-                }
-                settings
-            }
-            ActionSpec::SetCoverProperties {
-                picture_type,
-                description,
-                only_picture_type,
-            } => {
-                let mut settings = vec![
-                    pair("T", "1002".into()),
-                    pair("1", mta_picture_type(picture_type)?),
-                ];
-                if let Some(description) = description {
-                    settings.push(pair("2", description.clone()));
-                }
-                settings.push(pair("3", mta_picture_type(only_picture_type)?));
-                settings
-            }
-            ActionSpec::GeneratePlaylists {
-                filename_template,
-                partition_template,
-            } => vec![
-                pair("T", "1003".into()),
-                pair("F", filename_template.clone()),
-                pair("1", partition_template.clone()),
-            ],
+            ActionSpec::AdjustCover { .. }
+            | ActionSpec::SetCoverProperties { .. }
+            | ActionSpec::GeneratePlaylists { .. } => cover_playlist_mta(action)?.unwrap().0,
             ActionSpec::UnresolvedMta { properties, .. } => {
                 let mut ordered: Vec<(String, String)> = ["T", "F"]
                     .iter()
@@ -2135,7 +2592,13 @@ pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
         out.push_str(&format!("[#{index}]\r\n"));
         let opaque = matches!(action, ActionSpec::UnresolvedMta { .. });
         for (key, value) in settings {
-            out.push_str(&format!("{key}={}\r\n", mta_escape(&value, opaque)?));
+            // A decoded closing bracket must not turn a preserved property into
+            // a section header. Keep both the key and decoded value unchanged.
+            let bracket = opaque && key.starts_with("[#") && value.ends_with(']');
+            out.push_str(&format!(
+                "{key}={}\r\n",
+                mta_escape(&value, opaque, bracket)?
+            ));
         }
         out.push_str("\r\n");
     }
@@ -2886,6 +3349,7 @@ mod tests {
                         template: "updated".into(),
                     },
                     ActionSpec::GeneratePlaylists {
+                        mta_source: None,
                         filename_template: "list.m3u8".into(),
                         partition_template: "%album%".into(),
                     },
@@ -2961,6 +3425,7 @@ mod tests {
         let effect = apply_action_spec(
             &mut state,
             &ActionSpec::SetCoverProperties {
+                mta_source: None,
                 picture_type: None,
                 description: Some(String::new()),
                 only_picture_type: Some("CoverFront".into()),
@@ -3151,9 +3616,12 @@ mod tests {
     #[test]
     fn action_specs_serde_roundtrip_without_silent_unknown_settings() {
         let action = ActionSpec::AdjustCover {
+            mta_source: None,
             format: CoverImageFormat::Jpeg,
             quality: 90,
             resize: Some(CoverResize {
+                native_geometry: false,
+                size_enabled: true,
                 pixels: 600,
                 size_mode: CoverSizeMode::Maximum,
                 scale_mode: CoverScaleMode::CropSquare,
@@ -3212,6 +3680,7 @@ mod tests {
                 export_duplicates: false,
             },
             ActionSpec::SetCoverProperties {
+                mta_source: None,
                 picture_type: None,
                 description: None,
                 only_picture_type: Some("Poster".into()),
@@ -3220,6 +3689,7 @@ mod tests {
             assert!(validate_action(&action).unwrap_err().contains("Poster"));
         }
         assert!(validate_action(&ActionSpec::SetCoverProperties {
+            mta_source: None,
             picture_type: Some("CoverFront".into()),
             description: Some(String::new()),
             only_picture_type: Some("Other".into()),
@@ -3358,30 +3828,37 @@ mod tests {
                 partition_template: None,
             },
             ActionSpec::AdjustCover {
+                mta_source: None,
                 format: CoverImageFormat::Jpeg,
                 quality: 85,
                 resize: Some(CoverResize {
+                    native_geometry: false,
+                    size_enabled: true,
                     pixels: 500,
                     size_mode: CoverSizeMode::Minimum,
                     scale_mode: CoverScaleMode::CropSquare,
                 }),
             },
             ActionSpec::AdjustCover {
+                mta_source: None,
                 format: CoverImageFormat::Original,
                 quality: 90,
                 resize: None,
             },
             ActionSpec::SetCoverProperties {
+                mta_source: None,
                 picture_type: Some("CoverFront".into()),
                 description: Some(String::new()),
                 only_picture_type: Some("Other".into()),
             },
             ActionSpec::SetCoverProperties {
+                mta_source: None,
                 picture_type: None,
                 description: None,
                 only_picture_type: None,
             },
             ActionSpec::GeneratePlaylists {
+                mta_source: None,
                 filename_template: "%album%.m3u".into(),
                 partition_template: "%_folderpath%".into(),
             },
@@ -3397,7 +3874,26 @@ mod tests {
         let imported = import_mta("Every type".into(), text.as_bytes(), None).unwrap();
         assert!(imported.issues.is_empty(), "{:?}", imported.issues);
         assert!(imported.group.enabled);
-        assert_eq!(imported.group.actions, actions);
+        let interpreted: Vec<_> = imported
+            .group
+            .actions
+            .iter()
+            .map(|action| {
+                let mut action = without_mta_source(action);
+                if let ActionSpec::AdjustCover { resize, .. } = &mut action {
+                    if resize.as_ref().is_some_and(|resize| {
+                        resize.native_geometry
+                            && !resize.size_enabled
+                            && resize.scale_mode == CoverScaleMode::Proportional
+                    }) {
+                        *resize = None;
+                    }
+                }
+                action
+            })
+            .collect();
+        assert_eq!(interpreted, actions);
+        assert_eq!(export_mta(&imported.group).unwrap(), text);
     }
 
     #[test]

@@ -1,0 +1,17 @@
+{
+  "kind": "independent synthetic PCM carrier remuxed without audio re-encoding",
+  "input": "tone.flac",
+  "input_sha256": "7e6aa7216d9a55452f7ad5bc6ff25982563ca3c180eb1a63d67edf7000701a6e",
+  "output": "tone.mka",
+  "output_sha256": "10bae52aded1f4e266a80fb19e6fa96a59e970286dd899346ace9e712022b6b7",
+  "output_bytes": 2408,
+  "ffmpeg_binary": "/opt/homebrew/bin/ffmpeg",
+  "ffmpeg_binary_sha256": "2be8e0caabc6ce733a628d1523f43235702d714826df3408e04e09b2a079b7a3",
+  "ffmpeg_version": "ffmpeg 9.0.2 (Homebrew9.0.2_1,Appleclang17.0.0)",
+  "command": "ffmpeg -nostdin -v error -i crates/tag-core/tests/fixtures/save-corpus/tone.flac -map 0:a:0 -c:a copy -map_metadata -1 -metadata title=IndependentSegmentTitle -metadata artist=IndependentArtist -metadata album=IndependentAlbum -f matroska crates/tag-core/tests/fixtures/save-corpus/tone.mka",
+  "packet_count": 4,
+  "concatenated_flac_frames_sha256": "797defa25ed4212d43826037e0a36b8fc6979ba54ebb28f74cf2351f8bfd8645",
+  "encoded_flac_frames_identical": true,
+  "transforms_in_tests": "Only independent EBML metadata placement/index controls; known-sized Cluster and encoded packet payloads retained.",
+  "qualification": "Local backend/filesystem regression carrier only; no original-writer, nativeGUI,Windows,provider or playback qualification."
+}

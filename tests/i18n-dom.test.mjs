@@ -1,3 +1,4 @@
+import {loadProductionModule} from './helpers/load-production-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -11,7 +12,7 @@ const moduleUrl=async(file,replacements={})=>{
   for(const [from,to] of Object.entries(replacements))js=js.replace(from,to);
   return `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 };
-const load=async file=>import(await moduleUrl(file));
+const load=async file=>['tag-panel.ts','cell-editor.ts'].includes(file)?loadProductionModule(file):import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
 const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle,parseExtensions}=await load('options-ui.ts');
 const {ColumnUI,defaultLayout,normalizeLayout:normalizeColumns,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI,panelKey}=await load('action-ui.ts');
@@ -20,11 +21,12 @@ const {TagPanel,defaultLayout:defaultPanelLayout,defaultSettings:defaultPanelSet
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
 const {PICTURE_TYPES}=await load('cover-model.ts');
 const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
-const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import './extended-tags.css';":'',"'./tag-edits'":JSON.stringify(await moduleUrl('tag-edits.ts')),"'./row-context-menu'":JSON.stringify(await moduleUrl('row-context-menu.ts'))}));
+const {ExtendedTags}=await loadProductionModule('extended-tags.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS}=await load('toolbar.ts');
 const {copyAsTextDialog,UTILS}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
+const {ConfigurationTransferUI,SavedConfigurationWrites}=await load('configuration-transfer.ts');
 const {FileOpsUI,nameList,defaultDirectoryState,startupChoice}=await load('file-ops.ts');
 const {copiedMessage,pastePlan,copyTags}=await load('tag-clipboard.ts');
 const {cleanupText,libraryOptionsPage}=await load('library.ts');
@@ -83,7 +85,14 @@ function mainMessage(call,needle,index,values){
   const js=ts.transpileModule(`return ${expression.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   return new Function(...Object.keys(values),js)(...Object.values(values));
 }
-const configurationMessage=values=>mainMessage('ask','TagGroove reloads its window',0,values);
+async function configurationReview(p,path){
+  const calls=[];
+  const ui=new ConfigurationTransferUI({pickLoad:async()=>path,flush:async()=>{},capture:()=>({version:1,preferences:{},workspace:null}),inspectWorkspace:async()=>[],invoke:async(command,args)=>{calls.push([command,args]);assert.equal(command,'configuration_transfer_preview');return{token:'review',version:2,source_hash:'fixture',files:['options.json'],export_assets:[],preference_keys:[],preferences_available:false,workspace:null,workspace_available:true,unavailable:[],warnings:[],replaces_snapshot:false};},fail:error=>{throw error;}});
+  const done=ui.load();
+  for(let i=0;i<10&&!p.body.querySelector('.configuration-transfer-dialog');i++)await Promise.resolve();
+  const dialog=p.body.querySelector('.configuration-transfer-dialog');assert.ok(dialog);
+  return{dialog,done,calls};
+}
 const removalMessage=(count,tags)=>mainMessage('messages.confirm','removeTagParts',1,{removeTagParts,selected:{size:count},optionsUI:{settings:{tags}}});
 function page(){
   const window=new Window();
@@ -503,8 +512,8 @@ test('the production Language page exposes its folder action only after a native
     try{
       const languagePage=rendererVariable(parsed,'languagePage',{desktop,ENGLISH:english,languageOptionsPage,onLanguageChange:()=>()=>{},invoke:async(command,args)=>{calls.push([command,args]);}});
       if(family&&desktop){
-        const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},optionsReady:Promise.resolve(),profileWorkspaceReady:Promise.resolve(false),fileOps:{initialize:async()=>{}},run:async()=>{}};
-        await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false,directoriesReady=Promise.resolve();${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
+        const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},refreshHistory:async()=>{},optionsReady:Promise.resolve(),profileWorkspaceReady:Promise.resolve(false),coordinateConfigurationLaunches:job=>job(),restoreOrdinaryWorkspace:async()=>false,rememberOrdinaryWorkspace:()=>{},fileOps:{initialize:async()=>{}},run:async()=>{}};
+        await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false,directoriesReady=Promise.resolve(),ordinaryWorkspaceReady=false,errors=[];${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
       }
       p.body.innerHTML=languagePage.controls.map(controlMarkup).join('');p.translate('de');
       const button=p.body.querySelector('[data-option-button="open-languages-folder"]'),supported=desktop&&family==='desktop';
@@ -881,8 +890,14 @@ test('actual playlist expansion retains independently indexed diagnostics while 
   const cases=batchDiagnosticCases.filter(item=>item.diagnostic.kind==='playlist_line');
   assert.ok(cases.length>=2);
   const calls=[],replies=cases.slice(0,2).map((item,index)=>({files:[`/Music/track-${index}.wav`],errors:[{path:`/Music/Help; Title-${index}.m3u`,error:item.source}],error_diagnostics:[{index:0,diagnostic:item.diagnostic}]}));
-  const ui=new PlaylistUI({invoke:async(command,args)=>{assert.equal(command,'read_playlist');calls.push(args.path);return normalizeBatchDiagnostics(replies[calls.length-1],true);}});
-  const expanded=await ui.expand(['/Music/first.m3u','/Music/ordinary.wav','/Music/second.cue']);
+  const roots=['/Music/first.m3u','/Music/ordinary.wav','/Music/second.cue'],filesystemKinds=new Map(roots.map(path=>[path,'file'])),commands=[];
+  const ui=new PlaylistUI({invoke:async(command,args)=>{
+    commands.push(command);
+    if(command==='classify_source_paths'){assert.deepEqual(args.paths,roots);return args.paths.map(path=>{assert.ok(filesystemKinds.has(path));return filesystemKinds.get(path);});}
+    assert.equal(command,'read_playlist');calls.push(args.path);return normalizeBatchDiagnostics(replies[calls.length-1],true);
+  }});
+  const expanded=await ui.expand(roots);
+  assert.deepEqual(commands,['classify_source_paths','read_playlist','read_playlist']);assert.deepEqual(expanded.rootKinds,['file','file','file']);
   assert.deepEqual(expanded.paths,['/Music/track-0.wav','/Music/ordinary.wav','/Music/track-1.wav']);
   assert.deepEqual(calls,['/Music/first.m3u','/Music/second.cue']);
   assert.equal(expanded.playlist,'/Music/second.cue');
@@ -893,12 +908,13 @@ test('actual playlist expansion retains independently indexed diagnostics while 
   }
 });
 test('actual invoke normalizes only covered command replies before callers merge errors in both performance paths',async()=>{
-  const fn=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='invoke'),choice=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='DIAGNOSTIC_COMMANDS');
-  const js=ts.transpileModule(`const ${choice.getText(parsed)};${fn.getText(parsed)};return invoke;`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const functions=['invoke','invokeUntracked'].map(name=>parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name).getText(parsed)).join('\n'),choice=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='DIAGNOSTIC_COMMANDS');
+  const saved=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='savedConfigurationCommands');
+  const js=ts.transpileModule(`const ${choice.getText(parsed)};const ${saved.getText(parsed)};const configurationWrites=new SavedConfigurationWrites();${functions};return invoke;`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const fixture=batchDiagnosticCases[0],row={path:'Help',error:fixture.source};
   for(const measured of [false,true])for(const metadata of [undefined,[],[{index:0,diagnostic:fixture.diagnostic}],null,[{index:2,diagnostic:fixture.diagnostic}]]){
     const raw={entries:[],errors:[row],...(metadata===undefined?{}:{error_diagnostics:metadata})},records=[];
-    const invoke=new Function('normalizeBatchDiagnostics','coreInvoke','perfSink','performance',js)(normalizeBatchDiagnostics,async()=>raw,()=>measured?records:undefined,performance);
+    const invoke=new Function('normalizeBatchDiagnostics','coreInvoke','perfSink','performance','SavedConfigurationWrites',js)(normalizeBatchDiagnostics,async()=>raw,()=>measured?records:undefined,performance,SavedConfigurationWrites);
     const shown=await invoke('execute_action_groups');
     assert.equal(shown.errors[0].diagnostic!==undefined,Array.isArray(metadata)&&metadata.length===1&&metadata[0].index===0);
     assert.equal(shown.errors[0].diagnosticRaw===true,metadata===undefined||metadata===null||metadata?.[0]?.index===2);
@@ -1340,7 +1356,7 @@ test('the real cell-editor host preserves custom column labels and translates de
     try{
       const t=new Translator(locale,catalog);setColumnNameTranslation(text=>t.translate(text));
       p.body.innerHTML=`<div class="table-wrap"><table><thead><tr>${headerMarkup([column],[])}</tr></thead><tbody><tr><td data-col="${column.id}"></td></tr></tbody></table></div>`;
-      editor=rendererVariable(parsed,'cellEditor',{CellEditor,commitCell:()=>path,revealRow:()=>p.body.querySelector('tbody tr'),CSS:p.window.CSS,entries:new Map([[path,{filename:'Help.mp3'}]]),editKey,columnLayout:{columns:[column]},columnName,field:()=>raw,anchor:undefined,paths:()=>[],selected:new Set()});
+      editor=rendererVariable(parsed,'cellEditor',{CellEditor,commitCell:()=>path,revealRow:()=>p.body.querySelector('tbody tr'),CSS:p.window.CSS,entries:new Map([[path,{filename:'Help.mp3'}]]),editKey,columnLayout:{columns:[column]},columnName,field:()=>raw,anchor:undefined,paths:()=>[],selected:new Set(),generalPrefs:()=>({autocomplete:true}),busy:false});
       assert.equal(editor.start({path,column:column.id}),true);p.translate(locale,catalog);
       const input=p.body.querySelector('.cell-editor'),shown=column.id==='title'?t.t('Title'):column.name;
       assert.equal(p.body.querySelector('[data-sort] > span').textContent,shown);
@@ -1378,6 +1394,43 @@ test('source dialogs keep authored accessible names through search and review wh
       assert.equal(dialog.querySelector('header').textContent,`${expected}: Help – Title`);assert.equal(dialog.querySelector('#ts-back').textContent,t.t('Back'));
       dialog.querySelector('#ts-back').click();p.translateTree(dialog);assert.equal(accessibleName(),expected);assert.equal(dialog.querySelector('header').textContent,expected);
       p.translate('en');assert.equal(accessibleName(),name);dialog.close();
+    }finally{p.close();}
+  }
+});
+test('web-source full-cover action stays separate from thumbnail, index preview and parser Next',async()=>{
+  const p=page();try{
+    const calls=[],url='https://source.example/album/7',thumb='https://source.example/thumb.jpg',full='https://source.example/full.jpg',preview='https://source.example/release-page';
+    const ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async()=>{throw new Error('preview must not apply tags');},invoke:async(command,args)=>{
+      calls.push([command,args]);
+      if(command==='web_source_search')return{direct:false,columns:['Title'],results:[{url,cover:thumb,full_cover:full,preview,values:['Release']}]};
+      if(command==='tag_source_image')return'data:image/png;base64,AA==';
+      if(command==='tag_source_open_page')return;
+      if(command==='web_source_release')return{provider:'web',id:'7',url,artist:'Artist',title:'Release',fields:{},tracks:[],covers:[],more_covers:false};
+      throw new Error(command);
+    }});
+    await ui.open('web',{web:{id:'fixture.src',name:'Fixture',search_by:[]}});
+    const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await p.window.happyDOM.waitUntilComplete();
+    const fullButton=dialog.querySelector('.ts-full-cover');assert.ok(fullButton);assert.equal(fullButton.textContent,'Full cover');
+    assert.deepEqual(calls.filter(([command])=>command==='tag_source_image').map(([,args])=>args.url),[thumb]);
+    assert.equal(calls.filter(([command])=>command==='tag_source_open_page'||command==='web_source_release').length,0);
+    fullButton.click();await p.window.happyDOM.waitUntilComplete();
+    dialog.querySelector('.ts-preview:not(.ts-full-cover)').click();await p.window.happyDOM.waitUntilComplete();
+    assert.deepEqual(calls.filter(([command])=>command==='tag_source_open_page').map(([,args])=>args.url),[full,preview]);
+    dialog.querySelector('#ts-next').click();await p.window.happyDOM.waitUntilComplete();
+    assert.deepEqual(calls.filter(([command])=>command==='web_source_release').map(([,args])=>args.url),[url]);
+  }finally{p.close();}
+});
+test('web-source missing or invalid full-cover addresses leave the action hidden',async()=>{
+  for(const full_cover of [undefined,null,'','javascript:alert(1)','https://user:password@source.example/full.jpg','file:///tmp/full.jpg']){
+    const p=page();try{
+      const ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',invoke:async command=>{
+        if(command==='web_source_search')return{direct:false,columns:['Title'],results:[{url:'https://source.example/album/7',cover:null,full_cover,preview:null,values:['Release']}]};
+        throw new Error(command);
+      }});
+      await ui.open('web',{web:{id:'fixture.src',name:'Fixture',search_by:[]}});
+      const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await p.window.happyDOM.waitUntilComplete();
+      assert.equal(dialog.querySelector('.ts-full-cover'),null);
+      assert.equal(dialog.querySelector('#ts-next').disabled,false);
     }finally{p.close();}
   }
 });
@@ -1429,7 +1482,7 @@ test('web-source result headers and search labels remain authored while applicat
         assert.equal(p.body.querySelector('#ts-more').textContent,t.t('More results'));
       }
       for(const web of [false,true]){
-        const chosen=rendererVariable(tagSourceParsed,'chosenMarkup',{results,chosen:0,web,provider:'musicbrainz',freedb:false,html:esc,preview:()=>'<button class="ts-preview">Preview</button>'});
+        const chosen=rendererVariable(tagSourceParsed,'chosenMarkup',{results,chosen:0,web,webRows:[],provider:'musicbrainz',freedb:false,html:esc,preview:()=>'<button class="ts-preview">Preview</button>',fullCoverPreview:()=>''});
         p.body.innerHTML=chosen();p.translate(locale,catalog);
         assert.equal(p.body.querySelector('.ts-url > span[translate="no"]').textContent,'Help');
         assert.equal(p.body.querySelector('.ts-preview').textContent,t.t('Preview'));
@@ -1530,18 +1583,17 @@ test('native Remove Tag translates empty settings and conjunctions while preserv
   }
 });
 test('structured confirmations translate source parts once through Messages and the native ask wrapper',async()=>{
-  const first='Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with {path}?';
-  const reload='TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.';
-  const translator=new Translator('en',{[first]:'Save tags',[reload]:'Save tags','Save tags':'Write tags','Save tags Save tags':'Incorrect second translation',
+  const translator=new Translator('en',{'Save tags':'Write tags',
     'Remove tags from {count} selected files?':'Save tags','MP3, TTA: {kinds}':'Save tags','APE, MPC, WavPack, TAK, OptimFROG: {kinds}':'Save tags','Other formats: all tags':'Save tags',
-    'Save tags Save tags Save tags Save tags':'Incorrect second translation',Yes:'Save tags',No:'Keep tags','Load configuration':'Save tags','Remove tag':'Save tags'});
+    'Save tags Save tags Save tags Save tags':'Incorrect second translation',Yes:'Save tags',No:'Keep tags','Remove tag':'Save tags'});
   const calls=[],nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
   const js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const ask=new Function('dialog','t','translate','translationActive',`${js}\nreturn ask;`)({ask:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
-  await ask(configurationMessage({translate:text=>translator.translate(text),basename:path=>path,path:'Help  Title.json',drafts:{size:0}}),'Load configuration');
-  assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags');
+  const tags={mpeg:{remove_id3v1:true},ape:{remove_ape:true}};
+  await ask(removalMessage(2,tags),'Remove tag');
+  assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags\nSave tags\nSave tags');
   assert.deepEqual(calls.at(-1)[1],{title:'Save tags',okLabel:'Save tags',cancelLabel:'Keep tags'});
-  const messages=new Messages({values:()=>({}),ask:(text,title)=>ask(text,title)}),tags={mpeg:{remove_id3v1:true},ape:{remove_ape:true}};
+  const messages=new Messages({values:()=>({}),ask:(text,title)=>ask(text,title)});
   await messages.confirm('confirm_remove_tags',removalMessage(2,tags),'Remove tag');
   assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags\nSave tags\nSave tags');
 });
@@ -1674,15 +1726,18 @@ for(const locale of ['de','nl']){
     assert.ok(removal.includes(`${newline}${newline}MP3, TTA: ID3v1${newline}APE, MPC, WavPack, TAK, OptimFROG: APE${newline}`),removal);
     assert.notEqual(removal.split(newline)[0],'Remove tags from 2 selected files?');
     assert.notEqual(removal.split(newline).at(-1),'Other formats: all tags');
-    for(const size of [0,1,2]){
-      const filename=`Help  ${newline}Title.json`;
-      const prompt=configurationMessage({basename:path=>path,path:filename,drafts:{size}});
-      await ask({...prompt,separator:newline+newline},'Load configuration');
-      const configuration=calls.at(-1)[0];
-      assert.ok(configuration.includes(filename),configuration);
-      assert.ok(configuration.includes(`${newline}${newline}${translator.t('TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.')}`),configuration);
-      assert.notEqual(configuration.split(newline)[0].startsWith('Replace the current options'),true);
-    }
+    const p=page();try{
+      const filename=`Help  ${newline}Title.json`,{dialog,done,calls:reviewCalls}=await configurationReview(p,filename);
+      const t=p.translate(locale);
+      assert.equal(dialog.querySelector('p[translate="no"]').textContent,filename);
+      assert.equal(dialog.querySelector('header').textContent,t.t('Review saved configuration'));
+      const paragraphs=[...dialog.querySelectorAll('.dialog-content > p')].map(node=>node.textContent);
+      assert.ok(paragraphs.includes(t.t('Restore saved configuration and local workspace references only. Unsaved audio, artwork and action-editor changes are not included. No audio tags are saved by this operation.')));
+      assert.ok(paragraphs.includes(t.t('Unselected components and the current file list are preserved. Restoring a selected empty workspace clears the list.')));
+      assert.equal(dialog.querySelector('[data-apply]').textContent,t.t('Replace selected configuration'));
+      dialog.querySelector('[data-cancel]').click();await done;
+      assert.deepEqual(reviewCalls.map(([command])=>command),['configuration_transfer_preview'],'cancelling review never applies configuration');
+    }finally{p.close();}
   });
   test(`${locale}: generated copy, playlist and tag-to-tag previews retain data and translate their controls`,async()=>{
     const p=page();
@@ -2042,10 +2097,10 @@ for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['wa
   let active=p.translate(locale,catalog);
   const actions=[{type:'adjust_cover'},{type:'set_cover_properties'},{type:'generate_playlists'}].slice(0,count);
   const library={groups:[{name,enabled:true,actions}],presets:[]};
-  const invoke=async(command,args)=>{calls.push({command,args:structuredClone(args)});if(command==='load_action_library')return structuredClone(library);if(command==='export_action_group')return;throw new Error(command);};
+  const invoke=async(command,args)=>{calls.push({command,args:structuredClone(args)});if(command==='load_action_library')return structuredClone(library);if(command==='action_group_export_report')return{legacy_actions:['Adjust Cover','Set Cover Properties','Generate Playlists'].slice(0,count)};if(command==='export_action_group')return;throw new Error(command);};
   const host=rendererVariable(parsed,'actionUI',{ActionUI:class{constructor(host){return host;}},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},translateNow:p.translateTree,executeGroups:async()=>assert.fail('Export does not execute actions'),invoke,open:async()=>null,save:async()=>path,enabled:()=>true,operationReason:()=>'',selected:new Set(['/Music/Help.wav']),paths:()=>['/Music/Help.wav'],merged:()=>({TITLE:['Title']}),entries:new Map(),render:()=>{}});
   try{
-    const ui=new ActionUI(host);await ui.groupsDialog();const dialog=p.body.querySelector('.action-groups-dialog');
+    const ui=new ActionUI(host);await ui.groupsDialog();await Promise.resolve();const dialog=p.body.querySelector('.action-groups-dialog');
     if(phase==='status'){dialog.querySelector('[data-command="export"]').click();for(let i=0;i<6;i++)await new Promise(resolve=>setTimeout(resolve,0));}
     const check=()=>{
       p.translateTree(dialog);

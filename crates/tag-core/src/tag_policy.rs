@@ -8,6 +8,7 @@ use lofty::id3::{
     v1::{Id3v1Tag, GENRES},
     v2::Id3v2Version,
 };
+use std::io::Write;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Policy {
@@ -67,12 +68,31 @@ pub(super) fn removed_kinds(
             "No tag types are selected under Options → Tags → {page} → Remove"
         ));
     }
-    Ok(selected
-        .into_iter()
-        .zip([TagType::Id3v1, TagType::Id3v2, TagType::Ape])
-        .filter(|(enabled, kind)| *enabled && file.tag(*kind).is_some())
-        .map(|(_, kind)| kind)
-        .collect())
+    // Remove APE while a genuine V1 still shields any TAG-shaped APE item.
+    Ok([
+        (selected[2], TagType::Ape),
+        (selected[1], TagType::Id3v2),
+        (selected[0], TagType::Id3v1),
+    ]
+    .into_iter()
+    .filter(|(enabled, kind)| *enabled && file.tag(*kind).is_some())
+    .map(|(_, kind)| kind)
+    .collect())
+}
+
+/// A recognized MPEG orphan is physically removable without inventing V1 inventory.
+pub(super) fn dependent_v1_removal(
+    path: &Path,
+    file: &TaggedFile,
+    selected: bool,
+) -> Result<bool, String> {
+    if !selected || file.file_type() != FileType::Mpeg {
+        return Ok(false);
+    }
+    let mut reader = fs::File::open(path).map_err(|e| e.to_string())?;
+    crate::lyrics3::detect(&mut reader)
+        .map(|range| range.is_some())
+        .map_err(|e| e.to_string())
 }
 
 /// Options that read exactly one tag kind, used to verify what was written.
@@ -185,17 +205,65 @@ fn id3v1_from(fields: &Fields) -> Id3v1Tag {
     tag
 }
 
-/// Write `change` to every enabled tag kind and strip the kinds selected for
-/// removal. New kinds receive all displayed values and artwork. Returns the
-/// kind used to verify the result (the highest-priority written kind).
+/// Exact written-kind verification intent, separate from normal read priority.
+#[derive(Clone, Copy)]
+pub(super) struct Written {
+    kind: TagType,
+    /// Explicit whole-kind removal of a known-empty supplied MPEG model.
+    /// Order: ID3v1, ID3v2, APE. Ordinary writes require normal readback.
+    absent: [bool; 3],
+}
+
+/// Fields and pictures do not describe all records in the displayed source.
+/// Concrete APE binary/locator items and opaque or special ID3 records must
+/// survive a field clear. The latter guard is deliberately conservative: their
+/// mapping into the original application's binary collection is not qualified.
+/// Hidden target records do not participate in the supplied model's emptiness.
+fn source_has_preserved_records(displayed: Option<&Tag>, native: &NativeTags) -> bool {
+    match displayed.map(Tag::tag_type) {
+        None | Some(TagType::Id3v1) => false,
+        Some(TagType::Ape) => native.ape.as_ref().is_none_or(|tag| {
+            tag.into_iter().any(|item| match item.value() {
+                ItemValue::Binary(data) => {
+                    !item.key().starts_with("Cover Art (")
+                        || Picture::from_ape_bytes(item.key(), data).is_err()
+                }
+                ItemValue::Locator(_) => true,
+                ItemValue::Text(_) => false,
+            })
+        }),
+        Some(TagType::Id3v2) => {
+            !native.id3_placeholders.is_empty()
+                || native.id3.as_ref().is_none_or(|tag| {
+                    tag.into_iter().any(|frame| {
+                        optimize::unsupported_id3_frame(frame)
+                            || frame.flags() != Default::default()
+                            || matches!(
+                                frame,
+                                Frame::Binary(_)
+                                    | Frame::KeyValue(_)
+                                    | Frame::UniqueFileIdentifier(_)
+                                    | Frame::Chapter(_)
+                                    | Frame::TableOfContents(_)
+                            )
+                    })
+                })
+        }
+        Some(_) => true,
+    }
+}
+
+/// Write enabled kinds. MPEG retains unwritten kinds; APE-family policy is unchanged.
 pub(super) fn write(
     staging: &mut fs::File,
     file: &TaggedFile,
     rules: &[UserFieldMapping],
     options: &TagOptions,
     change: Change<'_>,
-) -> Result<TagType, String> {
-    write_diagnostic(staging, file, rules, options, change).map_err(|error| error.to_string())
+    effects: &mut crate::lyrics3::Effects,
+) -> Result<Written, String> {
+    write_diagnostic(staging, file, rules, options, change, effects)
+        .map_err(|error| error.to_string())
 }
 
 pub(super) fn write_diagnostic(
@@ -204,7 +272,8 @@ pub(super) fn write_diagnostic(
     rules: &[UserFieldMapping],
     options: &TagOptions,
     change: Change<'_>,
-) -> Result<TagType, ErrorCause> {
+    effects: &mut crate::lyrics3::Effects,
+) -> Result<Written, ErrorCause> {
     let file_type = file.file_type();
     let kind = policy(file_type)
         .ok_or_else(|| ErrorCause::owned("This format has no configurable tag policy"))?;
@@ -217,7 +286,7 @@ pub(super) fn write_diagnostic(
     let mut pictures = displayed
         .map(|tag| tag.pictures().to_vec())
         .unwrap_or_default();
-    let (mut updates, covers_changed) = match &change {
+    let (updates, covers_changed) = match &change {
         Change::Fields(updates) | Change::RawLyricsFields(updates) => {
             for (name, values) in updates.iter() {
                 full.retain(|key, _| !key.eq_ignore_ascii_case(name));
@@ -240,11 +309,13 @@ pub(super) fn write_diagnostic(
                 && (!(o.id3v2_only_if_needed && o.write_id3v1)
                     || has(TagType::Id3v2)
                     || !id3v1_sufficient(&full, &pictures));
-            let write_v1 = o.write_id3v1 || (o.write_ape && has(TagType::Id3v1));
+            // MPEG Save follows Write only. Remove selections belong to the
+            // explicit Remove command; unwritten tag kinds remain untouched.
+            let write_v1 = o.write_id3v1;
             let remove = [
-                (o.remove_id3v1 && !write_v1, TagType::Id3v1),
-                (o.remove_id3v2 && !write_v2, TagType::Id3v2),
-                (o.remove_ape && !o.write_ape, TagType::Ape),
+                (false, TagType::Id3v1),
+                (false, TagType::Id3v2),
+                (false, TagType::Ape),
             ];
             (write_v1, write_v2, o.write_ape, remove)
         }
@@ -259,42 +330,51 @@ pub(super) fn write_diagnostic(
             (write_v1, false, o.write_ape, remove)
         }
     };
-    // An APE tag that is removed without being displayed would silently drop
-    // gain data written by MP3Gain/ReplayGain tools; keep it in ID3v2 user
-    // frames unless ID3v2 already carries those fields.
-    if kind == Policy::Mpeg
-        && remove[2].0
-        && write_v2
-        && displayed.map(Tag::tag_type) != Some(TagType::Ape)
-    {
-        if let Some(ape) = file.tag(TagType::Ape) {
-            let current_v2 = file
-                .tag(TagType::Id3v2)
-                .map(|tag| tag_fields_diagnostic(tag, &native, rules, options))
-                .transpose()?
-                .unwrap_or_default();
-            let present = |fields: &Fields, name: &str| {
-                fields.keys().any(|key| key.eq_ignore_ascii_case(name))
-            };
-            for (name, values) in tag_fields_diagnostic(ape, &native, rules, options)? {
-                let upper = name.to_ascii_uppercase();
-                let gain = upper.starts_with("REPLAYGAIN_") || upper.starts_with("MP3GAIN_");
-                if gain
-                    && !values.is_empty()
-                    && !present(&full, &name)
-                    && !present(&current_v2, &name)
-                {
-                    full.insert(name.clone(), values.clone());
-                    updates.insert(name, values);
-                }
-            }
-        }
-    }
     let id3 = if kind == Policy::Mpeg {
         Id3Write::converting(id3_target(options), options)
     } else {
         Id3Write::preserving(options)
     };
+    let written_kind = [
+        (write_ape, TagType::Ape),
+        (write_v2, TagType::Id3v2),
+        (write_v1, TagType::Id3v1),
+    ]
+    .into_iter()
+    .find_map(|(enabled, kind)| enabled.then_some(kind))
+    .ok_or_else(|| ErrorCause::owned("Enable at least one tag type to write"))?;
+    if kind == Policy::Mpeg
+        && full.is_empty()
+        && pictures.is_empty()
+        && !source_has_preserved_records(displayed, &native)
+    {
+        let absent = [write_v1, write_v2, write_ape];
+        for (enabled, tag_type) in [
+            (write_ape, TagType::Ape),
+            (write_v2, TagType::Id3v2),
+            (write_v1, TagType::Id3v1),
+        ] {
+            if enabled && (has(tag_type) || tag_type == TagType::Id3v1) {
+                effects.removed(tag_type);
+            }
+            if enabled && has(tag_type) {
+                staging
+                    .seek(SeekFrom::Start(0))
+                    .map_err(ErrorCause::external)?;
+                crate::write_cost::rewrote_all();
+                tag_type
+                    .remove_from(staging, WriteOptions::default())
+                    .map_err(|e| ErrorCause::external(error_message(&e)))?;
+            }
+        }
+        staging
+            .seek(SeekFrom::Start(0))
+            .map_err(ErrorCause::external)?;
+        return Ok(Written {
+            kind: written_kind,
+            absent,
+        });
+    }
     for (enabled, kind) in [(write_ape, TagType::Ape), (write_v2, TagType::Id3v2)] {
         if !enabled {
             continue;
@@ -350,11 +430,37 @@ pub(super) fn write_diagnostic(
         )?;
     }
     if write_v1 {
+        // An earlier APE write can create a new TAG lookalike at -128 even
+        // when the original input needed no phantom. Protect this writer too.
+        let guard =
+            crate::ape_footer::Guard::prepare(staging, false).map_err(ErrorCause::external)?;
+        let owned_phantom = effects.owned_phantom || guard.effects().owned_phantom;
         let tag = id3v1_from(&full);
         staging
             .seek(SeekFrom::Start(0))
             .map_err(ErrorCause::external)?;
-        if !tag.is_empty() || has(TagType::Id3v1) {
+        if kind == Policy::Mpeg && tag.is_empty() {
+            // A nonempty full model can have no representable V1 fields.
+            // Its enabled writer still emits a blank V1; save_to would instead
+            // remove an existing tag. Use the existing native serializer.
+            let mut bytes = Vec::new();
+            tag.dump_to(&mut bytes, WriteOptions::default())
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
+            staging
+                .seek(SeekFrom::End(if has(TagType::Id3v1) || owned_phantom {
+                    -128
+                } else {
+                    0
+                }))
+                .map_err(ErrorCause::external)?;
+            staging.write_all(&bytes).map_err(ErrorCause::external)?;
+            effects.wrote_v1 = true;
+            if has(TagType::Id3v1) {
+                crate::write_cost::rewrote_region(bytes.len() as u64);
+            } else {
+                crate::write_cost::rewrote_all();
+            }
+        } else if !tag.is_empty() || has(TagType::Id3v1) {
             // An existing ID3v1 tag is overwritten in place (the last 128
             // bytes); adding or removing one changes the file length.
             if tag.is_empty() || !has(TagType::Id3v1) {
@@ -364,9 +470,17 @@ pub(super) fn write_diagnostic(
             }
             tag.save_to(staging, WriteOptions::default())
                 .map_err(|e| ErrorCause::external(error_message(&e)))?;
+            if tag.is_empty() {
+                effects.removed(TagType::Id3v1);
+            } else {
+                effects.wrote_v1 = true;
+            }
         }
+        guard
+            .finish(staging, effects)
+            .map_err(ErrorCause::external)?;
     }
-    for (enabled, kind) in remove {
+    for (enabled, kind) in [remove[2], remove[1], remove[0]] {
         if enabled && has(kind) {
             staging
                 .seek(SeekFrom::Start(0))
@@ -374,36 +488,63 @@ pub(super) fn write_diagnostic(
             crate::write_cost::rewrote_all();
             kind.remove_from(staging, WriteOptions::default())
                 .map_err(|e| ErrorCause::external(error_message(&e)))?;
+            effects.removed(kind);
         }
     }
     staging
         .seek(SeekFrom::Start(0))
         .map_err(ErrorCause::external)?;
-    let order = read_order(file_type, &TagOptions::default()).unwrap_or_default();
-    order
+    // Verification targets the highest actually written kind, independently
+    // of read masks (which may deliberately prefer an unwritten retained tag).
+    Ok(Written {
+        kind: written_kind,
+        absent: [false; 3],
+    })
+}
+
+fn verify_absence(staged_path: &Path, written: Written) -> Result<bool, ErrorCause> {
+    if !written.absent.contains(&true) {
+        return Ok(false);
+    }
+    let file = load_diagnostic(staged_path)?;
+    let native = native_tags_diagnostic(
+        &mut fs::File::open(staged_path).map_err(ErrorCause::external)?,
+        file.file_type(),
+    )?;
+    let present = [
+        file.tag(TagType::Id3v1).is_some(),
+        native.id3.is_some(),
+        native.ape.is_some(),
+    ];
+    if written
+        .absent
         .into_iter()
-        .find(|kind| match kind {
-            TagType::Ape => write_ape,
-            TagType::Id3v2 => write_v2,
-            _ => false,
-        })
-        .or(write_v1.then_some(TagType::Id3v1))
-        .ok_or_else(|| ErrorCause::owned("Enable at least one tag type to write"))
+        .zip(present)
+        .any(|(absent, present)| absent && present)
+    {
+        return Err(ErrorCause::owned("The tags could not be removed"));
+    }
+    Ok(true)
 }
 
 pub(super) fn verify_fields_diagnostic(
     staged_path: &Path,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-    written: TagType,
+    written: Written,
     updates: &Fields,
     raw_lyrics: bool,
 ) -> Result<(), ErrorCause> {
+    if verify_absence(staged_path, written)? {
+        return Ok(());
+    }
+    let written = written.kind;
     // Native names: `native_updates` below are already mapped back to sources.
     let entry =
         read_description_diagnostic(staged_path, false, &[], &reading_only(options, written))?;
     if written == TagType::Id3v1 {
-        // ID3v1 truncates and drops values by design; only its presence is checked.
+        // Ordinary V1 writes require presence, even for an empty projection
+        // of a nonempty supplied model.
         return if entry.technical.contains_key("_TAG_READ") {
             Ok(())
         } else {
@@ -437,7 +578,7 @@ fn file_kind_diagnostic(path: &Path) -> Result<FileType, ErrorCause> {
 pub(super) fn verify_pictures(
     staged_path: &Path,
     options: &TagOptions,
-    written: TagType,
+    written: Written,
     expected: &[Picture],
     message: &str,
 ) -> Result<(), String> {
@@ -448,10 +589,18 @@ pub(super) fn verify_pictures(
 pub(super) fn verify_pictures_diagnostic(
     staged_path: &Path,
     options: &TagOptions,
-    written: TagType,
+    written: Written,
     expected: &[Picture],
     message: &str,
 ) -> Result<(), ErrorCause> {
+    if verify_absence(staged_path, written)? {
+        return if expected.is_empty() {
+            Ok(())
+        } else {
+            Err(ErrorCause::owned(message))
+        };
+    }
+    let written = written.kind;
     if written == TagType::Id3v1 && !expected.is_empty() {
         return Err(ErrorCause::owned(
             "ID3v1 cannot store cover art; enable ID3v2 or APEv2 writing",
@@ -461,7 +610,8 @@ pub(super) fn verify_pictures_diagnostic(
         read_description_diagnostic(staged_path, false, &[], &reading_only(options, written))?;
     if entry.covers.len() != expected.len()
         || entry.covers.iter().zip(expected).any(|(cover, picture)| {
-            cover.picture_type != format!("{:?}", picture.pic_type())
+            cover.digest != cover_digest(picture.data())
+                || cover.picture_type != format!("{:?}", picture.pic_type())
                 || cover.description != picture.description().unwrap_or_default()
         })
     {

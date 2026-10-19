@@ -1,6 +1,6 @@
 # Directories options
 
-Open **File → Options… → Directories** for folder scanning and the starting folder of the cover-image picker. Its **Startup** child page controls what opens on launch.
+Open **File → Options… → Directories** for folder scanning and the starting folder of the cover-image picker. Its **Startup** child page controls the fallback folder when there is no remembered local file list or explicit launch request.
 
 !!! tip "New to this?"
     Start with one album folder. Enabling subfolders for a music-library root can add many more files than expected; the [Files](files.md) extension restriction can narrow the scan.
@@ -21,11 +21,11 @@ Choose **Directories → Startup → Startup directory**:
 
 | Choice | Result |
 |---|---|
-| **Empty file list** | Default. Start without reopening a folder. |
+| **Empty file list** | Default fallback. Do not reopen a folder when there is no remembered list. |
 | **Previous directory** | Open the most recent folder from the saved directory history. |
 | **First favorite directory** | Open the first folder in the favorites list. |
 
-If there is no matching recent/favorite entry, there is no folder to restore. Files or directories supplied as launch requests take precedence over the normal startup folder. Startup restoration also depends on folder access being available on the platform; a file-picker-only environment cannot provide the same folder workflow.
+If there is no matching recent/favorite entry, there is no folder to restore. Files or directories supplied as launch requests take precedence over a remembered list and the normal startup folder. The local desktop app otherwise reopens its remembered file list and order; see [The file list](../../guides/file-list.md). Startup restoration also depends on folder access being available on the platform; a file-picker-only environment cannot provide the same folder workflow.
 
 ## Cover art directory
 

@@ -164,7 +164,7 @@
     await step('the filter docks right of the toolbars and keeps filtering; F3 still hides it', async () => {
       document.querySelector('.view-filter-dock-menu [data-filter-dock="toolbar-right"]').click();
       await waitFor(() => document.querySelector('.toolbar-row[data-filter="toolbar-right"] > .filterbar'), 3000, 'filter in the toolbar row');
-      const filterbar = rect('.toolbar-row > .filterbar'), toolbar = rect('.toolbar-row > .toolbar');
+      const filterbar = rect('.toolbar-row > .filterbar'), toolbar = rect('.toolbar-row > .toolbar-bands');
       if (!(filterbar.left >= toolbar.left)) throw new Error('filter is not right of the toolbar');
       if (document.querySelector('.files .filterbar')) throw new Error('filter still above the file list');
       const filter = document.querySelector('#filter'); filter.focus(); input(filter, 'sine-a');

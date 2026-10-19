@@ -1,5 +1,10 @@
 # Automation compatibility: first R05/R06 batch
 
+> Current compatibility: [C57](native-mta-implementation-2026-10-19.md) adds
+> canonical native cover/playlist action records and representation-aware warnings.
+> Keep the dated app-only ID/warning observations below as the earlier baseline.
+
+
 This records a bounded implementation against source baseline
 `4a1a95ff4eddb9da7492aaace68197c4f81347d0`. It does not close R05 or R06.
 Local native-core tests, simulated DOM interaction, original static evidence,

@@ -686,6 +686,8 @@ mod tests {
             format,
             quality: 90,
             resize: Some(tag_core::actions::CoverResize {
+                native_geometry: false,
+                size_enabled: true,
                 pixels,
                 size_mode: tag_core::actions::CoverSizeMode::Maximum,
                 scale_mode: tag_core::actions::CoverScaleMode::Proportional,

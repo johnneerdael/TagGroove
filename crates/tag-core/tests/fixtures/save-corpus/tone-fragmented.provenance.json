@@ -1,0 +1,36 @@
+{
+  "kind": "independently_remuxed_local_fixture",
+  "input": "tone.m4a",
+  "input_sha256": "2a262b055ecabfab67c6a3577c6975331b889fa92c3970c71c88d413d91d73b8",
+  "output": "tone-fragmented.m4a",
+  "output_sha256": "67c07c8d12a0a6421b01806d635ff109e6421b8b6a6d56243ab52a018be6ba1d",
+  "output_bytes": 2266,
+  "tool": "ffmpeg 9.0.2 (Homebrew 9.0.2_1, Apple clang17.0.0)",
+  "command": "ffmpeg -nostdin -v error -y -i crates/tag-core/tests/fixtures/save-corpus/tone.m4a -map 0:a:0 -c:a copy -movflags empty_moov+frag_keyframe+default_base_moof+skip_trailer -f mp4 crates/tag-core/tests/fixtures/save-corpus/tone-fragmented.m4a",
+  "concatenated_mdat_payload_sha256": "ead7c555740b7a051bff8beb40e87888d95254ea7b66de7c3b62a619a0fa12ae",
+  "encoded_payload_byte_identical": true,
+  "top_level_atoms": [
+    [
+      "ftyp",
+      0,
+      28
+    ],
+    [
+      "moov",
+      28,
+      700
+    ],
+    [
+      "moof",
+      728,
+      124
+    ],
+    [
+      "mdat",
+      852,
+      1414
+    ]
+  ],
+  "qualification": "Local metadata/container regression fixture only; no playback, original-runtime, provider or Windows evidence.",
+  "layout": "One default-base-is-moof fragment with relative trun data offset; optional mfra index omitted using skip_trailer."
+}

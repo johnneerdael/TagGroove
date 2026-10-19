@@ -1,6 +1,8 @@
 //! Independently authored accepted-input preservation cases. These are not
 //! original Mp3tag-generated fixtures or proof of its runtime semantics.
-use tag_core::actions::{export_mta, import_mta, validate_action, ActionGroup, ActionSpec};
+use tag_core::actions::{
+    export_mta, export_mta_utf16, import_mta, validate_action, ActionGroup, ActionSpec,
+};
 
 #[test]
 fn opaque_mta_values_with_escaped_line_breaks_can_be_exported_and_reimported() {
@@ -230,4 +232,135 @@ fn resolved_actions_keep_multiline_refusal_and_literal_escape_roundtrips() {
     assert!(reimported.issues.is_empty());
     assert!(reimported.group.enabled);
     assert_eq!(reimported.group.actions, group.actions);
+}
+
+#[test]
+fn opaque_section_looking_property_lines_preserve_keys_values_and_action_order() {
+    let input = concat!(
+        "[#12]\nT=4\nF=TITLE\n1=old\n3=future\n[#opaque=retained\\x5d\n",
+        "[#2]\nT=9999\n[#0]=\\u005d\n1=ordinary\\x5d\n",
+    );
+    let imported = import_mta("Section-looking properties".into(), input.as_bytes(), None).unwrap();
+    assert_eq!(imported.records[0].properties["[#0]"], "]");
+    assert_eq!(imported.records[1].properties["[#opaque"], "retained]");
+    let exported = export_mta(&imported.group).unwrap();
+    let utf16le = [0xff, 0xfe]
+        .into_iter()
+        .chain(exported.encode_utf16().flat_map(u16::to_le_bytes))
+        .collect::<Vec<_>>();
+    let utf16be = [0xfe, 0xff]
+        .into_iter()
+        .chain(exported.encode_utf16().flat_map(u16::to_be_bytes))
+        .collect::<Vec<_>>();
+    for bytes in [exported.as_bytes(), utf16le.as_slice(), utf16be.as_slice()] {
+        let again = import_mta("Section-looking properties".into(), bytes, None).unwrap();
+        assert_eq!(again.group.actions, imported.group.actions);
+        assert_eq!(
+            again
+                .records
+                .iter()
+                .map(|record| &record.properties)
+                .collect::<Vec<_>>(),
+            imported
+                .records
+                .iter()
+                .map(|record| &record.properties)
+                .collect::<Vec<_>>()
+        );
+        assert!(!again.group.enabled);
+        assert_eq!(again.issues.len(), 2);
+    }
+    for count in 0..=8 {
+        for prefix in ["", "\r\n猫😀", r"literal\x5d"] {
+            let value = format!("{prefix}{}]", "\\".repeat(count));
+            let input = format!("[#0]\nT=9999\n[#opaque={}\n", fixture_value(&value));
+            let first = import_mta("Bracket boundary".into(), input.as_bytes(), None).unwrap();
+            let exported = export_mta(&first.group).unwrap();
+            let utf16 = [0xff, 0xfe]
+                .into_iter()
+                .chain(exported.encode_utf16().flat_map(u16::to_le_bytes))
+                .collect::<Vec<_>>();
+            for bytes in [exported.as_bytes(), utf16.as_slice()] {
+                let again = import_mta("Bracket boundary".into(), bytes, None).unwrap();
+                assert_eq!(
+                    again.records[0].properties, first.records[0].properties,
+                    "{value:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn opaque_unicode_remains_representable_in_the_native_utf16_wire_format() {
+    let value = format!("{}\\\r\n猫😀\\x5d", "Ā".repeat(350_000));
+    let input = format!(
+        "[#0]\nT=9999\n1={}\n",
+        value
+            .replace('\\', "\\\\")
+            .replace('\r', "\\x0d")
+            .replace('\n', "\\x0a")
+    );
+    let imported = import_mta("Compact Unicode".into(), input.as_bytes(), None).unwrap();
+    assert_eq!(imported.records[0].properties["1"], value);
+    let exported = export_mta(&imported.group).unwrap();
+    let utf16 = export_mta_utf16(&imported.group).unwrap();
+    assert!(
+        utf16.len() <= 4 * 1_048_576,
+        "representable opaque Unicode must not expand beyond the native import bound"
+    );
+    for bytes in [exported.as_bytes(), utf16.as_slice()] {
+        let again = import_mta("Compact Unicode".into(), bytes, None).unwrap();
+        assert_eq!(again.records[0].properties, imported.records[0].properties);
+        assert_eq!(again.group.actions, imported.group.actions);
+        assert!(!again.group.enabled);
+    }
+}
+
+#[test]
+fn direct_utf8_mta_export_honors_the_import_bound_including_record_overhead() {
+    let limit = 4 * 1_048_576;
+    for extra in [0, 1] {
+        let input = format!("[#0]\nT=9999\n1={}\n", "a".repeat(limit - 20 + extra));
+        let imported = import_mta("UTF-8 boundary".into(), input.as_bytes(), None).unwrap();
+        let exported = export_mta(&imported.group);
+        if extra == 0 {
+            let exported = exported.unwrap();
+            assert_eq!(exported.len(), limit);
+            let again = import_mta("UTF-8 boundary".into(), exported.as_bytes(), None).unwrap();
+            assert_eq!(again.records[0].properties, imported.records[0].properties);
+        } else {
+            assert!(
+                exported.is_err(),
+                "never report a UTF-8 export as successful when its own importer rejects the bytes"
+            );
+        }
+    }
+}
+
+#[test]
+fn native_utf16_budget_counts_supplementary_unicode_as_surrogate_pairs() {
+    let limit = 4 * 1_048_576;
+    for extra in [0, 1] {
+        let value = format!(
+            "{}{}",
+            "😀".repeat(((limit - 2) / 2 - 20) / 2),
+            "a".repeat(1 + extra)
+        );
+        let input = format!("[#0]\nT=9999\n1={value}\n");
+        let imported =
+            import_mta("Surrogate wire boundary".into(), input.as_bytes(), None).unwrap();
+        let wire = export_mta_utf16(&imported.group);
+        if extra == 0 {
+            let wire = wire.unwrap();
+            assert_eq!(wire.len(), limit);
+            let again = import_mta("Surrogate wire boundary".into(), &wire, None).unwrap();
+            assert_eq!(again.records[0].properties, imported.records[0].properties);
+        } else {
+            assert!(
+                wire.is_err(),
+                "count UTF-16 units rather than Unicode scalar values before admitting output"
+            );
+        }
+    }
 }

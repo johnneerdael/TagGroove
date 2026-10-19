@@ -9,6 +9,14 @@ it says nothing, from a static look at Mp3tag 3.36.1 (`Mp3tag.exe`). Mp3tag
 was never run, and no code or text was taken from it. Nothing was launched on
 a desktop.
 
+## Later chapterless synchronization repair — 2026-10-19
+
+The chapterless longer-value limitation recorded below belongs to this historical
+checkpoint. [PR64’s physical mirror/rewrite controls](nero-sync-preservation-2026-10-19.md)
+now cover supported growth and short-shrink rewrites without adding chapters.
+Required unsupported rewrites refuse the staged save unchanged. Earlier test
+counts and reference/native limits below remain historical.
+
 ## What changed
 
 | Area | Before | Now |

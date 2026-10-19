@@ -98,13 +98,28 @@ fn invalid_filename_masks_and_unknown_numbered_references_fail() {
         ("%1%2", "%1"),
         ("%1 - %2", "%3"),
         ("no captures", "new"),
-        ("%1 - %2", "$unknown(%1)"),
+        ("%1 - %2", "$substr(%1)"),
+        ("%1 - %2", "$upper()"),
+        ("%1 - %2", "$unknown(%1"),
     ] {
         assert!(
             FilenameConverter::compile(old, new).is_err(),
             "{old} => {new}"
         );
     }
+}
+
+#[test]
+fn filename_unknown_functions_preserve_literal_names_and_numbered_capture_values() {
+    let converter = FilenameConverter::compile("%1 - %2", "$unknown(%1)").unwrap();
+    let fields = Fields::new();
+    let result = converter
+        .render("Artist - Title.mp3", &EvalContext::new(&fields))
+        .unwrap();
+    assert_eq!(result.target, "$unknown(Artist).mp3");
+    assert_eq!(result.captures["1"], ["Artist"]);
+    assert_eq!(result.captures["2"], ["Title"]);
+    assert!(FilenameConverter::compile("%1 - %2", "$unknown(%3)").is_err());
 }
 
 #[test]

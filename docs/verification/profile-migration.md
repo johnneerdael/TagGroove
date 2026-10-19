@@ -166,3 +166,8 @@ next-bootstrap quick-source restoration and the existing 10000-row rescan.
 These controls use real renderer code at controlled native seams; the native
 fresh-process tests separately establish receipt persistence. No native picker,
 original-populated-profile, device or full-R02 acceptance claim follows.
+
+
+## Consolidated portable-transfer follow-up
+
+The original PR60 receipt above records its bounded migration/local rollback scope. Consolidated draft PR64 reuses that same journal/recovery engine for reviewed version-1 configuration loads and new saved-only version-2 archives. The latter add allowlisted saved preferences, local workspace references and active raw MTE assets with hash-bound encoding metadata. See [portable configuration evidence](portable-configuration-2026-10-18.md) for the implemented contract and local tests; this follow-up does not turn the original receipt into native/original-runtime acceptance.

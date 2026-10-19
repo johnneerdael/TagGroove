@@ -65,7 +65,7 @@ Additional original-config evidence on the official forum extends the registry:
 - [Format/Guess/Remove Except records](https://community.mp3tag.de/t/remove-tag-as-an-action/11138?page=2), [Guess Values record](https://community.mp3tag.de/t/using-tag-in-actions-combining-actions-for-different-tags/42419/7), [merge/split/format/remove records](https://community.mp3tag.de/t/albumartistsort-and-artistsort-switch-first-and-last-names/55992): executable schemas for IDs 5, 7, 8, 9, 10 and 16.
 - IDs with verified names but unresolved property/options schemas remain `UnresolvedMta`. Newer action IDs and Case mode IDs beyond the supplied mode 1 still require original-config/runtime evidence. Community originals support compatibility work; they do not replace a differential run against the supplied release.
 
-The importer preserves setting values and numeric section order, rejects duplicate settings/sections, accepts UTF-8 and BOM-marked UTF-16, and requires an explicit encoding for ambiguous legacy bytes. Unknown modes/flags/IDs remain non-executable even if a group is checked. The existing five-type API has an explicit adapter; it is not the full catalog.
+The importer preserves setting values and numeric section order, rejects duplicate settings/sections, accepts UTF-8 and BOM-marked UTF-16, and requires an explicit encoding for ambiguous legacy bytes. Unknown modes/flags/IDs remain non-executable even if a group is checked. The original five-type compatibility API has an explicit adapter; that historical interface does not describe the current full action catalog or prove original interoperability.
 
 ## Execution contract and proof
 

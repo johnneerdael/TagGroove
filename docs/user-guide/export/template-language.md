@@ -44,6 +44,11 @@ spaces remain in the report.
 | `$put(name,value)` | Store a value and return it |
 | `$puts(name,value)` | Store a value and return empty text |
 
+!!! note "Variable text does not retain field presence"
+    Variables store strings. Retrieving a stored tag value does not itself
+    establish availability or truth. Use a comparison or a length test when
+    the retrieved text should control a condition or optional section.
+
 ### `$filename`: name, extension and encoding
 
 Put it once, before the first non-whitespace output. Do not put it inside a
@@ -127,21 +132,28 @@ Add an artist level outside the album loop when that distinction matters.
 
 ### Variables: carry a result between steps
 
-Variables exist for one output document. Names are case-sensitive. Variables
-are not tags and do not edit audio files. Each partition starts afresh.
+Variables exist for one output document. Names ignore ASCII letter case:
+`count`, `Count` and `COUNT` name the same variable. Variables are not tags
+and do not edit audio files. Each partition starts afresh.
 
 ```text
 $filename(txt,utf-8)$puts(count,0)$loop(1)$puts(count,$add($get(count),1))%title%$char(10)$loopend()Rows written: $get(count)
 ```
 
 After the three practice files, the final text is `Rows written: 3`. `$puts`
-updates silently; `$put` would print its value as well. `$get` returns the
-stored value's availability/truth flags together with its text, so the
-[condition rules](../reference/scripting/conditions.md) still apply.
+updates silently; `$put` would print its value as well. Only the text is
+stored. `$get` retrieves that text without restoring the source field's
+availability or truth. After `$puts(label,%title%)`, `[$get(label)]` is empty
+and `$if($get(label),yes,no)` gives `no`, even with a stored title. Test text
+length explicitly with `$iflonger($get(label),0,yes,no)` when that is the goal.
 
-Arguments are evaluated eagerly. A variable write in an "unused" `$if` branch
-can still run. The same caution applies when a branch contains an export loop.
-Build state changes as explicit steps in their intended order.
+Arguments are evaluated eagerly. Field lookups or predicates inside a
+variable name/value argument still affect evaluation flags; string-only
+storage does not suppress those effects. A variable write in an "unused"
+`$if` branch can still run. The same caution applies when a branch contains
+an export loop. Build state changes as explicit steps in their intended order.
+See the [condition rules](../reference/scripting/conditions.md) for nested
+selectors and optional sections.
 
 ## Counters, totals and paths
 

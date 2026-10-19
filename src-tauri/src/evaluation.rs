@@ -737,6 +737,153 @@ mod tests {
             .all(|byte| *byte == 0));
     }
 
+    fn wav_audio_payload(path: &Path) -> Vec<u8> {
+        let bytes = fs::read(path).unwrap();
+        assert_eq!(&bytes[..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
+        let mut offset = 12;
+        while offset + 8 <= bytes.len() {
+            let size =
+                u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
+            let start = offset + 8;
+            let end = start.checked_add(size).unwrap();
+            assert!(end <= bytes.len());
+            if &bytes[offset..offset + 4] == b"data" {
+                return bytes[start..end].to_vec();
+            }
+            offset = end + size % 2;
+        }
+        panic!("WAV fixture has no data chunk");
+    }
+
+    #[test]
+    fn automation_columns_refresh_after_action_edits_and_reach_deferred_exports() {
+        use tag_core::actions::{ActionGroup, ActionSpec};
+        let directory = tempfile::tempdir().unwrap();
+        let entry = audio_with_cover(directory.path());
+        let audio = wav_audio_payload(Path::new(&entry.path));
+        let covers =
+            serde_json::to_value(tag_core::read_entry(Path::new(&entry.path)).unwrap().covers)
+                .unwrap();
+        let column_expression = "$columnNames('<','>')|$columnValues('<','>')";
+        let settings = EvaluationSettings {
+            columns: vec![
+                ColumnSpec {
+                    name: "Title".into(),
+                    template: "%title%".into(),
+                    values: BTreeMap::from([(entry.path.clone(), "Stale displayed title".into())]),
+                },
+                ColumnSpec {
+                    name: "Inventory".into(),
+                    template: "$meta_sep(inventory,'|')".into(),
+                    values: BTreeMap::from([(entry.path.clone(), "Displayed inventory".into())]),
+                },
+            ],
+            export_template_inline: true,
+            ..Default::default()
+        };
+        let group = ActionGroup {
+            name: "Column and raw-field contexts".into(),
+            enabled: true,
+            actions: vec![
+                ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "Changed".into(),
+                },
+                // Deferred output must observe all subsequent actions too.
+                ActionSpec::Export {
+                    template: format!("$filename(txt,utf-8)$loop(1){column_expression}\n$list('<',=,'>','~')$loopend()"),
+                    filename_template: "automation.txt".into(),
+                    append: false,
+                    partition_template: None,
+                },
+                ActionSpec::FormatValue {
+                    field: "COMMENT".into(),
+                    template: column_expression.into(),
+                },
+                ActionSpec::FormatValue {
+                    field: "AUDIT_LIST".into(),
+                    template: "$list('<',=,'>','~')".into(),
+                },
+            ],
+        };
+        let result =
+            crate::action_host::execute(std::slice::from_ref(&entry.path), &[group], settings);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.entries.len(), 1);
+        let saved = tag_core::read_entry_summary(Path::new(&entry.path)).unwrap();
+        let columns = "<Title><Inventory>|<Changed><first|second>";
+        let listed = format!("<COMMENT={columns}><INVENTORY=first~second><TITLE=Changed>");
+        assert_eq!(saved.fields["TITLE"], ["Changed"]);
+        assert_eq!(saved.fields["INVENTORY"], ["first", "second"]);
+        assert_eq!(saved.fields["COMMENT"], [columns]);
+        assert_eq!(
+            saved.fields["AUDIT_LIST"].as_slice(),
+            std::slice::from_ref(&listed)
+        );
+        assert_eq!(
+            fs::read_to_string(directory.path().join("automation.txt")).unwrap(),
+            format!("{columns}\n<AUDIT_LIST={listed}>{listed}")
+        );
+        assert_eq!(wav_audio_payload(Path::new(&entry.path)), audio);
+        assert_eq!(
+            serde_json::to_value(tag_core::read_entry(Path::new(&entry.path)).unwrap().covers)
+                .unwrap(),
+            covers
+        );
+    }
+
+    #[test]
+    fn automation_unchanged_exports_keep_displayed_columns_and_column_lists_use_raw_multivalues() {
+        use tag_core::actions::{ActionGroup, ActionSpec};
+        let directory = tempfile::tempdir().unwrap();
+        let entry = audio_with_cover(directory.path());
+        let before = fs::read(&entry.path).unwrap();
+        let settings = EvaluationSettings {
+            columns: vec![ColumnSpec {
+                name: "Title".into(),
+                template: "%title%".into(),
+                values: BTreeMap::from([(entry.path.clone(), "Displayed title".into())]),
+            }],
+            export_template_inline: true,
+            ..Default::default()
+        };
+        let columns = crate::columns::evaluate(
+            &settings,
+            &[crate::columns::ColumnItem {
+                fields: enriched_fields(&entry, 7),
+                raw_fields: Some(entry.fields.clone()),
+            }],
+            &["$list('<',=,'>','~')".into(), "$list('<',=,'>')".into()],
+        );
+        assert!(columns.errors.is_empty(), "{:?}", columns.errors);
+        assert_eq!(
+            columns.values,
+            [vec![
+                "<INVENTORY=first~second><TITLE=Raw title>".to_string(),
+                "<INVENTORY=first,second><TITLE=Raw title>".to_string(),
+            ]]
+        );
+        let group = ActionGroup {
+            name: "Unchanged column snapshot".into(),
+            enabled: true,
+            actions: vec![ActionSpec::Export {
+                template: "$filename(txt,utf-8)$loop(1)$columnNames('<','>')|$columnValues('<','>')|$list('<',=,'>','~')$loopend()".into(),
+                filename_template: "snapshot.txt".into(),
+                append: false,
+                partition_template: None,
+            }],
+        };
+        let result =
+            crate::action_host::execute(std::slice::from_ref(&entry.path), &[group], settings);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            fs::read_to_string(directory.path().join("snapshot.txt")).unwrap(),
+            "<Title>|<Displayed title>|<INVENTORY=first~second><TITLE=Raw title>"
+        );
+        assert_eq!(fs::read(&entry.path).unwrap(), before);
+    }
+
     #[test]
     fn exports_receive_the_working_folder_in_body_and_file_name() {
         use tag_core::actions::{ActionGroup, ActionSpec};

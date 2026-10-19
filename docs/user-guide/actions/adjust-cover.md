@@ -23,7 +23,7 @@ The picture's cover type and description are retained.
 | **Image format** | **Original**, **JPEG**, or **PNG** |
 | **Quality** | **Best** = 100, **High** = 90, **Medium** = 75, **Low** = 50, or **Custom** |
 | **Quality (0–100)** | A whole number used when encoding JPEG |
-| **Resize cover** | Off initially; enables the size and scaling settings |
+| **Resize cover** | Off initially; enables the target size. Square shaping can also apply with size disabled |
 
 **Original** retains a writable original format: JPEG, PNG, GIF, BMP or
 WebP. If TagGroove cannot write that original format, choose JPEG or PNG.
@@ -38,32 +38,54 @@ assuming a particular quality number guarantees it.
 
 ## Size policy and scaling
 
-**Size in pixels** accepts 1–32768. The policy selects which dimension is
-compared with that number; scaling selects the resulting shape.
+New adjustments and native imported actions use a target of 10–10000 pixels
+when **Resize cover** is checked. An enabled target outside that range skips
+the whole adjustment, including format conversion. Imported zero or out-of-range
+targets stay unchanged when the action is opened and saved.
 
-| Size policy | Meaning |
+With size disabled, proportional scaling keeps the dimensions. **Scale to
+square** stretches a rectangle to the longer side; **Crop to square** takes a
+centered square using the shorter side. Size and shape are independent.
+
+| Size policy | Proportional scaling |
 |---|---|
-| **Maximum size** | Reduce images whose larger side exceeds the size; leave images already within it unchanged |
-| **Minimum size** | Match the smaller side to the size, enlarging or reducing as necessary |
+| **Maximum size** | Reduce the larger side to the target when it exceeds it |
+| **Minimum size** | Match the smaller side to the target, enlarging or reducing as necessary |
 
-| Scaling | What happens when resizing is needed |
+Square shaping also applies when no size change is needed. With **Maximum
+size**, stretching uses the smaller of the target and longer source side;
+cropping uses the smaller of the target and shorter source side. It does not
+enlarge a crop whose shorter side is already below the maximum.
+
+With a 600 × 300 cover:
+
+| Settings | Result |
 |---|---|
-| **Scale proportionally** | Keep the aspect ratio |
-| **Scale to square** | Stretch to exactly the requested width and height |
-| **Crop to square** | Keep proportions, fill the requested square, and crop the excess around the center |
+| Maximum 500 + proportional | 500 × 250 |
+| Maximum 500 + square | 500 × 500, stretched |
+| Maximum 500 + crop | 300 × 300, centered crop |
+| Size disabled + square | 600 × 600, stretched |
+| Size disabled + crop | 300 × 300, centered crop |
+| Minimum 200 + square or crop | 200 × 200 |
 
-With a 1200 × 800 cover and size `600`:
+For minimum size, when the shorter side already equals the target, only shape
+is applied: minimum 300 + square stretches this 600 × 300 example to 600 × 600.
+Minimum 300 + crop produces 300 × 300.
 
-| Policy and scaling | Result |
-|---|---|
-| Maximum + proportional | 600 × 400 |
-| Minimum + proportional | 900 × 600 |
-| Maximum + square | 600 × 600, stretched |
-| Maximum + crop | 600 × 600, cropped |
+Previously saved TagGroove actions keep their earlier sizing behavior and
+1–32768 target range. In those actions, maximum size leaves an image already
+within the target unchanged in every shape mode; square/crop resizes that do
+run use the requested square. Editing their existing settings preserves those
+rules. Create a new action to use the native sizing rules. Exchanging an older
+rule or a JPEG quality below 20 uses an app-only `.mta` record when needed;
+review the export notice.
 
-Maximum size does not force a small image into a square: a 300 × 200 image
-already within a maximum of 600 keeps its shape in every scaling mode.
-Use the policy deliberately when a player needs a square image.
+Large dimensions can require much more working memory than the compressed
+image file. TagGroove checks a conservative 512 MiB resize working-buffer
+budget before cropping or resampling, including intermediate images. A request
+that exceeds it reports an error and leaves the current file unchanged. Choose
+smaller dimensions. This applies to both new native sizing rules and older saved
+actions; it does not change their pixel targets or the image input limits.
 
 ## Gotchas
 

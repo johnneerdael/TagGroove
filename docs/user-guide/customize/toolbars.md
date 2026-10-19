@@ -19,6 +19,19 @@ customization dialog and check the item visibility. **Hide all** inside the
 dialog and hiding the complete toolbar are separate settings. Use the View
 menu to recover them; loading a whole old configuration changes much more.
 
+## Move the toolbar bands
+
+Open **View → Toolbars → Customize main toolbar…** and use **Toolbar
+arrangement**. Put the main or custom toolbar first on a shared row, or put
+either toolbar above the other on separate rows. Choose **OK** to save this
+placement with the toolbar settings; **Cancel** keeps the saved arrangement.
+The select control works with the keyboard and a screen reader.
+
+This provides band order and row placement through an explicit control. It
+does not provide arbitrary floating positions or free dragging. Hidden and
+empty toolbars keep their existing visibility rules. The filter keeps its
+separate left/right/list docking setting.
+
 ## Practice on the main toolbar
 
 1. Choose **View → Toolbars → Customize main toolbar…**.
@@ -54,15 +67,18 @@ The customization list also offers the following built-in commands:
 
 | Task family | Other available buttons |
 | --- | --- |
-| Recover or remove | Undo, Redo, Remove tag |
-| Edit and convert | Extended tags, Filename → Filename, Text File → Tag, Tag → Tag, Quick action, Edit in file list |
+| Recover or remove | Undo, Redo, Remove tag, Remove tag types…, Strip chapters MP4… |
+| Edit and convert | Extended tags, Filename → Filename, Text File → Tag, Tag → Tag, Quick action, Edit in file list, Copy as Text… |
 | File operations | Copy files to…, Move files to…, Delete files…, Delete files permanently…, Show in folder, Play |
 | Directories | Add directory…, Upper directory, Previous directory, Next directory, Favorite directory, Favorite directories… |
-| Selection and list | Select all, Unselect all, Invert selection, Select next file, Select similar files, Select next similar files, Remove from list, Clear list, Find, Refresh |
+| Selection and list | Select all, Unselect all, Invert selection, Select next file, Select similar files, Select next similar files, Remove from list, Clear list, Find, Refresh, Unsorted (load and playlist order), Random sort |
 | Playlists and output | Playlist, Playlist (selected files), Load playlist/cue sheet…, Playlist per folder (all files), Generate playlists…, Export |
 | Sources | MusicBrainz, Discogs, Discogs Release ID, iTunes, Deezer, Last.fm, AcoustID, freedb, freedb (local), Lyrics: LRCLIB, Last tag source, Last tag source (quick) |
-| Artwork | Covers, Add cover…, Remove cover, Covers: freedb (gnudb), Covers: MusicBrainz, Covers: Discogs, Covers: iTunes, Covers: Deezer, Covers: fanart.tv |
-| Workspace | Tag panel, Filter, Options |
+| Artwork | Covers, Add cover…, Remove cover, Replace cover…, Extract cover…, Adjust cover…, Set cover description…, Cut cover, Copy cover, Paste cover, Covers: freedb (gnudb), Covers: MusicBrainz, Covers: Discogs, Covers: iTunes, Covers: Deezer, Covers: fanart.tv |
+| Workspace | Tag panel, Filter, Options, Customize columns…, Auto-size columns, Main toolbar, Customize main toolbar…, Custom toolbar, Customize custom toolbar… |
+| Utilities | Remove unsupported fields…, Optimize… |
+| Configuration | Save configuration…, Load configuration…, Open configuration folder |
+| Help | Documentation, Keyboard shortcuts, Report an issue, Check for updates…, Releases, About TagGroove |
 
 New choices are appended **hidden** to the main-toolbar configuration. Existing
 button positions, custom labels and visibility stay intact, and the default
@@ -76,6 +92,20 @@ redo step. The [menu reference](../reference/menus/index.md) and
 [action guide](../actions/index.md) explain the actual operations and their
 write timing. You do not need to show every button, and the menus stay
 available.
+
+Cover buttons use the same availability rules as the existing cover menu.
+For example, copying a displayed image, editing varied artwork and pasting
+from the clipboard have different requirements. Finish pending cover edits
+before extracting, copying or cutting. A toolbar button does not bypass
+read-only/provider restrictions or confirmation dialogs.
+
+**Random sort** changes the visible list order used by playlists and numbering;
+**Unsorted (load and playlist order)** returns to the maintained manual/load
+order. To restore the remembered source sequence after a shuffle, use
+**View → Sort by → Playlist order**. Those order commands do not reread a
+changed playlist; **Refresh** does. Save intended edits before
+loading a configuration: the existing confirmation and application reload
+still apply. **Check for updates…** checks releases without installing them.
 
 ## Arrange an album-cleanup workflow
 
@@ -104,9 +134,10 @@ leaves **Last tag source** pointing to that web source, while the quick button
 still uses Deezer. Quick search starts automatically when the selected files
 provide the needed search values; Release ID mode still waits for an ID.
 Older profiles keep their remembered built-in choice when available, then fall
-back to their older Discogs preference or MusicBrainz. These choices are local
-preferences and are not included in Save configuration. Toolbar customization
-does not import an original Mp3tag toolbar layout.
+back to their older Discogs preference or MusicBrainz. These remembered choices are included in new version 2
+[configuration backups](configuration.md). Older version 1 backups do not
+contain them. Toolbar customization does not import an original Mp3tag toolbar
+layout.
 
 ## Build a custom toolbar
 

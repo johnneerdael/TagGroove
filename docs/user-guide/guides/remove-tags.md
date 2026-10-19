@@ -31,8 +31,9 @@ Suppose the practice file's technical information lists
    `ID3v2.4 APEv2`; the remaining blocks keep their own values.
 
 The dialog shows counts of selected files with each type. An absent type is
-disabled. Its choices are for this operation and do not depend on the
-**Remove** switches under Options.
+disabled. Recognized Lyrics3v2 is an opaque dependent tail, not its own
+checkbox or an artificial ID3v1 count. Its choices are for this operation
+and do not depend on the **Remove** switches under Options.
 
 Starting afresh from a copied MP3 with all three blocks:
 
@@ -84,15 +85,20 @@ can lose artwork, custom fields and other data that ID3v1 cannot represent.
 Export or retain copies of metadata needed later before stripping a block.
 
 Changing **Read** only changes what is displayed; it does not delete a tag.
-Changing **Write** and **Remove** affects future saves too: a type selected
-for removal but not writing can be removed during an ordinary save. Review
-both sets of switches before saving after a cleanup.
+Under the MPEG policy, ordinary Save uses **Write** and preserves unwritten
+types; **Remove** selects types for the removal command. The Ape, Mpc policy
+has its own save/removal interactions. Review the applicable options before
+saving after a cleanup.
 
-Mp3tag's reference mentions dependent Lyrics3 removal with ID3v1. TagGroove has
-no guide-verified promise of that coupling for every MPEG path; do not use the
-ID3v1 checkbox as a general Lyrics3 cleanup operation. Removing MP4 metadata
-can also affect per-chapter tag fields; it is separate from a dedicated
-chapter-structure removal command. See [Advanced tag options](../reference/options/tags-advanced.md)
+Selecting ID3v1 removal removes a recognized dependent Lyrics3v2 tail too,
+including an orphan tail without ID3v1. An actual APE-only removal also drops
+recognized Lyrics3v2 and regenerates an existing ID3v1 tag from its retained
+fields; an ordinary nonempty APE-only Save preserves their raw bytes instead.
+Legacy Lyrics3v1 and unrecognized trailing data are retained. This is bounded
+tail handling, not a Lyrics3 field editor or universal lyrics cleanup. See
+[Mpeg options](../reference/options/tags-mpeg.md#remove) for the distinction.
+Removing MP4 metadata can also affect per-chapter tag fields; it is separate
+from a dedicated chapter-structure removal command. See [Advanced tag options](../reference/options/tags-advanced.md)
 and the format reference when keeping chapter data matters.
 
 ## Check errors and undo

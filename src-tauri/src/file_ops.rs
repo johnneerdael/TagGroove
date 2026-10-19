@@ -99,7 +99,14 @@ pub async fn save_directory_state(
     state: DirectoryState,
 ) -> Result<DirectoryState, String> {
     let path = state_path(&app)?;
-    super::io(move || save(&path, state)).await
+    super::io(move || {
+        let _guard = crate::profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        save(&path, state)
+    })
+    .await
 }
 /// Record opened folders in the recent list. Missing paths and files are ignored.
 #[tauri::command]
@@ -109,6 +116,10 @@ pub async fn remember_directories(
 ) -> Result<DirectoryState, String> {
     let path = state_path(&app)?;
     super::io(move || {
+        let _guard = crate::profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
         let directories: Vec<_> = paths
             .into_iter()
             .filter(|p| !p.starts_with("content://") && Path::new(p).is_dir())

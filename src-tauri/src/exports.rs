@@ -1,5 +1,179 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
+use std::io::Read;
 use std::{collections::HashSet, fs, path::Path};
+
+pub(crate) const ENCODING_SIDECAR: &str = ".encoding-v1.json";
+const ENCODING_LIMIT: u64 = 1024 * 1024;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct EncodingOverride {
+    pub sha256: String,
+    pub text_encoding: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Encodings {
+    version: u32,
+    files: BTreeMap<String, EncodingOverride>,
+}
+
+fn ansi_encoding(label: &str) -> Result<&'static encoding_rs::Encoding, String> {
+    let number = label
+        .strip_prefix("windows-")
+        .or_else(|| label.strip_prefix("cp"))
+        .unwrap_or(label)
+        .parse::<u16>()
+        .ok();
+    let encoding = match number {
+        Some(65001) => Some(encoding_rs::UTF_8),
+        Some(932) => Some(encoding_rs::SHIFT_JIS),
+        Some(936) => Some(encoding_rs::GBK),
+        Some(949) => Some(encoding_rs::EUC_KR),
+        Some(950) => Some(encoding_rs::BIG5),
+        Some(value) => encoding_rs::Encoding::for_label(format!("windows-{value}").as_bytes()),
+        None => encoding_rs::Encoding::for_label(label.as_bytes()),
+    };
+    encoding.ok_or_else(|| format!("Unsupported export configuration encoding: {label}"))
+}
+
+/// Decode the explicitly recorded charset without UTF-8 sniffing overriding it.
+pub(crate) fn decode_recorded(bytes: &[u8], label: &str) -> Result<String, String> {
+    match label {
+        "utf-16le" if bytes.starts_with(&[0xff, 0xfe]) => {
+            tag_core::decode_export_template(bytes, None)
+        }
+        "utf-16be" if bytes.starts_with(&[0xfe, 0xff]) => {
+            tag_core::decode_export_template(bytes, None)
+        }
+        "utf-16le" | "utf-16be" => Err("Export configuration encoding marker mismatch".into()),
+        "utf-8" => String::from_utf8(
+            bytes
+                .strip_prefix(&[0xef, 0xbb, 0xbf])
+                .unwrap_or(bytes)
+                .to_vec(),
+        )
+        .map_err(|e| e.to_string()),
+        label => {
+            let encoding = ansi_encoding(label)?;
+            let (text, malformed) = encoding.decode_without_bom_handling(bytes);
+            if malformed {
+                Err(format!(
+                    "Invalid export configuration for encoding: {label}"
+                ))
+            } else {
+                Ok(text.into_owned())
+            }
+        }
+    }
+}
+
+fn validate_encodings(files: &BTreeMap<String, EncodingOverride>) -> Result<(), String> {
+    if files.len() > 4096 {
+        return Err("Export encoding metadata exceeds 4096 entries".into());
+    }
+    let mut names = HashSet::new();
+    for (name, value) in files {
+        if !valid_file_name(name)
+            || name.starts_with('.')
+            || !names.insert(name.to_lowercase())
+            || value.sha256.len() != 64
+            || !value.sha256.bytes().all(|c| c.is_ascii_hexdigit())
+        {
+            return Err(format!(
+                "Invalid or conflicting export encoding metadata: {name}"
+            ));
+        }
+        match value.text_encoding.as_str() {
+            "utf-8" | "utf-16le" | "utf-16be" => {}
+            label => {
+                ansi_encoding(label)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn encoding_bytes(
+    files: &BTreeMap<String, EncodingOverride>,
+) -> Result<Vec<u8>, String> {
+    validate_encodings(files)?;
+    let bytes = serde_json::to_vec_pretty(&Encodings {
+        version: 1,
+        files: files.clone(),
+    })
+    .map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > ENCODING_LIMIT {
+        return Err("Export encoding metadata exceeds 1 MB".into());
+    }
+    Ok(bytes)
+}
+
+pub(crate) fn encoding_overrides(
+    directory: &Path,
+) -> Result<BTreeMap<String, EncodingOverride>, String> {
+    let path = directory.join(ENCODING_SIDECAR);
+    let metadata = match fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
+        Err(error) => return Err(error.to_string()),
+    };
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > ENCODING_LIMIT {
+        return Err(
+            "Export encoding metadata must be a bounded regular file without symbolic links".into(),
+        );
+    }
+    let mut bytes = Vec::new();
+    fs::File::open(path)
+        .map_err(|e| e.to_string())?
+        .take(ENCODING_LIMIT + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > ENCODING_LIMIT {
+        return Err("Export encoding metadata exceeds 1 MB".into());
+    }
+    let metadata: Encodings =
+        serde_json::from_slice(&bytes).map_err(|e| format!("Export encoding metadata: {e}"))?;
+    if metadata.version != 1 {
+        return Err("Unsupported export encoding metadata version".into());
+    }
+    validate_encodings(&metadata.files)?;
+    Ok(metadata.files)
+}
+
+pub(crate) fn matching_encoding<'a>(
+    files: &'a BTreeMap<String, EncodingOverride>,
+    name: &str,
+    bytes: &[u8],
+) -> Option<&'a str> {
+    let hash = format!("{:x}", Sha256::digest(bytes));
+    files
+        .iter()
+        .find(|(file, value)| {
+            file.to_lowercase() == name.to_lowercase() && value.sha256.eq_ignore_ascii_case(&hash)
+        })
+        .map(|(_, value)| value.text_encoding.as_str())
+}
+
+fn decode_physical(
+    files: &BTreeMap<String, EncodingOverride>,
+    name: &str,
+    bytes: &[u8],
+    fallback: Option<&str>,
+) -> Result<String, String> {
+    match matching_encoding(files, name, bytes) {
+        Some(encoding) => decode_recorded(bytes, encoding),
+        None => tag_core::decode_export_template(bytes, fallback),
+    }
+}
+
+pub(crate) fn validate_metadata(bytes: &[u8]) -> Result<(), String> {
+    let library: Library =
+        serde_json::from_slice(bytes).map_err(|e| format!("Export metadata: {e}"))?;
+    validate(&library, false)
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Configuration {
@@ -69,6 +243,15 @@ pub struct Library {
     /// bundled configurations removed afterwards stay removed.
     #[serde(default = "first_bundled_set")]
     pub bundled: u32,
+    /// Files seen by the caller when the library was loaded. Carry this through
+    /// dialog snapshots, but never persist it in exports.json. Along with saved
+    /// metadata, this identifies files eligible for explicit removal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_files: Option<Vec<String>>,
+    /// Internal durable removal intent. A failed retirement can be retried even
+    /// after metadata no longer lists the configuration. Never send it to callers.
+    #[serde(default, skip_serializing)]
+    pending_removals: Vec<String>,
 }
 /// Libraries saved before sets were recorded were offered the first set.
 fn first_bundled_set() -> u32 {
@@ -182,6 +365,8 @@ impl Default for Library {
                 .collect(),
             preferences: Preferences::default(),
             bundled: BUNDLED,
+            observed_files: None,
+            pending_removals: Vec::new(),
         }
     }
 }
@@ -307,6 +492,18 @@ fn validate(library: &Library, templates: bool) -> Result<(), String> {
     if library.version != 1 {
         return Err("Unsupported export library version".into());
     }
+    for observed in [
+        library.observed_files.as_deref().unwrap_or_default(),
+        library.pending_removals.as_slice(),
+    ] {
+        let mut files = HashSet::new();
+        if observed
+            .iter()
+            .any(|file| !valid_file_name(file) || !files.insert(file.to_lowercase()))
+        {
+            return Err("Export configurations require distinct .mte file names".into());
+        }
+    }
     let mut ids = HashSet::new();
     let mut names = HashSet::new();
     let mut files = HashSet::new();
@@ -365,6 +562,7 @@ pub fn load(path: &Path) -> Result<Library, String> {
     };
     let directory = path.parent().unwrap_or(Path::new(".")).join("export");
     let codepage = legacy_codepage();
+    let encodings = encoding_overrides(&directory)?;
     if path.exists() {
         // Validate identities before using them as stable MTE filenames.
         validate(&library, false)?;
@@ -382,7 +580,12 @@ pub fn load(path: &Path) -> Result<Library, String> {
                 }
                 Err(e) => return Err(format!("Cannot read {}: {e}", source.display())),
             };
-            configuration.template = tag_core::decode_export_template(&bytes, codepage.as_deref())?;
+            configuration.template = decode_physical(
+                &encodings,
+                &configuration.file_name(),
+                &bytes,
+                codepage.as_deref(),
+            )?;
             kept.push(configuration);
         }
         library.configurations = kept;
@@ -397,15 +600,27 @@ pub fn load(path: &Path) -> Result<Library, String> {
                 library.configurations.first().map(|c| c.id.clone());
         }
     }
-    discover(&directory, &mut library, codepage.as_deref());
+    discover(&directory, &mut library, codepage.as_deref(), &encodings);
     validate(&library, false)?;
+    library.observed_files = Some(
+        library
+            .configurations
+            .iter()
+            .map(Configuration::file_name)
+            .collect(),
+    );
     Ok(library)
 }
 
 /// Add the `.mte` files in the export folder that no configuration uses yet,
 /// such as configurations copied from Mp3tag, named after their file.
 /// Unreadable files are skipped.
-fn discover(directory: &Path, library: &mut Library, codepage: Option<&str>) {
+fn discover(
+    directory: &Path,
+    library: &mut Library,
+    codepage: Option<&str>,
+    encodings: &BTreeMap<String, EncodingOverride>,
+) {
     let Ok(entries) = fs::read_dir(directory) else {
         return;
     };
@@ -425,7 +640,7 @@ fn discover(directory: &Path, library: &mut Library, codepage: Option<&str>) {
         let Ok(bytes) = fs::read(directory.join(&file)) else {
             continue;
         };
-        let Ok(template) = tag_core::decode_export_template(&bytes, codepage) else {
+        let Ok(template) = decode_physical(encodings, &file, &bytes, codepage) else {
             continue;
         };
         let stem = Path::new(&file)
@@ -506,12 +721,50 @@ pub fn saved_preferences(path: &Path) -> Result<Option<Preferences>, String> {
 }
 pub fn save(path: &Path, library: &Library) -> Result<(), String> {
     validate(library, true)?;
-    let previous = if path.exists() {
-        load(path)?.configurations
-    } else {
-        Vec::new()
+    // Persisted identities include templates created by an earlier save in the
+    // same dialog. Never discover here: unseen files are not implied removals.
+    let mut previous: Vec<String> = match fs::read(path) {
+        Ok(bytes) => {
+            let saved: Library = serde_json::from_slice(&bytes)
+                .map_err(|e| format!("Cannot read export configurations: {e}"))?;
+            validate(&saved, false)?;
+            let mut files: Vec<_> = saved
+                .configurations
+                .iter()
+                .map(Configuration::file_name)
+                .collect();
+            files.extend(saved.pending_removals);
+            files
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => return Err(e.to_string()),
     };
+    // Also permit explicit removal of discovered files not yet saved in JSON.
+    if let Some(observed) = &library.observed_files {
+        for file in observed {
+            if !previous
+                .iter()
+                .any(|saved| saved.eq_ignore_ascii_case(file))
+            {
+                previous.push(file.clone());
+            }
+        }
+    }
+    let directory = path.parent().unwrap_or(Path::new(".")).join("export");
+    let mut distinct = HashSet::new();
+    let retiring: Vec<_> = previous
+        .iter()
+        .filter(|old| {
+            distinct.insert(old.to_lowercase())
+                && !library
+                    .configurations
+                    .iter()
+                    .any(|current| current.file_name().eq_ignore_ascii_case(old))
+                && directory.join(old).exists()
+        })
+        .collect();
     let codepage = legacy_codepage();
+    let encodings = encoding_overrides(&directory)?;
     for configuration in &library.configurations {
         let target = path
             .parent()
@@ -520,7 +773,13 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
             .join(configuration.file_name());
         // Unchanged files keep their bytes and encoding.
         if fs::read(&target).ok().is_some_and(|bytes| {
-            tag_core::decode_export_template(&bytes, codepage.as_deref()).as_deref()
+            decode_physical(
+                &encodings,
+                &configuration.file_name(),
+                &bytes,
+                codepage.as_deref(),
+            )
+            .as_deref()
                 == Ok(configuration.template.as_str())
         }) {
             continue;
@@ -550,6 +809,8 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
         configurations: Vec<SavedConfiguration<'a>>,
         preferences: &'a Preferences,
         bundled: u32,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        pending_removals: Vec<&'a str>,
     }
     let saved = SavedLibrary {
         version: library.version,
@@ -564,25 +825,23 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
             .collect(),
         preferences: &library.preferences,
         bundled: library.bundled.max(BUNDLED),
+        // Keep intent in the same metadata commit that removes configurations.
+        // A later save prunes files already retired; no second commit is needed.
+        pending_removals: retiring.iter().map(|file| file.as_str()).collect(),
     };
     crate::action_host::atomic_output(
         path,
         &serde_json::to_vec_pretty(&saved).map_err(|e| e.to_string())?,
         false,
     )?;
-    for removed in previous.iter().filter(|old| {
-        !library.configurations.iter().any(|current| {
-            current.id == old.id || current.file_name().eq_ignore_ascii_case(&old.file_name())
-        })
-    }) {
-        let directory = path.parent().unwrap_or(Path::new(".")).join("export");
-        let source = directory.join(removed.file_name());
+    for removed in retiring {
+        let source = directory.join(removed);
         // Bundled configurations offered since the last save have no file yet.
         if !source.exists() {
             continue;
         }
         let archive = directory.join("removed");
-        let stem = Path::new(&removed.file_name())
+        let stem = Path::new(removed)
             .file_stem()
             .unwrap_or_default()
             .to_string_lossy()
@@ -628,6 +887,426 @@ pub fn import(path: &Path, legacy_encoding: Option<&str>) -> Result<Configuratio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn portable_hash_bound_encoding_preserves_discovery_text_and_unchanged_raw_bytes() {
+        use sha2::{Digest, Sha256};
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("export");
+        fs::create_dir(&folder).unwrap();
+        let (raw, _, malformed) = encoding_rs::WINDOWS_1251.encode("Привет");
+        assert!(!malformed);
+        fs::write(folder.join("Cyrillic.mte"), &raw).unwrap();
+        fs::write(folder.join(".encoding-v1.json"), serde_json::to_vec(&serde_json::json!({"version":1,"files":{"Cyrillic.mte":{"sha256":format!("{:x}",Sha256::digest(&raw)),"text_encoding":"windows-1251"}}})).unwrap()).unwrap();
+        let path = root.path().join("exports.json");
+        let library = load(&path).unwrap();
+        assert_eq!(
+            library
+                .configurations
+                .iter()
+                .find(|c| c.file.as_deref() == Some("Cyrillic.mte"))
+                .unwrap()
+                .template,
+            "Привет"
+        );
+        save(&path, &library).unwrap();
+        assert_eq!(fs::read(folder.join("Cyrillic.mte")).unwrap(), raw.as_ref());
+        assert_eq!(
+            load(&path)
+                .unwrap()
+                .configurations
+                .iter()
+                .find(|c| c.file.as_deref() == Some("Cyrillic.mte"))
+                .unwrap()
+                .template,
+            "Привет"
+        );
+        fs::write(folder.join("Cyrillic.mte"), b"caf\xe9").unwrap();
+        assert_eq!(
+            load(&path)
+                .unwrap()
+                .configurations
+                .iter()
+                .find(|c| c.file.as_deref() == Some("Cyrillic.mte"))
+                .unwrap()
+                .template,
+            "café",
+            "an external edit must ignore the stale override"
+        );
+    }
+
+    #[test]
+    fn portable_corrupt_or_ambiguous_encoding_sidecar_is_not_silently_ignored() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("export");
+        fs::create_dir(&folder).unwrap();
+        fs::write(folder.join("Practice.mte"), b"saved text").unwrap();
+        for bytes in [b"not JSON".to_vec(),serde_json::to_vec(&serde_json::json!({"version":99,"files":{}})).unwrap(),serde_json::to_vec(&serde_json::json!({"version":1,"files":{"Practice.mte":{"sha256":"a".repeat(64),"text_encoding":"not-a-codepage"}}})).unwrap()] {
+            fs::write(folder.join(".encoding-v1.json"),&bytes).unwrap();
+            assert!(load(&root.path().join("exports.json")).is_err());
+            assert_eq!(fs::read(folder.join(".encoding-v1.json")).unwrap(),bytes);
+            assert_eq!(fs::read(folder.join("Practice.mte")).unwrap(),b"saved text");
+        }
+    }
+
+    #[test]
+    fn stale_library_save_keeps_new_mte_files_in_export_folder() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        save(&path, &Library::default()).unwrap();
+        // The dialog keeps this JSON-roundtripped snapshot while a new file
+        // arrives externally. Saving preferences must not imply its removal.
+        let mut cached: Library =
+            serde_json::from_value(serde_json::to_value(load(&path).unwrap()).unwrap()).unwrap();
+        cached.preferences.append = true;
+        let folder = directory.path().join("export");
+        let dropped = folder.join("Late.MTE");
+        let bytes = b"Bj\xf6rk";
+        fs::write(&dropped, bytes).unwrap();
+        for _ in 0..2 {
+            save(&path, &cached).unwrap();
+            assert_eq!(fs::read(&dropped).unwrap(), bytes);
+            let reopened = load(&path).unwrap();
+            assert!(reopened.preferences.append);
+            assert_eq!(
+                reopened
+                    .configurations
+                    .iter()
+                    .find(|c| c.file.as_deref() == Some("Late.MTE"))
+                    .unwrap()
+                    .template,
+                "Björk"
+            );
+            assert!(!folder.join("removed").exists());
+        }
+    }
+
+    #[test]
+    fn repeated_dialog_saves_retire_newly_saved_templates_but_keep_unseen_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        save(&path, &Library::default()).unwrap();
+        let mut cached = load(&path).unwrap();
+        let folder = directory.path().join("export");
+        // Neither the backend command nor Save configurations reloads the
+        // dialog's snapshot after success, and Export can fail after saving.
+        cached.configurations.push(Configuration {
+            id: "created".into(),
+            name: "Created in dialog".into(),
+            template: "created template".into(),
+            file: None,
+        });
+        fs::write(folder.join("Unseen.mte"), b"Bj\xf6rk").unwrap();
+        save(&path, &cached).unwrap();
+        assert_eq!(
+            fs::read_to_string(folder.join("created.mte")).unwrap(),
+            "created template"
+        );
+        cached.configurations.retain(|c| c.id != "created");
+        for _ in 0..2 {
+            save(&path, &cached).unwrap();
+            assert!(!folder.join("created.mte").exists());
+            assert_eq!(fs::read(folder.join("Unseen.mte")).unwrap(), b"Bj\xf6rk");
+            let metadata: serde_json::Value =
+                serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            assert!(metadata.get("observed_files").is_none());
+            assert!(metadata["configurations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|c| c["file"] != "Unseen.mte"));
+        }
+        let retired: Vec<_> = fs::read_dir(folder.join("removed"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        assert_eq!(retired.len(), 1);
+        assert_eq!(fs::read_to_string(&retired[0]).unwrap(), "created template");
+        let reopened = load(&path).unwrap();
+        assert!(reopened
+            .configurations
+            .iter()
+            .any(|c| c.file.as_deref() == Some("Unseen.mte")));
+        assert!(reopened.configurations.iter().all(|c| c.id != "created"));
+    }
+
+    #[test]
+    fn failed_retirement_can_retry_same_dialog_payload() {
+        check_failed_retirement_retry(false);
+    }
+
+    #[test]
+    fn failed_retirement_can_retry_legacy_payload() {
+        check_failed_retirement_retry(true);
+    }
+
+    fn check_failed_retirement_retry(legacy: bool) {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        save(&path, &Library::default()).unwrap();
+        let mut cached = load(&path).unwrap();
+        if legacy {
+            cached.observed_files = None;
+        }
+        cached.configurations.push(Configuration {
+            id: "created".into(),
+            name: "Created".into(),
+            template: "created template".into(),
+            file: None,
+        });
+        save(&path, &cached).unwrap();
+        let folder = directory.path().join("export");
+        fs::write(folder.join("Unseen.mte"), b"Bj\xf6rk").unwrap();
+        cached.configurations.retain(|c| c.id != "created");
+        // A real filesystem obstruction makes retirement fail after the
+        // metadata commits, without mocking persistence or its error.
+        fs::write(folder.join("removed"), "owned obstruction").unwrap();
+        let error = save(&path, &cached).unwrap_err();
+        assert!(
+            error.starts_with("Export library saved, but could not retire"),
+            "{error}"
+        );
+        assert_eq!(
+            fs::read_to_string(folder.join("created.mte")).unwrap(),
+            "created template"
+        );
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert!(metadata["configurations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c["id"] != "created"));
+        assert!(metadata.get("observed_files").is_none());
+        fs::remove_file(folder.join("removed")).unwrap();
+        for _ in 0..2 {
+            save(&path, &cached).unwrap();
+            assert!(!folder.join("created.mte").exists(), "legacy={legacy}");
+            assert_eq!(fs::read(folder.join("Unseen.mte")).unwrap(), b"Bj\xf6rk");
+        }
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert!(metadata.get("pending_removals").is_none());
+        let retired: Vec<_> = fs::read_dir(folder.join("removed"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        assert_eq!(retired.len(), 1);
+        assert_eq!(fs::read_to_string(&retired[0]).unwrap(), "created template");
+        let reopened = load(&path).unwrap();
+        assert!(reopened.configurations.iter().all(|c| c.id != "created"));
+        assert!(reopened
+            .configurations
+            .iter()
+            .any(|c| c.file.as_deref() == Some("Unseen.mte")));
+        // Recovery copies become ordinary listed files again.
+        fs::copy(&retired[0], folder.join("created.mte")).unwrap();
+        let recovered = load(&path).unwrap();
+        save(&path, &recovered).unwrap();
+        assert_eq!(
+            fs::read_to_string(folder.join("created.mte")).unwrap(),
+            "created template"
+        );
+    }
+
+    #[test]
+    fn pending_removal_metadata_rejects_unsafe_or_duplicate_names_before_writing() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        save(&path, &Library::default()).unwrap();
+        let library = load(&path).unwrap();
+        let original: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        for files in [
+            vec!["../outside.mte"],
+            vec!["text.mte", "TEXT.MTE"],
+            vec!["notes.txt"],
+        ] {
+            let mut metadata = original.clone();
+            metadata["pending_removals"] = serde_json::json!(files);
+            let bytes = serde_json::to_vec(&metadata).unwrap();
+            fs::write(&path, &bytes).unwrap();
+            assert!(load(&path).is_err());
+            assert!(save(&path, &library).is_err());
+            assert_eq!(fs::read(&path).unwrap(), bytes);
+            assert_eq!(
+                fs::read_to_string(directory.path().join("export/text.mte")).unwrap(),
+                Library::default().configurations[0].template
+            );
+        }
+    }
+
+    #[test]
+    fn recovered_copy_keeps_its_file_despite_pending_retirement_metadata() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        save(&path, &Library::default()).unwrap();
+        let mut library = load(&path).unwrap();
+        library.configurations.retain(|c| c.id != "text");
+        library.preferences.configuration = Some("cue-sheet".into());
+        save(&path, &library).unwrap();
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            metadata["pending_removals"],
+            serde_json::json!(["text.mte"])
+        );
+        // The internal retry intent must not become a caller-controlled baseline.
+        assert!(serde_json::to_value(load(&path).unwrap())
+            .unwrap()
+            .get("pending_removals")
+            .is_none());
+        let folder = directory.path().join("export");
+        let retired = fs::read_dir(folder.join("removed"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        fs::copy(&retired, folder.join("text.mte")).unwrap();
+        let recovered = load(&path).unwrap();
+        assert!(recovered
+            .configurations
+            .iter()
+            .any(|c| c.file.as_deref() == Some("text.mte")));
+        save(&path, &recovered).unwrap();
+        assert_eq!(
+            fs::read(folder.join("text.mte")).unwrap(),
+            fs::read(retired).unwrap()
+        );
+        let metadata: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert!(metadata.get("pending_removals").is_none());
+    }
+
+    #[test]
+    fn removing_observed_unsaved_mte_retires_its_original_bytes() {
+        for saved_before in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("exports.json");
+            if saved_before {
+                save(&path, &Library::default()).unwrap();
+            }
+            let folder = directory.path().join("export");
+            fs::create_dir_all(&folder).unwrap();
+            let bytes = b"Bj\xf6rk";
+            fs::write(folder.join("Observed.MTE"), bytes).unwrap();
+            let mut library = load(&path).unwrap();
+            let observed = library
+                .configurations
+                .iter()
+                .find(|c| c.file.as_deref() == Some("Observed.MTE"))
+                .unwrap()
+                .id
+                .clone();
+            library.configurations.retain(|c| c.id != observed);
+            save(&path, &library).unwrap();
+            assert!(!folder.join("Observed.MTE").exists());
+            let retired: Vec<_> = fs::read_dir(folder.join("removed"))
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .collect();
+            assert_eq!(retired.len(), 1);
+            assert_eq!(fs::read(&retired[0]).unwrap(), bytes);
+            assert!(load(&path)
+                .unwrap()
+                .configurations
+                .iter()
+                .all(|c| c.id != observed));
+            // Returning a recovery copy to the active folder discovers it again.
+            fs::copy(&retired[0], folder.join("Observed.MTE")).unwrap();
+            assert!(load(&path)
+                .unwrap()
+                .configurations
+                .iter()
+                .any(|c| c.id == observed));
+        }
+    }
+
+    #[test]
+    fn library_without_observation_baseline_only_retires_saved_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        let mut library = Library::default();
+        save(&path, &library).unwrap();
+        let folder = directory.path().join("export");
+        fs::write(folder.join("Unseen.mte"), "unseen").unwrap();
+        library.configurations.retain(|c| c.id != "text");
+        library.preferences.configuration = Some("cue-sheet".into());
+        save(&path, &library).unwrap();
+        assert!(!folder.join("text.mte").exists());
+        assert_eq!(
+            fs::read_to_string(folder.join("Unseen.mte")).unwrap(),
+            "unseen"
+        );
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert!(metadata.get("observed_files").is_none());
+        assert!(metadata["configurations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c.get("template").is_none()));
+    }
+
+    #[test]
+    fn observation_baseline_rejects_unsafe_or_duplicate_names_before_writing() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        save(&path, &Library::default()).unwrap();
+        let before = fs::read(&path).unwrap();
+        for files in [
+            vec!["../outside.mte"],
+            vec!["text.mte", "TEXT.MTE"],
+            vec!["notes.txt"],
+        ] {
+            let mut library = load(&path).unwrap();
+            library.configurations[0].template = "changed".into();
+            library.observed_files = Some(files.into_iter().map(str::to_owned).collect());
+            assert!(save(&path, &library).is_err());
+            assert_eq!(fs::read(&path).unwrap(), before);
+            assert_eq!(
+                fs::read_to_string(directory.path().join("export/text.mte")).unwrap(),
+                Library::default().configurations[0].template
+            );
+        }
+    }
+
+    #[test]
+    fn restored_metadata_keeps_external_mte_discovery_and_explicit_removal() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        save(&path, &Library::default()).unwrap();
+        let bundle = serde_json::json!({
+            "format": crate::utilities::BUNDLE_FORMAT,
+            "version": 1,
+            "files": { "exports.json": {
+                "version": 1, "configurations": [], "preferences": { "configuration": null }, "bundled": BUNDLED
+            }}
+        });
+        assert_eq!(
+            crate::utilities::restore(directory.path(), &serde_json::to_vec(&bundle).unwrap())
+                .unwrap(),
+            ["exports.json"]
+        );
+        // Configuration restore replaces metadata, retaining physical MTE files.
+        let mut library = load(&path).unwrap();
+        assert_eq!(
+            library.configurations.len(),
+            Library::default().configurations.len()
+        );
+        library
+            .configurations
+            .retain(|c| c.file.as_deref() != Some("text.mte"));
+        save(&path, &library).unwrap();
+        assert!(!directory.path().join("export/text.mte").exists());
+        assert!(load(&path)
+            .unwrap()
+            .configurations
+            .iter()
+            .all(|c| c.file.as_deref() != Some("text.mte")));
+        let metadata: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert!(metadata.get("observed_files").is_none());
+    }
 
     #[test]
     fn removing_saved_configuration_retires_its_mte_from_active_exports() {

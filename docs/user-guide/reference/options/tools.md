@@ -53,7 +53,7 @@ TagGroove asks before launching a per-file tool for more than ten files. The bac
 
 ## Default tool
 
-**Default tool (double-click in the file list)** defaults to **No action**. Select a configured tool to launch it on a file double-click. **No action** disables the external-tool action; it does not remove explicit tools from menus. TagGroove’s file-list double-click falls back to **Extended tags…** when no default tool is selected. This differs from Mp3tag’s documented no-action behavior.
+**Default tool (double-click in the file list)** defaults to **No action**, which leaves a row double-click without an action. Select a configured tool to launch it on a file double-click. Saved tools remain available from menus and shortcuts. Open **Edit → Extended tags…** explicitly to edit additional fields.
 
 If another program modifies tags, use **Reload tags** to read its changes. Keep the [Library](library.md) timestamp/size cache rules in mind when an external editor preserves those attributes.
 

@@ -205,11 +205,19 @@ impl Parser {
                     {
                         self.position += 1;
                     }
-                    let name = self.chars[start..self.position]
-                        .iter()
-                        .collect::<String>()
-                        .to_ascii_lowercase();
+                    let original_name = self.chars[start..self.position].iter().collect::<String>();
+                    let name = original_name.to_ascii_lowercase();
+                    if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) {
+                        return Err(format!("Expected export function call after ${name}"));
+                    }
+                    let known = crate::SUPPORTED_FUNCTIONS.contains(&name.as_str())
+                        || crate::script::RESERVED_FUNCTIONS.contains(&name.as_str())
+                        || ["filename", "loop", "loopend"].contains(&name.as_str());
                     if self.chars.get(self.position) != Some(&'(') {
+                        if !known {
+                            nodes.push(Node::Text(format!("${original_name}")));
+                            continue;
+                        }
                         return Err(format!("Expected export function call after ${name}"));
                     }
                     self.position += 1;
@@ -257,7 +265,10 @@ impl Parser {
                         let limit = args.pop();
                         nodes.push(Node::Loop { sort, limit, body });
                     } else {
-                        nodes.push(Node::Function(name, args));
+                        nodes.push(Node::Function(
+                            if known { name } else { original_name },
+                            args,
+                        ));
                     }
                 }
                 _ => unreachable!(),
@@ -345,7 +356,7 @@ impl Compiler {
     }
     fn compile(&mut self, nodes: &[Node]) -> Result<CompiledTemplate, String> {
         let text = self.emit(nodes)?;
-        CompiledTemplate::compile_with_functions(&text, &self.specs())
+        CompiledTemplate::compile_export_with_functions(&text, &self.specs())
     }
     fn emit(&mut self, nodes: &[Node]) -> Result<String, String> {
         let mut text = String::new();
@@ -375,11 +386,9 @@ impl Compiler {
                     if name == "filename" {
                         return Err("$filename must appear once at the beginning of the export configuration".into());
                     }
-                    if !crate::SUPPORTED_FUNCTIONS.contains(&name.as_str())
-                        && !["get", "put", "puts"].contains(&name.as_str())
-                    {
-                        return Err(format!("Unsupported export function ${name}"));
-                    }
+                    // Delegate ordinary expression classification to the shared
+                    // compiler: true unknowns replay, native-known names remain
+                    // reserved, and registered export variables stay scoped.
                     text.push('$');
                     text.push_str(name);
                     text.push('(');
@@ -511,7 +520,7 @@ struct State {
     frame: Frame,
     totals: Totals,
     max_counter: usize,
-    variables: BTreeMap<String, ScriptValue>,
+    variables: BTreeMap<String, String>,
     filename: String,
     steps: usize,
 }
@@ -700,20 +709,21 @@ impl ScriptExtension for Engine<'_> {
     fn call(&self, name: &str, args: &[ScriptValue]) -> Result<ScriptValue, String> {
         self.step()?;
         match name {
-            "get" => Ok(self
-                .state
-                .borrow()
-                .variables
-                .get(&args[0].text)
-                .cloned()
-                .unwrap_or_default()),
+            "get" => Ok(ScriptValue::literal(
+                self.state
+                    .borrow()
+                    .variables
+                    .get(&args[0].text.to_ascii_lowercase())
+                    .cloned()
+                    .unwrap_or_default(),
+            )),
             "put" | "puts" => {
                 self.state
                     .borrow_mut()
                     .variables
-                    .insert(args[0].text.clone(), args[1].clone());
+                    .insert(args[0].text.to_ascii_lowercase(), args[1].text.clone());
                 Ok(if name == "put" {
-                    args[1].clone()
+                    ScriptValue::literal(args[1].text.clone())
                 } else {
                     ScriptValue::default()
                 })

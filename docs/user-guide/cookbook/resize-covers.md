@@ -66,15 +66,23 @@ These examples all use Size in pixels `600`, but change the other controls:
 | `1200` | `800` | Minimum size | Scale proportionally | `900` | `600` |
 | `1200` | `800` | Maximum size | Scale to square | `600` | `600` |
 | `1200` | `800` | Maximum size | Crop to square | `600` | `600` |
-| `400` | `200` | Maximum size | Crop to square | `400` | `200` |
+| `400` | `200` | Maximum size | Crop to square | `200` | `200` |
 | `400` | `200` | Minimum size | Crop to square | `600` | `600` |
 <!-- resize-policy-cases:end -->
 
 Minimum size matches the shorter side and can enlarge an image. Scale to
 square stretches it; Crop to square keeps proportions while discarding
-excess around the center. Under Maximum size, an already-small image stays
-unchanged even when a square scaling choice is selected. Check the result
-instead of using that combination to force every small cover square.
+excess around the center. Square shaping still applies when a picture is
+already within Maximum size. The 400 × 200 crop becomes 200 × 200 without
+enlargement. With size disabled, stretching uses the longer source side and
+cropping uses the shorter side. Older saved TagGroove actions preserve their
+previous rule that left an already-small image unchanged; recreate the action
+to adopt these native sizing rules.
+
+A very thin image can need a large intermediate buffer when enlarged or made
+square. Adjustments exceeding the conservative 512 MiB working-buffer budget
+are refused before cropping/resampling, with the current file unchanged. Use a
+smaller target or maximum-size proportional scaling, then inspect the result.
 
 ## Choose encoding deliberately
 

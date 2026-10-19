@@ -83,12 +83,21 @@ fn stale_cover() -> Vec<list_behaviour::PendingCover> {
 }
 
 // Inspect native tag boundaries/items independently of the tag-core reader.
+fn mpeg_id3_prefix(bytes: &[u8]) -> &[u8] {
+    if !bytes.starts_with(b"ID3") {
+        return &[];
+    }
+    assert!(bytes.len() >= 10);
+    let size = bytes[6..10].iter().fold(0usize, |size, byte| {
+        assert_eq!(byte & 0x80, 0);
+        (size << 7) | usize::from(*byte)
+    });
+    assert!(10 + size <= bytes.len());
+    &bytes[..10 + size]
+}
 fn mpeg_native(path: &Path) -> (Vec<u8>, std::collections::BTreeMap<String, Vec<u8>>) {
     let bytes = fs::read(path).unwrap();
-    assert!(
-        !bytes.starts_with(b"ID3"),
-        "APE-only copy must not create ID3v2"
-    );
+    let audio_start = mpeg_id3_prefix(&bytes).len();
     assert!(
         bytes.len() < 128 || &bytes[bytes.len() - 128..bytes.len() - 125] != b"TAG",
         "APE-only copy must not create ID3v1"
@@ -114,7 +123,8 @@ fn mpeg_native(path: &Path) -> (Vec<u8>, std::collections::BTreeMap<String, Vec<
         cursor += len;
     }
     assert_eq!(cursor, bytes.len() - 32);
-    (bytes[..audio_end].to_vec(), items)
+    assert!(audio_start < audio_end);
+    (bytes[audio_start..audio_end].to_vec(), items)
 }
 
 fn edited_copy_policy_case(with_fields: bool) {
@@ -126,12 +136,20 @@ fn edited_copy_policy_case(with_fields: bool) {
         include_bytes!("../../../crates/tag-core/tests/fixtures/save-corpus/tone.mp3"),
     )
     .unwrap();
+    let fixture = fs::read(&source).unwrap();
+    let original_id3 = mpeg_id3_prefix(&fixture).to_vec();
+    assert!(
+        !original_id3.is_empty(),
+        "fixture must exercise retained ID3"
+    );
+    let original_sound = fixture[original_id3.len()..].to_vec();
     let mut options = tag_core::TagOptions::default();
     options.mpeg.write_id3v1 = false;
     options.mpeg.write_id3v2 = false;
     options.mpeg.write_ape = true;
     options.mpeg.read_id3v1 = false;
     options.mpeg.read_id3v2 = false;
+    options.mpeg.read_ape = true;
     options.mappings = vec![tag_core::UserFieldMapping {
         tag_type: "APEv2".into(),
         source: "TG_NATIVE_NOTE".into(),
@@ -160,6 +178,8 @@ fn edited_copy_policy_case(with_fields: bool) {
     .unwrap();
     let original = fs::read(&source).unwrap();
     let (sound, _) = mpeg_native(&source);
+    assert_eq!(mpeg_id3_prefix(&original), original_id3);
+    assert_eq!(sound, original_sound);
     let donor = dir.path().join("clipboard.wav");
     wav(&donor);
     let image = png([0, 0, 255]);
@@ -189,6 +209,7 @@ fn edited_copy_policy_case(with_fields: bool) {
     assert_eq!(copied.entries.len(), 1);
     let (copied_sound, native) = mpeg_native(&target);
     assert_eq!(copied_sound, sound);
+    assert_eq!(mpeg_id3_prefix(&fs::read(&target).unwrap()), original_id3);
     assert_eq!(
         native["TITLE"],
         if with_fields {

@@ -221,14 +221,9 @@ fn trailing_tags(file: &mut fs::File, floor: u64, length: u64) -> Result<u64, Er
     {
         end -= 128;
     }
-    if end >= floor + 15 && read_at(file, end - 9, 9)? == b"LYRICS200" {
-        let digits = read_at(file, end - 15, 6)?;
-        if let Some(size) = std::str::from_utf8(&digits)
-            .ok()
-            .and_then(|d| d.parse::<u64>().ok())
-            .filter(|size| end >= floor + 15 + size)
-        {
-            end -= 15 + size;
+    if let Some(range) = crate::lyrics3::detect(file).map_err(ErrorCause::external)? {
+        if range.start >= floor {
+            end = range.start;
         }
     }
     if end >= floor + 32 {

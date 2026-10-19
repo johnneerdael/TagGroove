@@ -453,6 +453,49 @@ fn external_changes_are_reported_and_never_overwritten() {
 }
 
 #[test]
+fn same_size_replacements_with_preserved_mtime_are_not_overwritten_by_undo_or_redo() {
+    use std::io::Write;
+
+    for redo in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("replaced.wav");
+        wav(&path);
+        let mut history = journal(dir.path());
+        let capture = history.begin("Save tags", None, &[key(&path)]);
+        write_fields(&path, &fields(&[("TITLE", &["Ours"])])).unwrap();
+        history.commit(capture, &[], &[]);
+        if redo {
+            assert!(history.undo().unwrap().errors.is_empty());
+        }
+
+        let before = fs::metadata(&path).unwrap();
+        let mut external = fs::read(&path).unwrap();
+        // Change an audio sample without changing the format or file length.
+        external[44] ^= 1;
+        let mut replacement = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
+        replacement.write_all(&external).unwrap();
+        replacement
+            .as_file()
+            .set_modified(before.modified().unwrap())
+            .unwrap();
+        replacement.persist(&path).unwrap();
+        let after = fs::metadata(&path).unwrap();
+        assert_eq!(after.len(), before.len());
+        assert_eq!(after.modified().unwrap(), before.modified().unwrap());
+
+        let replay = if redo {
+            history.redo().unwrap()
+        } else {
+            history.undo().unwrap()
+        };
+        assert_eq!(replay.errors.len(), 1, "redo={redo}");
+        assert!(replay.errors[0].error.contains("Changed outside TagGroove"));
+        assert_eq!(fs::read(&path).unwrap(), external, "redo={redo}");
+        assert!(history.state().undo.is_none() && history.state().redo.is_none());
+    }
+}
+
+#[test]
 fn side_files_created_or_replaced_are_removed_or_restored() {
     let dir = tempfile::tempdir().unwrap();
     let audio = dir.path().join("track.wav");
@@ -798,7 +841,7 @@ fn limits_bound_operations_and_bytes() {
 
     // An operation larger than the byte bound is applied but not recorded.
     let mut small = Journal::open(
-        &dir.path().join("journal"),
+        &dir.path().join("small-journal"),
         Limits {
             operations: 10,
             bytes: size - 1,
@@ -815,7 +858,7 @@ fn limits_bound_operations_and_bytes() {
 }
 
 #[test]
-fn stale_sessions_are_removed_and_live_sessions_are_kept() {
+fn legacy_sessions_are_cleaned_and_the_durable_store_is_retained_and_exclusive() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("journal");
     let stale = root.join("session-1-stale");
@@ -823,15 +866,17 @@ fn stale_sessions_are_removed_and_live_sessions_are_kept() {
     fs::write(stale.join("1.snapshot"), b"old").unwrap();
     let live = Journal::open(&root, Limits::default()).unwrap();
     assert!(!stale.exists());
-    let second = Journal::open(&root, Limits::default()).unwrap();
+    assert!(Journal::open(&root, Limits::default()).is_err());
     assert_eq!(
         fs::read_dir(&root).unwrap().count(),
-        2,
-        "a running session is retained"
+        1,
+        "the live durable store is retained and cannot be opened by a second writer"
     );
     drop(live);
-    drop(second);
-    assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+    assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+    let reopened = Journal::open(&root, Limits::default()).unwrap();
+    assert!(reopened.state().undo.is_none());
+    assert!(root.join("session-store/index.json").is_file());
 }
 
 #[test]
@@ -942,9 +987,29 @@ fn full_rewrites_count_whole_files_and_padding_writes_count_their_region() {
 
 #[test]
 fn many_padded_flac_saves_stay_under_the_cap_and_undo_exactly() {
-    let dir = tempfile::tempdir().unwrap();
+    struct RetainFailedFixture(Option<tempfile::TempDir>);
+    impl RetainFailedFixture {
+        fn path(&self) -> &Path {
+            self.0.as_ref().unwrap().path()
+        }
+    }
+    impl Drop for RetainFailedFixture {
+        fn drop(&mut self) {
+            if std::thread::panicking() {
+                eprintln!(
+                    "Retained clone-budget fixture: {}",
+                    self.0.take().unwrap().keep().display()
+                );
+            }
+        }
+    }
+    let dir = RetainFailedFixture(Some(tempfile::tempdir().unwrap()));
     let template = dir.path().join("template.flac");
-    if !noise_flac(&template, 6) || !tag_core::clones_in(dir.path()) {
+    // Both snapshot directions need room for their metadata/rounding overhead.
+    // The shorter six-second fixture admitted Save but exceeded its cap after
+    // Undo (1,376,256 retained before Undo against a 1,580,350-byte cap).
+    // Keep the cap at two whole files and the selection at 24 times that cap.
+    if !noise_flac(&template, 12) || !tag_core::clones_in(dir.path()) {
         eprintln!("Skipping: needs ffmpeg and a cloning volume (APFS, Btrfs, XFS)");
         return;
     }
@@ -959,6 +1024,11 @@ fn many_padded_flac_saves_stay_under_the_cap_and_undo_exactly() {
         })
         .collect();
     let originals: Vec<Vec<u8>> = files.iter().map(|p| fs::read(p).unwrap()).collect();
+    let evidence = dir.path().join("independent-originals");
+    fs::create_dir(&evidence).unwrap();
+    for (i, bytes) in originals.iter().enumerate() {
+        fs::write(evidence.join(format!("{i:02}.flac")), bytes).unwrap();
+    }
     // The whole selection is many times the cap; only rewritten regions count.
     let cap = size * 2;
     assert!(size * count > 20 * cap);
@@ -993,12 +1063,22 @@ fn many_padded_flac_saves_stay_under_the_cap_and_undo_exactly() {
         "{} retained for {count} padding writes",
         history.retained_bytes()
     );
+    assert!(history.retained_bytes() <= cap);
+    let saved_evidence = dir.path().join("independent-saved");
+    fs::create_dir(&saved_evidence).unwrap();
+    for (i, path) in files.iter().enumerate() {
+        fs::copy(path, saved_evidence.join(format!("{i:02}.flac"))).unwrap();
+    }
+    let cost_before = history.retained_bytes();
     let replay = history.undo().unwrap();
     assert!(replay.errors.is_empty(), "{:?}", replay.errors);
     for (path, original) in files.iter().zip(&originals) {
         assert_eq!(&fs::read(path).unwrap(), original);
     }
+    assert!(history.retained_bytes() <= cap);
+    assert!(history.state().redo.is_some(), "Clone budget: source_bytes={size}, cap={cap}, before_undo={cost_before}, after_undo={}, notice={:?}", history.retained_bytes(), history.state().notice);
     history.redo().unwrap();
+    assert!(history.retained_bytes() <= cap);
     assert!(files
         .iter()
         .all(|p| read_entry(p).unwrap().fields["ALBUM"] == ["One album for all"]));

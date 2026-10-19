@@ -18,8 +18,10 @@ and return to whole audio files before creating playlists.
 3. Check the loaded rows and error messages. Missing references can be
    reported while other valid entries are loaded.
 
-Opening this way replaces the loaded workspace. Playlist order becomes load
-order, with column sorting cleared so it does not obscure that order. An
+Opening this way replaces the loaded workspace and shows playlist source
+order for this session. It does not erase your saved column-sort preferences.
+Choose **View → Sort by → Playlist order** to return to that source order
+after header sorting, shuffling or manual moves. An
 ordinary M3U/M3U8 uses path-line order; PLS uses the numeric `File1`, `File2`,
 … keys, even if those lines were written in another order. Repeated
 references to the same resolved path keep their first position. This is not
@@ -70,13 +72,46 @@ dropping onto the file list, hold Command on macOS or Control on Windows/Linux
 to add; without an add modifier, a file drop replaces the list. Use the Add
 commands when modifier detection or the drop target is uncertain. Adding to
 an existing workspace differs from the explicit replace operation: it need
-not clear the current sort or replace the remembered loaded-playlist context.
+not replace the current display-order choice or remembered loaded-playlist
+context. Added source groups follow existing members; duplicate references
+keep their first position.
+
+A chosen playlist stays active when another playlist is appended, even when
+the first currently has no readable audio rows. Loaded-playlist placeholders
+still refer to that chosen source, and Refresh does not select the last added
+playlist instead. Use **File → Load playlist/cue sheet…** to replace the list
+and choose a different active playlist.
 
 Review the [file-list order](file-list.md) before writing. Header sorting and
 manual row ordering while holding Alt (Option on macOS) affect the sequence
 supplied to a playlist. A
 playlist generator groups that sequence; it does not independently sort by
-track number. Changing the loaded list does not rewrite the playlist on disk.
+track number. Ordering the list or refreshing it does not rewrite the source
+playlist. Separate automatic-playlist options can still write their configured
+outputs after saves or renames.
+
+## Refresh a changed source playlist
+
+Choose **View → Refresh** (++f5++) to reread the original playlist and other
+loaded source roots. Added references can appear and departed references
+leave the list; missing or unsupported members produce diagnostics while
+valid members load. A valid empty playlist can produce an empty list.
+
+Resolve the pending-edit confirmation deliberately. A fatal source-read or
+scan failure, canceled read or stale result leaves the previous list and
+drafts intact. A successful refresh keeps the chosen display criterion and
+the selection where those rows still exist. **Reload tags** instead reads
+the selected files without rebuilding playlist membership.
+
+**Playlist order** ranks the rows currently listed; it does not re-add rows
+removed with **Remove from list**. Refresh is the deliberate way to reread
+those source members. The remembered source order is session state: old
+restore snapshots cannot reconstruct grouped order they did not record.
+
+Known app-reported file/folder moves update the in-memory source roots and
+context. The playlist's own text remains unchanged. Absolute references in
+a moved playlist can therefore become missing references; inspect the next
+read's diagnostics rather than assuming its contents were repaired.
 
 ## Choose the writing scope
 
@@ -159,6 +194,30 @@ Version=2
 <!-- playlist-write-pls:end -->
 
 ## Paths, names and encoding
+
+M3U/M3U8 path lines and PLS `FileN=` values retain their filename whitespace.
+For local paths, loading tries the authored spelling first, then its supported
+separator and percent-decoded alternatives, before trying the older
+whitespace-trimmed family of spellings. If both ` Song.wav ` and `Song.wav`
+exist, a location containing the outer spaces selects ` Song.wav `. If only
+the trimmed spelling exists, the compatibility fallback can still load it.
+
+M3U/M3U8 treats a line whose trimmed text begins with `#` as a comment and
+ignores blank lines. The writer prefixes relative names that would resemble
+comments, begin with a BOM character, or consist only of whitespace with
+`./`; for example, `#Song.wav` is written as `./#Song.wav`. PLS needs the
+`./` prefix for a whitespace-only relative name too, so its value is not
+mistaken for a blank entry. Ordinary leading/trailing filename spaces are
+otherwise retained.
+
+A line-start BOM character is syntax on each M3U/M3U8 line. In a PLS
+`FileN=` value or inside a quoted CUE filename, a BOM character belongs to
+the filename instead. These rules are separate from the file's encoding BOM.
+For URI-shaped locations, scheme classification and unsupported-URI refusal
+happen before filesystem candidates are tried; a local file whose name
+resembles an HTTP URL does not make that URL loadable. XML playlists use
+their [separate URI rules](xml-playlists.md). Check the loaded members and the
+receiving player's interpretation when using unusual names.
 
 Relative entries are calculated from the output playlist's folder. The
 configured working-directory root bounds when relative entries are used;

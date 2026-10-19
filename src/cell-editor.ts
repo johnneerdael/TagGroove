@@ -1,3 +1,4 @@
+import {ValueSuggestions} from './value-suggestions';
 export type CellTarget={path:string;column:string};
 export type CellEditorHost={
   /** Make the target row rendered and return its cell. */
@@ -6,14 +7,19 @@ export type CellEditorHost={
   /** Final display name: the host translates default labels and preserves authored names. */
   label?:(target:CellTarget)=>string;
   /** Apply the edit; resolves to the file's path afterwards (renames change it). */
-  commit:(target:CellTarget,value:string)=>Promise<string|undefined>|string|undefined;
+  commit:(target:CellTarget,value:string,exactValues?:readonly string[])=>Promise<string|undefined>|string|undefined;
   /** The next cell for Tab (1), Shift+Tab (-1) or Enter with "select next file" ('down'). */
   next:(target:CellTarget,direction:Move)=>CellTarget|undefined;
   ended?:()=>void;
   /** Options → General → Automatically select next file when editing in file view. */
   advance?:()=>boolean;
+  /** Fresh metadata values; filename and technical controls return none. */
+  candidates?:(target:CellTarget)=>Iterable<string>;
+  autocomplete?:()=>boolean;
+  /** Metadata uses a whole-value textarea; filename controls retain single-line input. */
+  multiline?:(target:CellTarget)=>boolean;
   /** Inline auto-completion while typing. */
-  complete?:(input:HTMLInputElement,event:Event,target:CellTarget)=>void;
+  complete?:(input:HTMLInputElement|HTMLTextAreaElement,event:Event,target:CellTarget,candidates:()=>Iterable<string>)=>void;
 };
 export type Move=1|-1|'down';
 
@@ -44,32 +50,43 @@ export function slowEditStillWanted(target:CellTarget,state:{selected:ReadonlySe
  * so virtual row re-rendering and full workspace renders do not discard typing.
  */
 export class CellEditor{
-  private input?:HTMLInputElement;
+  private input?:HTMLInputElement|HTMLTextAreaElement;
+  /** Preserve original line endings until a real edit changes the rendered text. */
+  private preserved?:{raw:string;shown:string;values?:readonly string[]};
   target?:CellTarget;
   private finishing=false;
+  private suggestions?:ValueSuggestions;
   constructor(private host:CellEditorHost){}
   get active(){return!!this.target;}
   start(target:CellTarget){
     this.cancel();
     const cell=this.host.cell(target);if(!cell)return false;
-    const input=document.createElement('input');input.className='cell-editor';input.value=this.host.initial(target);
+    const input=document.createElement(this.host.multiline?.(target)?'textarea':'input');input.className='cell-editor';
+    if(input instanceof HTMLTextAreaElement){input.rows=1;input.wrap='off';}
+    const original=this.host.initial(target);input.value=input instanceof HTMLTextAreaElement?original.replace(/\r\n?/g,'\n'):original;this.preserved={raw:original,shown:input.value};
     this.updateLabel(input,target);
     input.spellcheck=false;input.autocomplete='off';
     this.input=input;this.target=target;
-    input.addEventListener('keydown',event=>{
-      event.stopPropagation();
+    input.addEventListener('keydown',raw=>{
+      const event=raw as KeyboardEvent;event.stopPropagation();
+      if(event.isComposing)return;
       if(event.key==='Enter'){event.preventDefault();void this.finish(this.host.advance?.()?'down':undefined);}
       else if(event.key==='Escape'){event.preventDefault();this.cancel();}
       else if(event.key==='Tab'){event.preventDefault();void this.finish(event.shiftKey?-1:1);}
     });
-    input.addEventListener('input',event=>{if(this.target)this.host.complete?.(input,event,this.target);});
+    this.suggestions=new ValueSuggestions(input,{
+      candidates:()=>this.host.candidates?.(target)??[],enabled:()=>this.host.multiline?.(target)!==false&&(this.host.autocomplete?.()??false),
+      inline:(control,event,candidates)=>{this.host.complete?.(control,event,target,candidates);return false;},
+      choose:(value,values)=>{this.preserved={raw:value,shown:input.value,values:[...values]};const cell=this.host.cell(target);if(cell)this.place(cell);},
+    });
+    input.addEventListener('input',()=>{this.preserved=undefined;});
     input.addEventListener('blur',()=>{if(input.isConnected&&this.input===input&&!this.finishing)void this.finish();});
     input.addEventListener('click',event=>event.stopPropagation());
     input.addEventListener('dblclick',event=>event.stopPropagation());
     this.place(cell);input.focus();input.select();
     return true;
   }
-  private updateLabel(input:HTMLInputElement,target:CellTarget){
+  private updateLabel(input:HTMLInputElement|HTMLTextAreaElement,target:CellTarget){
     const label=this.host.label?.(target);
     if(label)input.setAttribute('data-verbatim','');else input.removeAttribute('data-verbatim');
     input.setAttribute('aria-label',`Edit ${label||'cell'}`);
@@ -77,28 +94,32 @@ export class CellEditor{
   private place(cell:HTMLTableCellElement){
     const input=this.input!,wrap=cell.closest<HTMLElement>('.table-wrap');if(!wrap)return;
     const box=cell.getBoundingClientRect(),frame=wrap.getBoundingClientRect();
-    Object.assign(input.style,{left:`${box.left-frame.left+wrap.scrollLeft}px`,top:`${box.top-frame.top+wrap.scrollTop}px`,width:`${Math.max(box.width,80)}px`,height:`${box.height}px`});
+    Object.assign(input.style,{left:`${box.left-frame.left+wrap.scrollLeft}px`,top:`${box.top-frame.top+wrap.scrollTop}px`,width:`${Math.max(box.width,80)}px`,height:`${box.height+Math.min(5,input.value.split('\n').length-1)*20}px`});
     if(input.parentElement!==wrap)wrap.append(input);
   }
   /** Restore the editor after the table DOM was rebuilt. */
   reattach(){
     if(!this.input||!this.target)return;
+    this.suggestions?.close();
     const input=this.input,start=input.selectionStart,end=input.selectionEnd,cell=this.host.cell(this.target);
     if(!cell){this.cancel();return;}
     this.updateLabel(input,this.target);
-    this.place(cell);input.focus({preventScroll:true});
+    this.place(cell);this.suggestions?.refresh();input.focus({preventScroll:true});
     try{if(start!==null&&end!==null)input.setSelectionRange(start,end);}catch{/* Selection is not supported by every input type. */}
   }
   cancel(){
-    const input=this.input;this.input=undefined;this.target=undefined;
+    this.suggestions?.dispose();this.suggestions=undefined;
+    const input=this.input;this.input=undefined;this.target=undefined;this.preserved=undefined;
     if(input){input.remove();this.host.ended?.();}
   }
   async finish(move?:Move){
     const input=this.input,target=this.target;if(!input||!target||this.finishing)return;
-    this.finishing=true;const value=input.value;
+    this.suggestions?.dispose();this.suggestions=undefined;
+    this.finishing=true;const preserved=this.preserved?.shown===input.value?this.preserved:undefined;
+    const value=preserved?.raw??input.value,exactValues=preserved?.values;this.preserved=undefined;
     this.input=undefined;this.target=undefined;input.remove();
     try{
-      const path=await this.host.commit(target,value);
+      const path=await this.host.commit(target,value,exactValues);
       const next=move&&path?this.host.next({...target,path},move):undefined;
       if(next)this.start(next);else this.host.ended?.();
     }finally{this.finishing=false;}

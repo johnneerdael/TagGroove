@@ -1,6 +1,8 @@
 //! DSF, DSDIFF and Matroska/WebM, built byte by byte from the public format
 //! descriptions. ffmpeg-generated Matroska and WebM files are exercised when
 //! ffmpeg and ffprobe are installed.
+#[path = "support/matroska_elements.rs"]
+mod matroska_elements;
 use lofty::{
     config::WriteOptions,
     id3::v2::{BinaryFrame, Frame, FrameId, Id3v2Tag},
@@ -1294,4 +1296,273 @@ fn cover_plans_reorder_and_retype_dsf_and_matroska_covers() {
         let none = apply_cover_changes_with_options(path, &[], &TagOptions::default()).unwrap();
         assert!(none.covers.is_empty());
     }
+}
+
+// ---------------------------------------------------------------- L35 filesystem boundaries
+const REAL_MKA: &[u8] = include_bytes!("fixtures/save-corpus/tone.mka");
+fn known_segment_carrier(body: &[u8]) -> Vec<u8> {
+    let segment = matroska_elements::segment(REAL_MKA);
+    let mut bytes = REAL_MKA[..segment.start].to_vec();
+    bytes.extend([0x18, 0x53, 0x80, 0x67, 1]);
+    bytes.extend(&(body.len() as u64).to_be_bytes()[1..]);
+    bytes.extend(body);
+    bytes
+}
+fn fixed_void(length: usize) -> Vec<u8> {
+    // One-byte ID + fixed eight-byte size, preserving every later offset.
+    assert!(length >= 9);
+    let mut bytes = vec![0xec, 1];
+    bytes.extend(&((length - 9) as u64).to_be_bytes()[1..]);
+    bytes.resize(length, 0);
+    bytes
+}
+fn native_number_tags() -> Vec<u8> {
+    let original = matroska_elements::top(REAL_MKA, matroska_elements::TAGS);
+    let mut payload = matroska_elements::elements(REAL_MKA, original.data..original.end)
+        .iter()
+        .filter(|e| e.id == 0x7373)
+        .flat_map(|e| REAL_MKA[e.start..e.end].iter().copied())
+        .collect::<Vec<_>>();
+    payload.extend(mkv_tag(
+        el(&[0x68, 0xca], &[30]),
+        &[
+            simple("TITLE", "Item title"),
+            simple("PART_NUMBER", "3/12"),
+            simple("TOTAL_PARTS", "12"),
+        ],
+    ));
+    el(&[0x12, 0x54, 0xc3, 0x67], &payload)
+}
+fn unindexed_real_carrier() -> Vec<u8> {
+    let segment = matroska_elements::segment(REAL_MKA);
+    let mut body = Vec::new();
+    for e in matroska_elements::level_one(REAL_MKA) {
+        if matches!(e.id, matroska_elements::SEEK_HEAD | matroska_elements::TAGS) {
+            body.extend(fixed_void(e.end - e.start));
+        } else {
+            body.extend_from_slice(&REAL_MKA[e.start..e.end]);
+        }
+    }
+    body.extend(native_number_tags());
+    let bytes = known_segment_carrier(&body);
+    assert_eq!(matroska_elements::segment(&bytes).data, segment.data);
+    bytes
+}
+fn seek_entry(id: u32, position: usize) -> Vec<u8> {
+    el(
+        &[0x4d, 0xbb],
+        &cat(&[
+            el(&[0x53, 0xab], &id.to_be_bytes()),
+            el(&[0x53, 0xac], &(position as u64).to_be_bytes()),
+        ]),
+    )
+}
+fn cue_for(cluster_position: usize, relative: usize) -> Vec<u8> {
+    el(
+        &[0x1c, 0x53, 0xbb, 0x6b],
+        &el(
+            &[0xbb],
+            &cat(&[
+                el(&[0xb3], &[0]),
+                el(
+                    &[0xb7],
+                    &cat(&[
+                        el(&[0xf7], &[1]),
+                        el(&[0xf1], &(cluster_position as u64).to_be_bytes()),
+                        el(&[0xf0], &(relative as u64).to_be_bytes()),
+                    ]),
+                ),
+            ]),
+        ),
+    )
+}
+fn no_room_real_carrier() -> Vec<u8> {
+    use matroska_elements as mk;
+    let info = mk::raw(REAL_MKA, &mk::top(REAL_MKA, mk::INFO));
+    let tracks = mk::raw(REAL_MKA, &mk::top(REAL_MKA, mk::TRACKS));
+    let cluster = mk::raw(REAL_MKA, &mk::top(REAL_MKA, mk::CLUSTER));
+    let old_cluster = mk::top(REAL_MKA, mk::CLUSTER);
+    let block = mk::elements(REAL_MKA, old_cluster.data..old_cluster.end)
+        .into_iter()
+        .find(|e| e.id == 0xa3)
+        .unwrap();
+    let relative = block.start - old_cluster.data;
+    let head_size = el(
+        &[0x11, 0x4d, 0x9b, 0x74],
+        &cat(&[
+            seek_entry(mk::INFO, 0),
+            seek_entry(mk::TRACKS, 0),
+            seek_entry(mk::CUES, 0),
+        ]),
+    )
+    .len();
+    let cluster_position = head_size + info.len() + tracks.len();
+    let cues = cue_for(cluster_position, relative);
+    let head = el(
+        &[0x11, 0x4d, 0x9b, 0x74],
+        &cat(&[
+            seek_entry(mk::INFO, head_size),
+            seek_entry(mk::TRACKS, head_size + info.len()),
+            seek_entry(mk::CUES, cluster_position + cluster.len()),
+        ]),
+    );
+    assert_eq!(head.len(), head_size);
+    known_segment_carrier(&cat(&[
+        head,
+        info,
+        tracks,
+        cluster,
+        cues,
+        native_number_tags(),
+    ]))
+}
+fn original_flac_frames() -> Vec<u8> {
+    let bytes = include_bytes!("fixtures/save-corpus/tone.flac");
+    assert_eq!(&bytes[..4], b"fLaC");
+    let mut at = 4;
+    loop {
+        let last = bytes[at] & 0x80 != 0;
+        let length = (usize::from(bytes[at + 1]) << 16)
+            | (usize::from(bytes[at + 2]) << 8)
+            | usize::from(bytes[at + 3]);
+        at += 4 + length;
+        assert!(at <= bytes.len());
+        if last {
+            return bytes[at..].to_vec();
+        }
+    }
+}
+fn assert_matroska_preserved(before: &[u8], after: &[u8]) {
+    use matroska_elements as mk;
+    for id in [mk::INFO, mk::TRACKS, mk::CLUSTER, mk::CUES] {
+        let old = mk::top(before, id);
+        let new = mk::top(after, id);
+        assert_eq!((new.start, new.end), (old.start, old.end));
+        assert_eq!(mk::raw(after, &new), mk::raw(before, &old));
+    }
+    assert_eq!(mk::cue_targets(after), mk::cue_targets(before));
+    assert_eq!(mk::packets(after), mk::packets(before));
+    assert_eq!(mk::packets(after).concat(), original_flac_frames());
+    assert_eq!(mk::info_title(after), "IndependentSegmentTitle");
+    let values = mk::tag_values(after);
+    for expected in [(30, "PART_NUMBER", "3/12"), (30, "TOTAL_PARTS", "12")] {
+        assert!(values
+            .iter()
+            .any(|(level, name, value)| *level == expected.0
+                && name == expected.1
+                && value == expected.2));
+    }
+}
+#[test]
+fn matroska_seekhead_boundary_unindexed_tags_roundtrip_preserves_media_and_cues() {
+    use matroska_elements as mk;
+    use tag_core::history::{Journal, Limits};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("unindexed.mka");
+    let original = unindexed_real_carrier();
+    fs::write(&path, &original).unwrap();
+    assert!(mk::seeks(&original).is_empty());
+    assert!(mk::top(&original, mk::TAGS).start > mk::top(&original, mk::CLUSTER).end);
+    mk::cue_targets(&original);
+    // Mutate whole-file clones only: the independent observers must detect
+    // a changed encoded frame and a Cue that no longer addresses a Cluster.
+    let mut wrong_frame = original.clone();
+    let frame = mk::packet_ranges(&wrong_frame)[0].clone();
+    wrong_frame[frame.start] ^= 1;
+    let frame_mutation_detected = mk::packets(&wrong_frame) != mk::packets(&original);
+    assert!(frame_mutation_detected);
+    let cues = mk::top(&original, mk::CUES);
+    let cue = mk::unique(&original, cues.data..cues.end, 0xbb);
+    let position = mk::unique(&original, cue.data..cue.end, 0xb7);
+    let cluster_position = mk::unique(&original, position.data..position.end, 0xf1);
+    let mut wrong_cue = original.clone();
+    wrong_cue[cluster_position.data..cluster_position.end].fill(0);
+    let cue_mutation_detected = std::panic::catch_unwind(|| mk::cue_targets(&wrong_cue)).is_err();
+    assert!(cue_mutation_detected);
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        original,
+        "negative controls never touch disk"
+    );
+    let before = read_entry(&path).unwrap();
+    assert_eq!(before.fields["TRACK"], ["3/12"]);
+    assert_eq!(before.fields["TOTAL_PARTS"], ["12"]);
+    assert_eq!(
+        technical(&before, "_SEGMENT_TITLE"),
+        "IndependentSegmentTitle"
+    );
+    let mut journal = Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+    let capture = journal.begin(
+        "Unindexed Matroska tags",
+        None,
+        &[path.to_string_lossy().into_owned()],
+    );
+    let title = "Unindexed metadata grows after the Cluster. ".repeat(80);
+    write_fields(&path, &fields(&[("TITLE", &[&title])])).unwrap();
+    journal.commit(capture, &[], &[]);
+    let saved = fs::read(&path).unwrap();
+    let reloaded = read_entry(&path).unwrap();
+    let mut expected = before.fields.clone();
+    expected.insert("TITLE".into(), vec![title.clone()]);
+    assert_eq!(reloaded.fields, expected);
+    assert_eq!(
+        technical(&reloaded, "_SEGMENT_TITLE"),
+        "IndependentSegmentTitle"
+    );
+    assert!(mk::seeks(&saved).is_empty());
+    assert!(mk::top(&saved, mk::TAGS).start > mk::top(&saved, mk::CLUSTER).end);
+    assert_matroska_preserved(&original, &saved);
+    assert!(journal.undo().unwrap().errors.is_empty());
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert!(journal.redo().unwrap().errors.is_empty());
+    assert_eq!(fs::read(&path).unwrap(), saved);
+    println!(
+        "MATROSKA_BOUNDARY_RECEIPT {}",
+        serde_json::json!({"case":"no-seekhead","result":"roundtrip","cluster":mk::top(&saved,mk::CLUSTER).start,"cues":mk::top(&saved,mk::CUES).start,"cue_targets":mk::cue_targets(&saved),"encoded_flac_crc32":crc32fast::hash(&mk::packets(&saved).concat()),"packets":mk::packets(&saved).len(),"saved_bytes":saved.len(),"undo_exact":true,"redo_exact":true,"frame_mutation_detected":frame_mutation_detected,"cue_mutation_detected":cue_mutation_detected,"original_reference":false})
+    );
+}
+#[test]
+fn matroska_seekhead_boundary_full_head_without_void_refuses_unchanged() {
+    use matroska_elements as mk;
+    use tag_core::history::{Journal, Limits};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("no-room.mka");
+    let original = no_room_real_carrier();
+    fs::write(&path, &original).unwrap();
+    let top = mk::level_one(&original);
+    assert!(top.iter().all(|e| e.id != mk::VOID));
+    let head = mk::top(&original, mk::SEEK_HEAD);
+    assert_eq!(
+        top.iter().find(|e| e.start == head.end).unwrap().id,
+        mk::INFO
+    );
+    let seeks = mk::seeks(&original);
+    assert_eq!(seeks.len(), 3);
+    assert!(!seeks.iter().any(|(id, _)| *id == mk::TAGS));
+    assert!(mk::top(&original, mk::TAGS).start > mk::top(&original, mk::CLUSTER).end);
+    assert_matroska_preserved(&original, &original);
+    let before = read_entry(&path).unwrap();
+    assert_eq!(before.fields["TITLE"], ["Item title"]);
+    let title = "A new index entry cannot fit in the exact SeekHead. ".repeat(80);
+    let mut journal = Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+    let capture = journal.begin(
+        "Refused Matroska tags",
+        None,
+        &[path.to_string_lossy().into_owned()],
+    );
+    let error = write_fields(&path, &fields(&[("TITLE", &[&title])])).unwrap_err();
+    assert_eq!(
+        error,
+        "The Matroska SeekHead has no room for the new metadata index; original file preserved"
+    );
+    journal.commit(capture, &[], &[]);
+    let after = fs::read(&path).unwrap();
+    assert_eq!(after, original);
+    assert_eq!(read_entry(&path).unwrap().fields, before.fields);
+    assert_matroska_preserved(&original, &after);
+    assert!(journal.state().undo.is_none());
+    println!(
+        "MATROSKA_BOUNDARY_RECEIPT {}",
+        serde_json::json!({"case":"full-seekhead","result":"unchanged-refusal","error":error,"seek_head_bytes":head.end-head.start,"seek_entries":seeks,"cue_targets":mk::cue_targets(&after),"encoded_flac_crc32":crc32fast::hash(&mk::packets(&after).concat()),"packets":mk::packets(&after).len(),"file_bytes":after.len(),"undo_created":journal.state().undo.is_some(),"history":journal.state(),"original_reference":false})
+    );
 }

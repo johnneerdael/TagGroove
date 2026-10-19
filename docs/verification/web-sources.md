@@ -126,8 +126,14 @@ commands (endless `Do` loops) or 16 MB of output.
 - Album script: an output containing `|` holds one value per track
   (`Title 1|Title 2|`); others apply to the album. `\\` separates multiple
   values. `COVERURL` lists cover images (`|`-separated, relative addresses
-  resolve against the page); `_LENGTH` gives track lengths (`m:ss`, `h:mm:ss`
-  or seconds); other outputs starting with `_` are not written. `TRACK` and
+  resolve against the page); `_LENGTH` gives technical track duration. Colon
+  forms retain the existing `m:ss` / `h:mm:ss` path. Non-colon values follow
+  the pinned native signed decimal-prefix rule: positive integers up to 6000
+  are seconds; larger values are integer-divided by 1000; zero/negative values
+  give no duration. Ordinary `LENGTH` remains editable metadata. The
+  [source-length verification](source-length-compatibility-2026-10-19.md)
+  records numeric, whitespace and original-runtime boundaries. Other outputs
+  starting with `_` are not written. `TRACK` and
   `DISCNUMBER` give the track and disc used for matching files. A release with
   only album values (for example a covers-only source) applies them to every
   selected file.

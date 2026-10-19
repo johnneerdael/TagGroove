@@ -83,6 +83,8 @@ group rollback and session Undo limits.
   is omitted. Include enough information to make each path unique.
 - Changing the selection or format invalidates the preview. Run it again.
   A changed file or occupied destination can still prevent applying a plan.
+  On macOS and Linux, the preview also tracks file identity: replacing a file
+  requires another preview even when its size and modification time match.
 - Moving a file may remove it from the list depending on **Keep moved files**.
   Inspect the destination folder before assuming the file disappeared.
 - Keep originals and inspect **Edit → Undo** for recorded renames.

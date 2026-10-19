@@ -1,5 +1,12 @@
 # Source-bundle installation and remaining migration work
 
+Current draft PR64 strengthens the existing update/recovery path after a
+reproduced permission refusal deleted the previous snapshot. The
+[source update recovery receipt](source-update-recovery-2026-10-18.md) records
+current snapshot preservation, owned atomic-publication/bootstrap state and
+fresh-process interruption controls. Earlier counts below retain their named
+historical scope; provider/native qualification remains separate.
+
 This is the first R02–R04 delivery from the 2026-10-18 Mp3tag parity roadmap.
 It completes bounded folder/ZIP installation and records qualification limits.
 It does not complete setup migration or certify either provider's tagging journey.

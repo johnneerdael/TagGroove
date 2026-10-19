@@ -1,0 +1,179 @@
+[
+  {
+    "id": "adjust-native-id",
+    "decoded_record": {
+      "T": "17",
+      "1": "1",
+      "2": "600|scaleProportionally|max|enabled",
+      "3": "90"
+    },
+    "native_static_prediction": "Factory returns Adjust Cover; JPEG format1, resize600/proportional0/max0/enabled, quality90.",
+    "current_port_source_contrast": "T17 currently unresolved; app-only1001 emits different option layout.",
+    "not_executed": true
+  },
+  {
+    "id": "adjust-square-min",
+    "decoded_record": {
+      "T": "17",
+      "1": "2",
+      "2": "300|scaleToSquare|min|enabled",
+      "3": "80"
+    },
+    "native_static_prediction": "PNG format2; resize300/square1/min1/enabled; quality80 retained as numeric input.",
+    "current_port_source_contrast": "T17 unresolved; no native schema mapping.",
+    "not_executed": true
+  },
+  {
+    "id": "adjust-crop-max",
+    "decoded_record": {
+      "T": "17",
+      "1": "0",
+      "2": "500|cropToSquare|max|enabled",
+      "3": "100"
+    },
+    "native_static_prediction": "Original format0; resize500/crop2/max0/enabled; quality100.",
+    "current_port_source_contrast": "T17 unresolved; no native packed resize mapping.",
+    "not_executed": true
+  },
+  {
+    "id": "adjust-disabled-and-quality-fallback",
+    "decoded_record": {
+      "T": "17",
+      "1": "1",
+      "2": "0|scaleProportionally|max|disabled",
+      "3": "10"
+    },
+    "native_static_prediction": "Resize enabled flag0 permits pixels0; quality10 becomes80 at Run guard; format1 accepted.",
+    "current_port_source_contrast": "Port1001 quality10 is valid current action input; a simple native-ID rename is insufficient.",
+    "not_executed": true
+  },
+  {
+    "id": "adjust-size-upper-invalid",
+    "decoded_record": {
+      "T": "17",
+      "1": "1",
+      "2": "10001|scaleProportionally|max|enabled",
+      "3": "90"
+    },
+    "native_static_prediction": "Enabled pixels10001 fails Run preflight; image loop is not entered.",
+    "current_port_source_contrast": "Port parser allows positiveu32; native guard is separately bounded.",
+    "not_executed": true
+  },
+  {
+    "id": "adjust-absent-packed-resize",
+    "decoded_record": {
+      "T": "17",
+      "1": "1",
+      "3": "90"
+    },
+    "native_static_prediction": "Missing2 becomes empty slot; parser pixels0/proportional/max/enabled1; Run rejects enabledpixels0 before image loop.",
+    "current_port_source_contrast": "Port1001 absent3 means noresize; absence semantics differ.",
+    "not_executed": true
+  },
+  {
+    "id": "properties-filter",
+    "decoded_record": {
+      "T": "18",
+      "F": "3",
+      "1": "4",
+      "2": "Caption"
+    },
+    "native_static_prediction": "Set Cover Properties; only original numeric type3 selected, set type4 and literal Caption.",
+    "current_port_source_contrast": "Port1002 uses3 for original-type filter; F tolerated but ignored.",
+    "not_executed": true
+  },
+  {
+    "id": "properties-keep-all",
+    "decoded_record": {
+      "T": "18",
+      "F": "-1",
+      "1": "-1",
+      "2": "-1"
+    },
+    "native_static_prediction": "Newtype and parsed description sentinel both-1; early return, no cover changes.",
+    "current_port_source_contrast": "Port1002 uses empty/absent None; literal-1 currently invalid picture type if supplied.",
+    "not_executed": true
+  },
+  {
+    "id": "properties-clear-description",
+    "decoded_record": {
+      "T": "18",
+      "F": "-1",
+      "1": "-1",
+      "2": ""
+    },
+    "native_static_prediction": "Filterall; keep type; empty description is rewritten when different.",
+    "current_port_source_contrast": "Port1002 can represent clear description, but nativeID/filter/sentinel conversion missing.",
+    "not_executed": true
+  },
+  {
+    "id": "properties-missing-options",
+    "decoded_record": {
+      "T": "18"
+    },
+    "native_static_prediction": "Constructor seeds1=-1,2=-1,F=-1; loaded map copy does not erase absent defaults; no-op.",
+    "current_port_source_contrast": "Port unknown nativeID unresolved; app-onlyNone differs on serialized representation.",
+    "not_executed": true
+  },
+  {
+    "id": "properties-keep-description-set-type",
+    "decoded_record": {
+      "T": "18",
+      "F": "-1",
+      "1": "3",
+      "2": "-1"
+    },
+    "native_static_prediction": "Set numeric type3 across all; keep descriptions.",
+    "current_port_source_contrast": "Port1002 description string-1 means literal overwrite, not native keep sentinel.",
+    "not_executed": true
+  },
+  {
+    "id": "properties-renumbering-unsafe",
+    "decoded_record": {
+      "T": "18",
+      "1": "",
+      "3": "3"
+    },
+    "native_static_prediction": "Loaded1 empty parses0; absentF remains-1 (all), absent2 remains-1 (keep); key3 copied but unused by Run.",
+    "current_port_source_contrast": "Port1002 with1 empty and3=3 means keep type/filter type3; blindly changing T would alter semantics.",
+    "not_executed": true
+  },
+  {
+    "id": "playlist-native-id",
+    "decoded_record": {
+      "T": "19",
+      "F": "%album%.m3u",
+      "1": "%artist%"
+    },
+    "native_static_prediction": "Playlist object; F passed as filename expression,1 as partition expression; global playlist writer options used separately.",
+    "current_port_source_contrast": "Port1003 F/1 roles align; nativeID19 currently unresolved.",
+    "not_executed": true
+  },
+  {
+    "id": "port-id-1001",
+    "decoded_record": {
+      "T": "1001"
+    },
+    "native_static_prediction": "Complete native factory recognizes no such ID and returnsnull; editor record loader consequently returnsnull.",
+    "current_port_source_contrast": "Current port emits this app-onlyID. This is static parser/factory behavior, not original GUI re-import acceptance.",
+    "not_executed": true
+  },
+  {
+    "id": "port-id-1002",
+    "decoded_record": {
+      "T": "1002"
+    },
+    "native_static_prediction": "Complete native factory recognizes no such ID and returnsnull; editor record loader consequently returnsnull.",
+    "current_port_source_contrast": "Current port emits this app-onlyID. This is static parser/factory behavior, not original GUI re-import acceptance.",
+    "not_executed": true
+  },
+  {
+    "id": "port-id-1003",
+    "decoded_record": {
+      "T": "1003"
+    },
+    "native_static_prediction": "Complete native factory recognizes no such ID and returnsnull; editor record loader consequently returnsnull.",
+    "current_port_source_contrast": "Current port emits this app-onlyID. This is static parser/factory behavior, not original GUI re-import acceptance.",
+    "not_executed": true
+  }
+]

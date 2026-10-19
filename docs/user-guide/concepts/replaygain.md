@@ -58,44 +58,45 @@ using a different playback mode. Use an audio-analysis tool that supports
 your target workflow to calculate gains from the recording; this guide's
 TagGroove workflows edit the stored metadata.
 
-## Preservation during MPEG saves has conditions
+## Preserve the native tag as well as the displayed value
 
-An MP3 can have ReplayGain data in an APEv2 tag while TagGroove displays its
-ID3v2 tag. A normal save may remove the APE tag according to **Mpeg**
-preferences. In that path, when ID3v2 is being written, TagGroove has a specific
-safeguard: it copies nonempty `REPLAYGAIN_` and `MP3GAIN_` fields from the
-removed, undisplayed APE tag if the full displayed values and existing ID3v2
-tag do not already contain that field name. Existing values take precedence;
-this is not a conflict-merging or recalculation operation.
+An MP3 can have ReplayGain or MP3Gain recovery data in an APEv2 tag while
+TagGroove displays ID3v2. With **Mpeg → Write APEv2** off, an ordinary save
+preserves the existing APE tag. **Remove APE** applies to **Remove tag…**;
+it does not turn an unrelated Save into APE removal.
 
-These written cases use APE **Read** off, ID3v2 **Read/Write** on, APE
-**Write** off and APE **Remove** on. Each practice file starts with ID3v2
-`TITLE` = `Paper Boats`; saving `ARTIST` = `Juniper Vale` triggers the normal
-field-save path.
+New settings leave APE **Read** off and ID3v2 **Read/Write** on. An existing
+saved APE reading choice stays in effect. A hidden APE gain is retained in
+APE; it is not automatically copied into ID3v2. Conflicting gains therefore
+remain separate, and the reading policy determines which one is displayed.
+
+These practice cases use APE **Read/Write** off, ID3v2 **Read/Write** on and
+APE **Remove** on. Each starts with ID3v2 `TITLE` = `Paper Boats`. Save
+`ARTIST` = `Juniper Vale`, then inspect ID3 and APE separately:
 
 <!-- replaygain-concept-migration:start -->
-| APE track gain | Existing ID3v2 track gain | Saved ID3v2 track gain |
-|---|---|---|
-| `-4.25 dB` | Absent | `-4.25 dB` |
-| `-4.25 dB` | `-1.50 dB` | `-1.50 dB` |
-| Absent | Absent | Absent |
+| APE track gain before | ID3v2 track gain before | Saved ID3v2 track gain | Retained APE track gain |
+|---|---|---|---|
+| `-4.25 dB` | Absent | Absent | `-4.25 dB` |
+| `-4.25 dB` | `-1.50 dB` | `-1.50 dB` | `-4.25 dB` |
+| Absent | Absent | Absent | Absent |
 <!-- replaygain-concept-migration:end -->
 
-Do not generalize that safeguard to **Remove tag**, an explicit field
-removal action, a save without an ID3v2 target, or every container format.
-A broad keep-list action can erase loudness fields that are not listed.
-`MP3GAIN_UNDO` is another tool's restoration information, not a ReplayGain
-track gain or TagGroove's **Edit → Undo** history. Preserve it when needed.
+To inspect the retained APE values, enable APE reading and reload the copy.
+Switch reading back to ID3v2 when comparing that tag. Reading a different tag
+changes the view; it does not merge gains or recalculate loudness.
 
-The storage location matters as well as the displayed text. With the default
-MPEG policy, an ordinary save removes an existing APE tag while writing ID3.
-Copied `MP3GAIN_` text in ID3 does not establish that a gain tool expecting
-APEv2 can still use its restoration information. For a workflow that needs
-the native APE fields, enable **Write APEv2** under **Tags → Mpeg** before
-saving a disposable copy, then verify the result with that gain tool.
-Writing both tag types synchronizes their displayed fields; it does not
-preserve independently conflicting titles. The core preservation checks
-verify native APE gain fields and undo, but do not execute MP3Gain itself.
+Explicitly enabling **Write APEv2** updates that tag from the values being
+saved. Writing ID3 and APE together can synchronize their displayed fields;
+it does not preserve independently conflicting values inside both written
+tags. **Remove tag…**, field-removal actions and keep-list actions can erase
+loudness or recovery information, so review those operations separately.
+
+`MP3GAIN_UNDO` is another tool's restoration information, not a ReplayGain
+track gain or TagGroove's **Edit → Undo** history. Keeping similarly named
+text in ID3 does not replace the native APE data a gain tool may need. The
+preservation checks inspect native APE fields and file history; they do not
+execute MP3Gain itself or prove another player's interpretation.
 
 ## What this means in TagGroove
 

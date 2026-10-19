@@ -1,6 +1,6 @@
 # Options dialog and tag preferences
 
-> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current uncovered list is the [parity ledger](../PARITY.md); the [coverage companion](../research/remaining-gaps.md) records represented and delivered scopes.
+> **Historical record with a current MPEG correction.** The original test counts and broad gap inventory below describe an earlier checkpoint. The MPEG behavior paragraphs are updated for the coherent read/default/Save correction; its [pinned native basis](mpeg-save-mask-static-2026-10-19.md) separates static evidence from local tests. The current uncovered list is the [parity ledger](../PARITY.md); the [coverage companion](../research/remaining-gaps.md) records represented scopes and retained acceptance limits.
 
 Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, plus the General, Files, Directories and Appearance settings that change behaviour. References: `customization/options/*`, `customization/options/tags/{mpeg,ape,advanced}`, `keyboard`.
 
@@ -8,7 +8,7 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
 
 **Settings store** (`src-tauri/src/settings.rs`). Settings are stored as `settings.json` in the app config directory with `version: 1`. Missing files load the defaults. A partial file is filled in from the defaults. A corrupt file, a file from a newer version, or a file with invalid values also loads the defaults, and the dialog explains why; the next save replaces the file. `save_settings` validates the settings, writes atomically, and runs under the file-operation lock, so a batch never sees the options change mid-run. Pages registered by other features store their values under `pages.<id>` as JSON objects, so no backend change is needed.
 
-**Explicit options in tag-core** (`crates/tag-core/src/preferences.rs`, `tag_policy.rs`). `TagOptions` is passed to `*_with_options` variants of read, scan, write, remove-tags, add/remove cover and the cover actions. tag-core has no global state. The older functions use `TagOptions::default()`, which uses the Mp3tag defaults. In the Tauri layer, every desktop command routes tag I/O through the current settings: save, remove tags, covers, reload, previews, rename, export, actions and converters.
+**Explicit options in tag-core** (`crates/tag-core/src/preferences.rs`, `tag_policy.rs`). `TagOptions` is passed to `*_with_options` variants of read, scan, write, remove-tags, add/remove cover and the cover actions. tag-core has no global state. The older functions use `TagOptions::default()`, which selects TagGroove's current defaults; original Mp3tag defaults have not been captured. In the Tauri layer, every desktop command routes tag I/O through the current settings: save, remove tags, covers, reload, previews, rename, export, actions and converters.
 
 **Mpeg (MP1/MP2/MP3)**
 - *Read:* only one tag kind is displayed. It is the highest-priority kind that is enabled and present: APE, then ID3v2, then ID3v1. Secondary tags are no longer merged in (this resolves the contradiction recorded in FEATURE-INVENTORY). `_TAG_READ` reports the displayed kind and `_TAG` still lists every kind present.
@@ -16,10 +16,10 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
   - ID3v2 can be written as ID3v2.3 UTF-16, ID3v2.3 ISO-8859-1 (characters outside Latin-1 become `?`) or ID3v2.4 UTF-8.
   - Converting between revisions re-expresses the documented version-specific frames. TDRC ↔ TYER/TDAT/TIME, TDOR ↔ TORY and TIPL ↔ IPLS are converted. Fields without a native v2.3 frame, such as MOOD/TMOO, are converted between their native frame and TXXX.
   - "ID3v2 only if ID3v1 too small" writes ID3v2 only for an existing ID3v2 tag, values that do not fit ID3v1 (length, Latin-1, extra fields, multiple values), a user-defined genre, or artwork.
-  - Writing APEv2 upgrades an APEv1 tag to v2 and also updates an existing ID3v1 tag.
-- *Remove:* File → Remove tag (Ctrl+R) strips the selected kinds ([remove-mapping](remove-mapping.md)). Saving also strips a selected kind that is not being written.
+  - Writing APEv2 upgrades an APEv1 tag to v2. MPEG ID3v1 writing is independent; APE-only writing leaves an existing unwritten ID3v1 tag unchanged.
+- *Remove:* File → Remove tag (Ctrl+R) strips the selected kinds ([remove-mapping](remove-mapping.md)). Ordinary MPEG Save preserves unwritten kinds regardless of these switches. Empty supplied metadata can remove selected written kinds; empty updates to nonempty metadata are not a request to remove every tag.
 
-**Ape, Mpc (Monkey's Audio, Musepack, WavPack):** the same model with Read ID3v1/APE (APE has priority), Write ID3v1/APEv2, and Remove ID3v1/ID3v2/APE.
+**Ape, Mpc (Monkey's Audio, Musepack, WavPack):** Read ID3v1/APE (APE has priority), Write ID3v1/APEv2, and Remove ID3v1/ID3v2/APE. This family's existing Save/removal interaction and APE-write update of an existing ID3v1 tag are separate from the MPEG correction; native MPEG analysis does not establish this family's original policy.
 
 **Saving model.** The displayed tag is patched in place, so unknown native items survive. Every other kind being written receives the full displayed field set, and its fields that are absent from that set are removed, so all written kinds agree. A newly created kind starts from all displayed values and artwork. Covers follow the same write and remove sets.
 
@@ -44,7 +44,9 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
 - Lofty's strict parser rejected ID3v1 tags with an empty year (`\0\0\0\0`). Common taggers write that, and lofty writes it too. Only that error is now retried in relaxed mode.
 - Removing the last frame of an ID3v2.3 tag failed with "Invalid ID3 serialization header". Such tags are now removed.
 
-## Tests
+## Original test checkpoint (historical)
+
+The following counts and original test descriptions predate the MPEG correction; they do not define current acceptance. In particular, APE deletion and implicit MPEG ID3v1 updates were port-policy assertions, not original-app observations.
 
 - `crates/tag-core/tests/tag_policy.rs` (12 tests), using independently generated MPEG frames, with packet hashes when ffmpeg is present:
   - priority display
@@ -61,12 +63,12 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
   - ffmpeg-encoded MP3 for every ID3v2 format, and WavPack Ape/Mpc policies, with unchanged decoder packets
 - `preferences.rs` unit tests (2) and `settings.rs` tests (4): roundtrip, partial, corrupt and newer files, validation, extension syntax, and defaults equal to `tests/fixtures/default-settings.json`.
 - `tests/options-ui.test.mjs` (8): the same defaults fixture, page tree and registration, path storage, validation-to-page, extension parsing, control rendering and enabling, collator and title.
-- `metadata.rs` native-APE preservation now enables APEv2 writing explicitly, because the Mp3tag default removes APE from MP3s.
+- `metadata.rs` native-APE preservation enables APEv2 writing explicitly, because TagGroove's current default removes APE from MP3s. This does not establish the original application's default.
 - Totals: 109 frontend tests pass (baseline 101) and 297 Rust tests pass (baseline 279). `tsc --noEmit`, `vite build` and `cargo clippy --workspace --all-targets -D warnings` are clean.
 
 ## Known gaps and risks
 
-- **Defaults are not proven against the original.** The docs do not state default values. The defaults used are: write ID3v1 + ID3v2.3 UTF-16; read all kinds; remove every kind on MP3 and ID3v1 + APE on Ape/Mpc (changed 2026-10-15 so Remove tag removes everything by default; under the default write settings saving is unaffected); APEv2-only for Ape/Mpc; natural sort on; title shows the directory. These follow common Mp3tag configurations, not a captured original configuration. Removing APE on MP3 is kept as the default (decided 2026-10-14) because APE is read first: a stale APE tag would otherwise hide every ID3v2 edit on reload. To avoid losing gain data, `REPLAYGAIN_*` and `MP3GAIN_*` fields of a removed APE tag are carried into ID3v2 user frames (TXXX) unless ID3v2 already has them; a displayed APE tag's fields are mirrored into ID3v2 anyway. MP3Gain itself only reads its undo data from APE, so `MP3GAIN_UNDO` survives as text but is no longer usable by MP3Gain.
+- **The complete original initial configuration has not been captured at runtime.** The [pinned initializer and reader/writer evidence](mpeg-save-mask-static-2026-10-19.md) establishes a narrower static contract: MPEG read/write seeds `3`, removal seed `11`, and ID3v2.3 UTF-16 seed `1`; ordinary nonempty Save preserves unwritten tag kinds. Fresh port MPEG reading now excludes APE, while explicitly saved APE reading stays intact. Unwritten APE data remains native APE; the former hidden-gain-to-ID3 rescue is superseded rather than treated as equivalent preservation. Other settings, complete startup overrides, existing-frame encoding reuse and actual original runtime behavior remain unqualified. Official docs separately describe the [comment-language default `eng`](https://docs.mp3tag.de/customization/options/tags/advanced/) and [ID3v1 plus ID3v2 writing for MP3](https://docs.mp3tag.de/getting-started/first-steps/).
 - **Mirroring is a deliberate approximation.** Other written kinds mirror the displayed text fields, but they keep their own artwork unless artwork is edited or the kind is new. Mp3tag's in-memory single-tag model may also replace that artwork.
 - **ID3v2 on Ape/Mpc files** is not displayed: the docs list only ID3v1/APE reads. It is removable.
 - **Not implemented (listed rather than shown as dead controls):**

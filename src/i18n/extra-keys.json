@@ -76,5 +76,19 @@
  "No field could be imported: {error}",
  "The file contains no tag panel fields. Choose usrfields.ini from the Mp3tag configuration folder, or a saved tag panel configuration.",
  "zlib 1.3.2 — license",
- "bzip2 1.0.8 — license"
+ "bzip2 1.0.8 — license",
+ "An operation was interrupted. Current files were left unchanged; retained recovery copies are separate from new Undo history.",
+ "An overlapping operation cannot be recorded in Undo history",
+ "History was cleared because its retained storage exceeded the undo limit",
+ "Older recovery copies were removed to keep history within its operation and storage limits.",
+ "Undo directory identities could not be saved: {error}",
+ "Undo history could not be prepared: {error}",
+ "Undo history could not be saved: {error}",
+ "Undo history could not retain its replay copies: {error}",
+ "an undo parent could not be captured: {error}",
+ "history could not be prepared: {error}",
+ "history could not retain its side-file intent: {error}",
+ "history has an interrupted or unsaved operation",
+ "side-file undo snapshots could not be retained",
+ "undo directory identities could not be retained: {error}"
 ]

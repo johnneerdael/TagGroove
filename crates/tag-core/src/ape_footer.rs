@@ -117,26 +117,15 @@ pub(crate) fn trailing(reader: &mut (impl Read + Seek)) -> io::Result<Option<Foo
         return Ok(Some(footer));
     }
     let mut end = length;
-    let mut marker = [0u8; 9];
+    let mut marker = [0u8; 3];
     if end >= 128 {
-        read_at(reader, end - 128, &mut marker[..3])?;
-        if &marker[..3] == b"TAG" {
+        read_at(reader, end - 128, &mut marker)?;
+        if &marker == b"TAG" {
             end -= 128;
         }
     }
-    if end >= 15 {
-        read_at(reader, end - 9, &mut marker)?;
-        if &marker == b"LYRICS200" {
-            let mut digits = [0u8; 6];
-            read_at(reader, end - 15, &mut digits)?;
-            if let Some(size) = std::str::from_utf8(&digits)
-                .ok()
-                .and_then(|d| d.parse::<u64>().ok())
-                .filter(|size| end >= 15 + size)
-            {
-                end -= 15 + size;
-            }
-        }
+    if let Some(range) = crate::lyrics3::detect(reader)? {
+        end = range.start;
     }
     if end < 32 {
         return Ok(None);
@@ -187,10 +176,33 @@ pub(crate) struct Guard {
     /// Offset of a footer version changed to APEv1 within the tag, and the
     /// tag's bytes as staged.
     marked: Option<(u64, Vec<u8>)>,
+    lyrics: Option<Vec<u8>>,
+    v1: Option<[u8; 128]>,
 }
 impl Guard {
-    pub(crate) fn prepare(file: &mut File) -> Result<Self, String> {
+    pub(crate) fn prepare(file: &mut File, owns_tail: bool) -> Result<Self, String> {
         let error = |e: io::Error| e.to_string();
+        let mut lyrics = None;
+        let mut v1 = None;
+        if owns_tail {
+            if let Some(range) = crate::lyrics3::detect(file).map_err(error)? {
+                let mut bytes = vec![0; (range.end - range.start) as usize];
+                read_at(file, range.start, &mut bytes).map_err(error)?;
+                let length = file.seek(SeekFrom::End(0)).map_err(error)?;
+                v1 = if range.end.checked_add(128) == Some(length) {
+                    crate::lyrics3::real_v1(file).map_err(error)?
+                } else {
+                    None
+                };
+                file.set_len(range.start).map_err(error)?;
+                file.seek(SeekFrom::End(0)).map_err(error)?;
+                if let Some(tag) = v1 {
+                    file.write_all(&tag).map_err(error)?;
+                }
+                lyrics = Some(bytes);
+                crate::write_cost::rewrote_all();
+            }
+        }
         let length = file.seek(SeekFrom::End(0)).map_err(error)?;
         let phantom = colliding(file, length).map_err(error)?.is_some();
         let mut marked = None;
@@ -204,18 +216,36 @@ impl Guard {
                 .and_then(|_| file.write_all(&1000u32.to_le_bytes()))
                 .map_err(error)?;
             marked = Some((version as u64, tag));
+            crate::write_cost::rewrote_region(4);
         }
         if phantom {
             file.seek(SeekFrom::End(0))
                 .and_then(|_| file.write_all(&PHANTOM))
                 .map_err(error)?;
+            crate::write_cost::rewrote_all();
         }
-        Ok(Self { phantom, marked })
+        Ok(Self {
+            phantom,
+            marked,
+            lyrics,
+            v1,
+        })
+    }
+
+    pub(crate) fn effects(&self) -> crate::lyrics3::Effects {
+        crate::lyrics3::Effects {
+            owned_phantom: self.phantom,
+            ..Default::default()
+        }
     }
 
     /// Remove a phantom ID3v1 tag that is still there, and mark an APE tag
     /// that was not rewritten APEv2 again.
-    pub(crate) fn finish(self, file: &mut File) -> Result<(), String> {
+    pub(crate) fn finish(
+        self,
+        file: &mut File,
+        effects: &crate::lyrics3::Effects,
+    ) -> Result<(), String> {
         let error = |e: io::Error| e.to_string();
         let length = file.seek(SeekFrom::End(0)).map_err(error)?;
         if self.phantom && length >= 128 {
@@ -223,6 +253,7 @@ impl Guard {
             read_at(file, length - 128, &mut tail).map_err(error)?;
             if tail == PHANTOM {
                 file.set_len(length - 128).map_err(error)?;
+                crate::write_cost::rewrote_all();
             }
         }
         if let Some((version, staged)) = self.marked {
@@ -234,8 +265,61 @@ impl Guard {
                     file.seek(SeekFrom::Start(start + version))
                         .and_then(|_| file.write_all(&2000u32.to_le_bytes()))
                         .map_err(error)?;
+                    crate::write_cost::rewrote_region(4);
                 }
             }
+        }
+        if let Some(lyrics) = self.lyrics {
+            if effects.removed_v1 {
+                return Ok(());
+            }
+            if effects.removed_ape {
+                if effects.wrote_v1 {
+                    // The Save writer already serialized the updated model.
+                    // Restoring the captured pre-edit V1 would undo that Save.
+                    if crate::lyrics3::real_v1(file).map_err(error)?.is_none() {
+                        return Err("The written ID3v1 tag is missing".into());
+                    }
+                    return Ok(());
+                }
+                // Native APE-only Remove drops Lyrics3v2 and serializes a
+                // real retained V1; ordinary APE writes preserve its raw bytes.
+                if let Some(raw) = self.v1 {
+                    use lofty::tag::TagExt;
+                    let tag =
+                        lofty::id3::v1::Id3v1Tag::parse(raw, lofty::config::ParsingMode::Relaxed)
+                            .map_err(|e| e.to_string())?;
+                    let mut bytes = Vec::new();
+                    tag.dump_to(&mut bytes, lofty::config::WriteOptions::default())
+                        .map_err(|e| e.to_string())?;
+                    let end = file.seek(SeekFrom::End(0)).map_err(error)?;
+                    if crate::lyrics3::real_v1(file).map_err(error)?.is_some() {
+                        file.set_len(end - 128).map_err(error)?;
+                    }
+                    file.seek(SeekFrom::End(0))
+                        .and_then(|_| file.write_all(&bytes))
+                        .map_err(error)?;
+                    crate::write_cost::rewrote_all();
+                }
+                return Ok(());
+            }
+            let current = crate::lyrics3::real_v1(file).map_err(error)?;
+            let end = file.seek(SeekFrom::End(0)).map_err(error)?;
+            if current.is_some() {
+                file.set_len(end - 128).map_err(error)?;
+            }
+            file.seek(SeekFrom::End(0))
+                .and_then(|_| file.write_all(&lyrics))
+                .map_err(error)?;
+            let v1 = if effects.wrote_v1 {
+                current
+            } else {
+                self.v1.or(current)
+            };
+            if let Some(tag) = v1 {
+                file.write_all(&tag).map_err(error)?;
+            }
+            crate::write_cost::rewrote_all();
         }
         Ok(())
     }
@@ -333,24 +417,28 @@ mod tests {
         bytes.extend(tag(&items, false, 2000));
         std::fs::write(&path, &bytes).unwrap();
         let mut file = File::options().read(true).write(true).open(&path).unwrap();
-        let guard = Guard::prepare(&mut file).unwrap();
+        let guard = Guard::prepare(&mut file, true).unwrap();
         let staged = std::fs::read(&path).unwrap();
         assert_eq!(staged.len(), bytes.len() + 128);
         assert_eq!(&staged[508..512], 1000u32.to_le_bytes());
         assert_eq!(&staged[bytes.len()..], PHANTOM);
-        guard.finish(&mut file).unwrap();
+        guard
+            .finish(&mut file, &crate::lyrics3::Effects::default())
+            .unwrap();
         drop(file);
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
 
         // A rewritten tag is left as written.
         let mut file = File::options().read(true).write(true).open(&path).unwrap();
-        let guard = Guard::prepare(&mut file).unwrap();
+        let guard = Guard::prepare(&mut file, true).unwrap();
         let new = tag(b"other", true, 2000);
         file.set_len(300).unwrap();
         file.seek(SeekFrom::End(0)).unwrap();
         file.write_all(&new).unwrap();
         file.write_all(&PHANTOM).unwrap();
-        guard.finish(&mut file).unwrap();
+        guard
+            .finish(&mut file, &crate::lyrics3::Effects::default())
+            .unwrap();
         drop(file);
         assert_eq!(
             std::fs::read(&path).unwrap(),

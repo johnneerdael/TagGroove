@@ -56,10 +56,25 @@ text uses the selected/system ANSI codepage, with Windows-1252 as the fallback
 on macOS and Linux.
 
 Saved configurations have `.mte` files in the configuration folder's `export`
-subfolder. TagGroove discovers other readable `.mte` files copied there. Keep a
-backup before editing shared configurations externally. A template made for
-another application still needs syntax and output checks; its extension alone
+subfolder. TagGroove discovers other readable `.mte` files copied there when
+opening the dialog. Files added with new names while it is open remain in place when saving;
+reopen the dialog to see them. Removing a listed configuration and saving moves
+its file to `export/removed/`. Copy a retired file back into `export` to recover
+it. If saving reports that a file could not be retired, correct the folder
+problem and save again in the same dialog. Reopening can list a file that
+could not be retired; remove it again if that is still the intended change.
+Keep a backup before editing shared configurations externally. A template
+made for another application still needs syntax and output checks; its extension alone
 does not establish compatibility.
+
+[Configuration backups](../customize/configuration.md) also carry active
+physical templates and their recorded text encoding. Restoring those assets
+keeps the original bytes; the matching content uses its recorded decoding
+choice, even if the destination's ANSI default differs. An external change to
+those bytes invalidates that old decoding choice, so ordinary detection applies
+again. Saving an edited template uses the normal saved-template encoding policy.
+This concerns reading the template; the report's `$filename` encoding remains
+separate.
 
 ## Choose a name and encoding
 

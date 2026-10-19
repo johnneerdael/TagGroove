@@ -50,6 +50,13 @@
       location.reload();
       return;
     }
+    // Ordinary restart restores exact saved rows. Rescan the folder explicitly
+    // after this fixture changes List chapters through the backend settings API.
+    await waitFor(() => rows().length >= 5, 15000, 'saved fixture rows');
+    await idle();
+    await report('SETUP saved rows before explicit chapter refresh: ' + rowPaths().map(path => path.replace(SEP, '#')).join(', '));
+    const refresh = await waitFor(() => { const button = op('refresh'); return button && !button.disabled && button; }, 3000, 'Refresh enabled');
+    refresh.click();
     await waitFor(() => chapterRow('book.m4b', 2), 15000, 'chapter rows');
     await idle();
     const album = fileRow('image.flac').dataset.path.replace(/[\\/][^\\/]+$/, '');

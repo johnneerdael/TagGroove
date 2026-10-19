@@ -68,7 +68,11 @@ History is for the current desktop session. Read its operation label and file
 count, including any failure notice. It is not a durable backup of the library,
 and changes made by another program are not automatically reversible here.
 A batch history operation can concern several files, beyond the current
-selection.
+selection. If history cannot start, a successful Save can still write the
+file while reporting **cannot be undone**. Its failed history group stays
+unrecorded; status checks alone do not clear that notice. A later operation
+that is successfully recorded clears it. See [Undo and history](../guides/undo-history.md)
+for storage and session limits.
 
 The **Redo** menu slot can instead say **Repeat**. Repeat runs the available
 last action or action group again on the current selection; it does not

@@ -42,7 +42,7 @@ The **Mpeg** policy serves MPEG audio, raw AAC, and TTA. When several enabled ta
 
 The **Ape, Mpc** policy serves Monkey's Audio, Musepack, WavPack, TAK, and OptimFROG. APE takes priority over ID3v1. An ID3v2 prefix in these files can remain physically present even though this reading policy does not display it; choose its removal explicitly if needed.
 
-Saving can synchronize written types from the displayed values and remove a type selected for removal but not writing. Keep a copy before changing policies on files that intentionally contain conflicting tag blocks. ID3v1 is especially limited: it cannot preserve arbitrary long text, custom fields, multiple values, or embedded images. APEv1 reading does not mean new writes stay APEv1; the writer normally emits APEv2.
+Saving can synchronize written types from the displayed values. Under the **Mpeg** policy, unwritten types remain in the file; **Remove tag** uses separate removal switches. The **Ape, Mpc** policy retains its own write/remove interaction. Keep a copy before changing policies on files that intentionally contain conflicting tag blocks. ID3v1 is especially limited: it cannot preserve arbitrary long text, custom fields, multiple values, or embedded images. APEv1 reading does not mean new writes stay APEv1; the writer normally emits APEv2.
 
 ID3v2.3 UTF-16 is the default MPEG write representation, with v2.4 UTF-8 and legacy v2.3 Latin-1 available. An existing ID3v2 tag in non-MPEG containers follows that format's preservation rules rather than being blindly converted by the MPEG checkbox. DSF/DFF preserve an existing revision; a new tag uses the configured revision. Test the actual player/device before choosing a non-Unicode representation.
 
@@ -89,19 +89,71 @@ Raw `.aac` detection accepts up to 64 KiB of padding or junk after leading ID3v2
 
 TAK and OptimFROG tag paths do not decode/re-encode the audio. Existing tests use specification-built streams and independent probes; real original-encoder/device qualification is separate. OptimFROG DualStream uses the same recognized OFR header and codec label in this implementation.
 
-Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as a header; an internal `TAG` sequence is not an ID3v1 tag. APE tags left untouched by the selected write policy retain their bytes. Some other unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
+Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as a header; an internal `TAG` sequence is not an ID3v1 tag. APE tags left untouched by the selected write policy retain their bytes. Saving with both APE and ID3v1 enabled keeps each tag separate, including when an edit changes the APE tag’s length. Some other unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
+
+Recognized Lyrics3v2 tails are handled as bounded opaque data, so an APE tag
+before the tail remains detectable/readable. Selected ID3v1 removal removes
+the dependent tail, including an orphan without ID3v1. Actual APE-only removal
+also drops the tail and regenerates an existing ID3v1 tag from its retained
+fields; ordinary nonempty APE-only Save preserves the raw Lyrics3v2/ID3v1
+bytes. Legacy Lyrics3v1 and unrecognized bytes are retained. No editable
+Lyrics3 fields or extra tag-type checkbox is provided. See
+[Mpeg removal policy](options/tags-mpeg.md#remove); exact original-app padding
+and decoding behavior remains unqualified.
+
+Supported ID3v2.3 extended headers, with or without a CRC checksum, can be read
+without losing ordinary fields or unedited compressed/encrypted records. A
+same-revision metadata edit can normalize the tag to a plain ID3v2.3 header;
+the optional extended header/checksum is then absent, while unedited opaque
+records and audio remain preserved. Recorded Undo restores the original bytes,
+including that header/checksum. This does not decrypt encrypted metadata.
+
+Supported non-unsynchronised ID3v2.4 CRC extensions and footers can also
+preserve unedited compressed/encrypted records in the qualified same-revision
+edits. A successful save normalizes these optional envelopes to plain v2.4;
+it does not retain their checksum/footer representation. Exact Undo restores
+the original bytes.
+
+Ordinary top-level ID3v2.4 frame unsynchronisation is also preserved for
+unchanged private/unknown records in the tested MPEG, DSF, DSDIFF, WAV and AIFF
+paths. This is byte escaping inside a frame, separate from the optional tag
+headers above. The supported MPEG v2.4→v2.3 conversion retains the decoded
+payload instead of marking already-decoded bytes as escaped again.
+
+Ordinary experimental frame names such as `Y000` are retained as real opaque
+metadata. They do not become encrypted merely because their names resemble an
+internal placeholder. Genuine encrypted records keep their existing decryption and revision-conversion
+restrictions.
+
+Global unsynchronization combined with optional headers, update/restriction
+declarations and arbitrary frame/layout combinations remain unqualified. A
+refused operation should leave the original file intact. Keep a backup rather
+than converting an encrypted tag's revision to get around a refusal.
 
 ### MP4 metadata preservation
 
-MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. TagGroove does not add newly created fields to the Nero set. For a file without chapters, an edited value too long for its existing Nero space is written to iTunes only; the older Nero value remains hidden by iTunes precedence.
+MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. TagGroove does not add newly created fields to the Nero set.
+
+For files without chapters, an existing Nero tag can be rewritten on supported
+MP4 layouts when changed values no longer fit its space or leave too little room
+for valid padding. If the required rewrite cannot preserve the layout, the save
+is refused and the whole original file is kept. Fitting changes and unrelated
+fields retain their existing behavior.
 
 Nero artwork is displayed when iTunes artwork is absent. A cover edit writes the result to iTunes artwork and removes the Nero copy, even if it was hidden. Ordinary text-field edits preserve that artwork copy. Unrelated `udta/indx` data is retained but is not exposed for editing.
 
 Nonstandard `plID` items survive unrelated edits. Values of 1–8 bytes can appear as `ITUNESALBUMID`; editing that field writes the standard 8-byte representation. These constructed-fixture checks do not certify every original Nero or Mp3tag version’s output. Keep copies of unusual files and inspect saved tags in the receiving application.
 
+For supported saves, items whose values and storage mapping are unchanged retain
+their original data records, including stored locale words and UTF-16 encoding.
+Changed values, cover edits and mapping rewrites use normal serialization;
+deleted values are not restored from the old records. Item lengths and container
+headers can change to keep the result valid. This preserves the named metadata
+records rather than the complete file's bytes or every possible MP4 layout.
+
 ### DSD
 
-DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte. That does not decrypt them; unsynchronization, extended headers, footers and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
+DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte, including the supported ID3v2.3 extended-header and ID3v2.4 CRC/footer cases above. That does not decrypt them; combined unsynchronization/header transformations, unsupported footer layouts and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
 
 ### Matroska and WebM
 
@@ -114,6 +166,10 @@ Live/unknown-sized cluster layouts can be read through their metadata index but 
 ### ASF and protected files
 
 ASF can contain attributes with binary types, language/stream scope, and values larger than 64 KiB. TagGroove preserves opaque structures it cannot expose as text; Remove tag intentionally does not mean erasing every ASF object. Older consuming readers may omit large Metadata Library values even when the file remains valid. Test long lyrics or large covers in the target player.
+
+Some admitted text can display replacement characters because its stored UTF-16 bytes are noncanonical. Editing another field preserves those untouched text and name bytes, including empty Content Description slots. Explicitly replacing the affected field writes a new Unicode value; removing it discards the stored record.
+
+ASF metadata headers above 512 MiB are refused. A supported header can belong to a larger audio file, whose write and Undo costs still depend on its layout and the history budgets.
 
 An extension such as `.m4p`, or encryption objects in ASF, does not establish DRM support. Editing a container's visible metadata cannot remove protection or guarantee protected playback. Damaged metadata, unsupported encrypted layouts, read-only sources, and access-provider restrictions can prevent a write even when the general family is listed.
 

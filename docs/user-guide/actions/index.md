@@ -160,6 +160,10 @@ that every setting has an equivalent in TagGroove.
 
 Choose **Export .mta…** for the selected group to write an exchange file.
 Review any reported error rather than assuming a partial export is usable.
+An `.mta` file is limited to 4 MiB. Native exports count the actual UTF-16LE
+file, including its byte-order mark, rather than the number of characters.
+If the group cannot fit, split it or shorten its settings and export again;
+that refusal preserves an existing destination file.
 Unresolved imported actions can be exported for preservation: their decoded
 settings survive export and re-import, including encoded line breaks next to
 literal backslashes. Literal backslash sequences remain literal text. The
@@ -172,15 +176,28 @@ original `.mta` file when its exact form matters. Settings containing actual
 line breaks in recognized actions still report an export error. Acceptance
 by the original app for an unknown action or option remains unqualified.
 
-**Adjust Cover**, **Set Cover Properties** and **Generate Playlists** use
-app-only extensions in exported `.mta` files. The group dialog labels this
-before export and repeats the notice after writing the file. Action names in
-the notice follow the current language; saved group names and export paths
-stay as entered. These three actions can round-trip in this app, but do not
-transfer to Mp3tag. Their
-original serialized identifiers/options have not yet been qualified; a shared
-action name does not establish file compatibility. Keep a separate group
-without these actions when transferring the supported mappings.
+**Adjust Cover**, **Set Cover Properties** and **Generate Playlists** read
+native action records (17, 18 and 19). Exports use those native schemas when
+they preserve the action's meaning. Older TagGroove records (1001–1003)
+remain readable. Do not change these numbers by hand: cover option layouts
+and keep/clear sentinels differ.
+
+Some TagGroove options need the older app-only representation: JPEG quality
+below 20, older size targets outside 10–10000, older square/crop sizing rules,
+and literal descriptions that could be read as native numeric sentinels.
+The group dialog reports only actions that the exporter actually writes as
+app-only extensions. These actions cannot transfer to Mp3tag. Names in the
+notice follow the current language; group names and paths stay as entered.
+
+Recognized native source options are retained while editing their actions,
+including a known inactive cover-properties option. An edit that requires an
+older schema can conflict with that retained option. Export then reports an
+error and preserves the destination, rather than losing the option or changing
+its meaning. Unknown settings still remain unresolved.
+
+Native schema support is locally tested against decoded record contracts;
+original Mp3tag import/edit/re-export and platform acceptance remain untested.
+Keep the original file and verify exchanged groups in the receiving application.
 
 ## Keyboard controls in the group list
 

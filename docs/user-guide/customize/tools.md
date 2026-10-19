@@ -133,6 +133,15 @@ path system. Folder separators follow the actual platform.
 
 </div>
 
+For a single individually loaded file or playlist, its containing folder supplies
+the root context, including `/` or a Windows drive root such as `C:\`.
+
+An actual loaded folder supplies its own path, even when its name ends in a
+playlist suffix. For example, loading the folder `/Music/archive.m3u` makes
+that folder the relative-path root; loading the playlist file
+`/Music/archive.m3u` instead uses `/Music`. The filesystem kind, rather than
+the name alone, decides which case applies.
+
 Relative placeholders use the single listed-root context when available. With
 multiple roots, no usable root, or a file outside that root, they can return
 absolute paths. If the file is directly in the root, its relative folder
@@ -203,10 +212,9 @@ typing in an ordinary text field, and Alt-digit chords belong to other commands.
 
 **Default tool (double-click in the file list)** starts at **No action**.
 Choosing a saved tool makes a row double-click run that definition using the
-current selection/scope rules. With **No action**, TagGroove falls back to
-**Extended tags…** on a row double-click; it does not make double-click do
-nothing. This is an explicit difference from the original editor's described
-No action behavior.
+current selection/scope rules. **No action** leaves a row double-click without
+an action. Open **Edit → Extended tags…** explicitly when you want that editor;
+saved tools remain available from their menus and shortcuts.
 
 A [custom toolbar](toolbars.md) can reference a tool by its saved name. Give
 entries distinct names. Renaming/removing the tool can leave an old custom

@@ -168,6 +168,13 @@ fn remaining_regex_fences_preserve_capture_quotes_and_empty_replacements() {
 
 fn check_remaining_regex_fences_preserve_capture_quotes_and_empty_replacements(regex_page: &str) {
     let examples = blocks(regex_page);
+    assert_eq!(examples.len(), 6);
+    // The literal Input/Pattern/Replacement/Result fence is exercised through
+    // the actual regex action in user_guide.rs; these are the scripting fences.
+    let examples: Vec<_> = examples
+        .into_iter()
+        .filter(|block| block.starts_with('$'))
+        .collect();
     assert_eq!(examples.len(), 5);
     let mut values = fields();
     for (index, title, expected) in [
@@ -336,7 +343,7 @@ fn check_guest_recipe_filter_and_both_match_and_no_match_examples_are_explicit(g
 fn written_fences_support_both_checkout_newlines_and_preserve_spaces() {
     for (page, count) in [
         (FORMAT, 10),
-        (REGEX, 5),
+        (REGEX, 6),
         (FIRST, 1),
         (NUMBERS, 5),
         (FOLDERS, 8),

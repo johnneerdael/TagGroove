@@ -9,6 +9,34 @@ use std::path::{Path, PathBuf};
 use tag_core::playlist::{PlaylistItem, PlaylistWriteOptions};
 use tag_core::{AudioEntry, Fields, FileError};
 
+/// Filesystem kinds belong to original roots, independently of their names or scanned rows.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum SourceRootKind {
+    File,
+    Directory,
+    Unknown,
+}
+
+#[tauri::command]
+pub async fn classify_source_paths(paths: Vec<String>) -> Result<Vec<SourceRootKind>, String> {
+    crate::io(move || {
+        crate::reject_provider_operation(&paths, "Playlist and folder sources")?;
+        Ok(paths
+            .iter()
+            .map(|path| {
+                match std::fs::metadata(path) {
+                    Ok(metadata) if metadata.is_dir() => SourceRootKind::Directory,
+                    Ok(metadata) if metadata.is_file() => SourceRootKind::File,
+                    // Keep unreadable/missing roots unknown. The reader or scanner reports its error.
+                    _ => SourceRootKind::Unknown,
+                }
+            })
+            .collect())
+    })
+    .await
+}
+
 /// Options → Playlist values that change how playlists are written.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlaylistOptions {
@@ -401,6 +429,36 @@ pub async fn create_playlists(request: PlaylistRequest) -> Result<PlaylistPlan, 
 mod tests {
     use super::*;
 
+    #[test]
+    fn source_root_kinds_use_filesystem_metadata_for_all_playlist_suffixes() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut paths = Vec::new();
+        let mut expected = Vec::new();
+        for suffix in ["m3u", "m3u8", "pls", "cue", "xspf", "wpl", "asx"] {
+            let directory = temp.path().join(format!("archive.{suffix}"));
+            std::fs::create_dir(&directory).unwrap();
+            let file = temp.path().join(format!("playlist.{suffix}"));
+            std::fs::write(&file, b"playlist").unwrap();
+            paths.extend([directory, file].map(|p| p.to_string_lossy().into_owned()));
+            expected.extend([SourceRootKind::Directory, SourceRootKind::File]);
+        }
+        paths.push(
+            temp.path()
+                .join("missing.m3u")
+                .to_string_lossy()
+                .into_owned(),
+        );
+        expected.push(SourceRootKind::Unknown);
+        assert_eq!(
+            tauri::async_runtime::block_on(classify_source_paths(paths)).unwrap(),
+            expected
+        );
+        assert!(tauri::async_runtime::block_on(classify_source_paths(vec![
+            "content://provider/root.cue".into()
+        ]))
+        .is_err());
+    }
+
     fn fixture(names: &[&str]) -> (tempfile::TempDir, Vec<String>) {
         let directory = tempfile::tempdir().unwrap();
         let root = dunce::canonicalize(directory.path()).unwrap();
@@ -638,6 +696,7 @@ mod tests {
                 false,
                 None,
                 Some(true),
+                None,
             ))
             .unwrap();
             assert!(scanned.errors.is_empty(), "{:?}", scanned.errors);

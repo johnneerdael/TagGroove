@@ -63,14 +63,15 @@ and reader settings separately.
 ## Read, Write and Remove are independent decisions
 
 **Read** chooses the displayed metadata. **Write** selects supported tag types
-to receive saved data. **Remove** chooses types for **File → Remove tag…**;
-saving also removes a selected type when it is not being written.
+to receive saved data. **Remove** chooses types for **File → Remove tag…**.
+Under the **Mpeg** policy, ordinary Save preserves types whose Write switches
+are off, even when their Remove switches are checked.
 
-For example, disabling Write APEv2 while leaving Remove APE enabled can strip
-an APE tag during an ordinary save. Saving can synchronize several written
-types from the displayed values; conflicting hidden blocks are not guaranteed
-to retain independent versions of every field. Keep original files before
-changing policies on a mixed collection.
+For example, leaving Write APEv2 off preserves an existing APE tag during an
+ordinary MPEG save. Enabling APE writing deliberately updates that tag.
+Saving can synchronize several written types from the displayed values;
+conflicting values inside the written types are not guaranteed to remain
+independent. Keep original files before changing policies on a mixed collection.
 
 These Mpeg options also serve supported raw AAC and TTA paths. The
 **Ape, Mpc** family uses APE ahead of ID3v1 and has its own write/remove

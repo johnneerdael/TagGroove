@@ -25,7 +25,7 @@ The search does not require complete words: `harb` can match `Harbour`. An aster
 
 Write keywords such as `IS`, `HAS`, and `AND` in uppercase. Field names and compared text are case-insensitive. Quote a multiword value as one operand; the quotes group the filter text and are not part of the wanted tag value.
 
-`HAS` asks about contained words. `IS` asks whether a complete stored value equals the text. `MATCHES` runs a regular expression. These are different questions: `TITLE IS "Live*"` looks for the literal asterisk, while `TITLE MATCHES "^Live"` finds a value beginning with Live.
+Unquoted `HAS` asks about contained words; quoted `HAS` asks for a contiguous phrase. `IS` asks whether a complete stored value equals the text. `MATCHES` runs a regular expression. These are different questions: `TITLE IS "Live*"` looks for the literal asterisk, while `TITLE MATCHES "^Live"` finds a value beginning with Live.
 
 The complete [filter syntax reference](../reference/filter-syntax.md) covers all operators, missing versus empty fields, quoting, numeric rules, and format-string selectors.
 
@@ -34,6 +34,10 @@ The complete [filter syntax reference](../reference/filter-syntax.md) covers all
 Open the helper menu beside the Filter, or focus the field and press ++ctrl+space++. Control is used on every platform; ++ctrl+alt+space++ is also available on macOS when the system reserves Control+Space.
 
 **Auto-apply filter** defaults to enabled. Results update while typing after a short delay. Turn it off to compose an expression without filtering at each partial word, then press Enter to apply it. The text being edited and the currently applied query can differ in manual mode.
+
+When using an input method to choose characters, automatic filtering waits for
+that composition to finish. The Enter used to choose a character does not also
+apply a manual filter: finish the choice, then press Enter separately.
 
 Enabling Auto-apply while unapplied text exists applies that text. The helper also lists fields, information fields, functions, and history/favorites. Inserted placeholders still need the surrounding filter syntax: a function by itself is not an operator.
 

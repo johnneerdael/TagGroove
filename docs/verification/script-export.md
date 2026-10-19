@@ -1,6 +1,6 @@
 # Scripting, filter, placeholder and export parity — 2026-10-15
 
-Branch `feat/script-export`, started from `feat/core-parity` at `8a8d6f9` and merged with `feat/core-parity` at `bd5e632` before this report. It closes items 10, 11, 15–20 and 22 of `docs/research/remaining-gaps.md` and the computable placeholder rows of that register. Nothing here was checked against the original program; each decision below names the documentation it follows and the reading taken where the documentation leaves room.
+Branch `feat/script-export`, started from `feat/core-parity` at `8a8d6f9` and merged with `feat/core-parity` at `bd5e632` before this historical report. Its former closure claims describe the implementation checkpoint, not current original-runtime acceptance. Use the [uncovered ledger](../PARITY.md) and [coverage companion](../research/remaining-gaps.md) for remaining work. Nothing here was checked against the original program; each decision below names the documentation it follows and the reading taken where the documentation leaves room.
 
 ## Decisions
 
@@ -72,7 +72,7 @@ Only types 1 and 2 appear in Mp3tag's shipped action files. Their structure is a
 | 1002 | Set cover properties (OpenTag ID) | | picture type (empty = keep) | description (absent = keep) | only this picture type (empty = all) | | |
 | 1003 | Generate playlists (OpenTag ID) | file name format | partition format | | | | |
 
-Mp3tag has no known ID for the last three types. They use IDs from 1001 on, so they cannot collide with Mp3tag's own types; Mp3tag will show them as unknown actions. Import stays strict. An unknown key, flag value, case mode or picture type number, or settings that fail validation, leave the action as a disabled unresolved record that is written back unchanged on export. Export refuses only settings that `.mta` cannot store (line breaks).
+The last three types use application-specific IDs1001–1003. Their original equivalents, collision behavior and original reader/import/edit/re-import results have not been established. Export warns about these one-way extensions; do not treat the numeric range as proof of interoperability. Import stays strict: unsupported keys/options or invalid recognized settings remain disabled unresolved records. Later [opaque-record preservation](mta-opaque-preservation-2026-10-18.md) preserves accepted decoded values and record order, including opaque CR/LF and adjacent literal backslashes. It does not promise original bytes, source encoding or escape spelling. Recognized-action settings containing line breaks remain refused where their schema cannot represent them.
 
 ### Export Cover and Adjust Cover
 

@@ -205,3 +205,12 @@ dialog { background:var(--surface); }
 @media(min-width:1001px){.workspace{position:relative;grid-template-columns:min(var(--panel-width,264px),50vw) minmax(0,1fr)}.app[data-panel=shown] .panel-splitter{display:block;position:absolute;top:0;bottom:0;left:calc(min(var(--panel-width,264px),50vw) - 4px);width:8px;cursor:col-resize;z-index:3;touch-action:none}.panel-splitter:hover,.panel-splitter:focus-visible,.panel-splitter.dragging{outline:none;background:linear-gradient(var(--accent),var(--accent)) center/2px 100% no-repeat}}
 .mapping-editor select[size]{height:auto;min-height:150px}
 .row-drop-marker{position:absolute;left:0;height:2px;background:var(--accent);z-index:3;pointer-events:none}.table-wrap.row-dragging,.table-wrap.row-dragging tr{cursor:grabbing}.cover-art.folder-image{border-style:dashed}
+
+/* Fixed row geometry bounds matching-value DOM without truncating the choices. */
+.combo-list.value-suggestions{--value-suggestion-row-height:30px;padding:0;max-width:calc(100vw - 8px)}
+.combo-list.value-suggestions [role=option],.combo-list.value-suggestions .combo-group{height:var(--value-suggestion-row-height);box-sizing:border-box;padding:5px 10px;line-height:20px;white-space:pre;overflow:hidden;text-overflow:ellipsis}
+.cell-editor{resize:none;font-family:inherit}
+@media (max-width:1000px){.combo-list.value-suggestions{--value-suggestion-row-height:44px}.combo-list.value-suggestions [role=option],.combo-list.value-suggestions .combo-group{padding:12px 14px}}
+
+/* Toolbar band placement follows the saved main-toolbar arrangement. */
+.toolbar-bands{display:flex;flex:1;min-width:0;flex-wrap:wrap}.toolbar-bands>.toolbar{flex:1;min-width:0}.toolbar-bands[data-toolbar-stack="true"]{flex-direction:column}.toolbar-bands[data-toolbar-stack="true"]>.toolbar{flex:auto}

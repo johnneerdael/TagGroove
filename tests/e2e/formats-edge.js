@@ -37,15 +37,19 @@
     await clickRow(name);
     (await ready('remove-tag-types')).click();
     const dlg = await waitFor(() => document.querySelector('dialog[open].remove-tag-types-dialog'), 4000, 'remove dialog');
-    const enabled = [...dlg.querySelectorAll('[data-tag-kind]')].filter(i => !i.disabled).map(i => i.dataset.tagKind);
-    for (const kind of kinds) {
-      const input = dlg.querySelector(`[data-tag-kind="${kind}"]`);
-      if (input.disabled) throw new Error(`${kind} is disabled; enabled: ${enabled.join(',')}`);
-      input.click();
+    try {
+      const enabled = [...dlg.querySelectorAll('[data-tag-kind]')].filter(i => !i.disabled).map(i => i.dataset.tagKind);
+      for (const kind of kinds) {
+        const input = dlg.querySelector(`[data-tag-kind="${kind}"]`);
+        if (input.disabled) throw new Error(`${kind} is disabled; enabled: ${enabled.join(',')}`);
+        input.click();
+      }
+      dlg.querySelector('#remove-tag-types').click();
+      await waitFor(() => /Removed tag types/.test(status()), 8000, 'removed status'); await idle();
+      return enabled;
+    } finally {
+      if (dlg.open) dlg.close();
     }
-    dlg.querySelector('#remove-tag-types').click();
-    await waitFor(() => /Removed tag types/.test(status()), 8000, 'removed status'); await idle();
-    return enabled;
   };
 
   try {
@@ -78,7 +82,24 @@
       return labels.join(' | ');
     });
 
-    await step('AAC shows its APEv2 tag and saves ID3v2 and ID3v1 under the Mpeg policy', async () => {
+    await step('explicit MPEG APE read and write choices apply to the loaded AAC file', async () => {
+      const hidden = await scan('stream.aac');
+      if (value(hidden.fields, 'TITLE')?.length || !/APE/.test(tags(hidden))) throw new Error('The initial read mask did not leave the APE-only title hidden');
+      const dlg = await openOptions();
+      dlg.querySelector('[data-page="tags-mpeg"]').click(); await sleep(150);
+      for (const name of ['read_ape', 'write_ape']) {
+        const box = dlg.querySelector(`[data-option="tags.mpeg.${name}"]`);
+        if (!box) throw new Error('Missing MPEG option ' + name);
+        box.checked = true; box.dispatchEvent(new Event('input', { bubbles: true })); box.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      dlg.querySelector('#options-ok').click();
+      await waitFor(() => !document.querySelector('dialog[open].options-dialog'), 5000, 'MPEG options closed'); await idle();
+      const mpeg = (await inv('load_settings')).settings.tags.mpeg;
+      if (!mpeg.read_ape || !mpeg.write_ape) throw new Error('APE read/write preferences were not saved');
+      return 'APE remains present while unread; explicitly enable both Read APE and Write APE';
+    });
+
+    await step('AAC synchronizes all enabled MPEG tag types without removing the APE tag', async () => {
       const before = await scan('stream.aac');
       if (before.format !== 'AAC' || value(before.fields, 'TITLE')?.[0] !== 'From APE' || before.technical._TAG_READ?.[0] !== 'APEv2') throw new Error(`${before.format} ${JSON.stringify(before.fields)} ${tags(before)}`);
       await clickRow('stream.aac');
@@ -88,12 +109,12 @@
       await waitFor(() => /Saved tags/.test(status()), 8000, 'saved status'); await idle();
       const after = await scan('stream.aac');
       if (value(after.fields, 'TITLE')?.[0] !== 'AAC edited' || value(after.fields, 'ARTIST')?.[0] !== 'Band') throw new Error(JSON.stringify(after.fields));
-      if (!/ID3v2\.3/.test(tags(after)) || !/ID3v1/.test(tags(after)) || /APE/.test(tags(after))) throw new Error(tags(after));
+      if (!/ID3v2\.3/.test(tags(after)) || !/ID3v1/.test(tags(after)) || !/APE/.test(tags(after))) throw new Error(tags(after));
       return `${tags(before)} → ${tags(after)}`;
     });
 
     await step('Remove tag types accepts AAC', async () => {
-      const enabled = await removeTagTypes('stream.aac', ['id3v1', 'id3v2']);
+      const enabled = await removeTagTypes('stream.aac', ['id3v1', 'id3v2', 'ape']);
       const after = await scan('stream.aac');
       if (tags(after) || after.format !== 'AAC') throw new Error(`${after.format} tags=${tags(after)}`);
       return `enabled ${enabled.join(',')} → no tags left`;

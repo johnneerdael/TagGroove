@@ -8,24 +8,42 @@ text. That flag controls `$if`, `$if2`, `$and`, `$or` and `$not`.
     Follow [Format strings from zero](../../learn/format-strings-from-zero.md)
     for a worked field fallback before using this reference.
 
+!!! note "Bringing formulas from Mp3tag"
+    Predicates produce empty text and update evaluation flags. Nested
+    expressions and unused branches can affect those flags, so check imported
+    formulas in Preview before applying them to tags or filenames. These rules
+    do not establish full Mp3tag compatibility.
+
 ## Understand what counts as true
 
 | Input to a condition | Flag |
 |---|---|
 | A placeholder with a nonempty first value | True |
 | A missing or empty placeholder | False |
-| A comparison that succeeds | True; displayed text is `1` |
-| A comparison that fails | False; displayed text is `0` |
+| A comparison that succeeds | True; displayed text is empty |
+| A comparison that fails | False; displayed text is empty |
 | Literal text, including `1`, `0` and `yes` | False |
 
-Most text and numeric functions inherit flags from their arguments. They
-do not recompute truth from their output. For example, searching a present
-title can return the position text `0` while still carrying a true flag.
-Test that position with `$grtr(position,0)`.
+Predicates such as `$eql`, `$and` and `$isdigit` produce **empty text**.
+Use `$if($eql(03,3),1,0)` to display `1` or `0` explicitly. The literal digits
+are selected output, not boolean inputs.
 
-All function arguments are evaluated before a result is chosen. A branch
-that is not selected can still report an error. Do not hide an invalid
-expression or division by zero in the unused branch of `$if`.
+Evaluation proceeds from left to right within each expression. A nonempty
+field lookup adds availability and truth; a predicate replaces both flags
+with its answer, including flags established by earlier text in that same
+expression. Thus `[%artist%$eql(1,2)]` disappears even when `ARTIST` is present.
+
+Every function argument is evaluated in its own expression before a result
+is chosen. Its flags contribute to the containing expression, including
+arguments whose text is not selected. Most text and numeric functions do
+not recompute truth from their output: a search in a present title can
+return position text `0` while retaining a true flag. Test that position
+with `$grtr(position,0)`.
+
+An unused branch can also report an error. Do not hide an invalid expression
+or division by zero in the unused branch of `$if`. Optional sections evaluate
+their own children; when their final availability is false, they suppress
+both their text and their flags.
 
 Examples use `ARTIST` = `Juniper Vale`, `TITLE` = `Paper Boats`, `TRACK` =
 `3/8`, `YEAR` = `2024`, with `ALBUMARTIST` and `MISSING` absent.
@@ -45,9 +63,12 @@ Examples use `ARTIST` = `Juniper Vale`, `TITLE` = `Paper Boats`, `TRACK` =
 | `$if(1,yes,no)` | Any file | `no` |
 | `$if($eql(%year%,2024),current,other)` | `YEAR` = `2024` | `current` |
 
-The result inherits the chosen branch's flag. Choosing literal `yes`
-displays that word but does not make it true if passed into another
-condition. **Related:** [`$if2`](#if2).
+Only the chosen branch supplies output text. Flags from the condition and
+both branches still contribute. For example,
+`$if($if(%year%,yes,no),present,missing)` gives `present` when `YEAR` exists,
+even though the inner result `yes` is literal text. Likewise,
+`$if($if(1,%artist%,no),present,missing)` gives `present` when `ARTIST`
+exists: the unused inner branch contributes its flag. **Related:** [`$if2`](#if2).
 
 ### `$if2(x,fallback)` { #if2 }
 
@@ -117,8 +138,8 @@ Use `$strcmp` for exact string equality including case and zero padding.
 
 ### `$eql(x,y)` { #eql }
 
-**Returns** true (`1`) when the values are equal under the rule above,
-otherwise false (`0`).
+**Sets the flag** to true when the values are equal under the rule above,
+otherwise false.
 
 | Argument | Meaning |
 |---|---|
@@ -126,8 +147,8 @@ otherwise false (`0`).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$eql(03,3)` | Any file | `1` |
-| `$eql(3/8,3)` | Any file | `0` |
+| `$if($eql(03,3),1,0)` | Any file | `1` |
+| `$if($eql(3/8,3),1,0)` | Any file | `0` |
 | `$if($eql($lower(%title%),paper boats),same,different)` | `TITLE` = `Paper Boats` | `same` |
 
 `$eql(A,a)` is true because fallback string equality ignores case.
@@ -135,8 +156,8 @@ otherwise false (`0`).
 
 ### `$neql(x,y)` { #neql }
 
-**Returns** the inverse of `$eql`: true (`1`) when unequal, otherwise
-false (`0`).
+**Sets the flag** to the inverse of `$eql`: true when unequal, otherwise
+false.
 
 | Argument | Meaning |
 |---|---|
@@ -144,8 +165,8 @@ false (`0`).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$neql(3,4)` | Any file | `1` |
-| `$neql(A,a)` | Any file | `0` |
+| `$if($neql(3,4),1,0)` | Any file | `1` |
+| `$if($neql(A,a),1,0)` | Any file | `0` |
 | `$if($neql($num(%track%,1),3),other,third)` | `TRACK` = `3/8` | `third` |
 
 This does not mean "different after trimming"; surrounding whitespace
@@ -159,7 +180,7 @@ alphabetical sorting rules.
 
 ### `$grtr(x,y)` { #grtr }
 
-**Returns** true (`1`) when `x` is greater than `y`, otherwise false (`0`).
+**Sets the flag** to true when `x` is greater than `y`, otherwise false.
 
 | Argument | Meaning |
 |---|---|
@@ -167,16 +188,16 @@ alphabetical sorting rules.
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$grtr(4,3)` | Any file | `1` |
-| `$grtr(B2,0)` | Any file | `0` |
+| `$if($grtr(4,3),1,0)` | Any file | `1` |
+| `$if($grtr(B2,0),1,0)` | Any file | `0` |
 | `$if($grtr($strstr(%title%,Boats),0),found,missing)` | `TITLE` = `Paper Boats` | `found` |
 
 Equal values are false. **Related:** [`$geql`](#geql).
 
 ### `$geql(x,y)` { #geql }
 
-**Returns** true (`1`) when `x` is greater than or equal to `y`, otherwise
-false (`0`).
+**Sets the flag** to true when `x` is greater than or equal to `y`, otherwise
+false.
 
 | Argument | Meaning |
 |---|---|
@@ -184,8 +205,8 @@ false (`0`).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$geql(3,3)` | Any file | `1` |
-| `$geql(-1,0)` | Any file | `0` |
+| `$if($geql(3,3),1,0)` | Any file | `1` |
+| `$if($geql(-1,0),1,0)` | Any file | `0` |
 | `$if($geql($len(%title%),11),long enough,short)` | `TITLE` = `Paper Boats` | `long enough` |
 
 The first example includes equality, which distinguishes it from `$grtr`.
@@ -193,7 +214,7 @@ The first example includes equality, which distinguishes it from `$grtr`.
 
 ### `$less(x,y)` { #less }
 
-**Returns** true (`1`) when `x` is less than `y`, otherwise false (`0`).
+**Sets the flag** to true when `x` is less than `y`, otherwise false.
 
 | Argument | Meaning |
 |---|---|
@@ -201,16 +222,16 @@ The first example includes equality, which distinguishes it from `$grtr`.
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$less(2,3)` | Any file | `1` |
-| `$less(3,3)` | Any file | `0` |
+| `$if($less(2,3),1,0)` | Any file | `1` |
+| `$if($less(3,3),1,0)` | Any file | `0` |
 | `$if($less($num(%track%,1),4),first three,later)` | `TRACK` = `3/8` | `first three` |
 
 Equal values are false. **Related:** [`$leql`](#leql).
 
 ### `$leql(x,y)` { #leql }
 
-**Returns** true (`1`) when `x` is less than or equal to `y`, otherwise
-false (`0`).
+**Sets the flag** to true when `x` is less than or equal to `y`, otherwise
+false.
 
 | Argument | Meaning |
 |---|---|
@@ -218,8 +239,8 @@ false (`0`).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$leql(3,3)` | Any file | `1` |
-| `$leql(4,3)` | Any file | `0` |
+| `$if($leql(3,3),1,0)` | Any file | `1` |
+| `$if($leql(4,3),1,0)` | Any file | `0` |
 | `$if($leql($len(%title%),11),fits,too long)` | `TITLE` = `Paper Boats` | `fits` |
 
 The equality case is included. **Related:** [`$less`](#less).
@@ -228,7 +249,7 @@ The equality case is included. **Related:** [`$less`](#less).
 
 ### `$and(x,y[,z…])` { #and }
 
-**Returns** true (`1`) only when every argument's flag is true. Accepts
+**Sets the flag** to true only when every argument's flag is true. Accepts
 2–63 arguments.
 
 | Argument | Meaning |
@@ -237,8 +258,8 @@ The equality case is included. **Related:** [`$less`](#less).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$and($eql(1,1),$grtr(3,1))` | Any file | `1` |
-| `$and(1,1)` | Any file | `0` |
+| `$if($and($eql(1,1),$grtr(3,1)),1,0)` | Any file | `1` |
+| `$if($and(1,1),1,0)` | Any file | `0` |
 | `$if($and(%artist%,%year%),complete,incomplete)` | `ARTIST` and `YEAR` present | `complete` |
 
 Literal `1` is not a boolean true value. All arguments are evaluated;
@@ -246,7 +267,7 @@ this is not a short-circuit error guard. **Related:** [`$or`](#or).
 
 ### `$or(x,y[,z…])` { #or }
 
-**Returns** true (`1`) when at least one argument's flag is true. Accepts
+**Sets the flag** to true when at least one argument's flag is true. Accepts
 2–63 arguments.
 
 | Argument | Meaning |
@@ -255,8 +276,8 @@ this is not a short-circuit error guard. **Related:** [`$or`](#or).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$or(%missing%,%artist%)` | `MISSING` absent; `ARTIST` present | `1` |
-| `$or(yes,1)` | Any file | `0` |
+| `$if($or(%missing%,%artist%),1,0)` | `MISSING` absent; `ARTIST` present | `1` |
+| `$if($or(yes,1),1,0)` | Any file | `0` |
 | `$if($or(%artist%,%albumartist%),credited,unknown)` | `ARTIST` present; `ALBUMARTIST` absent | `credited` |
 
 Use `$if2` when the goal is to return one field's actual text rather than
@@ -264,8 +285,8 @@ ask whether either field is available. **Related:** [`$and`](#and).
 
 ### `$not(x)` { #not }
 
-**Returns** the opposite of `x`'s flag: false becomes true (`1`), and true
-becomes false (`0`).
+**Sets the flag** to the opposite of `x`'s flag: false becomes true, and true
+becomes false.
 
 | Argument | Meaning |
 |---|---|
@@ -273,8 +294,8 @@ becomes false (`0`).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$not(%missing%)` | `MISSING` absent | `1` |
-| `$not(1)` | Any file | `1` |
+| `$if($not(%missing%),1,0)` | `MISSING` absent | `1` |
+| `$if($not(1),1,0)` | Any file | `1` |
 | `$if($not($eql(%year%,2024)),other,year 2024)` | `YEAR` = `2024` | `year 2024` |
 
 The second example follows the literal-text rule: literal `1` starts
@@ -282,8 +303,7 @@ false, so negating it is true. **Related:** [`$eql`](#eql).
 
 ### `$odd(x)` { #odd }
 
-**Returns** true (`1`) when the leading integer is odd, otherwise false
-(`0`).
+**Sets the flag** to true when the leading integer is odd, otherwise false.
 
 | Argument | Meaning |
 |---|---|
@@ -291,8 +311,8 @@ false, so negating it is true. **Related:** [`$eql`](#eql).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$odd(3)` | Any file | `1` |
-| `$odd(B2)` | Any file | `0` |
+| `$if($odd(3),1,0)` | Any file | `1` |
+| `$if($odd(B2),1,0)` | Any file | `0` |
 | `$if($odd($num(%track%,1)),odd track,even track)` | `TRACK` = `3/8` | `odd track` |
 
 Negative odd numbers are also true. A nonnumeric value becomes 0 and is

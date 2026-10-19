@@ -55,8 +55,8 @@ Distinct tool names make those references easier to maintain.
 
 The **Default tool (double-click in the file list)** setting is separate from
 menu ordering. A chosen definition follows its current-selection/per-file
-rules on a row double-click. **No action** currently falls back to Extended
-tags in TagGroove; it does not make double-click inert. See
+rules on a row double-click. **No action** leaves that double-click without an
+action; use **Edit → Extended tags…** to open the field editor. See
 [tool configuration](../../customize/tools.md#shortcuts-default-tool-and-custom-buttons)
 for that deliberate distinction.
 

@@ -21,9 +21,9 @@ For repeated use, keep these settings in an action group.
 
 ## Understand the result
 
-Each existing value is split, with surrounding whitespace trimmed from
-each piece. The pieces keep their original order. The separator itself is
-not kept and is not interpreted as a regular expression.
+Each existing value is split on the literal separator. The resulting values
+keep their original order, including repeated names. The separator is not a
+regular expression: `.*` means those two characters, not a wildcard.
 
 | Before | Separator | Values after splitting |
 |---|---|---|
@@ -31,10 +31,17 @@ not kept and is not interpreted as a regular expression.
 | `Juniper Vale / Mira Solberg` | ` / ` | `Juniper Vale`, `Mira Solberg` |
 | `Low Tide` | `;` | `Low Tide` |
 
-If a field already has two values, both are processed and their resulting
-pieces are collected in order. A separator at the start or end, or two
-separators together, can produce empty pieces. Clean the input first when
-those empty values are unwanted.
+If a field already has several values, their raw split pieces are counted
+together. When that count differs from the number of original values,
+TagGroove trims each piece, removes empty pieces and stores the remaining
+values. If none remain, it removes the field. Leading, trailing and repeated
+separators therefore do not create empty stored values when this branch runs.
+
+When the raw piece count equals the original value count, the field stays
+exactly as it was. For example, splitting one padded value ` Low Tide ` on `;`
+keeps its spaces because no split occurred. This count rule applies to the
+whole field: existing empty values can offset newly split pieces, so inspect
+unusual multivalue input in Extended tags before applying a batch action.
 
 TagGroove's display may join values with ` \\ `. That is a display convention;
 do not use it as a separator unless those characters actually occur inside
