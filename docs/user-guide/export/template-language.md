@@ -44,6 +44,12 @@ spaces remain in the report.
 | `$put(name,value)` | Store a value and return it |
 | `$puts(name,value)` | Store a value and return empty text |
 
+!!! warning "Check optional sections in migrated templates"
+    Some Mp3tag templates combining export variables with `[...]` or nested
+    conditions still render differently in TagGroove. Check the export preview,
+    especially when a value stored from a tag field is retrieved inside an
+    optional section. Variable storage and retrieval themselves are available.
+
 ### `$filename`: name, extension and encoding
 
 Put it once, before the first non-whitespace output. Do not put it inside a

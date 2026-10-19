@@ -189,6 +189,13 @@ Version=2
 
 ## Paths, names and encoding
 
+!!! warning "Current filename readback limitation"
+    Relative M3U/M3U8 entries beginning with `#` can be skipped as comments.
+    Leading or trailing spaces in M3U/M3U8/PLS locations can also select an
+    existing file with the trimmed name. Check the loaded members before
+    editing tags from such a playlist. Absolute paths avoid the leading-`#`
+    case, but do not solve the whitespace case.
+
 Relative entries are calculated from the output playlist's folder. The
 configured working-directory root bounds when relative entries are used;
 entries or outputs outside it can remain absolute. Different filesystem

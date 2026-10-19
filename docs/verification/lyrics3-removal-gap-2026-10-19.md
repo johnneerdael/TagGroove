@@ -52,6 +52,36 @@ changing only a late staging guard would not address that initial selection.
 The v1 behavior is a separate legacy boundary. APE-only selection with ID3v1
 retained was not executed in this follow-up and must not be inferred from it.
 
+### Public orphan and APE-only follow-up
+
+A new 13-case core-API probe ran after the static public-route review below.
+Of twelve single-file cases, six matched their stated expectations and six
+did not. One of those mismatches is a direct Utils-orphan API invocation,
+explicitly separate from the original orphan-only dialog's eligibility.
+
+File Remove on recognized orphan Lyrics3v2 returned success while preserving
+the entire file, inode and modification time, with no new Undo entry. The
+direct Utils call did the same. A mixed core-API operation applied the same
+ID3v1 selection to an ordinary ID3v1 file and an orphan: only the ordinary file
+changed, and the journal correctly recorded one changed file. The native
+public-route prediction reaches the stripper for both supported records.
+
+Two actual ID3v1-plus-Lyrics3v2 cases again removed only the 128-byte ID3v1
+suffix. Two APE-only removal selections on APE + Lyrics3v2 + ID3v1 returned
+success without changing any bytes; the initial inventory exposed only ID3v1.
+Ordinary ID3v1 and APE-only-input removal controls succeeded through both APIs.
+An unrelated removal mask remained a no-op and an empty Utils selection refused.
+
+All cases retained the complete 2,298-byte encoded carrier and its independent
+11-frame accounting. Every mutation required current journal admission and
+exact whole-file Undo/Redo; no-op cases retained byte/inode/time identity and
+no history entry. This is encoded-audio evidence, not independent decoded PCM,
+Tauri batch/checkbox execution or original-runtime acceptance. The retained
+library's actual Cargo producer, all 49 source bindings and its unchanged hash
+were verified before execution. A missing launcher path stopped an earlier
+attempt before compilation; that attempt is retained separately and is not a
+semantic result.
+
 ## Pinned Mp3tag authority
 
 The inspected Windows x64 Mp3tag 3.36.1 executable and retained copy have
@@ -75,8 +105,30 @@ APE writing. Exact regenerated ID3v1 serialization is not qualified here.
 The native v2 detector does not validate each size byte as a decimal digit or
 walk internal field records. A stricter checked port recognizer would therefore
 be a separately stated safety policy, not exact native malformed-input parity.
-A recognizable orphan v2 block can reach the concrete bit-1 helper without
-ID3v1, but original GUI eligibility for that case remains unknown.
+A subsequent static caller trace closes the ordinary public route for a
+recognized orphan v2 block without ID3v1. File Remove's enable predicate checks
+the busy state, a live File List and a nonempty selection; it does not require
+a cached tag kind. After accepted confirmation, valid supported selected MPEG
+records reach the configured bit-1 helper without a per-file tag-kind gate.
+
+Remove Tag Types has a different eligibility rule: its choices use the union
+of cached tag kinds across the selection. An orphan-only selection cannot
+normally choose ID3v1, but a mixed ID3v1/orphan selection enables that choice.
+The accepted bit-1 request then reaches both supported records. Directly calling
+TagGroove's Utils API on an orphan alone would therefore be backend evidence,
+not proof of the original dialog's ordinary selection behavior.
+
+An independent review verified the 33 public-route artifacts, four reused
+inputs and all 17 earlier dependency artifacts, and checked ten literal
+predicate/mask oracles. It found no contradictory gate for File Remove/orphan
+or mixed-selection ID3v1 reachability. An appended operand binding resolves
+the review's remaining APE-availability question: the handler searches for the
+three-character UTF-16 string `APE`, ending at its first NUL, rather than the
+adjacent `APEv` text. An independent review matched those bytes and their
+membership-test-to-checkbox/mask routing against the retained handler. Thus an
+actual cached APE kind can enable the choice whose accepted state supplies
+mask 8. These are static control-flow facts, not executed original GUI/checkbox
+input, malformed-file or Windows acceptance.
 
 [Mp3tag's current MPEG manual](https://docs.mp3tag.de/customization/options/tags/mpeg/)
 describes dependent Lyrics3 removal without a version restriction. The pinned
@@ -116,6 +168,15 @@ No repair design or intentional deviation is approved by these findings.
 | Native 17-artifact manifest | `36d47ebbbe38d6b025fb88425843246095c29a9c450789e02aeb753396b5698d` |
 | Native evidence note | `f0893d3353ed597af00ce236ae3263b5af1fc8ec6314926afc59ba8d43a72a66` |
 | Native receipt | `a9a84a447ad232a2f3cf432ae05c093d66ae6cee7b84ea1df6b623d3340602b8` |
+| Public-route eligibility evidence | `8fce7c574e32e315ede0bd180ea47355fe1b9b00d4e6a8ec66592d04ef70fd69` |
+| Public-route eligibility receipt | `1be97935bae0b3af2edaa03b3e72db8752440a2ff7e9d6c3dc6d8b638631da94` |
+| Independent public-route audit receipt | `7d22f27808a1a6f4d081b86a51d3e9b36e3ea7cbda2c53265f5d4e2db0969c63` |
+| Appended APE-operand evidence | `b82367331c28bb8b0417773bf4be8bf99144f1962d864e41860b3a36ef69e4f8` |
+| Appended APE-operand receipt | `fce2491583362b8afa41c1db9519dc04738243e00fa53c27afc945841d54d20f` |
+| Independent APE-operand review receipt | `017387734e9aec5bc018b59c04b25b0cb71d7a652e0000f79573ae2bbb0e7890` |
+| Thirteen-case public-core follow-up receipt | `9bacadebf5f9efad34631a64e8fc558aec6b5a6339cab93e6594fb0319b1b9aa` |
+| Thirteen-case raw probe log | `126c52606dd0c85b908a8ddee1b072007b89f3d1914aecf044c8aa60e30e2b67` |
+| Thirteen-case executed probe | `618b2f20a3d1192147eeb67e0d03aa411f67be6732dfc7cac264a84847d60ef7` |
 
 The local probes ran with credentials omitted and OS network denial. Their 49
 source bindings remained unchanged. The production 2 GiB journal reserve was
