@@ -430,6 +430,11 @@ pub(super) fn write_diagnostic(
         )?;
     }
     if write_v1 {
+        // An earlier APE write can create a new TAG lookalike at -128 even
+        // when the original input needed no phantom. Protect this writer too.
+        let guard =
+            crate::ape_footer::Guard::prepare(staging, false).map_err(ErrorCause::external)?;
+        let owned_phantom = effects.owned_phantom || guard.effects().owned_phantom;
         let tag = id3v1_from(&full);
         staging
             .seek(SeekFrom::Start(0))
@@ -442,13 +447,11 @@ pub(super) fn write_diagnostic(
             tag.dump_to(&mut bytes, WriteOptions::default())
                 .map_err(|e| ErrorCause::external(error_message(&e)))?;
             staging
-                .seek(SeekFrom::End(
-                    if has(TagType::Id3v1) || effects.owned_phantom {
-                        -128
-                    } else {
-                        0
-                    },
-                ))
+                .seek(SeekFrom::End(if has(TagType::Id3v1) || owned_phantom {
+                    -128
+                } else {
+                    0
+                }))
                 .map_err(ErrorCause::external)?;
             staging.write_all(&bytes).map_err(ErrorCause::external)?;
             effects.wrote_v1 = true;
@@ -473,6 +476,9 @@ pub(super) fn write_diagnostic(
                 effects.wrote_v1 = true;
             }
         }
+        guard
+            .finish(staging, effects)
+            .map_err(ErrorCause::external)?;
     }
     for (enabled, kind) in [remove[2], remove[1], remove[0]] {
         if enabled && has(kind) {

@@ -392,6 +392,191 @@ fn decoded_md5(path: &Path) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+struct RetainedTransitionFixture(Option<tempfile::TempDir>);
+impl RetainedTransitionFixture {
+    fn new() -> Self {
+        Self(Some(
+            tempfile::Builder::new()
+                .prefix("taggroove-ape-transition-")
+                .tempdir()
+                .unwrap(),
+        ))
+    }
+    fn path(&self) -> &Path {
+        self.0.as_ref().unwrap().path()
+    }
+}
+impl Drop for RetainedTransitionFixture {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            eprintln!(
+                "Retained APE transition fixture: {}",
+                self.0.take().unwrap().keep().display()
+            );
+        }
+    }
+}
+
+/// Independently encoded APEv2 header/items/footer, without the tag writer under test.
+fn authored_ape_v2(items: &[(&str, &str)]) -> Vec<u8> {
+    let mut data = Vec::new();
+    for (key, value) in items {
+        data.extend((value.len() as u32).to_le_bytes());
+        data.extend(0u32.to_le_bytes());
+        data.extend(key.as_bytes());
+        data.push(0);
+        data.extend(value.as_bytes());
+    }
+    let descriptor = |flags: u32| {
+        let mut bytes = b"APETAGEX".to_vec();
+        bytes.extend(2000u32.to_le_bytes());
+        bytes.extend((data.len() as u32 + 32).to_le_bytes());
+        bytes.extend((items.len() as u32).to_le_bytes());
+        bytes.extend(flags.to_le_bytes());
+        bytes.extend([0; 8]);
+        bytes
+    };
+    let mut bytes = descriptor((1 << 31) | (1 << 29));
+    bytes.extend(&data);
+    bytes.extend(descriptor(1 << 31));
+    bytes
+}
+
+fn assert_ape_before_one_v1_tail(written: &[u8], expected: &[u8]) {
+    assert!(written[written.len() - 128..].starts_with(b"TAG"));
+    let footer = &written[written.len() - 160..written.len() - 128];
+    // Check identifier, revision, extent and item count. Written-tag flag bits
+    // are the writer's representation, not an untouched-byte preservation promise.
+    assert_eq!(
+        &footer[..20],
+        &expected[expected.len() - 32..expected.len() - 12]
+    );
+    let start = written.len() - 128 - expected.len();
+    assert_eq!(&written[start..start + 8], b"APETAGEX");
+}
+
+#[test]
+fn new_ape_collision_without_an_id3v1_writer_keeps_all_requested_values() {
+    let directory = RetainedTransitionFixture::new();
+    let path = directory.path().join("ape-without-v1.tta");
+    let audio = tta(2, 16, 44_100, 44_100, &payload(3000));
+    let mut original = audio.clone();
+    original.extend(authored_ape_v2(&[
+        ("Title", "ffmpeg title"),
+        ("encoder", "Lavf60.16.100"),
+    ]));
+    fs::write(&path, &original).unwrap();
+    fs::write(directory.path().join("independent-original.bin"), &original).unwrap();
+    let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
+    options.mpeg.write_ape = true;
+    options.mpeg.write_id3v1 = false;
+    let result = write_fields_with_options(
+        &path,
+        &fields(&[("TITLE", &["Tagged"]), ("ALBUM", &["Disc"])]),
+        false,
+        &[],
+        &options,
+    );
+    let entry = match result {
+        Ok(entry) => entry,
+        Err(error) => {
+            fs::write(directory.path().join("independent-original.bin"), &original).unwrap();
+            let retained = directory.path();
+            panic!("{error}; retained control at {}", retained.display());
+        }
+    };
+    assert_eq!(value(&entry, "ALBUM").as_deref(), Some("Disc"));
+    assert_eq!(value(&entry, "TITLE").as_deref(), Some("Tagged"));
+    let written = fs::read(&path).unwrap();
+    let start = contains(&written, b"TTA1").unwrap();
+    assert_eq!(&written[start..start + audio.len()], audio);
+}
+
+#[test]
+fn new_ape_collision_with_blank_v1_output_has_only_one_v1_tail() {
+    let directory = RetainedTransitionFixture::new();
+    let path = directory.path().join("blank-v1.tta");
+    let encoder = "x".repeat(51);
+    let audio = tta(2, 16, 44_100, 44_100, &payload(3000));
+    let expected = authored_ape_v2(&[("encoder", &encoder)]);
+    assert_eq!(expected.len(), 131);
+    let mut original = audio.clone();
+    original.extend(authored_ape_v2(&[
+        ("Title", "ffmpeg title"),
+        ("encoder", &encoder),
+    ]));
+    fs::write(&path, &original).unwrap();
+    fs::write(directory.path().join("independent-original.bin"), &original).unwrap();
+    let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
+    options.mpeg.write_ape = true;
+    let result = write_fields_with_options(&path, &fields(&[("TITLE", &[])]), false, &[], &options);
+    match result {
+        Ok(entry) => assert!(value(&entry, "TITLE").is_none()),
+        Err(error) => {
+            fs::write(directory.path().join("independent-original.bin"), &original).unwrap();
+            let retained = directory.path();
+            panic!(
+                "{error}; retained blank-V1 control at {}",
+                retained.display()
+            );
+        }
+    }
+    let written = fs::read(&path).unwrap();
+    assert_ape_before_one_v1_tail(&written, &expected);
+    let start = contains(&written, b"TTA1").unwrap();
+    assert_eq!(&written[start..start + audio.len()], audio);
+}
+
+#[test]
+fn newly_written_ape_collision_does_not_turn_into_an_id3v1_overwrite() {
+    let directory = RetainedTransitionFixture::new();
+    let path = directory.path().join("new-collision.tta");
+    let audio = tta(2, 16, 44_100, 44_100, &payload(3000));
+    let before_tag = authored_ape_v2(&[("Title", "ffmpeg title"), ("encoder", "Lavf60.16.100")]);
+    let expected_ape = authored_ape_v2(&[
+        ("Title", "Tagged"),
+        ("encoder", "Lavf60.16.100"),
+        ("Album", "Disc"),
+    ]);
+    assert_eq!(before_tag.len(), 119);
+    assert_eq!(expected_ape.len(), 131);
+    assert_eq!(&expected_ape[expected_ape.len() - 128..][..3], b"TAG");
+    let mut original = audio.clone();
+    original.extend(before_tag);
+    fs::write(&path, &original).unwrap();
+    fs::write(directory.path().join("independent-original.bin"), &original).unwrap();
+    let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
+    options.mpeg.write_ape = true;
+    let result = write_fields_with_options(
+        &path,
+        &fields(&[("TITLE", &["Tagged"]), ("ALBUM", &["Disc"])]),
+        false,
+        &[],
+        &options,
+    );
+    let entry = match result {
+        Ok(entry) => entry,
+        Err(error) => {
+            fs::write(directory.path().join("independent-original.bin"), &original).unwrap();
+            fs::write(directory.path().join("independent-audio.bin"), &audio).unwrap();
+            let retained = directory.path();
+            panic!(
+                "{error}; retained failing fixture at {}",
+                retained.display()
+            );
+        }
+    };
+    assert_eq!(value(&entry, "TITLE").as_deref(), Some("Tagged"));
+    assert_eq!(value(&entry, "ALBUM").as_deref(), Some("Disc"));
+    let written = fs::read(&path).unwrap();
+    let start = contains(&written, b"TTA1").unwrap();
+    assert_eq!(&written[start..start + audio.len()], audio);
+    assert_ape_before_one_v1_tail(&written, &expected_ape);
+}
+
 #[test]
 fn ffmpeg_tta_decodes_identically_after_tagging() {
     if !tool("ffmpeg") || !tool("ffprobe") {

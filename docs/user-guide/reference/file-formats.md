@@ -89,7 +89,7 @@ Raw `.aac` detection accepts up to 64 KiB of padding or junk after leading ID3v2
 
 TAK and OptimFROG tag paths do not decode/re-encode the audio. Existing tests use specification-built streams and independent probes; real original-encoder/device qualification is separate. OptimFROG DualStream uses the same recognized OFR header and codec label in this implementation.
 
-Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as a header; an internal `TAG` sequence is not an ID3v1 tag. APE tags left untouched by the selected write policy retain their bytes. Some other unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
+Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as a header; an internal `TAG` sequence is not an ID3v1 tag. APE tags left untouched by the selected write policy retain their bytes. Saving with both APE and ID3v1 enabled keeps each tag separate, including when an edit changes the APE tag’s length. Some other unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
 
 Recognized Lyrics3v2 tails are handled as bounded opaque data, so an APE tag
 before the tail remains detectable/readable. Selected ID3v1 removal removes

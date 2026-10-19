@@ -100,8 +100,18 @@
       ] };
       await inv('export_action_group', { path: album + '/Every type.mta', group });
       const imported = await inv('import_action_group', { path: album + '/Every type.mta', legacyEncoding: null });
-      if (imported.issues.length || JSON.stringify(imported.group.actions) !== JSON.stringify(group.actions)) throw new Error(JSON.stringify(imported));
-      return `${imported.group.actions.length} actions`;
+      const definitions = imported.group.actions.map(({ mta_source, ...definition }) => definition);
+      if (imported.issues.length || JSON.stringify(definitions) !== JSON.stringify(group.actions)) throw new Error(JSON.stringify(imported));
+      for (const [index, action] of imported.group.actions.entries()) {
+        const record = imported.records.find(record => record.index === index);
+        if (!record) throw new Error('Missing imported source record for action ' + index);
+        if (['17', '18', '19'].includes(record.properties.T) && !action.mta_source) throw new Error('Native action source metadata was not retained');
+        if (action.mta_source && JSON.stringify(action.mta_source.properties) !== JSON.stringify(record.properties)) throw new Error('Retained source properties differ from the imported native record');
+      }
+      await inv('export_action_group', { path: album + '/Every type again.mta', group: imported.group });
+      const again = await inv('import_action_group', { path: album + '/Every type again.mta', legacyEncoding: null });
+      if (again.issues.length || JSON.stringify(again.records) !== JSON.stringify(imported.records)) throw new Error('Re-export changed native action records: ' + JSON.stringify(again));
+      return `${imported.group.actions.length} semantic actions; retained source properties and re-exported records match`;
     });
 
     await step('Text File → Tag reads a format-string source for the first selected file', async () => {

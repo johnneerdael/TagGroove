@@ -146,6 +146,11 @@ row identities must still resolve. Inspect the exact unavailable paths.
   Choose **Review selection** to bind a settings-only restore before applying.
   TagGroove does not search disks or guess a path translation.
 
+Workspace restoration and root mapping currently support local POSIX paths
+(macOS/Linux). Windows-origin workspace references stay unavailable for import;
+restore their supported saved settings with the incoming workspace unselected
+and choose **Review selection** before applying.
+
 Mappings apply only to the reviewed workspace references. Tool paths, favorite
 directories, action inputs/output destinations and other saved strings are not
 rewritten heuristically. Recheck them after moving to another computer.

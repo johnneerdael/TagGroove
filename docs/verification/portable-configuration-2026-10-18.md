@@ -1,6 +1,6 @@
 # Saved configuration and local workspace transfer — 2026-10-18
 
-Scope: the portable-backup implementation in consolidated draft PR64. The owner selected **saved settings and workspace only**: no pending tag/artwork/action-editor values, automatic audio writes or implicit execution of restored definitions. Windows work and original Windows capture remain deferred.
+Scope: the portable-backup implementation in consolidated PR64. The owner selected **saved settings and workspace only**: no pending tag/artwork/action-editor values, automatic audio writes or implicit execution of restored definitions. Windows work and original Windows capture remain deferred.
 
 ## Resulting contract
 
@@ -47,3 +47,31 @@ The backend focused groups overlap and are not a unique test total. Root combine
 The saved-only contract is implemented and locally exercised; it is not an original Mp3tag differential or a native installed-app journey. Real picker/keyboard/screen-reader behavior, released desktop restart, real mobile/provider transport/save-back, device behavior and Windows execution remain unqualified. New portable transfer is explicitly desktop-only; no provider grants or referenced executables/source bundles/custom locales are installed by an archive.
 
 Native subprocess/file-backed tests, controlled frontend/Vite tests and original/runtime qualification are distinct evidence layers. File-count and byte bounds are not performance measurements of a 10,000-recording library. Native/browser stores are recoverably coordinated, not one instantaneous operating-system transaction. An interrupted selected restore remains pending until verified preferences, complete workspace reconstruction and durable acknowledgement finish, or the user explicitly chooses a disclosed recovery alternative.
+
+
+## Windows CI test-domain correction — 2026-10-19
+
+[Reviewed validation job 118196739211](https://github.com/johnneerdael/TagGroove/actions/runs/39291679239/job/118196739211)
+on head `355484a` failed six tests with `unsupported-local` workspace inventory.
+This is the existing production boundary: capture marks non-Unix workspace
+origins unsupported-local; preview accepts POSIX workspace mapping and requires
+an explicit settings-only selection for other styles. Windows workspace
+interpretation was deferred, not implemented by this repair.
+
+Three successful POSIX row/mapping tests now explicitly require Unix. Optional
+asset, malformed-preference repair and fresh-process journal tests remain
+cross-platform and select settings only because their contracts do not require
+incoming workspace restoration. The shared test options default and production
+selection/validation rules remain unchanged. The existing foreign-style control
+also exercises unsupported-local, retaining its read-only inventory, refused
+workspace Apply, unchanged destination and successful reviewed settings-only
+restoration. This directly tests the Windows-origin policy on any host.
+
+The six failing Windows observations and complete raw/clean job logs are retained
+under `/tmp/taggroove-pr64-windows-118196739211-*.log`. Native Windows rerun on the
+new reviewed head remains required; local policy/control tests do not claim it.
+
+The corrected controls are included in the complete local Rust workspace run:
+1,513 passed, 21 intentional ignores and no source-binding drift. The
+[combined CI repair receipt](pr64-ci-repairs-2026-10-19.md) records its roots and
+the separate native macOS checks. This does not replace Windows CI execution.

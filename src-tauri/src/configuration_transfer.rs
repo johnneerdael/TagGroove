@@ -1363,56 +1363,60 @@ mod tests {
         let _guard = TESTS
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let root = tempfile::tempdir().unwrap();
-        let source = root.path().join("source");
-        let target = root.path().join("target");
-        configured(&source, false);
-        configured(&target, true);
-        let mut bundle = capture(&source, window()).unwrap();
-        bundle.origin.path_style = "foreign-opaque".into();
-        let incoming = bundle.window.as_mut().unwrap().workspace.as_mut().unwrap();
-        incoming.paths = vec!["opaque row one".into(), "opaque row two".into()];
-        incoming.roots = vec!["original opaque root".into()];
-        incoming.selected = vec!["opaque row two".into()];
-        incoming.source_order = Some(vec!["opaque row two".into(), "opaque row one".into()]);
-        let audio = root.path().join("destination.wav");
-        wave(&audio);
-        let mut current = window();
-        current.workspace.as_mut().unwrap().paths = vec![audio.to_string_lossy().into_owned()];
-        let before = engine::native(&target).unwrap();
-        let backup = archive(root.path(), &bundle);
-        let unavailable = preview(&target, &backup, current.clone(), options(), vec![]).unwrap();
-        assert!(!unavailable.workspace_available);
-        assert!(unavailable.workspace.is_none());
-        assert_eq!(
-            serde_json::to_value(&unavailable).unwrap()["source_workspace"],
-            serde_json::json!({"rows":2,"roots":["original opaque root"],"path_style":"foreign-opaque"})
-        );
-        assert!(apply(&target, &unavailable.token, current.clone()).is_err());
-        assert_eq!(engine::native(&target).unwrap(), before);
-        let reviewed = preview(
-            &target,
-            &backup,
-            current.clone(),
-            Options {
-                workspace: false,
-                ..options()
-            },
-            vec![],
-        )
-        .unwrap();
-        let state = serde_json::to_value(apply(&target, &reviewed.token, current.clone()).unwrap())
+        for path_style in ["foreign-opaque", "unsupported-local"] {
+            let root = tempfile::tempdir().unwrap();
+            let source = root.path().join("source");
+            let target = root.path().join("target");
+            configured(&source, false);
+            configured(&target, true);
+            let mut bundle = capture(&source, window()).unwrap();
+            bundle.origin.path_style = path_style.into();
+            let incoming = bundle.window.as_mut().unwrap().workspace.as_mut().unwrap();
+            incoming.paths = vec!["opaque row one".into(), "opaque row two".into()];
+            incoming.roots = vec!["original opaque root".into()];
+            incoming.selected = vec!["opaque row two".into()];
+            incoming.source_order = Some(vec!["opaque row two".into(), "opaque row one".into()]);
+            let audio = root.path().join("destination.wav");
+            wave(&audio);
+            let mut current = window();
+            current.workspace.as_mut().unwrap().paths = vec![audio.to_string_lossy().into_owned()];
+            let before = engine::native(&target).unwrap();
+            let backup = archive(root.path(), &bundle);
+            let unavailable =
+                preview(&target, &backup, current.clone(), options(), vec![]).unwrap();
+            assert!(!unavailable.workspace_available);
+            assert!(unavailable.workspace.is_none());
+            assert_eq!(
+                serde_json::to_value(&unavailable).unwrap()["source_workspace"],
+                serde_json::json!({"rows":2,"roots":["original opaque root"],"path_style":path_style})
+            );
+            assert!(apply(&target, &unavailable.token, current.clone()).is_err());
+            assert_eq!(engine::native(&target).unwrap(), before);
+            let reviewed = preview(
+                &target,
+                &backup,
+                current.clone(),
+                Options {
+                    workspace: false,
+                    ..options()
+                },
+                vec![],
+            )
             .unwrap();
-        assert_eq!(
-            state["pending"]["window"]["workspace"],
-            serde_json::to_value(current.workspace).unwrap()
-        );
-        assert!(
-            !crate::settings::load(&target.join("settings.json"))
-                .0
-                .general
-                .natural_sort
-        );
+            let state =
+                serde_json::to_value(apply(&target, &reviewed.token, current.clone()).unwrap())
+                    .unwrap();
+            assert_eq!(
+                state["pending"]["window"]["workspace"],
+                serde_json::to_value(current.workspace).unwrap()
+            );
+            assert!(
+                !crate::settings::load(&target.join("settings.json"))
+                    .0
+                    .general
+                    .natural_sort
+            );
+        }
     }
 
     #[test]
@@ -1500,7 +1504,17 @@ mod tests {
             .export_assets
             .insert("notes.txt".into(), asset.clone());
         let backup = archive(root.path(), &bundle);
-        let reviewed = preview(&target, &backup, window(), options(), vec![]).unwrap();
+        let reviewed = preview(
+            &target,
+            &backup,
+            window(),
+            Options {
+                workspace: false,
+                ..options()
+            },
+            vec![],
+        )
+        .unwrap();
         assert!(reviewed.export_assets.is_empty());
         assert!(reviewed
             .warnings
@@ -1529,7 +1543,17 @@ mod tests {
             .preferences
             .insert("opentag.tag-tag".into(), "damaged browser JSON".into());
         let before = current.clone();
-        let reviewed = preview(&target, &backup, current.clone(), options(), vec![]).unwrap();
+        let reviewed = preview(
+            &target,
+            &backup,
+            current.clone(),
+            Options {
+                workspace: false,
+                ..options()
+            },
+            vec![],
+        )
+        .unwrap();
         apply(&target, &reviewed.token, current).unwrap();
         let restored = serde_json::to_value(engine::restore(&target, window()).unwrap()).unwrap();
         assert_eq!(
@@ -1755,6 +1779,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn portable_exact_cue_and_embedded_chapter_rows_ignore_destination_list_chapters_switch() {
         let _guard = TESTS
             .lock()
@@ -1822,6 +1847,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn portable_physical_chapter_parent_survives_destination_list_chapters_enabled() {
         let _guard = TESTS
             .lock()
@@ -1870,6 +1896,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn portable_local_mapping_preserves_rows_rank_working_directory_and_audio_bytes() {
         let _guard = TESTS
             .lock()
@@ -2082,7 +2109,17 @@ mod tests {
         configured(&target, true);
         let before = engine::native(&target).unwrap();
         let backup = archive(root.path(), &capture(&source, window()).unwrap());
-        let reviewed = preview(&target, &backup, window(), options(), vec![]).unwrap();
+        let reviewed = preview(
+            &target,
+            &backup,
+            window(),
+            Options {
+                workspace: false,
+                ..options()
+            },
+            vec![],
+        )
+        .unwrap();
         apply(&target, &reviewed.token, window()).unwrap();
         for phase in ["ack", "restore"] {
             let output = std::process::Command::new(std::env::current_exe().unwrap())
