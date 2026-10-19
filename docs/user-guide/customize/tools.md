@@ -203,10 +203,9 @@ typing in an ordinary text field, and Alt-digit chords belong to other commands.
 
 **Default tool (double-click in the file list)** starts at **No action**.
 Choosing a saved tool makes a row double-click run that definition using the
-current selection/scope rules. With **No action**, TagGroove falls back to
-**Extended tags…** on a row double-click; it does not make double-click do
-nothing. This is an explicit difference from the original editor's described
-No action behavior.
+current selection/scope rules. **No action** leaves a row double-click without
+an action. Open **Edit → Extended tags…** explicitly when you want that editor;
+saved tools remain available from their menus and shortcuts.
 
 A [custom toolbar](toolbars.md) can reference a tool by its saved name. Give
 entries distinct names. Renaming/removing the tool can leave an old custom

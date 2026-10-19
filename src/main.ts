@@ -1429,7 +1429,7 @@ function bind() {
   rowMenu.bind(wrap);
   bindRowDrag(wrap,{rows:()=>visible().map(entry=>entry.path),rowHeight:()=>rowHeight,headerHeight,selected:()=>selected,
     select:path=>select(path,new MouseEvent('click')),drop:(moving,before)=>void reorderFiles(shown=>dropSelection(shown,new Set(moving),before))});
-  wrap.addEventListener('dblclick',e=>{window.clearTimeout(slowEditTimer);if(rowFor(e)){if(toolsUI.defaultTool>=0)void toolsUI.run(toolsUI.defaultTool);else void operate('extended');}});
+  wrap.addEventListener('dblclick',e=>{window.clearTimeout(slowEditTimer);if(rowFor(e)&&toolsUI.defaultTool>=0)void toolsUI.run(toolsUI.defaultTool);});
   wrap.addEventListener('keydown',e=>{
     const row=rowFor(e);if(!row||e.target instanceof HTMLInputElement)return;
     const move:ReorderMove|undefined=reorderKey(e);if(move){e.preventDefault();void reorderFiles(shown=>moveSelection(shown,selected,move));return;}

@@ -131,8 +131,9 @@ file's editable filename column when one exists, otherwise its first
 editable column. It does not bulk-fill every selected row.
 
 To edit a particular tag cell, select one file, then make a separate delayed
-second click on that editable cell. A fast double-click normally opens
-Extended tags, or a configured default external tool. Technical/read-only
+second click on that editable cell. A fast double-click runs the configured
+default external tool; **No action** leaves it without an action. Open
+**Edit → Extended tags…** for the additional-field editor. Technical/read-only
 columns cannot be made writable merely by clicking them.
 
 | Key in the cell editor | Effect |
