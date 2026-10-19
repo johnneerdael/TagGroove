@@ -5,6 +5,11 @@ as `folder.jpg` is a separate file that a player or TagGroove can display.
 Use the cover window to inspect embedded images, and **Manage covers…** to
 review a selection's cover set before writing a batch change.
 
+For MP3 files, check the [MPEG Read and Write choices](../reference/options/tags-mpeg.md)
+when a saved cover appears unchanged. A retained APE tag can supply the displayed
+image while a cover operation successfully updates ID3. Choose the read view
+that matches the tag type being inspected.
+
 Start with copied practice files. Cover operations have their own write
 steps; they are not all ordinary pending text-tag edits.
 

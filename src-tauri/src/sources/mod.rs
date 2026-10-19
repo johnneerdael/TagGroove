@@ -1385,7 +1385,7 @@ mod tests {
         let options = ImportCover {
             replace: false,
             preserve: false,
-            save_as: Some("$unknown()".into()),
+            save_as: Some("$substr()".into()),
         };
         let report = write_import_diagnostic(
             &items,

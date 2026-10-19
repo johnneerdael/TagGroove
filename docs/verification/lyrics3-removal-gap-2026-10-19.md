@@ -1,4 +1,8 @@
-# Lyrics3v2 removal and hidden APE inventory: current gap
+# Lyrics3v2 removal and hidden APE inventory: preserved diagnosis
+
+The findings below describe the preserved pre-repair baseline. Recognized opaque Lyrics3v2 dependency removal and hidden APE inventory are now repaired; see [the scoped repair and checks](four-parity-repairs-2026-10-19.md#lyrics3v2-and-dependent-tag-removal). Legacy Lyrics3v1 and broader original/native qualifications remain separate.
+
+## Preserved baseline
 
 TagGroove currently removes ID3v1 while leaving its dependent Lyrics3v2 block
 behind. A second independently constructed layout shows APE tags hidden from

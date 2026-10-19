@@ -1,4 +1,8 @@
-# Export variable presence: confirmed adapter gap
+# Export variable presence: pinned contract and baseline
+
+The adapter mismatch below is preserved pre-repair evidence. The approved string-only variable adapter and sequential evaluator repair are implemented; see [the correction and checks](four-parity-repairs-2026-10-19.md#scripting-and-export). Remaining column/self-reference semantics stay qualified.
+
+## Preserved baseline
 
 TagGroove already implements `$get`, `$put` and `$puts` in the public export
 renderer. This investigation confirms a presence/argument adapter mismatch under

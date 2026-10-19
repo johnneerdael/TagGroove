@@ -609,11 +609,30 @@ pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
     reader: &mut R,
     mut read: impl FnMut(&mut dyn ReadSeek) -> Result<T, ErrorCause>,
 ) -> Result<Fallback<T>, ErrorCause> {
+    let hidden = crate::lyrics3::read_range(reader).map_err(ErrorCause::external)?;
+    // Inspect the APE footer at its logical EOF, but keep every ID3 patch
+    // on the original physical coordinate system.
     let crate::ape_footer::View {
         mut patches,
         append,
         phantom,
-    } = crate::ape_footer::read_view(reader).map_err(ErrorCause::external)?;
+    } = {
+        let position = reader.stream_position().map_err(ErrorCause::external)?;
+        let mut view = crate::lyrics3::Skip::new(&mut *reader, hidden.clone())
+            .map_err(ErrorCause::external)?;
+        let ape = crate::ape_footer::read_view(&mut view).map_err(ErrorCause::external)?;
+        reader
+            .seek(SeekFrom::Start(position))
+            .map_err(ErrorCause::external)?;
+        if hidden.as_ref().is_some_and(|range| {
+            ape.patches
+                .iter()
+                .any(|(at, bytes)| at.saturating_add(bytes.len() as u64) > range.start)
+        }) {
+            return Err(ErrorCause::owned("The Lyrics3 and APE tag extents overlap"));
+        }
+        ape
+    };
     let (extended, shift) = v23_extended_view(reader).map_err(ErrorCause::external)?;
     patches.extend(extended);
     let (optional, v24_shift) = v24_optional_view(reader).map_err(ErrorCause::external)?;
@@ -624,12 +643,12 @@ pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
     } else {
         Vec::new()
     };
-    let first = if patches.is_empty() && tail.is_empty() {
-        read(reader)
-    } else {
+    let first = {
         let mut overlay =
             Overlay::new(&mut *reader, &patches, &tail).map_err(ErrorCause::external)?;
-        read(&mut overlay)
+        let mut view = crate::lyrics3::Skip::new(&mut overlay, hidden.clone())
+            .map_err(ErrorCause::external)?;
+        read(&mut view)
     };
     let error = match first {
         Ok(value) => return Ok((value, Vec::new(), phantom)),
@@ -643,7 +662,9 @@ pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
             patches.extend(encrypted);
             let mut overlay =
                 Overlay::new(&mut *reader, &patches, &tail).map_err(ErrorCause::external)?;
-            let value = read(&mut overlay)?;
+            let mut view =
+                crate::lyrics3::Skip::new(&mut overlay, hidden).map_err(ErrorCause::external)?;
+            let value = read(&mut view)?;
             Ok((value, names, phantom))
         }
         _ => Err(error),

@@ -3,13 +3,59 @@
 //! portable journal before the work and records the outcome afterwards.
 use crate::action_host::{ActionResult, PathChange};
 use serde::Serialize;
-use std::{path::Path, sync::Mutex};
+use std::{collections::HashSet, path::Path, sync::Mutex};
 use tag_core::batch_errors::ErrorCause;
-use tag_core::history::{HistoryState, Journal, Limits};
+use tag_core::history::{Capture, HistoryState, Journal, Limits};
 use tag_core::ScanResult;
 use tauri::Manager;
 
-static JOURNAL: Mutex<Option<Journal>> = Mutex::new(None);
+#[derive(Default)]
+struct HistoryAdapter {
+    journal: Option<Journal>,
+    unavailable: Option<UnavailableHistory>,
+}
+
+struct UnavailableHistory {
+    notice: String,
+    groups: HashSet<String>,
+}
+
+static JOURNAL: Mutex<HistoryAdapter> = Mutex::new(HistoryAdapter {
+    journal: None,
+    unavailable: None,
+});
+
+impl HistoryAdapter {
+    fn journal(&mut self) -> Result<&mut Journal, ErrorCause> {
+        if self.journal.is_none() {
+            let root = match super::APP_HANDLE.get() {
+                Some(app) => app
+                    .path()
+                    .app_cache_dir()
+                    .map_err(ErrorCause::external)?
+                    .join("undo"),
+                None => std::env::temp_dir().join("opentag-undo"),
+            };
+            #[cfg(test)]
+            let root = TEST_JOURNAL_ROOT.lock().unwrap().clone().unwrap_or(root);
+            self.journal =
+                Some(Journal::open(&root, Limits::default()).map_err(ErrorCause::external)?);
+        }
+        Ok(self.journal.as_mut().expect("journal was opened"))
+    }
+
+    fn state(&mut self) -> Result<HistoryState, ErrorCause> {
+        let state = self.journal().map(|journal| journal.state());
+        match (&self.unavailable, state) {
+            (Some(unavailable), state) => {
+                let mut state = state.unwrap_or_default();
+                state.notice = Some(unavailable.notice.clone());
+                Ok(state)
+            }
+            (None, state) => state,
+        }
+    }
+}
 
 fn with_journal<T>(work: impl FnOnce(&mut Journal) -> T) -> Result<T, String> {
     with_journal_diagnostic(work).map_err(|cause| cause.to_string())
@@ -18,18 +64,35 @@ fn with_journal_diagnostic<T>(work: impl FnOnce(&mut Journal) -> T) -> Result<T,
     let mut guard = JOURNAL
         .lock()
         .map_err(|_| ErrorCause::owned("Undo history lock failed"))?;
-    if guard.is_none() {
-        let root = match super::APP_HANDLE.get() {
-            Some(app) => app
-                .path()
-                .app_cache_dir()
-                .map_err(ErrorCause::external)?
-                .join("undo"),
-            None => std::env::temp_dir().join("opentag-undo"),
-        };
-        *guard = Some(Journal::open(&root, Limits::default()).map_err(ErrorCause::external)?);
+    Ok(work(guard.journal()?))
+}
+
+fn begin_capture(label: &str, group: Option<&str>, paths: &[String]) -> Option<Capture> {
+    let Ok(mut history) = JOURNAL.lock() else {
+        return None;
+    };
+    if let Some(unavailable) = history.unavailable.as_ref() {
+        if group.is_some_and(|group| unavailable.groups.contains(group)) {
+            // No later file in this group can make its earlier unsnapshotted
+            // writes part of a truthful Undo step.
+            return None;
+        }
     }
-    Ok(work(guard.as_mut().expect("journal was opened")))
+    match history.journal() {
+        Ok(journal) => Some(journal.begin(label, group, paths)),
+        Err(reason) => {
+            let unavailable = history
+                .unavailable
+                .get_or_insert_with(|| UnavailableHistory {
+                    notice: format!("{label} cannot be undone: {reason}."),
+                    groups: HashSet::new(),
+                });
+            if let Some(group) = group {
+                unavailable.groups.insert(group.to_owned());
+            }
+            None
+        }
+    }
 }
 
 /// Path changes reported by a command, used to find each file afterwards.
@@ -98,6 +161,8 @@ pub(crate) static TEST_ROOTS: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::n
 /// Tests that undo through the shared journal hold this so their steps do not interleave.
 #[cfg(test)]
 pub(crate) static TEST_LOCK: Mutex<()> = Mutex::new(());
+#[cfg(test)]
+static TEST_JOURNAL_ROOT: Mutex<Option<std::path::PathBuf>> = Mutex::new(None);
 
 // Provider documents publish through their own recovery copies and are not journaled.
 fn journaled(path: &str) -> bool {
@@ -199,19 +264,32 @@ fn journal_work_diagnostic<T: Changes>(
     if local.is_empty() {
         return work(&mut |_, _| Ok(()));
     }
-    let mut capture = with_journal(|journal| journal.begin(label, group, &local));
+    let mut capture = begin_capture(label, group, &local);
     let result = work(&mut |path, epoch| match capture.as_mut() {
-        Ok(capture) if journaled(&path.to_string_lossy()) => with_journal_diagnostic(|journal| {
-            journal.capture_side_file_after_moves_diagnostic(capture, path, epoch)
-        })?,
+        Some(capture) if journaled(&path.to_string_lossy()) => {
+            with_journal_diagnostic(|journal| {
+                journal.capture_side_file_after_moves_diagnostic(capture, path, epoch)
+            })?
+        }
         _ => Ok(()),
     });
-    if let Ok(capture) = capture {
+    if let Some(capture) = capture {
         let (renamed, directories) = result
             .as_ref()
             .map(|r| (r.renamed(), r.directories()))
             .unwrap_or_default();
-        let _ = with_journal(|journal| journal.commit(capture, &renamed, &directories));
+        if let Ok(mut history) = JOURNAL.lock() {
+            if let Some(journal) = history.journal.as_mut() {
+                journal.commit(capture, &renamed, &directories);
+                let state = journal.state();
+                // A startup failure can only precede this fresh journal's
+                // first step. Opening it or committing a no-op isn't recovery;
+                // a recorded operation or a new capture-refusal notice is.
+                if state.undo.is_some() || state.notice.is_some() {
+                    history.unavailable = None;
+                }
+            }
+        }
     }
     result
 }
@@ -228,7 +306,11 @@ pub struct HistoryResult {
 
 #[tauri::command]
 pub fn history_state() -> Result<HistoryState, String> {
-    with_journal(|journal| journal.state())
+    JOURNAL
+        .lock()
+        .map_err(|_| "Undo history lock failed".to_string())?
+        .state()
+        .map_err(|cause| cause.to_string())
 }
 
 #[cfg(test)]
@@ -277,7 +359,7 @@ fn replay_diagnostic(
             renamed: changes(replay.renamed),
             moved_directories: changes(replay.directories),
             label: replay.label,
-            history: with_journal(|journal| journal.state())?,
+            history: history_state()?,
         },
         error_diagnostics: diagnostics,
     })
@@ -396,6 +478,268 @@ mod tests {
         tauri::async_runtime::block_on(future).unwrap()
     }
 
+    struct IsolatedHistory {
+        history: HistoryAdapter,
+        roots: Vec<std::path::PathBuf>,
+        journal_root: Option<std::path::PathBuf>,
+    }
+
+    impl IsolatedHistory {
+        fn new(root: &Path) -> Self {
+            Self {
+                history: std::mem::take(&mut *JOURNAL.lock().unwrap()),
+                roots: std::mem::replace(&mut *TEST_ROOTS.lock().unwrap(), vec![root.to_owned()]),
+                journal_root: TEST_JOURNAL_ROOT.lock().unwrap().replace(root.join("undo")),
+            }
+        }
+    }
+
+    impl Drop for IsolatedHistory {
+        fn drop(&mut self) {
+            *JOURNAL.lock().unwrap_or_else(|error| error.into_inner()) =
+                std::mem::take(&mut self.history);
+            *TEST_ROOTS.lock().unwrap_or_else(|error| error.into_inner()) =
+                std::mem::take(&mut self.roots);
+            *TEST_JOURNAL_ROOT
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()) = self.journal_root.take();
+        }
+    }
+
+    fn riff_chunk(path: &Path, wanted: &[u8; 4]) -> Vec<u8> {
+        let bytes = std::fs::read(path).unwrap();
+        assert_eq!(&bytes[..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
+        let mut offset = 12;
+        while offset + 8 <= bytes.len() {
+            let length =
+                u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
+            let end = offset + 8 + length;
+            assert!(end <= bytes.len());
+            if &bytes[offset..offset + 4] == wanted {
+                return bytes[offset + 8..end].to_vec();
+            }
+            offset = end + (length & 1);
+        }
+        panic!("missing independently inspected RIFF chunk");
+    }
+
+    fn wav_with_opaque_chunk(path: &Path) {
+        wav(path, "Original");
+        let mut bytes = std::fs::read(path).unwrap();
+        let mut offset = 12;
+        while &bytes[offset..offset + 4] != b"data" {
+            let length =
+                u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
+            offset += 8 + length + (length & 1);
+        }
+        let length = u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
+        for (index, sample) in bytes[offset + 8..offset + 8 + length]
+            .iter_mut()
+            .enumerate()
+        {
+            *sample = (index % 251) as u8;
+        }
+        let opaque = b"\0opaque\xff\0\x01";
+        bytes.extend(b"uNKn");
+        bytes.extend((opaque.len() as u32).to_le_bytes());
+        bytes.extend(opaque);
+        if opaque.len() & 1 != 0 {
+            bytes.push(0);
+        }
+        let size = (bytes.len() - 8) as u32;
+        bytes[4..8].copy_from_slice(&size.to_le_bytes());
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn startup_failure_is_nonfatal_and_notice_survives_until_a_recorded_save() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let _scope = IsolatedHistory::new(&root);
+        let audio = root.join("selected.wav");
+        let other = root.join("unselected.wav");
+        wav_with_opaque_chunk(&audio);
+        wav(&other, "Untouched");
+        let other_before = std::fs::read(&other).unwrap();
+        let pcm = riff_chunk(&audio, b"data");
+        let opaque = riff_chunk(&audio, b"uNKn");
+        let obstruction = root.join("undo");
+        std::fs::write(&obstruction, b"owned obstruction").unwrap();
+        let key = audio.to_string_lossy().into_owned();
+        let saved = run(crate::save_fields(
+            vec![key.clone()],
+            Fields::from([("TITLE".into(), vec!["Unrecorded".into()])]),
+            None,
+        ));
+        assert!(saved.errors.is_empty(), "{:?}", saved.errors);
+        assert_eq!(title(&audio), ["Unrecorded"]);
+        assert_eq!(riff_chunk(&audio, b"data"), pcm);
+        assert_eq!(riff_chunk(&audio, b"uNKn"), opaque);
+        assert_eq!(std::fs::read(&other).unwrap(), other_before);
+        assert_eq!(std::fs::read(&obstruction).unwrap(), b"owned obstruction");
+        let unrecorded = std::fs::read(&audio).unwrap();
+        let failed = history_state().expect("a successful Save must expose unavailable Undo");
+        assert!(failed.undo.is_none() && failed.redo.is_none());
+        assert!(failed
+            .notice
+            .as_deref()
+            .unwrap()
+            .contains("Save tags cannot be undone:"));
+        assert_eq!(history_state().unwrap(), failed);
+        std::fs::remove_file(&obstruction).unwrap();
+        assert_eq!(
+            history_state().unwrap(),
+            failed,
+            "opening history must retain the notice"
+        );
+        record("No changes", None, std::slice::from_ref(&key), || {
+            Ok(ScanResult::default())
+        })
+        .unwrap();
+        assert_eq!(history_state().unwrap().notice, failed.notice);
+        let saved = run(crate::save_fields(
+            vec![key],
+            Fields::from([("TITLE".into(), vec!["Recorded".into()])]),
+            None,
+        ));
+        assert!(saved.errors.is_empty());
+        let recorded = std::fs::read(&audio).unwrap();
+        let state = history_state().unwrap();
+        assert_eq!(state.undo.unwrap().label, "Save tags");
+        assert!(state.notice.is_none());
+        assert!(run(undo_last()).result.errors.is_empty());
+        assert_eq!(std::fs::read(&audio).unwrap(), unrecorded);
+        assert!(run(redo_last()).result.errors.is_empty());
+        assert_eq!(std::fs::read(&audio).unwrap(), recorded);
+        assert_eq!(riff_chunk(&audio, b"data"), pcm);
+        assert_eq!(riff_chunk(&audio, b"uNKn"), opaque);
+    }
+
+    #[test]
+    fn startup_failure_keeps_the_rest_of_the_group_unrecorded() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let _scope = IsolatedHistory::new(&root);
+        let first = root.join("first.wav");
+        let second = root.join("second.wav");
+        wav(&first, "First original");
+        wav(&second, "Second original");
+        let key = |path: &Path| path.to_string_lossy().into_owned();
+        std::fs::write(root.join("undo"), b"owned obstruction").unwrap();
+        let saved = run(crate::save_fields(
+            vec![key(&first)],
+            Fields::from([("TITLE".into(), vec!["First unrecorded".into()])]),
+            Some("failed-group".into()),
+        ));
+        assert!(saved.errors.is_empty());
+        let failed = history_state().expect("failed grouped capture must expose its notice");
+        record("No changes", Some("blocked-no-op"), &[key(&first)], || {
+            Ok(ScanResult::default())
+        })
+        .unwrap();
+        assert_eq!(history_state().unwrap(), failed);
+        std::fs::remove_file(root.join("undo")).unwrap();
+        assert_eq!(history_state().unwrap(), failed);
+        record(
+            "No changes",
+            Some("unrelated-no-op"),
+            &[key(&first)],
+            || Ok(ScanResult::default()),
+        )
+        .unwrap();
+        assert_eq!(history_state().unwrap(), failed);
+        let saved = run(crate::save_fields(
+            vec![key(&second)],
+            Fields::from([("TITLE".into(), vec!["Second unrecorded".into()])]),
+            Some("failed-group".into()),
+        ));
+        assert!(saved.errors.is_empty());
+        assert_eq!(history_state().unwrap(), failed);
+        let saved = run(crate::save_fields(
+            vec![key(&first)],
+            Fields::from([("TITLE".into(), vec!["First recorded".into()])]),
+            Some("later-group".into()),
+        ));
+        assert!(saved.errors.is_empty());
+        assert!(history_state().unwrap().notice.is_none());
+        assert_eq!(history_state().unwrap().undo.unwrap().files, 1);
+        assert!(run(undo_last()).result.errors.is_empty());
+        assert_eq!(title(&first), ["First unrecorded"]);
+        assert_eq!(title(&second), ["Second unrecorded"]);
+    }
+
+    #[test]
+    fn startup_failure_preserves_work_errors_and_excluded_paths_do_not_warn() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let _scope = IsolatedHistory::new(&root);
+        std::fs::write(root.join("undo"), b"owned obstruction").unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let audio = outside.path().join("excluded.wav");
+        wav(&audio, "Excluded");
+        let saved = run(crate::save_fields(
+            vec![audio.to_string_lossy().into_owned()],
+            Fields::from([("TITLE".into(), vec!["Changed".into()])]),
+            None,
+        ));
+        assert!(saved.errors.is_empty());
+        assert!(
+            history_state().is_err(),
+            "excluded writes must not create an Undo notice"
+        );
+        let eligible = root.join("eligible.wav");
+        wav(&eligible, "Original");
+        let result = record::<ScanResult>(
+            "Failed work",
+            None,
+            &[eligible.to_string_lossy().into_owned()],
+            || Err("original operation failure".into()),
+        );
+        assert_eq!(result.unwrap_err(), "original operation failure");
+    }
+
+    #[test]
+    fn startup_notice_adapter_preserves_initialized_capture_refusal() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let _scope = IsolatedHistory::new(&root);
+        let audio = root.join("selected.wav");
+        wav_with_opaque_chunk(&audio);
+        let pcm = riff_chunk(&audio, b"data");
+        let opaque = riff_chunk(&audio, b"uNKn");
+        JOURNAL.lock().unwrap().journal = Some(
+            Journal::open(
+                &root.join("undo"),
+                Limits {
+                    bytes: 1,
+                    ..Limits::default()
+                },
+            )
+            .unwrap(),
+        );
+        let saved = run(crate::save_fields(
+            vec![audio.to_string_lossy().into_owned()],
+            Fields::from([("TITLE".into(), vec!["Saved without capture".into()])]),
+            None,
+        ));
+        assert!(saved.errors.is_empty());
+        assert_eq!(title(&audio), ["Saved without capture"]);
+        let state = history_state().unwrap();
+        assert!(state.undo.is_none() && state.redo.is_none());
+        assert!(state
+            .notice
+            .as_deref()
+            .unwrap()
+            .contains("cannot be undone"));
+        assert_eq!(riff_chunk(&audio, b"data"), pcm);
+        assert_eq!(riff_chunk(&audio, b"uNKn"), opaque);
+    }
+
     #[test]
     fn diagnostic_replay_offsets_owned_errors_after_read_summary_failures() {
         let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
@@ -434,13 +778,20 @@ mod tests {
             &[],
         );
         std::fs::write(&audio, b"External replacement").unwrap();
-        struct Restore(Option<Journal>);
+        struct Restore(HistoryAdapter);
         impl Drop for Restore {
             fn drop(&mut self) {
-                *JOURNAL.lock().unwrap_or_else(|error| error.into_inner()) = self.0.take();
+                *JOURNAL.lock().unwrap_or_else(|error| error.into_inner()) =
+                    std::mem::take(&mut self.0);
             }
         }
-        let _restore = Restore(JOURNAL.lock().unwrap().replace(journal));
+        let _restore = Restore(std::mem::replace(
+            &mut *JOURNAL.lock().unwrap(),
+            HistoryAdapter {
+                journal: Some(journal),
+                unavailable: None,
+            },
+        ));
         let report = tauri::async_runtime::block_on(ipc::undo_last_with_diagnostics()).unwrap();
         assert_eq!(report.result.result.errors.len(), 2);
         assert_eq!(report.error_diagnostics.len(), 1);
@@ -817,10 +1168,10 @@ mod tests {
         let before = std::fs::read(&audio).unwrap();
         let output = root.join("cover.png");
         std::fs::write(&output, [7; 64]).unwrap();
-        struct RestoreJournal(Option<Journal>);
+        struct RestoreJournal(HistoryAdapter);
         impl Drop for RestoreJournal {
             fn drop(&mut self) {
-                *JOURNAL.lock().unwrap_or_else(|e| e.into_inner()) = self.0.take();
+                *JOURNAL.lock().unwrap_or_else(|e| e.into_inner()) = std::mem::take(&mut self.0);
             }
         }
         let test_journal = Journal::open(
@@ -832,7 +1183,13 @@ mod tests {
             },
         )
         .unwrap();
-        let _restore = RestoreJournal(JOURNAL.lock().unwrap().replace(test_journal));
+        let _restore = RestoreJournal(std::mem::replace(
+            &mut *JOURNAL.lock().unwrap(),
+            HistoryAdapter {
+                journal: Some(test_journal),
+                unavailable: None,
+            },
+        ));
         let result = run(crate::execute_action_groups(
             vec![audio.to_string_lossy().into_owned()],
             vec![tag_core::actions::ActionGroup {

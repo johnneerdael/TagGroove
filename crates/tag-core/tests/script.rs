@@ -69,7 +69,7 @@ fn unicode_positions_arithmetic_and_replacement() {
 #[test]
 fn invalid_expressions_are_errors() {
     for template in [
-        "$not_real(x)",
+        "$substr(x)",
         "$upper(x",
         "%title",
         "[abc",
@@ -81,6 +81,15 @@ fn invalid_expressions_are_errors() {
     ] {
         assert!(evaluate(template, &fields()).is_err(), "{template}");
     }
+}
+
+#[test]
+fn true_unknown_functions_keep_the_authored_literal_name_and_evaluate_arguments() {
+    assert_eq!(evaluate("$not_real(x)", &fields()).unwrap(), "$not_real(x)");
+    assert_eq!(
+        evaluate("$Not_Real(%title%) $bare_unknown", &fields()).unwrap(),
+        "$Not_Real(it's A SONG) $bare_unknown"
+    );
 }
 
 #[test]

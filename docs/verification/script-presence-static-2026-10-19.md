@@ -1,5 +1,9 @@
 # Script presence and predicate publication: pinned static evidence
 
+The native-static analysis and failing TagGroove probe below are preserved baseline evidence. The approved sequential presence/predicate repair is implemented; see [the repair and passing checks](four-parity-repairs-2026-10-19.md#scripting-and-export). Remaining numeric, Unicode and callback qualifications still apply.
+
+## Preserved baseline
+
 The pinned Windows x64 Mp3tag 3.36.1 parser keeps visible output and a mutable
 found counter separately. Predicates can replace the enclosing counter without
 emitting text. This differs from TagGroove's current numeric boolean output and

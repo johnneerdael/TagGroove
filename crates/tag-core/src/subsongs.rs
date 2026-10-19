@@ -771,7 +771,7 @@ fn write_mp4_rows_diagnostic(
         false,
         rules,
         options,
-        |staging, tagged, staged_path| {
+        |staging, tagged, staged_path, effects| {
             // Nero first, so the read-back of the iTunes tag sees no stale
             // file-wide Nero value.
             if rewrite_chapters {
@@ -790,6 +790,7 @@ fn write_mp4_rows_diagnostic(
                     &plan.file,
                     rules,
                     options,
+                    effects,
                 )?;
             }
             Ok(())
@@ -816,10 +817,18 @@ fn write_id3_rows_diagnostic(
         false,
         rules,
         options,
-        |staging, tagged, staged_path| {
+        |staging, tagged, staged_path, effects| {
             let kind = tagged.file_type();
             if !shared.is_empty() {
-                write_tag_fields_diagnostic(staging, tagged, staged_path, shared, rules, options)?;
+                write_tag_fields_diagnostic(
+                    staging,
+                    tagged,
+                    staged_path,
+                    shared,
+                    rules,
+                    options,
+                    effects,
+                )?;
             }
             if chapters.iter().all(Fields::is_empty) {
                 return Ok(());

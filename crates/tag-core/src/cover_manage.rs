@@ -258,38 +258,69 @@ fn write_pictures(
     pictures: Vec<Picture>,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    staged_mutation(path, false, options, |staging, mut file, staged_path| {
-        if tag_policy::policy(file.file_type()).is_some() {
-            let written = tag_policy::write(
-                staging,
-                &file,
-                &options.mappings,
-                options,
-                tag_policy::Change::Pictures(pictures.clone()),
-            )?;
-            tag_policy::verify_pictures(
-                staged_path,
-                options,
-                written,
-                &pictures,
-                DUPLICATE_COVERS,
-            )?;
-        } else {
-            let primary = file.primary_tag_type();
-            let file_type = file.file_type();
-            let others: Vec<TagType> = file
-                .tags()
-                .iter()
-                .filter(|tag| tag.tag_type() != primary && !tag.pictures().is_empty())
-                .map(Tag::tag_type)
-                .collect();
-            for kind in others {
-                if !file.tag_support(kind).is_writable() {
-                    return Err("Cover tag is read-only".into());
+    staged_mutation(
+        path,
+        false,
+        options,
+        |staging, mut file, staged_path, effects| {
+            if tag_policy::policy(file.file_type()).is_some() {
+                let written = tag_policy::write(
+                    staging,
+                    &file,
+                    &options.mappings,
+                    options,
+                    tag_policy::Change::Pictures(pictures.clone()),
+                    effects,
+                )?;
+                // Verify the written kind, which can differ from the retained
+                // tag selected by the normal read mask.
+                return tag_policy::verify_pictures(
+                    staged_path,
+                    options,
+                    written,
+                    &pictures,
+                    DUPLICATE_COVERS,
+                );
+            } else {
+                let primary = file.primary_tag_type();
+                let file_type = file.file_type();
+                let others: Vec<TagType> = file
+                    .tags()
+                    .iter()
+                    .filter(|tag| tag.tag_type() != primary && !tag.pictures().is_empty())
+                    .map(Tag::tag_type)
+                    .collect();
+                for kind in others {
+                    if !file.tag_support(kind).is_writable() {
+                        return Err("Cover tag is read-only".into());
+                    }
+                    let tag = file.tag_mut(kind).ok_or("Cover tag disappeared")?;
+                    while !tag.pictures().is_empty() {
+                        tag.remove_picture(0);
+                    }
+                    staging
+                        .seek(SeekFrom::Start(0))
+                        .map_err(|e| e.to_string())?;
+                    save_preserving_native(
+                        staging,
+                        file_type,
+                        tag,
+                        &Fields::new(),
+                        true,
+                        Id3Write::preserving(options),
+                    )?;
                 }
-                let tag = file.tag_mut(kind).ok_or("Cover tag disappeared")?;
+                if file.primary_tag().is_none() {
+                    file.insert_tag(Tag::new(primary));
+                }
+                let tag = file
+                    .primary_tag_mut()
+                    .ok_or("The audio format has no writable tag")?;
                 while !tag.pictures().is_empty() {
                     tag.remove_picture(0);
+                }
+                for picture in &pictures {
+                    tag.push_picture(picture.clone());
                 }
                 staging
                     .seek(SeekFrom::Start(0))
@@ -303,47 +334,24 @@ fn write_pictures(
                     Id3Write::preserving(options),
                 )?;
             }
-            if file.primary_tag().is_none() {
-                file.insert_tag(Tag::new(primary));
+            let written = read_entry_summary_with_options(staged_path, &[], options)?.covers;
+            let expected: Vec<_> = pictures.iter().map(identity).collect();
+            let matches = written.len() == expected.len()
+                && written
+                    .iter()
+                    .zip(&expected)
+                    .all(|(cover, (digest, kind, description))| {
+                        &cover.digest == digest
+                            && cover.picture_type == format!("{kind:?}")
+                            && &cover.description == description
+                    });
+            if matches {
+                Ok(())
+            } else {
+                Err(DUPLICATE_COVERS.into())
             }
-            let tag = file
-                .primary_tag_mut()
-                .ok_or("The audio format has no writable tag")?;
-            while !tag.pictures().is_empty() {
-                tag.remove_picture(0);
-            }
-            for picture in &pictures {
-                tag.push_picture(picture.clone());
-            }
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            save_preserving_native(
-                staging,
-                file_type,
-                tag,
-                &Fields::new(),
-                true,
-                Id3Write::preserving(options),
-            )?;
-        }
-        let written = read_entry_summary_with_options(staged_path, &[], options)?.covers;
-        let expected: Vec<_> = pictures.iter().map(identity).collect();
-        let matches = written.len() == expected.len()
-            && written
-                .iter()
-                .zip(&expected)
-                .all(|(cover, (digest, kind, description))| {
-                    &cover.digest == digest
-                        && cover.picture_type == format!("{kind:?}")
-                        && &cover.description == description
-                });
-        if matches {
-            Ok(())
-        } else {
-            Err(DUPLICATE_COVERS.into())
-        }
-    })
+        },
+    )
 }
 
 #[cfg(test)]

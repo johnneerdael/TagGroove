@@ -1244,14 +1244,14 @@ fn staged_mutation<F>(
     mutation: F,
 ) -> Result<AudioEntry, String>
 where
-    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
+    F: FnOnce(&mut fs::File, TaggedFile, &Path, &mut crate::lyrics3::Effects) -> Result<(), String>,
 {
     staged_mutation_diagnostic(
         path,
         include_cover_data,
         options,
-        |staging, file, staged_path| {
-            mutation(staging, file, staged_path).map_err(ErrorCause::external)
+        |staging, file, staged_path, effects| {
+            mutation(staging, file, staged_path, effects).map_err(ErrorCause::external)
         },
     )
     .map_err(|error| error.to_string())
@@ -1264,7 +1264,12 @@ fn staged_mutation_diagnostic<F>(
     mutation: F,
 ) -> Result<AudioEntry, ErrorCause>
 where
-    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), ErrorCause>,
+    F: FnOnce(
+        &mut fs::File,
+        TaggedFile,
+        &Path,
+        &mut crate::lyrics3::Effects,
+    ) -> Result<(), ErrorCause>,
 {
     staged_mutation_with_mappings_diagnostic(
         path,
@@ -1283,7 +1288,12 @@ fn staged_mutation_with_mappings_diagnostic<F>(
     mutation: F,
 ) -> Result<AudioEntry, ErrorCause>
 where
-    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), ErrorCause>,
+    F: FnOnce(
+        &mut fs::File,
+        TaggedFile,
+        &Path,
+        &mut crate::lyrics3::Effects,
+    ) -> Result<(), ErrorCause>,
 {
     staged_write_diagnostic(
         path,
@@ -1298,21 +1308,34 @@ where
                 staged_path,
                 stream,
                 |staging, original, staged_path| {
-                    let guard =
-                        crate::ape_footer::Guard::prepare(staging).map_err(ErrorCause::external)?;
-                    mutation(staging, load_diagnostic(original)?, staged_path)?;
-                    guard.finish(staging).map_err(ErrorCause::external)
+                    let file = load_diagnostic(original)?;
+                    let guard = crate::ape_footer::Guard::prepare(
+                        staging,
+                        tag_policy::policy(file.file_type()).is_some(),
+                    )
+                    .map_err(ErrorCause::external)?;
+                    let mut effects = guard.effects();
+                    mutation(staging, file, staged_path, &mut effects)?;
+                    guard
+                        .finish(staging, &effects)
+                        .map_err(ErrorCause::external)
                 },
             ),
             None => {
                 // Trailing APE tags lofty's writers would misplace.
-                let guard =
-                    crate::ape_footer::Guard::prepare(staging).map_err(ErrorCause::external)?;
                 let file = load_diagnostic(original)?;
+                let guard = crate::ape_footer::Guard::prepare(
+                    staging,
+                    tag_policy::policy(file.file_type()).is_some(),
+                )
+                .map_err(ErrorCause::external)?;
+                let mut effects = guard.effects();
                 let flac_id3 =
                     file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
-                mutation(staging, file, staged_path)?;
-                guard.finish(staging).map_err(ErrorCause::external)?;
+                mutation(staging, file, staged_path, &mut effects)?;
+                guard
+                    .finish(staging, &effects)
+                    .map_err(ErrorCause::external)?;
                 if flac_id3 {
                     strip_flac_id3v2_diagnostic(staging)?;
                 }
@@ -2017,7 +2040,7 @@ fn write_fields_result_with_lyrics_diagnostic(
         include_cover_data,
         rules,
         options,
-        |staging, file, staged_path| {
+        |staging, file, staged_path, effects| {
             // MP4 chapters are boxes of their own, written after the tag.
             let mut updates = updates.clone();
             let chapters = match file.file_type() {
@@ -2044,6 +2067,7 @@ fn write_fields_result_with_lyrics_diagnostic(
                         rules,
                         options,
                         raw_lyrics,
+                        effects,
                     )?;
                 }
                 return mp4_chapters::write_diagnostic(staging, staged_path, &values);
@@ -2056,6 +2080,7 @@ fn write_fields_result_with_lyrics_diagnostic(
                 rules,
                 options,
                 raw_lyrics,
+                effects,
             )
         },
     )
@@ -2069,6 +2094,7 @@ fn write_tag_fields_diagnostic(
     updates: &Fields,
     rules: &[UserFieldMapping],
     options: &TagOptions,
+    effects: &mut crate::lyrics3::Effects,
 ) -> Result<(), ErrorCause> {
     write_tag_fields_with_lyrics_diagnostic(
         staging,
@@ -2078,9 +2104,12 @@ fn write_tag_fields_diagnostic(
         rules,
         options,
         false,
+        effects,
     )
 }
 
+// Keep operation-local tail effects separate from the caller's serialization inputs.
+#[allow(clippy::too_many_arguments)]
 fn write_tag_fields_with_lyrics_diagnostic(
     staging: &mut fs::File,
     mut file: TaggedFile,
@@ -2089,6 +2118,7 @@ fn write_tag_fields_with_lyrics_diagnostic(
     rules: &[UserFieldMapping],
     options: &TagOptions,
     raw_lyrics: bool,
+    effects: &mut crate::lyrics3::Effects,
 ) -> Result<(), ErrorCause> {
     if tag_policy::policy(file.file_type()).is_some() {
         let updates = normalized_updates_diagnostic(updates, TagType::Ape)?;
@@ -2102,6 +2132,7 @@ fn write_tag_fields_with_lyrics_diagnostic(
             } else {
                 tag_policy::Change::Fields(&updates)
             },
+            effects,
         )?;
         return tag_policy::verify_fields_diagnostic(
             staged_path,
@@ -2251,14 +2282,18 @@ fn remove_tags_result(
     // Nero tags (per-chapter fields of MP4 files) go with the iTunes tag.
     let nero = loaded.file_type() == FileType::Mp4
         && mp4_chapters::scan(path).is_ok_and(|c| c.nero_tags.is_some());
-    if !nero && tag_policy::removed_kinds(&loaded, options)?.is_empty() {
+    let dependent = tag_policy::dependent_v1_removal(path, &loaded, options.mpeg.remove_id3v1)?;
+    if !nero && tag_policy::removed_kinds(&loaded, options)?.is_empty() && !dependent {
         return read_description(path, include_cover_data, &options.mappings, options);
     }
     staged_mutation(
         path,
         include_cover_data,
         options,
-        |staging, file, staged_path| {
+        |staging, file, staged_path, effects| {
+            // The guard revalidates the recognized physical span on this staged
+            // copy. Keep selected removal separate from the reported tag kinds.
+            effects.removed_v1 |= dependent;
             for kind in tag_policy::removed_kinds(&file, options)? {
                 staging
                     .seek(SeekFrom::Start(0))
@@ -2266,6 +2301,7 @@ fn remove_tags_result(
                 crate::write_cost::rewrote_all();
                 kind.remove_from(staging, WriteOptions::default())
                     .map_err(|e| e.to_string())?;
+                effects.removed(kind);
             }
             if nero {
                 staging.sync_all().map_err(|e| e.to_string())?;
@@ -2434,7 +2470,7 @@ fn add_picture_result_diagnostic(
         path,
         include_cover_data,
         options,
-        |staging, mut file, staged_path| {
+        |staging, mut file, staged_path, effects| {
             if tag_policy::policy(file.file_type()).is_some() {
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
                 describe_repeated_cover(&pictures, &mut picture, label);
@@ -2445,6 +2481,7 @@ fn add_picture_result_diagnostic(
                     &options.mappings,
                     options,
                     tag_policy::Change::Pictures(pictures.clone()),
+                    effects,
                 )?;
                 return tag_policy::verify_pictures_diagnostic(
                     staged_path,
@@ -2537,7 +2574,7 @@ fn remove_cover_result(
         path,
         include_cover_data,
         options,
-        |staging, mut file, staged_path| {
+        |staging, mut file, staged_path, effects| {
             if tag_policy::policy(file.file_type()).is_some() {
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
                 if index >= pictures.len() {
@@ -2550,6 +2587,7 @@ fn remove_cover_result(
                     &options.mappings,
                     options,
                     tag_policy::Change::Pictures(pictures.clone()),
+                    effects,
                 )?;
                 return tag_policy::verify_pictures(
                     staged_path,

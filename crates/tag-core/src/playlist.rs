@@ -47,7 +47,8 @@ pub fn playlist_kind(path: &Path) -> Option<PlaylistKind> {
     }
 }
 
-/// A raw entry as written in the playlist, with its 1-based line number.
+/// Extracted location data with its 1-based line number. Preserve authored
+/// whitespace; format syntax (such as an M3U line-start BOM) is removed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RawEntry {
     pub line: usize,
@@ -96,15 +97,21 @@ pub(crate) fn ansi_encoding(codepage: Option<&str>) -> Option<&'static encoding_
     }
 }
 
-/// Entries of a decoded playlist in playlist order.
+/// Entries of a decoded playlist in playlist order, retaining authored location
+/// data after removing format syntax. Whitespace is used only to classify lines
+/// and keys, not to rewrite M3U locations or PLS values.
 pub fn parse_entries(text: &str, kind: PlaylistKind) -> Vec<RawEntry> {
     let lines = text
         .lines()
         .enumerate()
-        .map(|(index, line)| (index + 1, line.trim_start_matches('\u{feff}').trim()));
+        .map(|(index, line)| (index + 1, line));
     match kind {
         PlaylistKind::M3u | PlaylistKind::M3u8 => lines
-            .filter(|(_, line)| !line.is_empty() && !line.starts_with('#'))
+            .map(|(line, location)| (line, location.trim_start_matches('\u{feff}')))
+            .filter(|(_, location)| {
+                let grammar = location.trim();
+                !grammar.is_empty() && !grammar.starts_with('#')
+            })
             .map(|(line, location)| RawEntry {
                 line,
                 location: location.to_string(),
@@ -114,13 +121,12 @@ pub fn parse_entries(text: &str, kind: PlaylistKind) -> Vec<RawEntry> {
             let mut entries: Vec<(u64, RawEntry)> = lines
                 .filter_map(|(line, text)| {
                     let (key, value) = text.split_once('=')?;
-                    let key = key.trim();
+                    let key = key.trim_start_matches('\u{feff}').trim();
                     let number = key
                         .get(..4)
                         .filter(|prefix| prefix.eq_ignore_ascii_case("file"))
                         .and_then(|_| key[4..].parse::<u64>().ok())?;
-                    let value = value.trim();
-                    (!value.is_empty()).then(|| {
+                    (!value.trim().is_empty()).then(|| {
                         (
                             number,
                             RawEntry {
@@ -136,6 +142,7 @@ pub fn parse_entries(text: &str, kind: PlaylistKind) -> Vec<RawEntry> {
         }
         PlaylistKind::Cue => lines
             .filter_map(|(line, text)| {
+                let text = text.trim_start_matches('\u{feff}').trim();
                 let keyword = text.get(..5)?;
                 if !keyword.eq_ignore_ascii_case("file ") {
                     return None;
@@ -201,7 +208,8 @@ fn is_windows_absolute(value: &str) -> bool {
 
 /// Candidate local paths for one playlist entry, most literal first.
 /// `file://` URLs are percent-decoded; on other systems than Windows,
-/// backslash separators of Windows playlists are also tried as `/`.
+/// backslash separators of Windows playlists are also tried as `/`. The entire
+/// authored spelling family precedes the legacy whitespace-trimmed family.
 pub fn entry_candidates(location: &str, playlist_directory: &Path) -> Result<Vec<PathBuf>, String> {
     entry_candidates_diagnostic(location, playlist_directory).map_err(|error| error.to_string())
 }
@@ -210,8 +218,9 @@ pub(crate) fn entry_candidates_diagnostic(
     location: &str,
     playlist_directory: &Path,
 ) -> Result<Vec<PathBuf>, ErrorCause> {
-    let location = location.trim();
-    if let Some(scheme) = url_scheme(location) {
+    let uri_location = location.trim();
+    if let Some(scheme) = url_scheme(uri_location) {
+        let location = uri_location;
         if !scheme.eq_ignore_ascii_case("file") {
             return Err(ErrorCause::message(
                 "{location}: only local files can be loaded, not {scheme} URLs",
@@ -252,17 +261,20 @@ pub(crate) fn entry_candidates_diagnostic(
             candidates.push(joined);
         }
     };
-    let alternate = (!cfg!(windows) && location.contains('\\') && !is_windows_absolute(location))
-        .then(|| location.replace('\\', "/"));
-    push(location);
-    if let Some(alternate) = &alternate {
-        push(alternate);
-    }
-    if has_percent_escape(location) {
-        if let Some(decoded) = percent_decode(location) {
-            push(&decoded);
-            if !cfg!(windows) && decoded.contains('\\') {
-                push(&decoded.replace('\\', "/"));
+    for spelling in [location, uri_location] {
+        let alternate =
+            (!cfg!(windows) && spelling.contains('\\') && !is_windows_absolute(spelling))
+                .then(|| spelling.replace('\\', "/"));
+        push(spelling);
+        if let Some(alternate) = &alternate {
+            push(alternate);
+        }
+        if has_percent_escape(spelling) {
+            if let Some(decoded) = percent_decode(spelling) {
+                push(&decoded);
+                if !cfg!(windows) && decoded.contains('\\') {
+                    push(&decoded.replace('\\', "/"));
+                }
             }
         }
     }
@@ -715,9 +727,17 @@ pub fn render_playlist(
         } else {
             item.path.clone()
         };
-        let path = path.to_string_lossy().into_owned();
+        let relative = path.is_relative();
+        let mut path = path.to_string_lossy().into_owned();
         if path.contains(['\r', '\n']) {
             return Err("Playlist paths cannot contain line breaks".into());
+        }
+        if relative
+            && (path.trim().is_empty()
+                || (kind != PlaylistKind::Pls
+                    && (path.trim().starts_with('#') || path.starts_with('\u{feff}'))))
+        {
+            path.insert_str(0, "./");
         }
         entries.push(path);
     }
@@ -918,7 +938,7 @@ mod tests {
             "\u{feff}#EXTM3U\r\n#EXTINF:12,A - B\r\n01 a.mp3\r\n\r\n  sub/02 b.flac  \n# note\n";
         assert_eq!(
             entries(text, PlaylistKind::M3u8),
-            ["01 a.mp3", "sub/02 b.flac"]
+            ["01 a.mp3", "  sub/02 b.flac  "]
         );
         assert_eq!(parse_entries(text, PlaylistKind::M3u)[1].line, 5);
     }

@@ -1,5 +1,9 @@
 # Desktop history startup and retention
 
+The startup audit below describes the preserved pre-repair adapter. The approved nonfatal warning repair is implemented; see [the scoped repair and checks](four-parity-repairs-2026-10-19.md#nonfatal-history-startup-notice). The cross-session retention analysis remains current and is not supplied by this repair.
+
+## Preserved baseline
+
 This source audit inspected PR64 head `38c0147a0c3ce5a413ae54e17de2351001c291cf`. It did not execute a failing save, repeat the separate [concealed-edit experiment](undo-concealed-external-edit-2026-10-19.md), or change history policy.
 
 The retained audit, source hashes and receipt are in `/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-history-open-warning-audit-1fatrkh0`. Receipt SHA-256: `f93c8c14b38073b12ebd8d7419b04ba5e47b7d8b49bef109d74c0426a7e6eef1`.

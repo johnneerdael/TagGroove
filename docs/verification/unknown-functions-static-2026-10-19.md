@@ -1,4 +1,8 @@
-# Unknown scripting functions: a pinned static mismatch
+# Unknown scripting functions: pinned static evidence and baseline
+
+The compiler mismatch below describes the preserved pre-repair baseline. Eager unknown-function fallback is now implemented; see [the repair and passing checks](four-parity-repairs-2026-10-19.md#scripting-and-export). Reserved native-known functions, malformed syntax and host failures remain errors.
+
+## Preserved baseline
 
 The Windows x64 Mp3tag 3.36.1 artifact with SHA-256
 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`

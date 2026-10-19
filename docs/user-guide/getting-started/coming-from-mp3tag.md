@@ -53,12 +53,15 @@ items** or **Replace current items**. A replacement export retains its existing
 TagGroove identity and physical filename. Partial imports keep their warnings;
 an unresolved action does not silently become another action type.
 
-For example, a profile might contain two valid columns and a third using an
-unknown function, a panel with Title and Comment plus an unsupported technical
+For example, a profile might contain two valid columns and a third with a
+malformed expression, a panel with Title and Comment plus an unsupported technical
 control, an action group and a text export. Selecting those components imports
 the two supported columns, supported panel fields, the disabled action group
 and export. The skipped column/control and any unknown global-settings file
-remain in the report. This is a partial profile transfer, not full editor parity.
+remain in the report. A syntactically valid unknown function can instead
+remain as literal wrapper text in a column; review its rendered output rather
+than treating successful import as proof that the function was implemented.
+This is a partial profile transfer, not full editor parity.
 
 ## Bring an action group safely
 

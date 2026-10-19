@@ -139,13 +139,27 @@ fn malformed_queries_and_unsupported_regex_never_succeed_silently() {
         "artist IS x)",
         "artist IS \"unfinished",
         "title MATCHES \"(\"",
-        "\"$not_a_function(%title%)\" IS x",
+        "\"$substr(%title%)\" IS x",
+        "\"$upper()\" IS x",
+        "\"$not_a_function(%title%\" IS x",
         "* PRESENT",
         "* IS x",
         "artist MATCH x",
     ] {
         assert!(compile_filter(query).is_err(), "{query}");
     }
+}
+
+#[test]
+fn true_unknown_selector_functions_match_their_evaluated_literal_output() {
+    let f = fields();
+    assert!(matches_filter(
+        "\"$not_a_function(%title%)\" IS \"$not_a_function(Symphony No. 3 (猫))\"",
+        &f,
+    )
+    .unwrap());
+    assert!(!matches_filter("\"$not_a_function(%title%)\" IS x", &f).unwrap());
+    assert!(matches_filter("\"$unknown(x)\" IS \"$unknown(x)\"", &f).unwrap());
 }
 
 #[test]
@@ -263,7 +277,7 @@ fn error_messages_identify_the_failed_filter_context() {
     assert!(compile_filter("title MATCHES \"(\"")
         .unwrap_err()
         .contains("Invalid regular expression in MATCHES operand"));
-    assert!(compile_filter("\"$unknown(x)\" IS yes")
+    assert!(compile_filter("\"$substr(x)\" IS yes")
         .unwrap_err()
         .contains("Invalid format string in filter selector"));
     let error = compile_filter("猫 HAS \"unfinished").unwrap_err();

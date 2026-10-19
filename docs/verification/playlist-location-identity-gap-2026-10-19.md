@@ -1,4 +1,8 @@
-# Playlist location identity: current writer/readback gap
+# Playlist location identity: preserved pre-repair diagnosis
+
+The writer/readback defects below are the preserved pre-repair baseline. The approved repair now preserves exact authored local identity; see [the repair and passing checks](four-parity-repairs-2026-10-19.md#playlist-location-identity). Historical sources, outputs and failure counters remain unchanged.
+
+## Preserved baseline
 
 TagGroove's existing playlist writer and reader can lose or substitute local
 members. This is a demonstrated implementation defect, separate from the

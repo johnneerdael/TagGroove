@@ -1942,8 +1942,7 @@ mod tests {
             .find(|item| item.file == "columns.ini")
             .unwrap()
             .warnings
-            .iter()
-            .any(|warning| warning.contains("fixture_unknown")));
+            .is_empty());
         assert!(preview
             .items
             .iter()
@@ -1963,13 +1962,21 @@ mod tests {
         let applied = apply(dir.path(), &preview.token, &selected(), true, window()).unwrap();
         assert_eq!(applied.report.as_ref().unwrap().imported.len(), 6);
         assert!(applied.restorable);
+        let columns = crate::columns::load(&dir.path().join("columns.json"))
+            .unwrap()
+            .unwrap()
+            .columns;
+        assert_eq!(columns.len(), 3);
+        assert_eq!(columns[0].name, "Track title");
+        assert_eq!(columns[2].name, "Unavailable function");
+        assert_eq!(columns[2].value, "$fixture_unknown(%title%)");
         assert_eq!(
-            crate::columns::load(&dir.path().join("columns.json"))
-                .unwrap()
-                .unwrap()
-                .columns[0]
-                .name,
-            "Track title"
+            tag_core::evaluate(
+                &columns[2].value,
+                &tag_core::Fields::from([("TITLE".into(), vec!["Imported title".into()])]),
+            )
+            .unwrap(),
+            "$fixture_unknown(Imported title)"
         );
         assert_eq!(
             crate::tag_panel::load(&dir.path().join("tag-panel.json"))

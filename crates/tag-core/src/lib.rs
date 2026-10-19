@@ -9,6 +9,7 @@ mod flac_metadata;
 pub mod history;
 mod id3_frames;
 mod id3_padding;
+mod lyrics3;
 mod mp4_metadata;
 pub mod numbering;
 mod oem_codepages;

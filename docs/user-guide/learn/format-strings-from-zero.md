@@ -136,8 +136,7 @@ $if2(%albumartist%,%artist%)
 ```
 
 The result is `Juniper Vale`. `$if2` takes the first argument when its
-availability/truth flag is true; otherwise it uses the second. A field
-placeholder is true when it has a nonempty first value, which makes this
+truth flag is true; otherwise it uses the second. A field placeholder is true when it has a nonempty first value, which makes this
 a useful field fallback.
 
 Conditions use those flags, not the visible digits `1` and `0`. Compare:
@@ -151,7 +150,14 @@ Conditions use those flags, not the visible digits `1` and `0`. Compare:
 Use a comparison when the condition asks a question about a value.
 For example, `$grtr($len(%title%),10)` asks whether the title is longer
 than ten characters. Do not assume a function returning the text `0`
-has the same flag as a false comparison.
+has the same flag as a false comparison. Predicates themselves print nothing;
+`$if($eql(%year%,2024),1,0)` prints `1` for this practice file.
+
+Nested expressions need more care: all arguments are evaluated, including
+unused branches, and their flags can contribute even when their text is not
+chosen. A later comparison can also reset a flag established by an earlier
+field in the same expression. See [Conditions and logic](../reference/scripting/conditions.md)
+before combining several such steps inside optional sections.
 
 ## 7. Quote characters that belong to the text
 

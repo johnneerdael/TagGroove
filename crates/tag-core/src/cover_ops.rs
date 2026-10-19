@@ -51,83 +51,89 @@ fn transform_covers_diagnostic(
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::transform_covers_diagnostic(path, kind, options, transform);
     }
-    staged_mutation_diagnostic(path, false, options, |staging, mut file, staged_path| {
-        if tag_policy::policy(file.file_type()).is_some() {
-            let mut pictures = Vec::new();
-            for picture in tag_policy::displayed_pictures(&file, options) {
-                if let Some(picture) = transform(&picture)? {
-                    pictures.push(picture);
+    staged_mutation_diagnostic(
+        path,
+        false,
+        options,
+        |staging, mut file, staged_path, effects| {
+            if tag_policy::policy(file.file_type()).is_some() {
+                let mut pictures = Vec::new();
+                for picture in tag_policy::displayed_pictures(&file, options) {
+                    if let Some(picture) = transform(&picture)? {
+                        pictures.push(picture);
+                    }
                 }
+                let written = tag_policy::write_diagnostic(
+                    staging,
+                    &file,
+                    &options.mappings,
+                    options,
+                    tag_policy::Change::Pictures(pictures.clone()),
+                    effects,
+                )?;
+                return tag_policy::verify_pictures_diagnostic(
+                    staged_path,
+                    options,
+                    written,
+                    &pictures,
+                    "The tag format cannot preserve all edited covers (duplicate type/description)",
+                );
             }
-            let written = tag_policy::write_diagnostic(
-                staging,
-                &file,
-                &options.mappings,
-                options,
-                tag_policy::Change::Pictures(pictures.clone()),
-            )?;
-            return tag_policy::verify_pictures_diagnostic(
-                staged_path,
-                options,
-                written,
-                &pictures,
-                "The tag format cannot preserve all edited covers (duplicate type/description)",
-            );
-        }
-        let kinds: Vec<_> = ordered_tags(&file)
-            .into_iter()
-            .filter(|tag| !tag.pictures().is_empty())
-            .map(Tag::tag_type)
-            .collect();
-        let mut expected = Vec::new();
-        for kind in kinds {
-            if !file.tag_support(kind).is_writable() {
-                return Err(ErrorCause::owned("Cover tag is read-only"));
-            }
-            let file_type = file.file_type();
-            let tag = file
-                .tag_mut(kind)
-                .ok_or_else(|| ErrorCause::owned("Cover tag disappeared"))?;
-            let original = tag.pictures().to_vec();
-            while !tag.pictures().is_empty() {
-                tag.remove_picture(0);
-            }
-            for picture in original {
-                if let Some(picture) = transform(&picture)? {
-                    expected.push((
-                        format!("{:?}", picture.pic_type()),
-                        picture.description().unwrap_or_default().to_owned(),
-                    ));
-                    tag.push_picture(picture);
+            let kinds: Vec<_> = ordered_tags(&file)
+                .into_iter()
+                .filter(|tag| !tag.pictures().is_empty())
+                .map(Tag::tag_type)
+                .collect();
+            let mut expected = Vec::new();
+            for kind in kinds {
+                if !file.tag_support(kind).is_writable() {
+                    return Err(ErrorCause::owned("Cover tag is read-only"));
                 }
+                let file_type = file.file_type();
+                let tag = file
+                    .tag_mut(kind)
+                    .ok_or_else(|| ErrorCause::owned("Cover tag disappeared"))?;
+                let original = tag.pictures().to_vec();
+                while !tag.pictures().is_empty() {
+                    tag.remove_picture(0);
+                }
+                for picture in original {
+                    if let Some(picture) = transform(&picture)? {
+                        expected.push((
+                            format!("{:?}", picture.pic_type()),
+                            picture.description().unwrap_or_default().to_owned(),
+                        ));
+                        tag.push_picture(picture);
+                    }
+                }
+                staging
+                    .seek(SeekFrom::Start(0))
+                    .map_err(ErrorCause::external)?;
+                save_preserving_native_diagnostic(
+                    staging,
+                    file_type,
+                    tag,
+                    &Fields::new(),
+                    true,
+                    Id3Write::preserving(options),
+                )?;
             }
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(ErrorCause::external)?;
-            save_preserving_native_diagnostic(
-                staging,
-                file_type,
-                tag,
-                &Fields::new(),
-                true,
-                Id3Write::preserving(options),
-            )?;
-        }
-        let actual = read_entry_summary_with_options_diagnostic(staged_path, &[], options)?;
-        if actual.covers.len() != expected.len() {
-            return Err(ErrorCause::owned(
-                "The tag format cannot preserve all edited covers (duplicate type/description)",
-            ));
-        }
-        for (cover, (kind, description)) in actual.covers.iter().zip(expected) {
-            if cover.picture_type != kind || cover.description != description {
+            let actual = read_entry_summary_with_options_diagnostic(staged_path, &[], options)?;
+            if actual.covers.len() != expected.len() {
                 return Err(ErrorCause::owned(
-                    "The tag format does not support the requested cover properties",
+                    "The tag format cannot preserve all edited covers (duplicate type/description)",
                 ));
             }
-        }
-        Ok(())
-    })
+            for (cover, (kind, description)) in actual.covers.iter().zip(expected) {
+                if cover.picture_type != kind || cover.description != description {
+                    return Err(ErrorCause::owned(
+                        "The tag format does not support the requested cover properties",
+                    ));
+                }
+            }
+            Ok(())
+        },
+    )
 }
 
 pub fn remove_all_covers_summary(path: &Path) -> Result<AudioEntry, String> {

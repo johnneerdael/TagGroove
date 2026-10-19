@@ -160,8 +160,12 @@ volume on the assumption that history will always reserve space for you.
 Snapshot/storage failure normally does not stop the requested file operation.
 TagGroove can report **cannot be undone** while the operation itself succeeds,
 or record only part of a batch. The previous Undo label is not proof that
-the latest operation has a recovery copy. Read notices immediately and keep
-an independent backup for changes that must survive quitting.
+the latest operation has a recovery copy. Failure to start the history
+journal also leaves the requested operation's result unchanged and reports
+that it **cannot be undone**. That operation is not recorded. Merely checking
+history status or initializing the journal again does not clear the notice;
+a later successfully recorded operation clears it. Read notices immediately
+and keep an independent backup for changes that must survive quitting.
 
 History is scoped to the running application session. Restarting does not
 load the old stack; stale session snapshots are cleaned separately. Do not

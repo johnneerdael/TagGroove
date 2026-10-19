@@ -2,7 +2,8 @@
 
 Use these functions to locate text, compare values or check a naming rule.
 Search positions start at **1**; 0 means no match. Boolean comparisons
-return text `1` or `0` with a corresponding condition flag.
+produce empty text and replace the current availability and truth flags with
+their answer. Wrap a predicate in `$if(predicate,1,0)` to display its answer.
 
 !!! tip "New to this?"
     Work through [Format strings from zero](../../learn/format-strings-from-zero.md)
@@ -88,8 +89,8 @@ supplied. **Related:** [`$strchr`](#strchr), [`$strrstr`](#strrstr).
 
 ### `$strcmp(x,y)` { #strcmp }
 
-**Returns** true (`1`) when both strings are exactly equal, otherwise
-false (`0`). This is an equality test, not a sorting comparator.
+**Sets the flag** to true when both strings are exactly equal, otherwise
+false. This is an equality test, not a sorting comparator.
 
 | Argument | Meaning |
 |---|---|
@@ -97,8 +98,8 @@ false (`0`). This is an equality test, not a sorting comparator.
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$strcmp(%title%,Paper Boats)` | `TITLE` = `Paper Boats` | `1` |
-| `$strcmp(03,3)` | Any file | `0` |
+| `$if($strcmp(%title%,Paper Boats),1,0)` | `TITLE` = `Paper Boats` | `1` |
+| `$if($strcmp(03,3),1,0)` | Any file | `0` |
 | `$if($strcmp($lower(%title%),paper boats),same,different)` | `TITLE` = `Paper Boats` | `same` |
 
 `03` and `3` differ as strings. Use `$eql` when integer equality is the
@@ -107,8 +108,8 @@ intended rule. **Related:** [`$stricmp`](#stricmp),
 
 ### `$stricmp(x,y)` { #stricmp }
 
-**Returns** true (`1`) when the strings are equal after lowercase
-conversion, otherwise false (`0`).
+**Sets the flag** to true when the strings are equal after lowercase
+conversion, otherwise false.
 
 | Argument | Meaning |
 |---|---|
@@ -116,8 +117,8 @@ conversion, otherwise false (`0`).
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$stricmp(%title%,PAPER BOATS)` | `TITLE` = `Paper Boats` | `1` |
-| `$stricmp('Paper Boats ','Paper Boats')` | Any file | `0` |
+| `$if($stricmp(%title%,PAPER BOATS),1,0)` | `TITLE` = `Paper Boats` | `1` |
+| `$if($stricmp('Paper Boats ','Paper Boats'),1,0)` | Any file | `0` |
 | `$if($stricmp($trim(' Paper Boats '),PAPER BOATS),same,different)` | Any file | `same` |
 
 Whitespace still matters. Lowercase conversion is not a general
@@ -167,8 +168,8 @@ see [file and folder names](../format-strings.md#file-and-folder-names).
 
 ### `$isdigit(x)` { #isdigit }
 
-**Returns** true (`1`) when the first character is an ASCII digit `0`–`9`,
-otherwise false (`0`). It does not validate the entire string as a number.
+**Sets the flag** to true when the first character is an ASCII digit `0`–`9`,
+otherwise false. It does not validate the entire string as a number.
 
 | Argument | Meaning |
 |---|---|
@@ -176,8 +177,8 @@ otherwise false (`0`). It does not validate the entire string as a number.
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$isdigit(3/8)` | Any file | `1` |
-| `$isdigit(-3)` | Any file | `0` |
+| `$if($isdigit(3/8),1,0)` | Any file | `1` |
+| `$if($isdigit(-3),1,0)` | Any file | `0` |
 | `$if($isdigit($trim(' 3/8')),numeric prefix,other)` | Any file | `numeric prefix` |
 
 `12x` is true, while an empty string or one beginning with whitespace is

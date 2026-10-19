@@ -68,12 +68,31 @@ pub(super) fn removed_kinds(
             "No tag types are selected under Options → Tags → {page} → Remove"
         ));
     }
-    Ok(selected
-        .into_iter()
-        .zip([TagType::Id3v1, TagType::Id3v2, TagType::Ape])
-        .filter(|(enabled, kind)| *enabled && file.tag(*kind).is_some())
-        .map(|(_, kind)| kind)
-        .collect())
+    // Remove APE while a genuine V1 still shields any TAG-shaped APE item.
+    Ok([
+        (selected[2], TagType::Ape),
+        (selected[1], TagType::Id3v2),
+        (selected[0], TagType::Id3v1),
+    ]
+    .into_iter()
+    .filter(|(enabled, kind)| *enabled && file.tag(*kind).is_some())
+    .map(|(_, kind)| kind)
+    .collect())
+}
+
+/// A recognized MPEG orphan is physically removable without inventing V1 inventory.
+pub(super) fn dependent_v1_removal(
+    path: &Path,
+    file: &TaggedFile,
+    selected: bool,
+) -> Result<bool, String> {
+    if !selected || file.file_type() != FileType::Mpeg {
+        return Ok(false);
+    }
+    let mut reader = fs::File::open(path).map_err(|e| e.to_string())?;
+    crate::lyrics3::detect(&mut reader)
+        .map(|range| range.is_some())
+        .map_err(|e| e.to_string())
 }
 
 /// Options that read exactly one tag kind, used to verify what was written.
@@ -241,8 +260,10 @@ pub(super) fn write(
     rules: &[UserFieldMapping],
     options: &TagOptions,
     change: Change<'_>,
+    effects: &mut crate::lyrics3::Effects,
 ) -> Result<Written, String> {
-    write_diagnostic(staging, file, rules, options, change).map_err(|error| error.to_string())
+    write_diagnostic(staging, file, rules, options, change, effects)
+        .map_err(|error| error.to_string())
 }
 
 pub(super) fn write_diagnostic(
@@ -251,6 +272,7 @@ pub(super) fn write_diagnostic(
     rules: &[UserFieldMapping],
     options: &TagOptions,
     change: Change<'_>,
+    effects: &mut crate::lyrics3::Effects,
 ) -> Result<Written, ErrorCause> {
     let file_type = file.file_type();
     let kind = policy(file_type)
@@ -327,11 +349,14 @@ pub(super) fn write_diagnostic(
         && !source_has_preserved_records(displayed, &native)
     {
         let absent = [write_v1, write_v2, write_ape];
-        for (enabled, tag_type) in
-            absent
-                .into_iter()
-                .zip([TagType::Id3v1, TagType::Id3v2, TagType::Ape])
-        {
+        for (enabled, tag_type) in [
+            (write_ape, TagType::Ape),
+            (write_v2, TagType::Id3v2),
+            (write_v1, TagType::Id3v1),
+        ] {
+            if enabled && (has(tag_type) || tag_type == TagType::Id3v1) {
+                effects.removed(tag_type);
+            }
             if enabled && has(tag_type) {
                 staging
                     .seek(SeekFrom::Start(0))
@@ -417,9 +442,16 @@ pub(super) fn write_diagnostic(
             tag.dump_to(&mut bytes, WriteOptions::default())
                 .map_err(|e| ErrorCause::external(error_message(&e)))?;
             staging
-                .seek(SeekFrom::End(if has(TagType::Id3v1) { -128 } else { 0 }))
+                .seek(SeekFrom::End(
+                    if has(TagType::Id3v1) || effects.owned_phantom {
+                        -128
+                    } else {
+                        0
+                    },
+                ))
                 .map_err(ErrorCause::external)?;
             staging.write_all(&bytes).map_err(ErrorCause::external)?;
+            effects.wrote_v1 = true;
             if has(TagType::Id3v1) {
                 crate::write_cost::rewrote_region(bytes.len() as u64);
             } else {
@@ -435,9 +467,14 @@ pub(super) fn write_diagnostic(
             }
             tag.save_to(staging, WriteOptions::default())
                 .map_err(|e| ErrorCause::external(error_message(&e)))?;
+            if tag.is_empty() {
+                effects.removed(TagType::Id3v1);
+            } else {
+                effects.wrote_v1 = true;
+            }
         }
     }
-    for (enabled, kind) in remove {
+    for (enabled, kind) in [remove[2], remove[1], remove[0]] {
         if enabled && has(kind) {
             staging
                 .seek(SeekFrom::Start(0))
@@ -445,6 +482,7 @@ pub(super) fn write_diagnostic(
             crate::write_cost::rewrote_all();
             kind.remove_from(staging, WriteOptions::default())
                 .map_err(|e| ErrorCause::external(error_message(&e)))?;
+            effects.removed(kind);
         }
     }
     staging
@@ -566,7 +604,8 @@ pub(super) fn verify_pictures_diagnostic(
         read_description_diagnostic(staged_path, false, &[], &reading_only(options, written))?;
     if entry.covers.len() != expected.len()
         || entry.covers.iter().zip(expected).any(|(cover, picture)| {
-            cover.picture_type != format!("{:?}", picture.pic_type())
+            cover.digest != cover_digest(picture.data())
+                || cover.picture_type != format!("{:?}", picture.pic_type())
                 || cover.description != picture.description().unwrap_or_default()
         })
     {

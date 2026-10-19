@@ -189,12 +189,29 @@ Version=2
 
 ## Paths, names and encoding
 
-!!! warning "Current filename readback limitation"
-    Relative M3U/M3U8 entries beginning with `#` can be skipped as comments.
-    Leading or trailing spaces in M3U/M3U8/PLS locations can also select an
-    existing file with the trimmed name. Check the loaded members before
-    editing tags from such a playlist. Absolute paths avoid the leading-`#`
-    case, but do not solve the whitespace case.
+M3U/M3U8 path lines and PLS `FileN=` values retain their filename whitespace.
+For local paths, loading tries the authored spelling first, then its supported
+separator and percent-decoded alternatives, before trying the older
+whitespace-trimmed family of spellings. If both ` Song.wav ` and `Song.wav`
+exist, a location containing the outer spaces selects ` Song.wav `. If only
+the trimmed spelling exists, the compatibility fallback can still load it.
+
+M3U/M3U8 treats a line whose trimmed text begins with `#` as a comment and
+ignores blank lines. The writer prefixes relative names that would resemble
+comments, begin with a BOM character, or consist only of whitespace with
+`./`; for example, `#Song.wav` is written as `./#Song.wav`. PLS needs the
+`./` prefix for a whitespace-only relative name too, so its value is not
+mistaken for a blank entry. Ordinary leading/trailing filename spaces are
+otherwise retained.
+
+A line-start BOM character is syntax on each M3U/M3U8 line. In a PLS
+`FileN=` value or inside a quoted CUE filename, a BOM character belongs to
+the filename instead. These rules are separate from the file's encoding BOM.
+For URI-shaped locations, scheme classification and unsupported-URI refusal
+happen before filesystem candidates are tried; a local file whose name
+resembles an HTTP URL does not make that URL loadable. XML playlists use
+their [separate URI rules](xml-playlists.md). Check the loaded members and the
+receiving player's interpretation when using unusual names.
 
 Relative entries are calculated from the output playlist's folder. The
 configured working-directory root bounds when relative entries are used;

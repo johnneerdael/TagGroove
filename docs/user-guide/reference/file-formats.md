@@ -91,6 +91,16 @@ TAK and OptimFROG tag paths do not decode/re-encode the audio. Existing tests us
 
 Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as a header; an internal `TAG` sequence is not an ID3v1 tag. APE tags left untouched by the selected write policy retain their bytes. Some other unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
 
+Recognized Lyrics3v2 tails are handled as bounded opaque data, so an APE tag
+before the tail remains detectable/readable. Selected ID3v1 removal removes
+the dependent tail, including an orphan without ID3v1. Actual APE-only removal
+also drops the tail and regenerates an existing ID3v1 tag from its retained
+fields; ordinary nonempty APE-only Save preserves the raw Lyrics3v2/ID3v1
+bytes. Legacy Lyrics3v1 and unrecognized bytes are retained. No editable
+Lyrics3 fields or extra tag-type checkbox is provided. See
+[Mpeg removal policy](options/tags-mpeg.md#remove); exact original-app padding
+and decoding behavior remains unqualified.
+
 Supported ID3v2.3 extended headers, with or without a CRC checksum, can be read
 without losing ordinary fields or unedited compressed/encrypted records. A
 same-revision metadata edit can normalize the tag to a plain ID3v2.3 header;

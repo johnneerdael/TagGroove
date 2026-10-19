@@ -32,6 +32,10 @@ At least one write type must remain enabled. Saving synchronizes written types f
 
 If APE reading is enabled while only ID3 writing is enabled, a successful save can update ID3 while the displayed title still comes from the unchanged APE tag. Turn APE reading off to inspect ID3, or deliberately choose which types to write. Changing Read selects a view; it does not synchronize or delete the other tags.
 
+This also applies to embedded artwork. Manage covers verifies the types selected
+for writing; a retained APE cover can still be the displayed image while APE
+reading is enabled. Turn APE reading off to inspect the written ID3 cover.
+
 ### When ID3v1 is too small
 
 TagGroove checks more than text length. Artwork, custom fields, multiple values, a user-defined genre, and characters outside Latin-1 require ID3v2. In the inspected implementation, title/artist/album fit only within 30 characters; comment space is 28 characters when a track is present, otherwise 30; year must be four digits; a track must fit its legacy positive byte value. A `TRACK` value containing a total, such as `3/8`, needs ID3v2 to preserve that text.
@@ -63,7 +67,18 @@ When the complete metadata being saved is empty, Save removes the types selected
 
 Clearing visible text does not establish that every record is empty. Artwork, binary records, chapters or other retained native data can remain. Use **Remove tag…** when the intention is to remove selected tag types completely, and check those Remove switches first.
 
-Legacy Lyrics3 tags need special care. TagGroove currently leaves a dependent Lyrics3v2 block behind when removing ID3v1. An APE tag before that block can also be missing from the detected tag types, so selecting APE removal may leave it in the file. These are known compatibility gaps; the ID3v1 checkbox is not a complete Lyrics3-cleanup command.
+Recognized Lyrics3v2 tails are preserved as opaque data rather than editable
+lyrics fields. An APE tag before such a tail can still be detected and read.
+Selecting **ID3v1** removal also removes the recognized dependent Lyrics3v2
+tail, including one with no remaining ID3v1 block. Lyrics3v2 does not create
+its own tag-type checkbox or a synthetic ID3v1 inventory entry.
+
+An actual **APE-only removal** also drops the recognized Lyrics3v2 tail and
+regenerates an existing ID3v1 tag from its retained fields. This differs from
+an ordinary nonempty **APE-only Save**, which preserves the raw Lyrics3v2 and
+ID3v1 bytes. Legacy Lyrics3v1 and unrecognized trailing bytes are retained;
+these commands are not a general lyrics cleanup or Lyrics3 field editor.
+Exact original-app padding and decoding behavior remains unqualified.
 
 ## Related
 
@@ -72,4 +87,4 @@ Legacy Lyrics3 tags need special care. TagGroove currently leaves a dependent Ly
 - [Advanced settings](tags-advanced.md)
 - [Field mappings](tags-mapping.md)
 
-<!-- verified: crates/tag-core/src/preferences.rs MpegTagOptions; crates/tag-core/src/tag_policy.rs read_order, id3v1_sufficient, write, removed_kinds; crates/tag-core/src/raw_streams.rs mpeg_policy; crates/tag-core/src/mapping.rs latin1_lossy; crates/tag-core/tests/tag_policy.rs. Lyrics3v2 dependency removal and hidden APE inventory are confirmed local gaps; original runtime remains unexecuted. -->
+<!-- verified: crates/tag-core/src/preferences.rs MpegTagOptions; crates/tag-core/src/tag_policy.rs read_order, id3v1_sufficient, write, removed_kinds; crates/tag-core/src/raw_streams.rs mpeg_policy; crates/tag-core/src/mapping.rs latin1_lossy; crates/tag-core/tests/tag_policy.rs. Recognized Lyrics3v2 tail handling is covered by core physical-file fixtures; original runtime padding/decoding remains unqualified. -->

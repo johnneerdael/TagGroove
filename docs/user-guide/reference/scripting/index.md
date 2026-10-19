@@ -108,31 +108,35 @@ empty. `''` supplies an apostrophe; it is not an empty string.
 | [`$validate`](search-compare.md#validate) | Replace a defined set of forbidden filename characters |
 
 !!! note "Bringing formulas from Mp3tag"
-    This page describes current TagGroove behavior. Known compatibility gaps
-    remain in nested conditions, optional sections and predicate output.
-    TagGroove currently displays `1`/`0` for predicates and combines flags
-    differently from the inspected Mp3tag evaluator. Check imported formulas
-    in Preview before applying them to tags or filenames.
+    Predicates produce empty text and update evaluation flags. Nested
+    expressions and unused branches can affect those flags, so check imported
+    formulas in Preview before applying them to tags or filenames. These rules
+    do not establish full Mp3tag compatibility.
 
 ## Distinguish visible text, field availability and truth
 
 A function can return the text `0` while retaining a true flag inherited
 from a present source field. Conversely, literal `1` has no true flag.
 Read [the condition rules](conditions.md#understand-what-counts-as-true)
-when using `$if`, `$if2`, `$and`, `$or` or `$not`. Comparisons such as `$grtr`
-produce explicit boolean flags.
+when using `$if`, `$if2`, `$and`, `$or` or `$not`. Predicates such as `$grtr`
+produce empty text and replace availability and truth with their answer.
+Use `$if($grtr(4,3),1,0)` when visible digits are needed.
 
-Optional sections `[…]` use field availability, which is a separate part
-of evaluation. Removing all text from a present field does not necessarily
-make its enclosing optional section behave like a missing field. Keep
-presence tests close to field placeholders; use explicit comparisons for
-questions about calculated text.
+Flags accumulate from left to right, with predicates replacing earlier
+state in the same expression. All arguments contribute flags before a
+function selects its output text; even an unused branch can establish
+availability. Optional sections `[…]` evaluate children separately and
+suppress both text and flags when the child's final availability is false.
+Removing all text from a present field with a text function alone does not
+necessarily remove availability. Use explicit comparisons for questions
+about calculated text.
 
 ## Diagnose an expression error
 
 | Symptom | Check |
 |---|---|
-| Unknown function | Check this index and the function name; export-template commands such as `$loop` use a separate context |
+| Unknown name remains in output | Check spelling against this index; a valid unknown call is preserved as a literal wrapper around evaluated arguments |
+| Reserved function unavailable | Use its supported context where available; `$get`, `$put` and `$puts` belong to export templates |
 | Wrong argument count | Check the signature, commas and any unquoted comma inside the intended text |
 | Unterminated literal or function | Balance single quotes and closing parentheses; build the expression from the inside out |
 | Valid expression, unexpected output | Check missing fields, case rules, leading-integer conversion, and condition flags |
@@ -147,6 +151,17 @@ the destination field; preview before applying.
 Each family page describes its own errors. Supplying too few or too many
 arguments reports an error rather than guessing which argument was intended.
 All function arguments are evaluated, including an unused conditional branch.
+A valid unknown call first evaluates its arguments, then replays their original
+expressions in the containing expression, inside its literal wrapper. It preserves the name's original
+case; returned field text is not parsed again as a format string. Malformed
+syntax and known-function argument errors still fail. Reserved names
+`fmtdatelocal`, `get`, `listtec`, `put`, `puts`, `repl`, `rg2sc` and `substr`
+do not use unknown-name fallback when unavailable.
+
+Each top-level evaluation has a work budget of 1,048,576 expression-node
+visits, including eager arguments and unknown-call replay. This is a
+TagGroove safety limit, separate from output, nesting and function-specific
+limits; it is not a measured limit of Mp3tag.
 
 <!-- verified: crates/tag-core/src/script.rs:SUPPORTED_FUNCTIONS, validate_arity, run; index coverage is checked against the runtime registry -->
 
