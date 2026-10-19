@@ -65,3 +65,21 @@ per-action/group loop in the [native host](../../src-tauri/src/action_host.rs).
 The existing `guess_values_leaves_fields_unchanged_when_the_source_does_not_match`
 test already covers the no-op. This is a teaching clarification, with no
 production behavior change or new original/native acceptance claim.
+
+
+## Regex preparation before Guess Values — 2026-10-19
+
+The [Guess Values lesson](../user-guide/actions/guess-values.md#prepare-a-bracketed-release-label-with-a-regex)
+now follows an independently authored bracketed release label through source
+formatting and literal destination guessing. Four before/intermediate/after
+cases teach quoting, whitespace, unchanged destinations and the distinction
+between a regex nonmatch and an action skip. The documented Tag → Tag preview
+and Cancel route previews only the intermediate expression; it does not claim
+a Guess Values capture preview.
+
+The exact written source/pattern and four table rows run through the real
+`evaluate` and `apply_action_spec` engines in `action_guide.rs`, with both LF
+and CRLF Markdown. All eight focused guide-action tests pass; COMMENT and an
+unrelated TITLE stay unchanged. Strict MkDocs and rendered-code checks pass.
+This is a teaching and local-engine regression slice, not original-runtime,
+native-input or physical-save qualification.
