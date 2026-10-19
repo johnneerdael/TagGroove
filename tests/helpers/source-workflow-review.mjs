@@ -13,7 +13,11 @@ try {
   const input=JSON.parse(await readFile(inputPath,'utf8'));
   assert.equal(input.version,1,'unsupported workflow protocol version');
   assert.ok(['multi','scalar'].includes(input.scenario),'unknown workflow scenario');
-  assert.ok(Array.isArray(input.files)&&input.files.length>=2,'missing file summaries');
+  assert.ok(Array.isArray(input.files)&&input.files.length>=1,'missing file summaries');
+  const sourceId=input.source?.id??'Replay.src',sourceName=input.source?.name??'Independent replay';
+  assert.ok(typeof sourceId==='string'&&sourceId.length,'missing source identity');
+  const checkedFields=input.checked_fields??['TITLE','ALBUM','COMMENT'];
+  assert.ok(Array.isArray(checkedFields)&&checkedFields.every(field=>typeof field==='string'),'invalid checked fields');
   assert.equal(input.release.provider,'web','expected actual web release');
   assert.ok(Array.isArray(input.search.results)&&input.search.results.length,'missing parsed search results');
   assert.equal(input.search.results[0].url,input.release.url,'release must come from chosen result');
@@ -31,14 +35,14 @@ try {
   const ui=new TagSourcesUI({files:()=>input.files,reason:()=>'',options:()=>({cover_filename:'folder'}),pickSave:async()=>{throw Error('Unexpected picker');},evaluate:async()=> 'Fixture Artist',
     invoke:async(command,args)=>{
       calls.push({command,args});
-      if(command==='web_source_search'){assert.equal(args.source,'Replay.src');return structuredClone(input.search);}
-      if(command==='web_source_release'){assert.equal(args.source,'Replay.src');assert.equal(args.url,input.release.url);return structuredClone(input.release);}
+      if(command==='web_source_search'){assert.equal(args.source,sourceId);return structuredClone(input.search);}
+      if(command==='web_source_release'){assert.equal(args.source,sourceId);assert.equal(args.url,input.release.url);return structuredClone(input.release);}
       if(command==='tag_source_image'){assert.ok(input.release.covers.some(c=>c.url===args.url||c.thumb===args.url),'image outside parsed release');return `data:image/png;base64,${input.png}`;}
       if(command==='tag_source_cancel')return;
       throw Error(`Unexpected workflow command: ${command}`);
     },apply:async(items,cover)=>{applied.push(structuredClone({items,cover}));}});
   try {
-    await ui.open('web',{web:{id:'Replay.src',name:'Independent replay',search_by:[]}});
+    await ui.open('web',{web:{id:sourceId,name:sourceName,search_by:[]}});
     const dialog=window.document.querySelector('dialog');
     assert.ok(dialog,'production source dialog did not open');
     dialog.querySelector('#ts-search').click();
@@ -46,7 +50,7 @@ try {
     if(!input.search.direct){assert.ok(dialog.querySelector('#ts-next'),'missing result selection');dialog.querySelector('#ts-next').click();await window.happyDOM.waitUntilComplete();}
     assert.ok(dialog.querySelector('#ts-apply'),'production review did not open');
     for(const box of dialog.querySelectorAll('input[data-field]')){
-      const checked=['TITLE','ALBUM','COMMENT'].includes(box.dataset.field);
+      const checked=checkedFields.includes(box.dataset.field);
       if(box.checked!==checked){box.checked=checked;box.dispatchEvent(new window.Event('change',{bubbles:true}));}
     }
     const save=dialog.querySelector('#ts-cover-save');assert.ok(save,'missing artwork selection');

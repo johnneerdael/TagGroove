@@ -62,3 +62,7 @@ live-provider receipts remain separate requirements.
 
 The [SoundCloud scalar-parser check](private-soundcloud-offline-2026-10-19.md)
 separately executes that private bundle against invented hydration input.
+
+A later [joined private replay](private-source-joined-replay-2026-10-19.md)
+executes the actual parser, production DOM review and internal physical writer
+together on invented input. Its provider/public-ingress/native limits remain explicit.

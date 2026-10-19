@@ -50,3 +50,8 @@ native review, selected apply, physical save/reload or Undo. No claim about a
 later application binary follows from sharing a branch. L30/N01/N02/L78/L79
 remain open, and Windows work is deferred. Provider-response qualification still
 needs a legitimately retained response with acquisition URL/date and provenance.
+
+The later [joined private replay](private-source-joined-replay-2026-10-19.md)
+also exercises production DOM selection, internal physical writing and exact
+PCM/file/sidecar Undo/Redo from invented input. It retains the distinct provider,
+public-ingress and native qualification requirements.

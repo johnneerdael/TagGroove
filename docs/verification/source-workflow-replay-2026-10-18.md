@@ -46,3 +46,8 @@ search/direct response replay, native interaction, released builds and provider
 journeys remain N02/L30/L78/L79. The earlier private receipt contained no saved
 provider response bodies. No original program, native GUI, Windows, picker,
 clipboard, provider service or device was used.
+
+
+## Private-source follow-up — 2026-10-19
+
+The [joined private replay](private-source-joined-replay-2026-10-19.md) reuses this production review/writer/history path with the actual private Traxsource and SoundCloud album parsers and invented saved input. It adds independent per-file PCM checks. Private index/HTTP/public ingress and provider/native qualification remain separate.
