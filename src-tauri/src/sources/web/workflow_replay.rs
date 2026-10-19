@@ -13,6 +13,9 @@ use std::{
     process::{Command, Stdio},
 };
 
+#[path = "workflow_loopback.rs"]
+mod loopback;
+
 fn png(width: u32) -> Vec<u8> {
     let mut bytes = std::io::Cursor::new(Vec::new());
     image::DynamicImage::new_rgb8(width, 1)
@@ -355,6 +358,7 @@ fn review_and_save(root: &Path, replay: ReplayReview, public: Option<&PublicRepl
             &expected_items,
             &expected_cover,
             &image_bytes,
+            &replay.release,
         )
     } else {
         review_helper(&input, &output)
@@ -558,6 +562,16 @@ struct PublicReplay {
     fixture: PrivateReplay,
     manifest: PublicManifest,
     values: Vec<String>,
+    wire: Option<std::sync::Arc<loopback::WireState>>,
+}
+impl PublicReplay {
+    fn transport_counts(&self) -> (usize, usize, usize) {
+        self.wire
+            .as_ref()
+            .map_or_else(http::fixture::active_counts, |wire| {
+                (wire.request_count(), 0, 0)
+            })
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -690,6 +704,7 @@ fn public_review_helper(
     expected_items: &[Value],
     expected_cover: &Value,
     image: &[u8],
+    expected_release: &SourceRelease,
 ) -> std::process::Output {
     use std::io::{BufRead, BufReader, Read, Write};
     let root = input.parent().unwrap();
@@ -705,7 +720,7 @@ fn public_review_helper(
         .map(|p| std::fs::read(p).unwrap())
         .collect::<Vec<_>>();
     let history_before = serde_json::to_value(crate::history::history_state().unwrap()).unwrap();
-    let transport_before = http::fixture::active_counts();
+    let transport_before = public.transport_counts();
     let control = std::env::var("TAGGROOVE_WORKFLOW_BRIDGE_CONTROL").ok();
     assert!(
         matches!(
@@ -762,6 +777,7 @@ fn public_review_helper(
     let mut applied = false;
     let mut failure = None;
     let mut refusal_transport_before = None;
+    let mut wire_error = None;
     loop {
         let mut line = Vec::new();
         let length = (&mut stdout)
@@ -793,7 +809,7 @@ fn public_review_helper(
             break;
         }
         // Errors sent back to Node intentionally omit private script diagnostics.
-        let command_transport_before = http::fixture::active_counts();
+        let command_transport_before = public.transport_counts();
         let result: Result<Value, &'static str> = tauri::async_runtime::block_on(async {
             match request.command.as_str() {
                 "web_source_search" => {
@@ -815,6 +831,12 @@ fn public_review_helper(
                     .map_err(|_| "search refused")?;
                     let found = serde_json::to_value(found).unwrap();
                     if found != public.manifest.expected_search {
+                        if public.wire.is_some() {
+                            println!(
+                                "WIRE_INDEX_ORACLE_MISMATCH {}",
+                                json!({"actual":found,"expected":public.manifest.expected_search})
+                            );
+                        }
                         return Err("independent index oracle");
                     }
                     searched = true;
@@ -830,6 +852,10 @@ fn public_review_helper(
                     {
                         return Err("release oracle");
                     }
+                    if let Some(wire) = &public.wire {
+                        wire.release_ticket
+                            .store(args.ticket, std::sync::atomic::Ordering::SeqCst);
+                    }
                     let release = release_with_preparation(
                         args.source.clone(),
                         args.url,
@@ -837,12 +863,17 @@ fn public_review_helper(
                         prepare_in(public.installed.clone(), &args.source),
                     )
                     .await
-                    .map_err(|_| "release refused")?;
-                    if release.url != public.manifest.page_url
+                    .map_err(|error| {
+                        wire_error = Some(error.to_string());
+                        "release refused"
+                    })?;
+                    if release.provider != expected_release.provider
+                        || release.id != expected_release.id
+                        || release.url != expected_release.url
                         || release.fields != public.fixture.expected_fields
                         || release.title != public.fixture.expected_title
                         || release.artist != public.fixture.expected_artist
-                        || !release.tracks.is_empty()
+                        || release.tracks != expected_release.tracks
                         || release
                             .covers
                             .iter()
@@ -905,7 +936,10 @@ fn public_review_helper(
                         None,
                     )
                     .await
-                    .map_err(|_| "public apply refused")?;
+                    .map_err(|error| {
+                        wire_error = Some(error.to_string());
+                        "public apply refused"
+                    })?;
                     if !report.result.errors.is_empty()
                         || report.result.entries.len() != expected_items.len()
                     {
@@ -965,13 +999,35 @@ fn public_review_helper(
         stdout: Vec::new(),
         stderr,
     };
+    if let Some(wire) = &public.wire {
+        wire.check_refusal(failure, wire_error.as_deref());
+        if failure.is_some() {
+            assert!(!applied);
+            assert_eq!(
+                observed
+                    .iter()
+                    .map(|p| std::fs::read(p).unwrap())
+                    .collect::<Vec<_>>(),
+                before
+            );
+            assert_eq!(
+                serde_json::to_value(crate::history::history_state().unwrap()).unwrap(),
+                history_before
+            );
+            assert!(child.reaped.load(std::sync::atomic::Ordering::SeqCst));
+            println!(
+                "WIRE_PREWRITE_REFUSAL {}",
+                json!({"guard":failure,"cause":wire_error,"writer_called":false,"wav_sidecar_history_unchanged":true,"reaped":true,"requests":wire.request_count()})
+            );
+        }
+    }
     if matches!(
         failure,
         Some("bridge parent deadline" | "bridge closed before apply")
     ) {
         assert!(!applied && sequence == 0);
         assert_eq!(
-            http::fixture::active_counts(),
+            public.transport_counts(),
             transport_before,
             "stalled/closed child consumed transport"
         );
@@ -1023,7 +1079,8 @@ fn public_review_helper(
     if matches!(
         failure,
         Some("independent index oracle" | "release oracle" | "independent album oracle")
-    ) {
+    ) && public.wire.is_none()
+    {
         assert!(!applied && !released);
         assert_eq!(
             observed
@@ -1036,7 +1093,7 @@ fn public_review_helper(
             serde_json::to_value(crate::history::history_state().unwrap()).unwrap(),
             history_before
         );
-        let counts = http::fixture::active_counts();
+        let counts = public.transport_counts();
         assert_eq!(counts.1, 0, "source refusal attempted unexpected transport");
         let index_bodies = usize::from(public.manifest.index.is_some());
         assert_eq!(
@@ -1194,7 +1251,7 @@ fn private_public_acquisition_review_apply_and_journaled_audio_workflow() {
     };
     let expected_release = SourceRelease {
         provider: Provider::Web,
-        id: String::new(),
+        id: manifest.page_url.clone(),
         url: manifest.page_url.clone(),
         title: fixture.expected_title.clone(),
         artist: fixture.expected_artist.clone(),
@@ -1229,6 +1286,7 @@ fn private_public_acquisition_review_apply_and_journaled_audio_workflow() {
         values: manifest.values.clone(),
         fixture,
         manifest,
+        wire: None,
     };
     review_and_save(&root, review, Some(&public));
     assert_eq!(
