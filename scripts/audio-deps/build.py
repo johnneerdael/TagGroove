@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
@@ -36,9 +37,15 @@ def digest(path):
     return result.hexdigest()
 
 
-def verify_archive(path, expected):
-    if digest(path) != expected:
-        raise ValueError(f"SHA-256 mismatch for {Path(path).name}")
+class ArchiveChecksumMismatch(ValueError):
+    """Source bytes do not match their pinned digest."""
+
+
+def verify_archive(path, expected, *, name=None):
+    actual = digest(path)
+    if actual != expected:
+        raise ArchiveChecksumMismatch(
+            f"SHA-256 mismatch for {name or Path(path).name}: expected {expected}, got {actual}")
 
 
 def extract_archive(path, output):
@@ -110,17 +117,25 @@ def acquire(spec, downloads, sources):
             shutil.copyfile(candidate, path)
     if not path.exists():
         request = urllib.request.Request(spec["url"], headers={"User-Agent": "OpenTag-source-builder/1"})
-        with tempfile.NamedTemporaryFile(dir=downloads, delete=False) as temporary:
-            candidate = Path(temporary.name)
-            try:
-                with urllib.request.urlopen(request, timeout=60) as response:
-                    shutil.copyfileobj(response, temporary)
-                temporary.close()
-                verify_archive(candidate, spec["sha256"])
-                candidate.replace(path)
-            finally:
-                temporary.close()
-                candidate.unlink(missing_ok=True)
+        # Retry only newly downloaded wrong bytes, never a tampered existing
+        # cache or an explicit offline source. Every attempt keeps the same pin.
+        for attempt in range(3):
+            with tempfile.NamedTemporaryFile(dir=downloads, delete=False) as temporary:
+                candidate = Path(temporary.name)
+                try:
+                    with urllib.request.urlopen(request, timeout=60) as response:
+                        shutil.copyfileobj(response, temporary)
+                    temporary.close()
+                    verify_archive(candidate, spec["sha256"], name=spec["archive"])
+                    candidate.replace(path)
+                    break
+                except ArchiveChecksumMismatch:
+                    if attempt == 2:
+                        raise
+                finally:
+                    temporary.close()
+                    candidate.unlink(missing_ok=True)
+            time.sleep(0.5 * (attempt + 1))
     verify_archive(path, spec["sha256"])
     directory = sources / spec["directory"]
     # A completed prefix is separately hash-verified before this path. An
