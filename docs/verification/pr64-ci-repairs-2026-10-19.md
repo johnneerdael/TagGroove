@@ -197,3 +197,16 @@ Clippy evidence is `taggroove-playlist-unix-import-clippy-y2ajkh9u`.
 Production source is unchanged by these two test repairs. The failed run stays
 failed; fresh exact-head GitHub Codex code review and trusted current-main CI
 remain required before merge.
+
+## Subsequent writer-release failure
+
+Validation 39318735158 on `beb6e78` failed Linux's immediate store-reopen test
+after dropping its owner. The [lock-release receipt](history-lock-release-2026-10-19.md)
+distinguishes that natural failure's missing error from a deterministic real
+duplicated-handle reproduction. A last-field owner now explicitly unlocks after
+the other journal resources finish teardown. Post-acquisition initialization
+errors also release through that owner. Fifteen history unit tests and 42 durable integration tests pass,
+along with scoped strict Clippy and the strict guide. Independent rereview is
+clean. No UI/workspace sweep was repeated. Other-platform results retain their
+inspected head identity; no full new-head CI result is claimed here. Fresh
+exact-head review and CI remain required after publishing this production repair.

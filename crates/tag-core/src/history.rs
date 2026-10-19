@@ -544,7 +544,8 @@ pub struct Journal {
     store_failed: bool,
     active_capture: Option<uuid::Uuid>,
     outcome_revision: u64,
-    _lock: fs::File,
+    // Last: release ownership only after the other journal resources are gone.
+    _lock: store::StoreLock,
 }
 
 const LOCK: &str = ".session-lock";

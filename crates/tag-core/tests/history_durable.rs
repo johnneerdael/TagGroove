@@ -219,7 +219,12 @@ fn a_second_writer_cannot_open_the_same_durable_store() {
         "Concurrent writers must not publish competing operation indexes"
     );
     drop(first);
-    assert!(Journal::open(&root, Limits::default()).is_ok());
+    let reopened = Journal::open(&root, Limits::default());
+    assert!(
+        reopened.is_ok(),
+        "Writer release did not reopen: {:?}",
+        reopened.err()
+    );
 }
 
 #[test]

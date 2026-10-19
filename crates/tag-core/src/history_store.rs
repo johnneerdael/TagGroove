@@ -10,6 +10,16 @@ const INDEX: &str = "index.json";
 const MAX_INDEX: u64 = 32 * 1024 * 1024;
 const MAX_ENTRIES: usize = 1_000_000;
 
+pub(super) struct StoreLock(fs::File);
+
+impl Drop for StoreLock {
+    fn drop(&mut self) {
+        // Closing only this descriptor can leave a fork/dup reference holding
+        // the same native lock. End ownership explicitly before closing it.
+        let _ = self.0.unlock();
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) enum DirectoryId {
@@ -282,7 +292,8 @@ pub(super) fn open(root: &Path, limits: Limits) -> Result<Journal, String> {
         .map_err(|error| error.to_string())?;
     lock.try_lock()
         .map_err(|error| format!("Undo history is already open: {error}"))?;
-    let lock_stamp = crate::file_baseline::metadata_stamp_for_handle(&lock)
+    let lock = StoreLock(lock);
+    let lock_stamp = crate::file_baseline::metadata_stamp_for_handle(&lock.0)
         .map_err(|error| error.to_string())?;
     let mut journal = Journal {
         dir,
@@ -1092,6 +1103,37 @@ pub(super) mod moves {
 mod tests {
     use super::*;
     use std::cell::RefCell;
+
+    #[test]
+    fn dropping_store_owner_releases_a_duplicated_lock_description() {
+        let directory = tempfile::Builder::new()
+            .prefix("taggroove-store-lock-release-")
+            .tempdir()
+            .unwrap();
+        let root = directory.path().join("history");
+        let first = Journal::open(&root, Limits::default()).unwrap();
+        // A fork can retain the same open file description until exec closes
+        // inherited descriptors. Keep a real duplicate to control that window.
+        let inherited = first._lock.0.try_clone().unwrap();
+        assert!(Journal::open(&root, Limits::default()).is_err());
+        drop(first);
+        let reopened = Journal::open(&root, Limits::default());
+        if let Err(error) = &reopened {
+            let retained = directory.keep();
+            panic!(
+                "Dropped owner left history locked: {error}; retained {}",
+                retained.display()
+            );
+        }
+        let second = reopened.unwrap();
+        drop(inherited);
+        assert!(
+            Journal::open(&root, Limits::default()).is_err(),
+            "Closing the stale duplicate must not release the new owner's lock"
+        );
+        drop(second);
+        assert!(Journal::open(&root, Limits::default()).is_ok());
+    }
 
     // APFS does not reliably recycle directory IDs within a short test. Keep
     // actual directories, writes, guards and durable replay; control only the

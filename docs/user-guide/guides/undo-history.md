@@ -188,7 +188,9 @@ and keep an independent backup for changes that must survive cache loss or histo
 
 Only one process can write a particular history store at a time. Another
 instance can report unavailable history while its requested file operation
-still succeeds. Do not browse, move or delete the live undo cache to manage
+still succeeds. Once the instance using that history closes, a subsequent
+session can use it again. Operations that ran without a snapshot do not gain
+Undo afterward. Do not browse, move or delete the live undo cache to manage
 history. Malformed indexes, replaced store entries and changed snapshots are
 refused; an unreadable cache is not silently treated as safe history. Provider
 documents use separate access and recovery mechanisms and are not covered by
