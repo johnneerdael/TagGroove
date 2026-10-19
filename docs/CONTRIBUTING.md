@@ -74,6 +74,12 @@ tools. Windows uses Visual Studio's MSVC toolchain plus MSYS2 Bash/Make
 `NDK_HOME` or `ANDROID_NDK_HOME`. Source builds disable external-library
 autodetection and do not link an installed Homebrew or GPL FFmpeg.
 
+Fresh source downloads that fail their pinned checksum are retried at most
+three times; the pin is unchanged on every attempt. Persistent failures name
+the archive and show expected/actual hashes. Tampered existing caches, explicit
+offline failures and HTTP errors still fail without that retry path. See the
+[download repair evidence](verification/native-source-download-repair-2026-10-20.md).
+
 Choose an absolute owned build/cache directory without spaces with
 `OPENTAG_AUDIO_BUILD_ROOT`; its completed prefixes verify installed libraries,
 headers, configuration and notices against the retained manifest. Set

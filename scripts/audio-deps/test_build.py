@@ -22,10 +22,11 @@ BUILDER = Path(__file__).with_name("build.py")
 def source_server(payload, status=200):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
+            body = payload() if callable(payload) else payload
             self.send_response(status)
-            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(payload)
+            self.wfile.write(body)
 
         def log_message(self, *args):
             pass
@@ -112,6 +113,71 @@ class SourceSafetyTests(unittest.TestCase):
                     self.build.acquire(spec, downloads, sources)
                 self.assertEqual(list(downloads.iterdir()), [])
                 self.assertEqual(list(sources.iterdir()), [])
+
+    def test_transient_bad_download_retries_without_accepting_wrong_bytes(self):
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w:gz") as archive:
+            content = b"verified retry source"
+            member = tarfile.TarInfo("source/configure")
+            member.size = len(content)
+            archive.addfile(member, io.BytesIO(content))
+        body = payload.getvalue()
+        attempts = []
+        def response():
+            attempts.append(1)
+            return b"transient invalid response" if len(attempts) == 1 else body
+        with tempfile.TemporaryDirectory() as folder, source_server(response) as url:
+            root = Path(folder)
+            downloads, sources = root / "downloads", root / "sources"
+            downloads.mkdir()
+            sources.mkdir()
+            spec = {"archive":"source.tar.gz", "directory":"source",
+                    "sha256":hashlib.sha256(body).hexdigest(), "url":url}
+            with mock.patch.dict(os.environ, {"OPENTAG_AUDIO_SOURCE_DIR":""}):
+                result = self.build.acquire(spec, downloads, sources)
+            self.assertEqual(len(attempts), 2)
+            self.assertEqual((downloads / spec["archive"]).read_bytes(), body)
+            self.assertEqual((result / "configure").read_bytes(), content)
+            self.assertEqual(list(downloads.iterdir()), [downloads / spec["archive"]])
+
+    def test_persistently_bad_download_is_bounded_and_names_the_archive(self):
+        attempts = []
+        def response():
+            attempts.append(1)
+            return b"untrusted response"
+        with tempfile.TemporaryDirectory() as folder, source_server(response) as url:
+            root = Path(folder)
+            downloads, sources = root / "downloads", root / "sources"
+            downloads.mkdir()
+            sources.mkdir()
+            expected = "0" * 64
+            actual = hashlib.sha256(b"untrusted response").hexdigest()
+            spec = {"archive":"identified-source.tar.gz", "directory":"source",
+                    "sha256":expected, "url":url}
+            with mock.patch.dict(os.environ, {"OPENTAG_AUDIO_SOURCE_DIR":""}), self.assertRaises(ValueError) as error:
+                self.build.acquire(spec, downloads, sources)
+            self.assertIn(spec["archive"], str(error.exception))
+            self.assertIn(expected, str(error.exception))
+            self.assertIn(actual, str(error.exception))
+            self.assertEqual(len(attempts), 3)
+            self.assertEqual(list(downloads.iterdir()), [])
+            self.assertEqual(list(sources.iterdir()), [])
+
+    def test_tampered_existing_cache_is_not_replaced_by_a_network_retry(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            downloads, sources = root / "downloads", root / "sources"
+            downloads.mkdir()
+            sources.mkdir()
+            cached = downloads / "source.tar.gz"
+            cached.write_bytes(b"tampered cache")
+            spec = {"archive":cached.name, "directory":"source", "sha256":"0" * 64,
+                    "url":"https://example.invalid/source"}
+            with mock.patch.object(self.build.urllib.request, "urlopen") as request, self.assertRaises(ValueError):
+                self.build.acquire(spec, downloads, sources)
+            request.assert_not_called()
+            self.assertEqual(cached.read_bytes(), b"tampered cache")
+            self.assertEqual(list(sources.iterdir()), [])
 
     def test_archive_cannot_escape_owned_source_directory(self):
         for name, link in [("../escaped", None), ("root/../../escaped", None), ("root/link", "/tmp/escaped"), ("C:/escaped", None), ("root\\escaped", None)]:
