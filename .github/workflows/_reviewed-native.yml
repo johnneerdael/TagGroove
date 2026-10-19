@@ -227,4 +227,3 @@ jobs:
           name: TagGroove-android-arm64-debug
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           if-no-files-found: error
-
