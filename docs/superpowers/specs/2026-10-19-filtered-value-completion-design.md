@@ -3,6 +3,9 @@
 Status: approved by the owner on 2026-10-19, choice A: automatic matching list
 with existing single-line inline completion. The written proposal was supplied
 before the owner selected that exact interaction. No second approval is pending.
+Implementation checkpoint: `0b43d2999f53626a84c18df9eb8ec21f6f84da43`. Controlled-DOM/build verification is recorded
+in [the evidence note](../../verification/filtered-value-completion-2026-10-19.md);
+native/original qualification remains separate.
 Inspected baseline: `309e5bce6e7bbac4e0cd3b26c33c4308bb26823b`.
 
 ## Result
