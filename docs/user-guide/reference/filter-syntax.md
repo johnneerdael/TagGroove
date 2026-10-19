@@ -11,6 +11,8 @@ An empty query matches every loaded file. A nonempty query without uppercase fil
 
 `Juniper Harbour` can match an artist containing Juniper and an album containing Harbour. The same words in another order have the same all-words requirement. Punctuation is literal in plain search, including parentheses, brackets, and `*`; a regular expression is used only with `MATCHES`.
 
+In the current TagGroove version, wrapping that whole plain query in double quotes still uses the all-words rule; it does not require an exact phrase in one field. To require the phrase in a particular field, use a regex filter such as `TITLE MATCHES "Juniper Harbour"`. This pattern contains literal letters and a space; ordinary `HAS` also uses the all-words rule. Whole-query quoted search currently differs from the traced Mp3tag behavior; a compatibility correction remains open.
+
 Plain search includes metadata values plus the filename with extension. It excludes other technical values such as bitrate and full folder path. `* HAS text` searches tag values only, so it can differ from plain search when the text occurs only in the filename.
 
 ## Expression grammar
