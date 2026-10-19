@@ -1,0 +1,35 @@
+name: Cloudrunner Windows health
+
+# Infrastructure only: no application source, dependencies, tests or packages.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: cloudrunner-windows-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.workflow_ref == format('{0}/.github/workflows/cloudrunner-health.yml@refs/heads/main', github.repository)
+    runs-on: [self-hosted, windows, x64, cloudrunner, taggroove]
+    timeout-minutes: 10
+    steps:
+      - name: Verify prepared Windows image and native build tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-Content C:\Cloudrunner\image.json
+          $computer = Get-CimInstance Win32_ComputerSystem
+          $computer | Select-Object NumberOfLogicalProcessors, TotalPhysicalMemory
+          if ($computer.NumberOfLogicalProcessors -ne 8) { throw 'Unexpected TagGroove runner size' }
+          foreach ($tool in @('git', 'aws', 'python', 'node', 'cmake', 'nasm', 'rustc', 'cargo', 'pwsh')) {
+            & $tool --version
+            if ($LASTEXITCODE -ne 0) { throw "Tool verification failed: $tool" }
+          }
+          Write-Output 'Runner infrastructure check passed; no application code was executed.'

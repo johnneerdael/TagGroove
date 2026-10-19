@@ -52,3 +52,12 @@ legacy IDs remain disabled.
 After clean review, `_reviewed-build.yml` runs unit tests, TypeScript checks, formatting, Clippy, tooling and strict guide checks on one Linux worker. It produces no application packages and runs no native UI or Android integration. The legacy `Reviewed PR builds` status name remains for protection compatibility.
 
 After merge, `reviewed-release.yml` calls `_reviewed-native.yml` for desktop native UI, screenshots and Android integration, alongside release packaging. That reusable workflow authenticates its trusted main caller and release source before executing code, receives no signing secrets or shared caches, and checks out the immutable release source. Its debug harness uses a test identity; it is separate from the shipped package. Publication requires successful native integration as well as every package and source archive. Unit tests and lint run only before merge. Docs-only releases that resolve to an already published version skip both native integration and package builds; guide rendering/deployment remains independent.
+
+## Runner infrastructure health
+
+`cloudrunner-health.yml` is an owner-only manual infrastructure check on trusted
+`main`. It reads the prepared Windows image marker, hardware and preinstalled
+tool versions. It checks out no application source and runs no dependency
+installation, application tests, compilation or packaging. It supplies no
+application review, validation or release authorization. All application code
+execution remains on the reviewed paths described above.
