@@ -26,10 +26,14 @@ and [OS/device handover register](handover/PARITY-OTHER-MACHINES.md).
 
 C58–C60 represent accessible toolbar-band placement, ordinary saved-only list
 restart and loaded-row regional-date refresh. The [native workspace receipt](verification/native-workspace-acceptance-2026-10-19.md)
-records named Mac toolbar/filter, bounded compact, exact-row/restart,
-missing/corrupt-input recovery and explicit running-app command-line cases.
-Actual quota retry, queued arrivals during restoration, broader native input
-and live C60 OS transitions remain local work. Windows/Linux and original
+retains historical Mac toolbar/filter, bounded compact, exact-row/restart,
+missing/corrupt-input recovery and explicit running-app command-line cases at
+their original source/executable pins. Final PR64 changed loading and workspace
+serialization/restoration through root classification after those runs. The [focused merged-source replay](verification/native-workspace-acceptance-2026-10-19.md#focused-merged-source-replay) records suffixed-directory Refresh and manual/playlist-source-order
+normal restarts only. Current running-instance CLI, column mode, CUE/chapter
+identities, missing/corrupt recovery, quota retry and queued arrivals remain pending.
+C58 evidence is limited to the older builds; broader native input and live C60
+OS transitions remain local work. Windows/Linux and original
 acceptance remain separate; use the [OS procedures](handover/PARITY-VERIFICATION-PROCEDURES.md).
 The [implementation receipt](verification/daily-workflows-2026-10-19.md) retains
 its original source-bound controls and limits.
@@ -41,9 +45,10 @@ with [its implementation record](research/remaining-gaps.md#c57).
 C47 also covers the implemented and documented direct-executable route for
 arguments sent to a running macOS app. Historical L69 now retains only actual
 macOS runtime qualification under that record; it is not missing launch code.
-The native receipt above records explicit replace/add, relative paths with
-spaces and pending-edit decisions. Queued arrival during restoration remains
-unqualified.
+The native receipt above retains historical explicit replace/add, relative paths
+with spaces and pending-edit decisions. Replay against the current merged
+loading/restoration paths, queued arrival during restoration and the separately
+documented forced-new-process route remain unqualified.
 
 C61 covers full-content history and staged-write checks, including concealed external edits and corrupted snapshots. A bounded native Mac Save/Undo/Redo journey passes; broader native/Windows qualifications remain under [the represented scope](research/remaining-gaps.md#c61). C62 now covers persistent history, interruption recovery and verified-copy export; see [the durable-history receipt](verification/durable-history-2026-10-19.md).
 

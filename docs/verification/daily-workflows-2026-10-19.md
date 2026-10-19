@@ -124,21 +124,29 @@ harnesses omitted the newly accessed error-state fixture. That output remains
 cohort rerun to the 102/102 result above. Neither that intermediate failure nor
 earlier source-bound counts are represented as final-head integration proof.
 
-## Native journeys: completed cases and remaining work
+## Native journeys: historical cases and current acceptance
 
 The original preparation at `/tmp/taggroove-native-daily.y4p1t7ee/` supplied
 fixtures and a procedure; it supplied no runtime result at that checkpoint.
 Subsequent native runs are recorded with their separate source/executable pins
 in the [native workspace receipt](native-workspace-acceptance-2026-10-19.md).
+They precede final PR64 head `550a1eed241fa05f711f211dabad65ef3a4913e3`
+and its root-classification changes to loading, workspace serialization and
+restoration. Preserve their exact source/executable pins. A [focused merged-source
+replay](native-workspace-acceptance-2026-10-19.md#focused-merged-source-replay)
+records suffixed-directory Refresh and manual/playlist-source-order normal
+restarts only. Other C59/C47 cases remain pending. C58 controls and geometry
+remain historical evidence for the older builds.
 
-| Scope | Named native macOS cases completed | Still pending on this Mac |
+| Scope | Native macOS evidence and source limits | Still pending on this Mac |
 | --- | --- | --- |
 | C58 | All four arrangements through native controls; save/reopen/Cancel, ordinary restart and list/left/right filter docks with typing/Enter/F3. Normal/compact geometry and a separate fresh compact Files/Tags/select/restart control are observed. | VoiceOver, broader keyboard/IME/accessibility and the retained AX/AppKit menu-tracking observation. The geometry case does not certify all controls at every size. |
-| C59 / C47 | Manual reorder and normal restarts, independent source/manual/column modes, exact CUE and embedded chapter identities, missing-CUE recovery, corrupt-JSON retention and native folder-picker recovery. Running-app explicit replace/add and relative paths with spaces plus pending-edit No/Yes are observed. | Actual storage-quota refusal/retry and queued arrivals during restoration; broader native input/accessibility. |
+| C59 / C47 | Earlier builds observed manual reorder and normal restarts, independent source/manual/column modes, exact CUE and embedded chapter identities, missing-CUE recovery, corrupt-JSON retention and native folder-picker recovery. Running-app explicit replace/add and relative paths with spaces plus pending-edit No/Yes retain their original pins. The focused current-source replay observes only suffixed-directory Refresh and manual/playlist-source-order normal restarts. | Current running-instance CLI including relative paths/pending edits, column mode, CUE/embedded chapters, missing/corrupt recovery, actual storage-quota refusal/retry and queued arrivals during restoration; the separately documented forced-new-process route and broader native input/accessibility. |
 | C60 | Source-bound formatter/handler controls above; no actual OS-preference-transition result. | Actual live region, custom date-pattern and timezone transitions while tags/artwork remain staged. Observe loaded-row changes without a rescan/save and preserve RAW values and whole-media hashes. |
 
-These cases narrow their named acceptance requirements; they do not close C58,
-C59, C60 or the cross-cutting L78/L79 qualifications. Retained earlier failures
+The historical cases and focused replay establish only their named source-bound observations;
+they do not close current merged C58, C59, C60 or the cross-cutting L78/L79
+qualifications. Retained earlier failures
 and limits remain visible. Use [the environment register](../handover/PARITY-OTHER-MACHINES.md)
 and [engineer procedures](../handover/PARITY-VERIFICATION-PROCEDURES.md) for native
 Windows/Linux and original Windows 3.36.1 work. Synthetic DOM events, direct

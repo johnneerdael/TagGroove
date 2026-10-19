@@ -119,6 +119,29 @@ the current separator refusal and exact-file refresh roots remain local code
 work. Converter path documentation alone does not establish inline behavior,
 and rescanning every parent must not silently replace playlist membership.
 
+### Local C59/C47 replay after final PR64 root classification
+
+The [native workspace receipt](../verification/native-workspace-acceptance-2026-10-19.md)
+retains historical observations at `7f29fd7914d6b62fa25bf8fc666d425fbcae08c7`
+and `c169e9ee5f40418822eacf7cbf06e7ec3628bf9f`, with their original executable
+hashes. Final PR64 head `550a1eed241fa05f711f211dabad65ef3a4913e3` changed loading,
+workspace serialization and restoration through root classification. Current
+merged acceptance is qualified only by the [focused replay](../verification/native-workspace-acceptance-2026-10-19.md#focused-merged-source-replay)
+for suffixed-directory Refresh and manual/playlist-source-order normal restarts;
+do not substitute older runs for the remaining cases.
+
+For remaining acceptance, identify an isolated app from the current merged
+production source. Exercise column-mode close/no-argument restart, exact
+CUE/chapter IDs, unavailable-input retention/recovery, corrupt-snapshot retention
+and native folder-picker recovery. Replay direct running-app replace/add and
+relative paths containing spaces with pending-edit No/Yes. Include W5b's actual
+folder-versus-playlist roots and reopen checks. Record source/executable hashes,
+actual native input, argv/cwd, row/root/order/selection snapshots, profile bytes,
+process exits and unchanged whole-media hashes. Keep actual quota refusal/retry,
+queued arrivals during restoration and the optional forced-new-process route
+explicitly pending until separately observed. A focused replay closes only the
+named observed cases; C58 controls/geometry remain evidence for their older pins.
+
 ### W5b: Folder names that resemble playlists (represented root handling)
 
 This is native qualification of the root-kind review repair, not another missing

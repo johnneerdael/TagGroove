@@ -1,14 +1,48 @@
 # Native local workspace acceptance — 2026-10-19
 
-Prepared for the small follow-up after PR64 merges. This evidence covers the
-named C58 toolbar and C59 workspace journeys. C60 live OS transitions, quota
-retry, queued launches and untested keyboard/IME/accessibility cases remain
-locally pending; the named results do not close whole feature areas.
+This historical evidence records named C58 toolbar and C59/C47 workspace and
+launch journeys on the exact earlier builds below. Final PR64 head
+`550a1eed241fa05f711f211dabad65ef3a4913e3`, merged as
+`e4017801dd923b65e1e5e2fc0ece58706374b60d`, subsequently changed loading,
+workspace serialization and restoration through root classification. These runs
+do not qualify those changed paths. The focused merged-source replay below
+qualifies only suffixed-directory load/Refresh and manual/playlist-source-order
+normal restarts. Current running-instance CLI, column mode, exact CUE/chapter
+identities, missing/corrupt recovery, quota retry and queued arrivals remain
+pending. C58 retains only the observed older-build controls and geometry; no latest-build toolbar
+result is claimed. C60 live OS transitions and untested keyboard/IME/accessibility
+cases remain locally pending.
 
 Authoring host checked on 2026-10-19: macOS 15.8, arm64. Each evidence root
 retains its own source and executable identity; earlier runs keep those pins.
 
-## Corrupt saved-list recovery
+<a id="focused-merged-source-replay"></a>
+
+## Focused merged-source replay — 2026-10-20
+
+The isolated debug app at documentation head
+`9eb0d57517fd4be822588c2f1547952c664a7df1` has production code matching merged
+`e4017801dd923b65e1e5e2fc0ece58706374b60d`. Its identifier is
+`org.taggroove.editor.e2e.pr65o27rzso3`; executable SHA-256 is
+`52bb13824092bdaff41f63e758325ae4b107d7d9c8bfd620facea0cdd095eb6e`.
+
+Native CUA F5 on the loaded real directory `archive.m3u` retains its one row,
+reports a successful Refresh and records `root_kinds: ["directory"]`. A separate
+process loads the actual playlist in C,A,B source order; native Alt+PageUp moves
+B to produce B,C,A, then normal window close exits 0. A no-argument restart
+restores manual B,C,A; native View → Sort by → Playlist order shows C,A,B, then normal
+close exits 0. The next no-argument restart retains C,A,B in playlist mode and
+closes normally. All four processes exit 0; all 13 fixture hashes are unchanged.
+
+Retained root:
+`/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-pr65-merged-native-o27rzso3`.
+`focused-acceptance.json`, `context.json` and per-phase logs retain the bindings
+and observations. This subset establishes no current running-instance CLI,
+column-mode, CUE/embedded-chapter, missing/corrupt recovery, quota or queued-arrival
+result. Those cases, broader native input and the optional forced-new-process
+route remain pending. No C58 toolbar replay was performed.
+
+## Historical corrupt saved-list recovery
 
 The isolated native macOS debug app uses identifier
 `org.taggroove.editor.e2e.cirepairbe506642`, executable SHA-256
@@ -45,7 +79,7 @@ stdout/stderr/results and `profiles-after/` supply the evidence. The hook mutate
 storage only to seed the malformed fixture; native buttons/picker/close actions
 perform recovery. Later observations are read-only.
 
-## Earlier ordinary workspace journeys
+## Historical ordinary workspace journeys
 
 The earlier native app uses source commit
 `7f29fd7914d6b62fa25bf8fc666d425fbcae08c7` and executable SHA-256
@@ -68,10 +102,10 @@ pins; the newer build is not substituted for them. The initial acceptance
 JSON's pending list is its original checkpoint: the later named JSONs record
 subsequently executed cases without altering that historical record.
 
-## Native C58 toolbar subset
+## Historical native C58 toolbar subset
 
-On the same source-bound newer app, add one Open folder command through the
-actual custom-toolbar dialog so both bands are visible. Native pointer and
+On the same historical `c169e9ee5f40418822eacf7cbf06e7ec3628bf9f` app, add one
+Open folder command through the actual custom-toolbar dialog so both bands are visible. Native pointer and
 keyboard controls select and save all four arrangements; screenshots show
 main/custom order on shared and stacked rows. Reopen verifies the saved choice;
 select a different choice and Cancel, then reopen verifies the saved choice is
@@ -91,7 +125,7 @@ VoiceOver and other OS acceptance remain pending.
 Shared-row bands divide the available width and main commands wrap within their
 band at this window size; the observation does not certify optimal space use.
 
-## Native compact geometry subset
+## Historical native compact geometry subset
 
 The macOS native Top Left sizing command produced an 853×533 compact viewport;
 Return to Previous Size restored 1240×772. `compact-acceptance.json` records the
@@ -106,7 +140,7 @@ SIGTERM was sent: the final pre-signal check found it already terminal. The next
 this earlier observation as an unclosed accessibility/menu case; it does not
 establish an application resize defect.
 
-## Fresh compact launch control
+## Historical fresh compact launch control
 
 An independently built 900×800 test configuration uses the same clean production
 source at `c169e9ee5f40418822eacf7cbf06e7ec3628bf9f` and fresh identifier
@@ -126,7 +160,7 @@ body.innerText measurement excludes. This passing fresh-window control does
 not erase the earlier AX-driven AppKit menu-tracking observation or establish
 VoiceOver/original-application equivalence.
 
-## Embedded chapter restart
+## Historical embedded chapter restart
 
 On the retained 9a8a79d0 source-bound app, enable List chapters only in the owned
 profile before launch. Open generated M4B, Matroska and MP3 copies: two virtual
