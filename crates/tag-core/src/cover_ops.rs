@@ -219,10 +219,173 @@ fn resize_image(image: DynamicImage, options: &CoverResize) -> Result<DynamicIma
     resize_image_diagnostic(image, options).map_err(|error| error.to_string())
 }
 
+const COVER_RESIZE_WORKING_BYTES: u64 = 512 * 1024 * 1024;
+fn resize_memory_limit_error() -> ErrorCause {
+    ErrorCause::owned(
+        "Cover adjustment exceeds the 512 MiB working memory limit; choose smaller dimensions",
+    )
+}
+
+/// Bound image0.25's source/crop buffers, RGBA32F vertical sampling buffer,
+/// full output, resize-to-fill crop and both f32 weight tables before allocating.
+/// This conservative estimate is independent of the decoder's input budget.
+fn check_cover_resize_allocation(
+    source: (u32, u32),
+    pre_crop: Option<(u32, u32)>,
+    resized: (u32, u32),
+    final_crop: Option<(u32, u32)>,
+    bytes_per_pixel: u8,
+) -> Result<(), ErrorCause> {
+    let bytes = |(width, height): (u32, u32), pixel_bytes: u8| {
+        u64::from(width)
+            .checked_mul(u64::from(height))
+            .and_then(|pixels| pixels.checked_mul(u64::from(pixel_bytes)))
+    };
+    let source_bytes = bytes(source, bytes_per_pixel);
+    let sample = pre_crop.unwrap_or(source);
+    let crop_bytes = pre_crop.map_or(Some(0), |dimensions| bytes(dimensions, bytes_per_pixel));
+    let sampling_bytes = if sample != resized {
+        bytes((sample.0, resized.1), 16)
+    } else {
+        Some(0)
+    };
+    // Each axis can retain one weight per source pixel. Allow twice the f32
+    // storage for Vec growth, including its small initial-capacity floor.
+    let weights_bytes = if sample != resized {
+        u64::from(sample.0.max(4))
+            .checked_add(u64::from(sample.1.max(4)))
+            .and_then(|elements| elements.checked_mul(8))
+    } else {
+        Some(0)
+    };
+    let output_bytes = bytes(resized, bytes_per_pixel);
+    let final_crop_bytes =
+        final_crop.map_or(Some(0), |dimensions| bytes(dimensions, bytes_per_pixel));
+    let total = [
+        source_bytes,
+        crop_bytes,
+        sampling_bytes,
+        weights_bytes,
+        output_bytes,
+        final_crop_bytes,
+    ]
+    .into_iter()
+    .try_fold(0u64, |total, size| total.checked_add(size?));
+    if total.is_none_or(|total| total > COVER_RESIZE_WORKING_BYTES) {
+        return Err(resize_memory_limit_error());
+    }
+    Ok(())
+}
+
+/// Round upwards to bound the private image0.25 resize-to-fill dimensions.
+/// The library rounds nearest and may clamp to u32, so this never undercounts.
+fn cover_fill_work_dimensions(
+    width: u32,
+    height: u32,
+    pixels: u32,
+) -> Result<(u32, u32), ErrorCause> {
+    let denominator = u64::from(width.min(height));
+    let dimension = |side: u32| {
+        u64::from(side)
+            .checked_mul(u64::from(pixels))
+            .and_then(|scaled| scaled.checked_add(denominator.checked_sub(1)?))
+            .and_then(|scaled| scaled.checked_div(denominator))
+            .and_then(|scaled| u32::try_from(scaled).ok())
+            .ok_or_else(resize_memory_limit_error)
+    };
+    Ok((dimension(width)?, dimension(height)?))
+}
+
 fn resize_image_diagnostic(
     image: DynamicImage,
     options: &CoverResize,
 ) -> Result<DynamicImage, ErrorCause> {
+    if options.native_geometry {
+        let (width, height) = (image.width(), image.height());
+        if width == 0 || height == 0 {
+            return Err(ErrorCause::owned("Cover dimensions are empty"));
+        }
+        if options.native_preflight_skips_adjustment() {
+            return Ok(image);
+        }
+        let longest = width.max(height);
+        let shortest = width.min(height);
+        let triggered = options.size_enabled
+            && match options.size_mode {
+                CoverSizeMode::Maximum => longest > options.pixels,
+                CoverSizeMode::Minimum => shortest != options.pixels,
+            };
+        let filter = image::imageops::FilterType::Lanczos3;
+        return Ok(match options.scale_mode {
+            CoverScaleMode::Proportional => {
+                if !triggered {
+                    image
+                } else {
+                    let dimension = match options.size_mode {
+                        CoverSizeMode::Maximum => longest,
+                        CoverSizeMode::Minimum => shortest,
+                    };
+                    let scale = options.pixels as f64 / dimension as f64;
+                    let output = (
+                        ((width as f64 * scale).round() as u32).max(1),
+                        ((height as f64 * scale).round() as u32).max(1),
+                    );
+                    check_cover_resize_allocation(
+                        (width, height),
+                        None,
+                        output,
+                        None,
+                        image.color().bytes_per_pixel(),
+                    )?;
+                    image.resize_exact(output.0, output.1, filter)
+                }
+            }
+            mode => {
+                if width == height && !triggered {
+                    image
+                } else {
+                    let shape_side = if mode == CoverScaleMode::Square {
+                        longest
+                    } else {
+                        shortest
+                    };
+                    let side = if !triggered {
+                        shape_side
+                    } else {
+                        match options.size_mode {
+                            CoverSizeMode::Maximum => options.pixels.min(shape_side),
+                            CoverSizeMode::Minimum => options.pixels,
+                        }
+                    };
+                    let pre_crop =
+                        (mode == CoverScaleMode::CropSquare).then_some((shortest, shortest));
+                    check_cover_resize_allocation(
+                        (width, height),
+                        pre_crop,
+                        (side, side),
+                        None,
+                        image.color().bytes_per_pixel(),
+                    )?;
+                    let image = if mode == CoverScaleMode::CropSquare {
+                        image.crop_imm(
+                            (width - shortest) / 2,
+                            (height - shortest) / 2,
+                            shortest,
+                            shortest,
+                        )
+                    } else {
+                        image
+                    };
+                    image.resize_exact(side, side, filter)
+                }
+            }
+        });
+    }
+    if !options.size_enabled {
+        return Err(ErrorCause::owned(
+            "Disabled cover size requires native geometry",
+        ));
+    }
     if options.pixels == 0 || options.pixels > 32768 {
         return Err(ErrorCause::owned(
             "Cover size must be between 1 and 32768 pixels",
@@ -252,14 +415,40 @@ fn resize_image_diagnostic(
     Ok(match options.scale_mode {
         CoverScaleMode::Proportional => {
             let scale = options.pixels as f64 / dimension as f64;
-            image.resize_exact(
+            let output = (
                 ((width as f64 * scale).round() as u32).max(1),
                 ((height as f64 * scale).round() as u32).max(1),
-                filter,
-            )
+            );
+            check_cover_resize_allocation(
+                (width, height),
+                None,
+                output,
+                None,
+                image.color().bytes_per_pixel(),
+            )?;
+            image.resize_exact(output.0, output.1, filter)
         }
-        CoverScaleMode::Square => image.resize_exact(options.pixels, options.pixels, filter),
-        CoverScaleMode::CropSquare => image.resize_to_fill(options.pixels, options.pixels, filter),
+        CoverScaleMode::Square => {
+            check_cover_resize_allocation(
+                (width, height),
+                None,
+                (options.pixels, options.pixels),
+                None,
+                image.color().bytes_per_pixel(),
+            )?;
+            image.resize_exact(options.pixels, options.pixels, filter)
+        }
+        CoverScaleMode::CropSquare => {
+            let work = cover_fill_work_dimensions(width, height, options.pixels)?;
+            check_cover_resize_allocation(
+                (width, height),
+                None,
+                work,
+                Some((options.pixels, options.pixels)),
+                image.color().bytes_per_pixel(),
+            )?;
+            image.resize_to_fill(options.pixels, options.pixels, filter)
+        }
     })
 }
 
@@ -290,6 +479,9 @@ pub fn adjust_covers_with_options_diagnostic(
     options: &TagOptions,
 ) -> Result<AudioEntry, ErrorCause> {
     check_adjust_parameters_diagnostic(quality, resize)?;
+    if resize.is_some_and(CoverResize::native_preflight_skips_adjustment) {
+        return read_entry_summary_with_options_diagnostic(path, &options.mappings, options);
+    }
     transform_covers_diagnostic(path, options, |original| {
         let Some(data) = adjust_image_diagnostic(
             original.data(),
@@ -318,7 +510,9 @@ fn check_adjust_parameters_diagnostic(
         return Err(ErrorCause::owned("JPEG quality must be between 0 and 100"));
     }
     if let Some(options) = resize {
-        if options.pixels == 0 || options.pixels > 32768 {
+        if !options.native_geometry
+            && (!options.size_enabled || options.pixels == 0 || options.pixels > 32768)
+        {
             return Err(ErrorCause::owned(
                 "Cover size must be between 1 and 32768 pixels",
             ));
@@ -447,6 +641,9 @@ pub fn adjust_cover_image_diagnostic(
     resize: Option<&CoverResize>,
 ) -> Result<Option<Vec<u8>>, ErrorCause> {
     check_adjust_parameters_diagnostic(quality, resize)?;
+    if resize.is_some_and(CoverResize::native_preflight_skips_adjustment) {
+        return Ok(None);
+    }
     let mime = picture_from_bytes_diagnostic(data.to_vec())?
         .mime_type()
         .cloned();
@@ -460,6 +657,9 @@ fn adjust_image_diagnostic(
     quality: u8,
     resize: Option<&CoverResize>,
 ) -> Result<Option<Vec<u8>>, ErrorCause> {
+    if resize.is_some_and(CoverResize::native_preflight_skips_adjustment) {
+        return Ok(None);
+    }
     let mut image = image::load_from_memory(data).map_err(ErrorCause::external)?;
     let size = (image.width(), image.height());
     if let Some(options) = resize {
@@ -724,6 +924,221 @@ mod tests {
     }
 
     #[test]
+    fn resize_allocation_dimensions_refuse_large_work_without_allocating_images() {
+        for (source, sample, resized, final_crop, bytes) in [
+            ((20000, 1), None, (20000, 20000), None, 4),
+            ((50000, 1), None, (500000000, 10000), None, 4),
+            ((50000, 1), None, (50000000, 1000), Some((1000, 1000)), 4),
+            ((1000000, 1), None, (1, 100), None, 4),
+            ((u32::MAX, u32::MAX), None, (1, 1), None, 16),
+            ((1, 130_000_000), None, (1, 1), None, 1),
+            ((8000, 8000), Some((8000, 8000)), (1000, 1000), None, 4),
+        ] {
+            assert!(
+                check_cover_resize_allocation(source, sample, resized, final_crop, bytes).is_err(),
+                "{source:?}/{sample:?}/{resized:?}/{final_crop:?}"
+            );
+        }
+        assert!(
+            check_cover_resize_allocation((600, 300), Some((300, 300)), (500, 500), None, 4)
+                .is_ok()
+        );
+        assert!(check_cover_resize_allocation((20000, 1), Some((1, 1)), (1, 1), None, 4).is_ok());
+    }
+
+    // Run only with the inspected/pre-tested budget guard in place: the RED
+    // control above uses dimensions alone and never attempts oversized resizing.
+    #[test]
+    fn guarded_resize_refusals_keep_small_inputs_and_audio_unchanged() {
+        let mut encoded = Cursor::new(Vec::new());
+        DynamicImage::ImageRgb8(RgbImage::new(20000, 1))
+            .write_to(&mut encoded, ImageFormat::Png)
+            .unwrap();
+        let data = encoded.into_inner();
+        assert!(data.len() < 64 * 1024);
+        for (native_geometry, size_enabled, pixels, size_mode, scale_mode) in [
+            (
+                true,
+                false,
+                0,
+                CoverSizeMode::Maximum,
+                CoverScaleMode::Square,
+            ),
+            (
+                true,
+                true,
+                10000,
+                CoverSizeMode::Minimum,
+                CoverScaleMode::Proportional,
+            ),
+            (
+                false,
+                true,
+                10000,
+                CoverSizeMode::Minimum,
+                CoverScaleMode::Proportional,
+            ),
+            (
+                false,
+                true,
+                10000,
+                CoverSizeMode::Minimum,
+                CoverScaleMode::Square,
+            ),
+            (
+                false,
+                true,
+                1000,
+                CoverSizeMode::Maximum,
+                CoverScaleMode::CropSquare,
+            ),
+        ] {
+            let resize = CoverResize {
+                native_geometry,
+                size_enabled,
+                pixels,
+                size_mode,
+                scale_mode,
+            };
+            let error = adjust_cover_image(&data, CoverImageFormat::Original, 80, Some(&resize))
+                .unwrap_err();
+            assert!(error.contains("512 MiB working memory limit"), "{error}");
+        }
+        let cheap_crop = CoverResize {
+            native_geometry: true,
+            size_enabled: false,
+            pixels: 0,
+            size_mode: CoverSizeMode::Maximum,
+            scale_mode: CoverScaleMode::CropSquare,
+        };
+        let output = adjust_cover_image(&data, CoverImageFormat::Original, 80, Some(&cheap_crop))
+            .unwrap()
+            .unwrap();
+        let image = image::load_from_memory(&output).unwrap();
+        assert_eq!((image.width(), image.height()), (1, 1));
+        let (directory, path, _) = fixture();
+        let cover = directory.path().join("thin.png");
+        fs::write(&cover, &data).unwrap();
+        add_cover(&path, &cover).unwrap();
+        let before = fs::read(&path).unwrap();
+        let square = CoverResize {
+            native_geometry: true,
+            size_enabled: false,
+            pixels: 0,
+            size_mode: CoverSizeMode::Maximum,
+            scale_mode: CoverScaleMode::Square,
+        };
+        let error = adjust_covers_summary(&path, CoverImageFormat::Original, 80, Some(&square))
+            .unwrap_err();
+        assert!(error.contains("512 MiB working memory limit"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
+
+    #[test]
+    fn native_geometry_keeps_shape_independent_of_size_trigger() {
+        for (pixels, policy, shape, enabled, expected) in [
+            (900, "maximum", "square", true, (600, 600)),
+            (500, "maximum", "crop_square", true, (300, 300)),
+            (300, "minimum", "square", true, (600, 600)),
+            (0, "maximum", "square", false, (600, 600)),
+            (0, "maximum", "crop_square", false, (300, 300)),
+        ] {
+            let options: CoverResize = serde_json::from_value(serde_json::json!({
+                "pixels": pixels, "size_mode": policy, "scale_mode": shape,
+                "size_enabled": enabled, "native_geometry": true,
+            }))
+            .unwrap();
+            let output =
+                resize_image(DynamicImage::ImageRgb8(RgbImage::new(600, 300)), &options).unwrap();
+            assert_eq!(
+                (output.width(), output.height()),
+                expected,
+                "{pixels}/{policy}/{shape}/{enabled}"
+            );
+        }
+    }
+
+    #[test]
+    fn native_gates_and_centered_crop_use_the_public_image_api() {
+        let mut image = RgbImage::new(5, 2);
+        for x in 0..5 {
+            for y in 0..2 {
+                image.put_pixel(x, y, image::Rgb([x as u8 * 40, y as u8 * 60, 20]));
+            }
+        }
+        let mut encoded = Cursor::new(Vec::new());
+        DynamicImage::ImageRgb8(image.clone())
+            .write_to(&mut encoded, ImageFormat::Png)
+            .unwrap();
+        let mut resize = CoverResize {
+            native_geometry: true,
+            size_enabled: false,
+            pixels: 0,
+            size_mode: CoverSizeMode::Maximum,
+            scale_mode: CoverScaleMode::CropSquare,
+        };
+        let output = adjust_cover_image(
+            encoded.get_ref(),
+            CoverImageFormat::Original,
+            80,
+            Some(&resize),
+        )
+        .unwrap()
+        .unwrap();
+        let cropped = image::load_from_memory(&output).unwrap().to_rgb8();
+        assert_eq!(cropped.dimensions(), (2, 2));
+        for x in 0..2 {
+            for y in 0..2 {
+                assert_eq!(cropped.get_pixel(x, y), image.get_pixel(x + 1, y));
+            }
+        }
+        resize.scale_mode = CoverScaleMode::Proportional;
+        assert!(adjust_cover_image(
+            encoded.get_ref(),
+            CoverImageFormat::Original,
+            80,
+            Some(&resize)
+        )
+        .unwrap()
+        .is_none());
+        resize.size_enabled = true;
+        for pixels in [0, 9, 10001, u32::MAX] {
+            resize.pixels = pixels;
+            assert!(adjust_cover_image(
+                encoded.get_ref(),
+                CoverImageFormat::Jpeg,
+                80,
+                Some(&resize)
+            )
+            .unwrap()
+            .is_none());
+            assert!(adjust_cover_image(
+                b"no image decoding on a skipped action",
+                CoverImageFormat::Jpeg,
+                80,
+                Some(&resize)
+            )
+            .unwrap()
+            .is_none());
+        }
+    }
+
+    #[test]
+    fn native_invalid_size_skips_the_whole_audio_mutation() {
+        let (_dir, path, _) = fixture();
+        let before = fs::read(&path).unwrap();
+        let resize = CoverResize {
+            native_geometry: true,
+            size_enabled: true,
+            pixels: 10001,
+            size_mode: CoverSizeMode::Maximum,
+            scale_mode: CoverScaleMode::Square,
+        };
+        adjust_covers_summary(&path, CoverImageFormat::Jpeg, 80, Some(&resize)).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
+
+    #[test]
     fn proportional_square_and_crop_resizes_apply_actual_pixels() {
         for (mode, width, height) in [
             (CoverScaleMode::Proportional, 100, 50),
@@ -732,6 +1147,8 @@ mod tests {
         ] {
             let (_dir, path, _) = fixture();
             let resize = CoverResize {
+                native_geometry: false,
+                size_enabled: true,
                 pixels: 100,
                 size_mode: CoverSizeMode::Maximum,
                 scale_mode: mode,
@@ -753,6 +1170,8 @@ mod tests {
             let resized = resize_image(
                 image(),
                 &CoverResize {
+                    native_geometry: false,
+                    size_enabled: true,
                     pixels,
                     size_mode,
                     scale_mode,
@@ -782,6 +1201,8 @@ mod tests {
         let (_dir, path, image) = fixture();
         let original = fs::read(&image).unwrap();
         let resize = CoverResize {
+            native_geometry: false,
+            size_enabled: true,
             pixels: 800,
             size_mode: CoverSizeMode::Maximum,
             scale_mode: CoverScaleMode::CropSquare,
@@ -814,6 +1235,8 @@ mod tests {
             .unwrap();
         add_cover(&path, &gif).unwrap();
         let resize = CoverResize {
+            native_geometry: false,
+            size_enabled: true,
             pixels: 100,
             size_mode: CoverSizeMode::Maximum,
             scale_mode: CoverScaleMode::Proportional,
@@ -837,6 +1260,8 @@ mod tests {
             bytes.into_inner()
         };
         let max = |pixels| CoverResize {
+            native_geometry: false,
+            size_enabled: true,
             pixels,
             size_mode: CoverSizeMode::Maximum,
             scale_mode: CoverScaleMode::Proportional,

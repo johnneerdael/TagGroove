@@ -19,6 +19,19 @@ customization dialog and check the item visibility. **Hide all** inside the
 dialog and hiding the complete toolbar are separate settings. Use the View
 menu to recover them; loading a whole old configuration changes much more.
 
+## Move the toolbar bands
+
+Open **View → Toolbars → Customize main toolbar…** and use **Toolbar
+arrangement**. Put the main or custom toolbar first on a shared row, or put
+either toolbar above the other on separate rows. Choose **OK** to save this
+placement with the toolbar settings; **Cancel** keeps the saved arrangement.
+The select control works with the keyboard and a screen reader.
+
+This provides band order and row placement through an explicit control. It
+does not provide arbitrary floating positions or free dragging. Hidden and
+empty toolbars keep their existing visibility rules. The filter keeps its
+separate left/right/list docking setting.
+
 ## Practice on the main toolbar
 
 1. Choose **View → Toolbars → Customize main toolbar…**.

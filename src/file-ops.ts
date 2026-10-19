@@ -96,10 +96,13 @@ export class FileOpsUI {
   private updateState(state:DirectoryState){this.state={...state,...this.transferDestinations};}
   get fileManager(){return this.host.mac?'Finder':/Win/.test(globalThis.navigator?.platform||'')?'Explorer':'file manager';}
   /** Load preferences, then open queued command-line requests or the startup folder. */
-  async initialize(options:{skipStartup?:boolean}={}){
+  async initialize(options:{skipStartup?:boolean;restoreWorkspace?:()=>Promise<boolean>}={}){
     this.updateState(await this.host.invoke<DirectoryState>('load_directory_state'));this.host.changed();
     if(await this.takeLaunches())return;
     if(options.skipStartup)return;
+    const restored=await options.restoreWorkspace?.();
+    if(await this.takeLaunches())return;
+    if(restored)return;
     const startup=this.host.preferences().startup,start=startup==='previous'?this.state.recent[0]:startup==='favorite'?this.state.favorites[0]:undefined;
     if(start&&!this.host.openReason())await this.openDirectory(start,{replace:true});
   }

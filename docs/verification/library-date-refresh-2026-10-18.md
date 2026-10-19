@@ -1,5 +1,7 @@
 # Cached technical date formatting — 2026-10-18
 
+Current scope update (2026-10-19): C60 now implements the already-loaded-list observer/reformatting route and macOS native regional formatter separately from this cache repair. The historical final paragraph remains the evidence boundary of this earlier run; real OS-setting transitions are still unqualified. See the [daily-workflow receipt](daily-workflows-2026-10-19.md). The observations below retain their original checkpoint scope.
+
 Consolidated draft PR64 fixes stale formatted technical dates on Library hits.
 File stamp, reader version and read options can remain unchanged when the
 formatting context changes. Previously the cache returned the old date strings,

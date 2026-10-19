@@ -211,6 +211,8 @@ fn actual_resize_settings_and_all_dimension_examples_preserve_small_original_byt
                 CoverImageFormat::Original,
                 quality,
                 Some(&CoverResize {
+                    native_geometry: true,
+                    size_enabled: true,
                     pixels,
                     size_mode: size_mode(settings["Size policy"]),
                     scale_mode: scale(settings["Scaling"]),
@@ -240,6 +242,8 @@ fn actual_resize_settings_and_all_dimension_examples_preserve_small_original_byt
                 CoverImageFormat::Original,
                 quality,
                 Some(&CoverResize {
+                    native_geometry: true,
+                    size_enabled: true,
                     pixels,
                     size_mode: size_mode(row[2]),
                     scale_mode: scale(row[3]),

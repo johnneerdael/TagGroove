@@ -23,6 +23,7 @@ mod languages;
 mod library;
 mod list_behaviour;
 mod lists;
+mod locale_format;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod mp3tag_columns;
@@ -1587,6 +1588,7 @@ pub fn run() {
             import_action_groups_with_diagnostics,
             diagnostics_ipc::execute_action_groups_with_diagnostics,
             action_host::export_action_group,
+            action_host::action_group_export_report,
             runtime_platform,
             set_working_directory,
             pick_document_files,
@@ -1698,6 +1700,8 @@ pub fn run() {
             profile_migration::profile_migration_restore,
             utilities::open_configuration_folder,
             languages::language_catalogs,
+            locale_format::locale_format_state,
+            locale_format::reformat_loaded_timestamps,
             languages::open_languages_folder,
             languages::prepare_languages_folder,
             utilities::open_help_page,

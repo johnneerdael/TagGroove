@@ -8,7 +8,8 @@
 // Standalone (no imports), so the rules are unit-tested directly.
 
 export type ToolbarItem={id:string;visible:boolean;label?:string};
-export type ToolbarConfig={shown:boolean;items:ToolbarItem[]};
+export type ToolbarArrangement='main-first'|'custom-first'|'stacked-main'|'stacked-custom';
+export type ToolbarConfig={shown:boolean;items:ToolbarItem[];arrangement?:ToolbarArrangement};
 export type ToolbarCommand={label:string;icon?:string;hint:string};
 export const SEPARATOR='separator',SPACER='spacer';
 /** Custom toolbar items that run a tool or an action group, by name. */
@@ -145,10 +146,12 @@ const savedItems=(value:unknown,accept:(id:string)=>boolean)=>{
 /** Saved toolbar settings: unknown commands are dropped, labels trimmed, and commands added in later versions appended hidden. */
 export function normalizeToolbar(value:unknown):ToolbarConfig{
   const fallback=defaultToolbar(),saved=savedItems(value,id=>id in TOOLBAR_COMMANDS);
-  if(!saved.items)return{...fallback,shown:saved.shown!==false};
+  const choice=(value as Partial<ToolbarConfig>|null)?.arrangement;
+  const arrangement=choice==='custom-first'||choice==='stacked-main'||choice==='stacked-custom'?{arrangement:choice}:{};
+  if(!saved.items)return{...fallback,shown:saved.shown!==false,...arrangement};
   const seen=new Set(saved.items.map(item=>item.id)),items=saved.items;
   for(const item of fallback.items)if(!isSeparator(item.id)&&!seen.has(item.id))items.push({...item,visible:false});
-  return{shown:saved.shown!==false,items};
+  return{shown:saved.shown!==false,items,...arrangement};
 }
 /** The Custom Toolbar: commands, tools and action groups the user added (shown, but empty, by default). */
 export function normalizeCustomToolbar(value:unknown):ToolbarConfig{
@@ -209,10 +212,12 @@ export function customizeToolbar(host:ToolbarHost){
   const dialog=document.createElement('dialog');dialog.className='toolbar-dialog';dialog.setAttribute('aria-label',title);document.body.append(dialog);
   const choices=custom?.choices()??[],groups=[...new Set(choices.map(choice=>choice.group))];
   const adder=custom?`<div class="toolbar-add"><label class="field"><span>Add to the custom toolbar</span><select id="toolbar-choice">${groups.map(group=>`<optgroup label="${html(group)}">${choices.filter(choice=>choice.group===group).map(choice=>`<option value="${html(choice.id)}" ${choice.id in TOOLBAR_COMMANDS?'':'translate="no"'}>${html(choice.label)}</option>`).join('')}</optgroup>`).join('')}</select></label><button type="button" data-tb="add">Add</button></div>`:'';
-  dialog.innerHTML=`<header>${title}</header><div class="dialog-content"><p>${custom?'The custom toolbar shows commands, tools (Options → Tools) and action groups next to the main toolbar. Add items below; checked items are shown, in this order.':'Checked items are shown on the main toolbar, in this order.'} Space shows or hides the selected item, F4 renames it, ⌘/Ctrl E shows all and ⌘/Ctrl D hides all, Alt ↑ ↓ and Alt Page Up / Page Down move it. A spacer pushes the items after it to the far end.</p>${adder}
+  dialog.innerHTML=`<header>${title}</header><div class="dialog-content"><p>${custom?'The custom toolbar shows commands, tools (Options → Tools) and action groups next to the main toolbar. Add items below; checked items are shown, in this order.':'Checked items are shown on the main toolbar, in this order.'} Space shows or hides the selected item, F4 renames it, ⌘/Ctrl E shows all and ⌘/Ctrl D hides all, Alt ↑ ↓ and Alt Page Up / Page Down move it. A spacer pushes the items after it to the far end.</p>${adder}${custom?'':`<label class="field"><span>Toolbar arrangement</span><select id="toolbar-arrangement"><option value="main-first">Main then custom, same row</option><option value="custom-first">Custom then main, same row</option><option value="stacked-main">Main above custom</option><option value="stacked-custom">Custom above main</option></select></label>`}
     <div class="toolbar-config"><div class="group-list toolbar-items" role="listbox" aria-label="Toolbar items" tabindex="0"></div>
     <div class="group-buttons"><button type="button" data-tb="edit">Rename…</button><button type="button" data-tb="separator">Add separator</button><button type="button" data-tb="spacer">Add spacer</button>${custom?'<button type="button" data-tb="remove">Remove</button>':''}<button type="button" data-tb="up">↑ Move up</button><button type="button" data-tb="down">↓ Move down</button><button type="button" data-tb="show-all">Show all</button><button type="button" data-tb="hide-all">Hide all</button><button type="button" data-tb="reset">${custom?'Clear':'Reset'}</button></div></div></div>
     <div class="dialog-footer"><button type="button" data-close>Cancel</button><button type="button" class="primary" id="toolbar-ok">OK</button></div>`;
+  const arrangement=dialog.querySelector<HTMLSelectElement>('#toolbar-arrangement');
+  if(arrangement)arrangement.value=host.config().arrangement??'main-first';
   const list=dialog.querySelector<HTMLElement>('.toolbar-items')!;
   const render=()=>{
     current=Math.max(0,Math.min(current,items.length-1));
@@ -258,7 +263,7 @@ export function customizeToolbar(host:ToolbarHost){
   dialog.querySelector('[data-close]')!.addEventListener('click',()=>dialog.close());
   dialog.querySelector('#toolbar-ok')!.addEventListener('click',async()=>{
     const ok=dialog.querySelector<HTMLButtonElement>('#toolbar-ok')!;ok.disabled=true;
-    try{await host.save({...host.config(),items});dialog.close();}
+    try{await host.save({...host.config(),items,...(arrangement?{arrangement:arrangement.value as ToolbarArrangement}:{})});dialog.close();}
     catch(error){let p=dialog.querySelector('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(p);}p.textContent=String(error);ok.disabled=false;}
   });
   dialog.addEventListener('close',()=>dialog.remove());

@@ -6,3 +6,5 @@ These immutable literal predictions were authored before the implementation repa
 - `split-field.json`: eight cases, original SHA-256 `fd7bccb91747dc920d29b822c7e0e1ef3b31fd1766f367c97c6227cd47cbb64c`.
 
 Sources and original failing-product receipts: `docs/verification/filter-quoting-precedence-2026-10-19.md` and `docs/verification/split-field-semantics-2026-10-19.md`. Preserve these expected vectors; new evidence requires a distinct fixture rather than changing an oracle to follow the port.
+
+- `mta-schemas.json`: 13 native-schema predictions plus three legacy-ID factory contrasts, original SHA-256 `539270d4780851abdf606369e3112a053db1345316ba2c0f070d6f56191daccf`. These are decoded semantic records, not native-produced file bytes.

@@ -211,3 +211,6 @@ dialog { background:var(--surface); }
 .combo-list.value-suggestions [role=option],.combo-list.value-suggestions .combo-group{height:var(--value-suggestion-row-height);box-sizing:border-box;padding:5px 10px;line-height:20px;white-space:pre;overflow:hidden;text-overflow:ellipsis}
 .cell-editor{resize:none;font-family:inherit}
 @media (max-width:1000px){.combo-list.value-suggestions{--value-suggestion-row-height:44px}.combo-list.value-suggestions [role=option],.combo-list.value-suggestions .combo-group{padding:12px 14px}}
+
+/* Toolbar band placement follows the saved main-toolbar arrangement. */
+.toolbar-bands{display:flex;flex:1;min-width:0;flex-wrap:wrap}.toolbar-bands>.toolbar{flex:1;min-width:0}.toolbar-bands[data-toolbar-stack="true"]{flex-direction:column}.toolbar-bands[data-toolbar-stack="true"]>.toolbar{flex:auto}

@@ -1,4 +1,6 @@
 /// <reference types="vite/client" />
+import { observeLocale } from './locale-refresh';
+import { savedWorkspace, WorkspaceRows } from './workspace-session';
 import { audioLicenses } from './audio-licenses';
 import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core';
 import { buildFilterFields } from './filter-fields';
@@ -188,7 +190,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.style.visibility = desktop ? 'hidden' : '';
 app.inert = desktop;
 document.addEventListener('keydown',event=>{if(app.inert){event.preventDefault();event.stopImmediatePropagation();}},true);
-const entries = new Map<string, Entry>();
+const entries = new WorkspaceRows<Entry>();
 const drafts = new Map<string, Fields>();
 // Covers pasted with Paste/Cut tags, written by the next save. A file with pending covers always has a (possibly empty) draft.
 const pendingCovers = new Map<string, PendingCover[]>();
@@ -248,6 +250,7 @@ const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?err
   save:library=>invoke<void>('save_action_library',{library}),
   import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
   importIssues:mtaImportFailure,
+  exportReport:group=>invoke('action_group_export_report',{group}),
   execute:executeGroups,
   pickFile:async kind=>{const extensions=kind==='mta'?['mta']:kind==='image'?['jpg','jpeg','png','webp','gif']:kind==='export'?['mte']:['txt','lrc'];const path=await open({multiple:false,title:kind==='mta'?'Import action group':kind==='image'?'Choose cover image':kind==='export'?'Choose export configuration':'Choose text file',filters:[{name:kind==='mta'?'Action groups':kind==='image'?'Images':kind==='export'?'Export configurations':'Text files',extensions}]});return typeof path==='string'?path:null;},
   confirm:message=>ask(message,{title:'Action groups',kind:'warning'}),
@@ -547,6 +550,33 @@ const webSourcesUI=new WebSourcesUI({
   report:message=>{status=message;render();},
   fail:error=>{errors=[{path:'Tag sources',label:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
 });
+let ordinaryWorkspaceReady=false,ordinaryWorkspaceSaved='',ordinaryWorkspaceRestoreFailed=false;
+let ordinaryWorkspaceState:unknown[]=[];
+function rememberOrdinaryWorkspace(force=false){
+  if(!desktop||!ordinaryWorkspaceReady||configurationRecoveryActive||runtimePlatform.family!=='desktop')return;
+  const state=[entries.revision,entries.size,listRoots,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+  const same=state.every((value,index)=>value===ordinaryWorkspaceState[index]);
+  if(same&&(ordinaryWorkspaceRestoreFailed||!force))return;
+  ordinaryWorkspaceRestoreFailed=false;ordinaryWorkspaceState=state;
+  const workspace=captureConfigurationWorkspace();
+  if(!workspace)return;
+  const text=JSON.stringify(workspace);if(text===ordinaryWorkspaceSaved)return;
+  try{if(text.length>16*1024*1024)throw new Error('The file list exceeds the 16 MiB restart limit. Save this larger list as a playlist.');localStorage.setItem('opentag.workspace',text);ordinaryWorkspaceSaved=text;const prior=errors.length;errors=errors.filter(e=>e.path!=='File list persistence');if(errors.length!==prior)render();}catch(error){errors=[...errors.filter(e=>e.path!=='File list persistence'),{path:'File list persistence',label:'File list persistence',error:`The file list could not be saved for restart: ${String(error)}`}];render();}
+}
+async function restoreOrdinaryWorkspace(){
+  try{
+    const text=localStorage.getItem('opentag.workspace');if(text===null)return false;
+    if(text.length>16*1024*1024)throw new Error('The saved file list exceeds the 16 MiB restart limit. Open files or a folder to start a new list.');
+    let workspace;try{workspace=savedWorkspace(JSON.parse(text));}catch{throw new Error('The saved file list is corrupt. Open files or a folder to start a new list.');}
+    if(!workspace)throw new Error('The saved file list has an unsupported structure. Open files or a folder to start a new list.');
+    return await restoreConfigurationWorkspace(workspace);
+  }catch(error){
+    // Automatic renders and close must retain failed recovery input. A real
+    // membership/order/root change starts a new ordinary workspace explicitly.
+    ordinaryWorkspaceState=[entries.revision,entries.size,listRoots,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+    ordinaryWorkspaceRestoreFailed=true;throw error;
+  }
+}
 let configurationLaunchesPending=0;
 async function coordinateConfigurationLaunches<T>(load:()=>Promise<T>):Promise<T>{
   while(busy)await new Promise(resolve=>setTimeout(resolve,100));
@@ -566,8 +596,9 @@ async function flushSavedConfiguration(){
 }
 function captureConfigurationWorkspace():ProfileWorkspaceV2|null {
   const paths=[...entries.keys()];
+  const local=(path:string)=>path.startsWith('/')||/^[A-Za-z]:[\\/]/.test(path)||path.startsWith('\\\\');
   const references=[...listRoots,...(fileOps.history.current?[fileOps.history.current]:[]),...(loadedPlaylist?[loadedPlaylist]:[]),...(locationIsData?[location]:[])];
-  if(references.some(path=>!path.startsWith('/'))||paths.some(path=>!rowFile(path).startsWith('/')||!!documentAccess.states[rowFile(path)]))return null;
+  if(references.some(path=>!local(path))||paths.some(path=>!local(rowFile(path))||!!documentAccess.states[rowFile(path)]))return null;
   return{version:2,paths,selected:[...selected],roots:[...listRoots],working_directory:fileOps.history.current??null,list_order:listOrder,source_order:sourceOrder?rankSourceRows([...entries.values()],sourceOrder).map(entry=>entry.path):null,location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null};
 }
 async function readConfigurationWorkspace(workspace:ProfileWorkspace){
@@ -647,6 +678,14 @@ const columnValues=new ColumnValueCache({
   updated:()=>{if(document.querySelector('.table-wrap'))updateVirtualRows(true);},
   failed:error=>{status=`Column values could not be evaluated: ${String(error)}`;},
 });
+/** Reformat saved raw timestamps without reading audio or replacing pending edits. */
+async function refreshLoadedLocale(){
+  const baseline=new Map(entries),items=[...baseline.values()].map(entry=>({path:entry.path,technical:entry.technical??{}}));
+  if(!items.length)return;
+  const refreshed=await invoke<{path:string;technical:Fields}[]>('reformat_loaded_timestamps',{items});
+  for(const item of refreshed){const before=baseline.get(item.path);if(before&&entries.get(item.path)===before)entries.set(item.path,{...before,technical:item.technical});}
+  columnValues.clear();orderCacheKey='';filterCacheKey='';searchRevision=-1;changedData();render();
+}
 function cellValue(entry:Entry,template:string){return columnValues.get(entry.path,template)??quickValue(template,columnItem(entry).fields)??'';}
 const cellEditor=new CellEditor({
   cell:target=>{const cell=revealRow(target.path,false)?.querySelector<HTMLTableCellElement>(`td[data-col="${CSS.escape(target.column)}"]`)||null;cell?.scrollIntoView({block:'nearest',inline:'nearest'});return cell;},
@@ -1023,7 +1062,9 @@ function customToolbarMarkup(){
 }
 /** The toolbars, with the filter docked to their left or right when chosen (desktop layout only). */
 function toolbarsMarkup(filterbar:string){
-  const toolbars=toolbarMarkup()+customToolbarMarkup();
+  const arrangement=toolbarConfig.arrangement??'main-first',main=toolbarMarkup(),custom=customToolbarMarkup();
+  const bands=arrangement==='custom-first'||arrangement==='stacked-custom'?custom+main:main+custom;
+  const toolbars=bands?`<div class="toolbar-bands" data-toolbar-stack="${arrangement.startsWith('stacked')}">${bands}</div>`:'';
   if(compactScreen())return toolbars;
   if(mainLayout.filter==='list')return toolbars?`<div class="toolbar-row">${toolbars}</div>`:'';
   return`<div class="toolbar-row" data-filter="${mainLayout.filter}">${mainLayout.filter==='toolbar-left'?filterbar:''}${toolbars}${mainLayout.filter==='toolbar-right'?filterbar:''}</div>`;
@@ -1124,6 +1165,7 @@ function render() {
   columnUI.bindHeader(wrap.querySelector('table')!,()=>void operate('columns'));cellEditor.reattach();
   if(focusSelector){const replacement=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(focusSelector);replacement?.focus({preventScroll:true});if(replacement&&caretStart!=null&&caretEnd!=null){try{replacement.setSelectionRange(caretStart,caretEnd);}catch{/* Search selection is not supported by every webview. */}}}
   syncWindowTitle();
+  rememberOrdinaryWorkspace();
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
 }
 function emptyMarkup(){
@@ -1197,6 +1239,7 @@ function refreshList(){
   document.querySelector('.filterbar .count')!.textContent=countText(list);
   document.querySelector('.selection-info')!.innerHTML=selectionInfoMarkup(paths().map(path=>entries.get(path)!),list);
   refreshCommandStates();
+  rememberOrdinaryWorkspace();
   timing('list refresh',started,{visible:list.length});
 }
 function refreshCommandStates(){
@@ -2197,7 +2240,7 @@ document.addEventListener('keydown',event=>{
 });
 tagPanel.install(document);
 coverUI.install(document);
-window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
+window.addEventListener('beforeunload',event=>{rememberOrdinaryWorkspace(true);if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 installHelperMenus({
   translateNow,
   storage:helperLists,
@@ -2224,7 +2267,9 @@ if(desktop){
   const profileWorkspaceReady=profileWorkspacePending?optionsReady.then(async()=>{const restored=await profileMigrationUI.finishStartupRecovery();configurationRecoveryActive=false;configurationWrites.resume();return restored;}).catch(async error=>{showProfileRecoveryFailure(app,error,()=>window.location.reload());return await new Promise<never>(()=>{});}):Promise.resolve(false);
   let directoriesReady:Promise<unknown>=profileWorkspaceReady;
   void Promise.all([optionsReady,versionReady,profileWorkspaceReady]).then(([,version])=>version?startupUpdates(version):undefined);
-  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(async()=>{const skipStartup=await profileWorkspaceReady;return coordinateConfigurationLaunches(()=>fileOps.initialize({skipStartup}));}).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
+  let localeRefreshFailed=false;
+  void optionsReady.then(()=>observeLocale({window,document,state:()=>invoke<string>('locale_format_state'),refresh:refreshLoadedLocale,ready:()=>!busy&&!configurationRecoveryActive,fail:error=>{if(localeRefreshFailed)return;localeRefreshFailed=true;errors=[...errors,{path:'Regional formats',label:'Regional formats',error:String(error)}];render();}}));
+  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(async()=>{const skipStartup=await profileWorkspaceReady;return coordinateConfigurationLaunches(()=>fileOps.initialize({skipStartup,restoreWorkspace:restoreOrdinaryWorkspace}).then(()=>{ordinaryWorkspaceReady=true;rememberOrdinaryWorkspace();}));}).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();ordinaryWorkspaceReady=true;});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
   if(profileWorkspacePending)void Promise.all([optionsReady,platformReady]).then(async()=>{await directoriesReady;profileMigrationUI.reportStartupFailure();app.inert=false;syncWindowTitle();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
@@ -2236,6 +2281,7 @@ if(desktop){
   void listen('opentag://launch',()=>{void platformReady.then(async()=>{await optionsReady;await directoriesReady;if(runtimePlatform.folder_picker_supported)await coordinateConfigurationLaunches(()=>fileOps.takeLaunches());}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
+    rememberOrdinaryWorkspace(true);
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;
     event.preventDefault();
     const message=drafts.size?`Close TagGroove and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}${actionUI.hasUnsavedChanges?' and unsaved action group changes':''}?`:'Close TagGroove and discard unsaved action group changes?';

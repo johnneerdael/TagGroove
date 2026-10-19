@@ -1,5 +1,7 @@
 # File List behaviours: save on move, manual order, folder image, artwork in tag copy, column auto-size
 
+Current scope update (2026-10-19): C59 now implements ordinary saved-only list restart; the session-only statement in this historical checkpoint is superseded. Actual native restart acceptance remains pending. See the [daily-workflow receipt](daily-workflows-2026-10-19.md). The observations below retain their original checkpoint scope.
+
 Branch `feat/list-behaviour` (from `feat/core-parity` @ 8a8d6f9). Closes gaps 7, 8, 9 and 12 of `docs/research/remaining-gaps.md` and the column auto-size runner-up.
 
 Sources: Mp3tag 3.36.1 documentation pages `customization/options/tags`, `keyboard`, `menus/edit`, `customization/file-list`. Option labels follow the documented names; no documentation text was copied into the app.

@@ -1,5 +1,10 @@
 # Native action-file schemas: cover and playlist interchange gap
 
+> Implementation update: [C57 execution](native-mta-implementation-2026-10-19.md)
+> implements the canonical schemas below. Preserve this original static diagnosis;
+> its earlier unresolved-importer observation is historical, not current source status.
+
+
 Adjust Cover, Set Cover Properties and Generate Playlists already exist in
 TagGroove. Their current `.mta` exchange records are incompatible with the
 pinned Mp3tag 3.36.1 records. This narrows L17 to a known discriminator/schema

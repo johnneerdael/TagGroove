@@ -1,5 +1,7 @@
 # Refresh preserves surviving manual order — 2026-10-18
 
+Current scope update (2026-10-19): C59 now implements ordinary saved-only list restart separately from this Refresh repair. The historical final paragraph describes this earlier batch, not the current implementation. Actual native restart acceptance remains pending. See the [daily-workflow receipt](daily-workflows-2026-10-19.md). The observations below retain their original checkpoint scope.
+
 Consolidated draft PR64 fixes a reproduced mismatch with the existing file-list
 contract. Folder and playlist rows ABC could be manually moved to CAB; unchanged
 source Refresh then rebuilt ABC while leaving manual mode selected. Saved

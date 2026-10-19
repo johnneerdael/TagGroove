@@ -43,6 +43,16 @@ Description text is literal: `%album%` is stored as those characters,
 not evaluated as a placeholder. An empty replacement clears the
 description; leaving **Keep existing description** checked preserves it.
 
+Native `.mta` files use `-1` to mean keep a type or description, and to select
+all original cover types. A missing native option keeps that default; an empty
+native description clears it. An empty native new-type option means **Other**.
+The native role filter applies to each picture's original role.
+
+A description entered in TagGroove remains literal, including `-1`. Export
+uses an older app-only record for text that could be confused with a numeric
+keep sentinel; the export notice identifies that fallback. This avoids changing
+an intended literal description into a keep instruction in another application.
+
 ## Gotchas
 
 - **All cover types** can turn a front cover, back cover and booklet into

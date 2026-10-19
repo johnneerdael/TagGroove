@@ -27,4 +27,39 @@ Raw source bindings, compiler/test commands, logs and executable hashes are reta
 
 ## Remaining execution and handover
 
-The [per-item OS/device handover register](../handover/PARITY-OTHER-MACHINES.md) records all starting intake and qualification identities, with local work still explicitly pending. Installed macOS Mp3tag1.14.1 is separate from the pinned Windows3.36.1 target. No original application was executed for these two repairs. Native action schemas, stronger content baselines, durable history and every remaining local ledger row are still active work.
+The [per-item OS/device handover register](../handover/PARITY-OTHER-MACHINES.md) records all starting intake and qualification identities, with local work still explicitly pending. Installed macOS Mp3tag1.14.1 is separate from the pinned Windows3.36.1 target. No original application was executed for these two repairs. C57 now represents the canonical native action schemas; C58–C60 represent toolbar arrangement, saved ordinary workspace restoration and loaded regional-date refresh. Their local native journeys and original/platform qualifications remain visible with those records. Stronger content baselines, durable history and the 51 remaining intake rows are still active work.
+
+## Integrated native action and daily-workflow checkpoint
+
+The integrated C55–C60 source passes the full local Rust workspace: **1,450
+tests passed, zero failed, 20 intentional ignores**, across 82 retained test
+executables. Workspace doc-test commands also pass (no runnable doc tests).
+The final source-binding check covers 489 Rust/test/guide files with zero
+mismatches. The final frontend suite passes **842 tests**, and the final
+TypeScript/Vite build, translation extraction, strict all-target workspace
+Clippy and formatting checks pass.
+
+Source-bound compiler/runtime receipts are retained under
+`taggroove-native-daily-workspace-final-build-z44z5e0a`,
+`taggroove-native-daily-workspace-tests-qr5d2jot`,
+`taggroove-native-daily-doc-tests-ocqm_06h`,
+`taggroove-native-daily-clippy-complete-ati_yoc4` and
+`taggroove-native-daily-resize-ui-final-j0hm2b8t`. The passing executables,
+original RED logs and oracle files remain retained with hashes. Closed owned
+compiler products and passed-test executable copies were transparently
+compressed with byte-identical SHA-256, size, mode, mtime and owner; no oracle,
+media, log or binary was deleted. Journal limits remain unchanged.
+
+The strict guide build uses every pinned package in `docs/site-requirements.txt`,
+including Pygments 2.21.0 in an isolated environment. All 189 writing-plan
+pages are populated. Documentation/link and whitespace checks accompany this
+checkpoint.
+
+[Native action compatibility and allocation guards](native-mta-implementation-2026-10-19.md)
+and [daily workflow evidence](daily-workflows-2026-10-19.md) state their focused
+RED/GREEN controls and limits. The existing documented macOS command-line route
+is represented by C47 with native qualification retained. The current ledger
+contains 51 matching active intake/evidence identities and 60 implementation
+records. This is neither final GitHub Codex approval nor native/original,
+live-provider, physical-device, release or merge evidence. Local native
+journeys and every other unresolved local task remain assigned here.

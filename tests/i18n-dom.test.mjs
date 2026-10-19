@@ -2091,10 +2091,10 @@ for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['wa
   let active=p.translate(locale,catalog);
   const actions=[{type:'adjust_cover'},{type:'set_cover_properties'},{type:'generate_playlists'}].slice(0,count);
   const library={groups:[{name,enabled:true,actions}],presets:[]};
-  const invoke=async(command,args)=>{calls.push({command,args:structuredClone(args)});if(command==='load_action_library')return structuredClone(library);if(command==='export_action_group')return;throw new Error(command);};
+  const invoke=async(command,args)=>{calls.push({command,args:structuredClone(args)});if(command==='load_action_library')return structuredClone(library);if(command==='action_group_export_report')return{legacy_actions:['Adjust Cover','Set Cover Properties','Generate Playlists'].slice(0,count)};if(command==='export_action_group')return;throw new Error(command);};
   const host=rendererVariable(parsed,'actionUI',{ActionUI:class{constructor(host){return host;}},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},translateNow:p.translateTree,executeGroups:async()=>assert.fail('Export does not execute actions'),invoke,open:async()=>null,save:async()=>path,enabled:()=>true,operationReason:()=>'',selected:new Set(['/Music/Help.wav']),paths:()=>['/Music/Help.wav'],merged:()=>({TITLE:['Title']}),entries:new Map(),render:()=>{}});
   try{
-    const ui=new ActionUI(host);await ui.groupsDialog();const dialog=p.body.querySelector('.action-groups-dialog');
+    const ui=new ActionUI(host);await ui.groupsDialog();await Promise.resolve();const dialog=p.body.querySelector('.action-groups-dialog');
     if(phase==='status'){dialog.querySelector('[data-command="export"]').click();for(let i=0;i<6;i++)await new Promise(resolve=>setTimeout(resolve,0));}
     const check=()=>{
       p.translateTree(dialog);

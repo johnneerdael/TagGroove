@@ -6,6 +6,28 @@ operation, and supplies the processing order for tasks such as numbering
 and positional text import. The order on screen is separate from filenames
 and track tags on disk.
 
+## Reopen the same list
+
+In the local desktop app, the loaded list and its manual order are remembered
+across restarts. Column sorting and the original playlist/source order remain
+separate choices. Restart reads the saved files again; it does not restore
+unsaved tag or artwork edits. Clearing the list also clears its remembered
+membership. Selection and filter details are captured with list changes and
+again when closing normally.
+
+Explicit command-line/file-open requests take precedence. Requests arriving
+while a remembered list is being restored are applied afterward, in arrival
+order. The startup-directory choice is the fallback when no remembered list
+exists. Provider-document grants and recovery copies use their existing
+separate workflow.
+
+If a saved row is unavailable, restoration reports the failure without
+substituting its containing audio file or publishing a partial list. Open
+files or a folder to start a new list. Corrupt state, storage refusal and an
+oversized restart snapshot are reported without changing audio. Save very
+large lists as playlists; browser storage quotas can be smaller than the
+16 MiB restart snapshot limit.
+
 ## Read the list and selection information
 
 Each row represents a loaded file or a supported chapter/subsong row.

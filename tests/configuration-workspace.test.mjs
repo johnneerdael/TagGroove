@@ -4,12 +4,14 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const parsed=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
-const names=['captureConfigurationWorkspace','readConfigurationWorkspace','restoreConfigurationWorkspace','clearWorkspace','prepareConfigurationLoad','flushSavedConfiguration','enabled','coordinateConfigurationLaunches'];
+const names=['captureConfigurationWorkspace','readConfigurationWorkspace','restoreConfigurationWorkspace','clearWorkspace','prepareConfigurationLoad','flushSavedConfiguration','enabled','coordinateConfigurationLaunches','rememberOrdinaryWorkspace','restoreOrdinaryWorkspace'];
 const functions=names.map(name=>{const node=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name);assert.ok(node,name);return node.getText(parsed);}).join('\n');
 const compiled=ts.transpileModule(functions,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
 const chapters=ts.transpileModule(await readFile(new URL('../src/chapters.ts',import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {rowFile}=await import(`data:text/javascript;base64,${Buffer.from(chapters).toString('base64')}`);
 const order=ts.transpileModule(await readFile(new URL('../src/playlist-order.ts',import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+const workspaceModule=ts.transpileModule(await readFile(new URL('../src/workspace-session.ts',import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+const {savedWorkspace}=await import(`data:text/javascript;base64,${Buffer.from(workspaceModule).toString('base64')}`);
 const {rankSourceRows}=await import(`data:text/javascript;base64,${Buffer.from(order).toString('base64')}`);
 function harness(){
   const calls=[],entry=path=>({path,fields:{TITLE:['Saved']},covers:[]});
@@ -17,6 +19,7 @@ function harness(){
   h.removeEntries=paths=>{calls.push(['remove',paths]);paths.forEach(path=>h.entries.delete(path));};
   h.accept=batch=>{calls.push(['accept',batch]);batch.entries.forEach(item=>h.entries.set(item.path,item));};
   h.invoke=async(command,args)=>{calls.push([command,structuredClone(args)]);if(command==='scan_files')return{entries:args.paths.map(entry),errors:[]};if(command==='set_working_directory')return;throw new Error(command);};
+  const saved=new Map();Object.assign(h,{savedWorkspace,ordinaryWorkspaceReady:true,ordinaryWorkspaceSaved:'',ordinaryWorkspaceRestoreFailed:false,ordinaryWorkspaceState:[],errors:[],localStorage:{getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value)}});
   Object.assign(h,{desktop:true,profileBootstrap:{desktop:true},runtimePlatform:{family:'desktop'},coverOperations:{},listOperations:[],configurationLaunchesPending:0});
   const api=new Function('host',`with(host){${compiled};return{${names.join(',')}};}`)(h);
   return{h,calls,...api};
@@ -81,4 +84,12 @@ test('production launch coordinator does not consume queued launch requests whil
   await new Promise(resolve=>setTimeout(resolve,5));assert.equal(consumed,false);assert.equal(p.h.configurationLaunchesPending,0);
   p.h.busy=false;await new Promise(resolve=>setTimeout(resolve,110));assert.equal(consumed,true);assert.equal(p.h.configurationLaunchesPending,1);assert.equal(await p.prepareConfigurationLoad(),false);
   release();await pending;assert.equal(p.h.configurationLaunchesPending,0);assert.equal(await p.prepareConfigurationLoad(),true);
+});
+
+test('ordinary persisted restart uses production saved-only capture and exact-row restoration including Windows paths',async()=>{
+ const p=harness(),one='C:\\Music\\a.mp3',two='\\\\server\\Music\\b.mp3';
+ p.h.entries=new Map([[two,{path:two,fields:{TITLE:['Saved B']},covers:[]}],[one,{path:one,fields:{TITLE:['Saved A']},covers:[]}]]);p.h.selected=new Set([one]);p.h.listRoots=['C:\\Music'];p.h.fileOps.history.current='C:\\Music';p.h.sourceOrder=[one,two];p.h.location='C:\\Music';p.h.loadedPlaylist=undefined;p.h.anchor=one;
+ p.h.drafts.set(one,{TITLE:['Not persisted']});p.h.pendingCovers.set(one,[{data:'Not persisted'}]);p.rememberOrdinaryWorkspace();const raw=p.h.localStorage.getItem('opentag.workspace');assert.ok(raw);assert.equal(raw.includes('Not persisted'),false);assert.equal(raw.includes('Saved A'),false);
+ p.h.entries.clear();p.h.selected.clear();p.h.drafts.clear();p.h.pendingCovers.clear();p.h.sourceOrder=undefined;p.h.listOrder='columns';await p.restoreOrdinaryWorkspace();
+ assert.deepEqual([...p.h.entries.keys()],[two,one]);assert.deepEqual(p.h.sourceOrder,[one,two]);assert.equal(p.h.listOrder,'manual');assert.deepEqual([...p.h.selected],[one]);assert.equal(p.h.drafts.size,0);assert.equal(p.h.pendingCovers.size,0);assert.equal(p.calls.find(call=>call[0]==='scan_files')[1].exactRows,true);
 });

@@ -299,57 +299,69 @@ fn export_action_configuration_runs_exactly_as_published() {
 
 #[test]
 fn cover_size_table_matches_the_actual_image_resizer() {
-    let original = image::DynamicImage::new_rgb8(1200, 800);
+    let original = image::DynamicImage::new_rgb8(600, 300);
     let mut encoded = std::io::Cursor::new(Vec::new());
     original
         .write_to(&mut encoded, image::ImageFormat::Png)
         .unwrap();
     let mut count = 0;
-    for line in COVER
-        .lines()
-        .filter(|line| line.starts_with("| Maximum +") || line.starts_with("| Minimum +"))
-    {
+    for line in COVER.lines().filter(|line| {
+        line.starts_with("| Maximum ")
+            || line.starts_with("| Minimum ")
+            || line.starts_with("| Size disabled +")
+    }) {
         let row = cells(line);
-        let size_mode = if row[0].starts_with("Maximum") {
-            CoverSizeMode::Maximum
+        let (policy, shape) = row[0].split_once(" + ").unwrap();
+        let enabled = policy != "Size disabled";
+        let pixels = if enabled {
+            policy.split_whitespace().nth(1).unwrap().parse().unwrap()
         } else {
+            0
+        };
+        let size_mode = if policy.starts_with("Minimum") {
             CoverSizeMode::Minimum
-        };
-        let scale_mode = if row[0].ends_with("proportional") {
-            CoverScaleMode::Proportional
-        } else if row[0].ends_with("square") {
-            CoverScaleMode::Square
         } else {
-            CoverScaleMode::CropSquare
+            CoverSizeMode::Maximum
         };
-        let dimensions: Vec<_> = row[1]
+        let modes = match shape {
+            "proportional" => vec![CoverScaleMode::Proportional],
+            "square" => vec![CoverScaleMode::Square],
+            "crop" => vec![CoverScaleMode::CropSquare],
+            "square or crop" => vec![CoverScaleMode::Square, CoverScaleMode::CropSquare],
+            _ => panic!("{line}"),
+        };
+        let dimensions: Vec<u32> = row[1]
             .split(',')
             .next()
             .unwrap()
             .split(" × ")
-            .map(|number| number.parse::<u32>().unwrap())
+            .map(|number| number.parse().unwrap())
             .collect();
-        let result = adjust_cover_image(
-            encoded.get_ref(),
-            CoverImageFormat::Original,
-            90,
-            Some(&CoverResize {
-                pixels: 600,
-                size_mode,
-                scale_mode,
-            }),
-        )
-        .unwrap()
-        .unwrap();
-        let result = image::load_from_memory(&result).unwrap();
-        assert_eq!(
-            (result.width(), result.height()),
-            (dimensions[0], dimensions[1]),
-            "{line}"
-        );
+        for scale_mode in modes {
+            let result = adjust_cover_image(
+                encoded.get_ref(),
+                CoverImageFormat::Original,
+                90,
+                Some(&CoverResize {
+                    native_geometry: true,
+                    size_enabled: enabled,
+                    pixels,
+                    size_mode,
+                    scale_mode,
+                }),
+            )
+            .unwrap()
+            .unwrap();
+            let result = image::load_from_memory(&result).unwrap();
+            assert_eq!(
+                (result.width(), result.height()),
+                (dimensions[0], dimensions[1]),
+                "{line}"
+            );
+        }
         count += 1;
     }
-    assert_eq!(count, 4);
+    assert_eq!(count, 6);
 }
 
 #[test]

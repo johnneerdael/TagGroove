@@ -129,6 +129,15 @@ pub fn file_time_fields(
 ) -> Fields {
     technical::file_time_fields(created, modified)
 }
+/// Stable fingerprint of the current file-timestamp formatter, independent of the clock.
+pub fn locale_format_state() -> String {
+    technical::locale_format_state()
+}
+/// Refresh retained file/MP4 timestamp presentation using one locale/zone
+/// snapshot for the entire in-memory batch. Preserve raw and unrelated fields.
+pub fn reformat_technical_time_fields<'a>(items: impl IntoIterator<Item = &'a mut Fields>) {
+    technical::reformat_technical_time_fields(items)
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverInfo {
     pub index: usize,

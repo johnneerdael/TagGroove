@@ -23,6 +23,20 @@ configuration names, paths and server replies.
 An invalid field identifier keeps its entered spaces and characters in the
 translated diagnostic so you can identify what needs correcting.
 
+## System regional date formats
+
+The desktop file list checks the native date formatter after language-change,
+focus and visibility notifications, and once per second while visible. When
+its regional format changes, already loaded timestamp values are reformatted
+from their saved raw timestamps. This does not rescan audio, save tags or
+discard pending edits. During another file operation the check waits until
+that operation finishes; a hidden window checks when it becomes visible.
+
+Interface language selection remains separate from system date formatting.
+Actual live region/timezone changes still need acceptance on each operating
+system and installed webview; the native formatter determines which OS
+settings are reflected.
+
 ## Add a catalog in the desktop app
 
 The folder-opening action is available only in native desktop builds.

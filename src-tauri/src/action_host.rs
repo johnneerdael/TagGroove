@@ -265,6 +265,13 @@ pub async fn export_action_group(
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+pub fn action_group_export_report(
+    group: ActionGroup,
+) -> Result<tag_core::actions::MtaExportReport, String> {
+    tag_core::actions::mta_export_report(&group)
+}
+
 pub(crate) fn atomic_output(path: &Path, bytes: &[u8], append: bool) -> Result<(), String> {
     atomic_output_with_directories(path, bytes, append, true)
 }
@@ -1411,6 +1418,7 @@ pub fn execute_with_side_file_epochs_diagnostic(
                         partition_template: partition_template.clone(),
                     }),
                     ActionSpec::GeneratePlaylists {
+                        mta_source: _,
                         filename_template,
                         partition_template,
                     } => Some(BatchActionEffect::GeneratePlaylists {
@@ -1525,6 +1533,26 @@ pub fn execute_with_side_file_epochs_diagnostic(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_option_collision_preserves_an_existing_export_destination() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("existing.mta");
+        fs::write(&destination, b"existing destination").unwrap();
+        let mut imported =
+            tag_core::actions::import_mta("Conflict".into(), b"[#0]\nT=18\n1=\n3=3\n", None)
+                .unwrap();
+        assert!(imported.issues.is_empty());
+        let ActionSpec::SetCoverProperties { description, .. } = &mut imported.group.actions[0]
+        else {
+            panic!()
+        };
+        *description = Some("-1".into());
+        assert!(export_group(&destination, &imported.group)
+            .unwrap_err()
+            .contains("meanings conflict"));
+        assert_eq!(fs::read(&destination).unwrap(), b"existing destination");
+    }
 
     #[test]
     fn action_group_export_worker_obeys_pending_configuration_guard_and_shared_lock() {
@@ -2023,17 +2051,26 @@ mod tests {
             name: "Art".into(),
             enabled: true,
             actions: vec![ActionSpec::AdjustCover {
+                mta_source: None,
                 format: tag_core::actions::CoverImageFormat::Png,
                 quality: 90,
                 resize: None,
             }],
         };
         export_group(&dir.path().join("Art.mta"), &art).unwrap();
+        let imported_art = import_group(&dir.path().join("Art.mta"), None).unwrap();
+        assert!(imported_art.issues.is_empty());
+        assert_eq!(imported_art.group.name, art.name);
+        assert!(
+            matches!(&imported_art.group.actions[0], ActionSpec::AdjustCover {
+            format: tag_core::actions::CoverImageFormat::Png, quality: 90,
+            resize: Some(resize), mta_source: Some(_),
+        } if resize.native_geometry && !resize.size_enabled
+            && resize.scale_mode == tag_core::actions::CoverScaleMode::Proportional)
+        );
         assert_eq!(
-            import_group(&dir.path().join("Art.mta"), None)
-                .unwrap()
-                .group,
-            art
+            tag_core::actions::export_mta_utf16(&imported_art.group).unwrap(),
+            fs::read(dir.path().join("Art.mta")).unwrap()
         );
         // A setting .mta cannot store refuses the export without a file.
         assert!(export_group(
@@ -2260,6 +2297,7 @@ mod tests {
                     filename_template: "%_workingpath%note.txt".into(),
                 },
                 ActionSpec::GeneratePlaylists {
+                    mta_source: None,
                     filename_template: "%_path%.m3u8".into(),
                     partition_template: String::new(),
                 },
@@ -3263,6 +3301,7 @@ mod tests {
         let original = fs::read(&audio).unwrap();
         let actions = [
             ActionSpec::GeneratePlaylists {
+                mta_source: None,
                 filename_template: "missing/../input.wav".into(),
                 partition_template: "".into(),
             },
@@ -3300,6 +3339,7 @@ mod tests {
         let a = fixture(dir.path(), "a.wav");
         let b = fixture(dir.path(), "b.wav");
         let action = ActionSpec::GeneratePlaylists {
+            mta_source: None,
             filename_template: "same.m3u8".into(),
             partition_template: "%_filename%".into(),
         };
@@ -3684,6 +3724,7 @@ mod tests {
                     filename_template: "%_folderpath%Texts\\%album%.txt".into(),
                 },
                 ActionSpec::GeneratePlaylists {
+                    mta_source: None,
                     filename_template: "Lists\\%album%.m3u8".into(),
                     partition_template: String::new(),
                 },

@@ -56,6 +56,13 @@ playlist action listed before that rename sees the final values. Files with
 an earlier action warning still participate. Put it in a separate earlier
 group if an intermediate state is required.
 
+Action-group `.mta` exports use native action type 19 with separate filename
+and partition expressions. Older TagGroove type 1003 files remain readable.
+The action record does not carry the application's global playlist settings;
+check those settings in the receiving application before running an exchanged
+group. Native schema support does not establish matching output encoding or
+player acceptance on every platform.
+
 ## Gotchas
 
 - The action includes selected files, not every track in the folder.

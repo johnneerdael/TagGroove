@@ -22,20 +22,31 @@ repairs. Their original-runtime acceptance remains with those records; these
 implemented behaviors have left active intake. See the [local closeout evidence](verification/local-parity-closeout-2026-10-19.md)
 and [OS/device handover register](handover/PARITY-OTHER-MACHINES.md).
 
+C58–C60 represent accessible toolbar-band placement, ordinary saved-only list
+restart and loaded-row regional-date refresh. Their native macOS journeys are
+still locally executable and pending; Windows/Linux and original acceptance
+remain separate. See the [daily-workflow receipt](verification/daily-workflows-2026-10-19.md).
+
+C57 covers the canonical native action-file schemas and bounded source-preserving
+export compatibility. Original generated-file/readback and native acceptance remain
+with [its implementation record](research/remaining-gaps.md#c57).
+
+C47 also covers the implemented and documented direct-executable route for
+arguments sent to a running macOS app. Historical L69 now retains only actual
+macOS runtime qualification under that record; it is not missing launch code.
+
 Windows-specific work and original Windows captures are **deferred by the owner**. Retain those requirements as unqualified; continue the cross-platform work without treating deferral as completion.
 
 ## Uncovered work
 
 | ID | Area | Actionable remainder | Evidence |
 | --- | --- | --- | --- |
-| L02 | Toolbars | Implement or document an independently justified equivalent for movable toolbar bands; both bands currently have fixed placement. | [Scope and evidence](research/remaining-gaps.md#l02) |
 | L03 | Menus | Settle the desktop File → Exit workflow; there is no File-menu item, while macOS has app-menu Quit. | [Scope and evidence](research/remaining-gaps.md#l03) |
 | L04 | Menus | Qualify Windows Properties versus the current Alt+Enter file-manager reveal route and choose the platform behavior from observed reference evidence. | [Scope and evidence](research/remaining-gaps.md#l04) |
 | L05 | Tag panel | Qualify a separate OS-window floating panel; the existing undocked panel is an in-window overlay. | [Scope and evidence](research/remaining-gaps.md#l05) |
 | L07 | Migration | Determine unsupported/undocumented columns.ini keys from populated original profiles; guided import does not extend the existing known-key parser. | [Scope and evidence](research/remaining-gaps.md#l07) |
 | L13 | Covers | Establish Original-format fallback for TIFF/unknown input; current Adjust Cover requires JPEG or PNG for these inputs. | [Scope and evidence](research/remaining-gaps.md#l13) |
 | L14 | Actions | Observe original Remove Fields Except behavior for unmapped PRIV/GEOB/chapter frames before changing their retention. | [Scope and evidence](research/remaining-gaps.md#l14) |
-| L17 | Action interchange | Implement the confirmed native Type 17/18/19 action-file schemas for Adjust Cover, Set Cover Properties and Generate Playlists, preserving legacy 1001–1003 records and option meaning. Renumbering alone is unsafe; original generated-file/re-import acceptance remains separate. | [Scope and evidence](research/remaining-gaps.md#l17) |
 | L18 | Mobile actions | Implement provider execution for in-place tag/embedded-artwork action groups, plus file, cover-file and rename actions. Only in-place validation exists; the managed command still rejects all action groups. Qualify actual device save-back separately. | [Scope and evidence](research/remaining-gaps.md#l18) |
 | L19 | Converters | Compare a nonmatching explicit Filename → Filename suffix: song.mp3 plus %1.flac currently becomes song.flac.mp3. Matching suffixes are already deduplicated ignoring case. | [Scope and evidence](research/remaining-gaps.md#l19) |
 | L20 | Converters | Compare positional Text File → Tag count-mismatch policy with the original; positional import still requires one record per selected file. Keyed lists already skip unselected records and leave unlisted files unchanged, so do not implement that support again. | [Scope and evidence](research/remaining-gaps.md#l20) |
@@ -53,7 +64,6 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 | L43 | Technical fields | Complete/qualify Musepack/WavPack %_vbr% and tag sizes for WAV, AIFF, MP4, Ogg, Matroska, ASF and DSD containers. | [Scope and evidence](research/remaining-gaps.md#l43) |
 | L46 | Covers | Qualify Linux drag-out and percent-encode file URIs before relaxing the current ASCII temporary-name restriction. | [Scope and evidence](research/remaining-gaps.md#l46) |
 | L47a | File list | Support/qualify inline filename moves to another folder and individually added-file Refresh after an external rename. | [Scope and evidence](research/remaining-gaps.md#l47a) |
-| L47b | File list | Persist ordinary manual order across sessions; local migration rollback snapshots are a separate scope. | [Scope and evidence](research/remaining-gaps.md#l47b) |
 | L47c | Saving | Compare save-on-move policy for editor Enter/Tab, Find, Select all and Select directory; these routes do not currently trigger it. | [Scope and evidence](research/remaining-gaps.md#l47c) |
 | L48 | File operations | Qualify temporary-playlist playback and a native folder-picker subfolder choice; Play currently opens each file separately and the native picker has no subfolders checkbox. | [Scope and evidence](research/remaining-gaps.md#l48) |
 | L49 | Tag panel | Qualify the dropdown changing the working directory and format-string fields; the dropdown currently selects rows. Typed-directory Enter and automatic multi-selection defaults are already implemented. | [Scope and evidence](research/remaining-gaps.md#l49) |
@@ -66,15 +76,13 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 | L56b | Actions | Qualify EBCDIC/ISO-2022 and explicit Import Text File codepages, UTF-8-valid ANSI interpretation, quality preset numbers and default field lists; current supported choices are TagGroove policy. | [Scope and evidence](research/remaining-gaps.md#l56b) |
 | L57b | Migration | Establish semantics and implement confirmed mappings for unsupported original profile settings, including global/binary data and omitted tag-panel custom_values/prefer_tag options. Supported import/restart/restore acceptance remains under C12/C27. | [Scope and evidence](research/remaining-gaps.md#l57b) |
 | L58 | Updates | Provide/qualify downloading and installation of updates; the current check only offers the GitHub release. | [Scope and evidence](research/remaining-gaps.md#l58) |
-| L60 | Locale | Settle and implement immediate notification/reformatting of already-loaded lists after a system-locale/region change. C30 covers cache-hit reformatting and malformed-cache repair, and retains OS-transition acceptance. | [Scope and evidence](research/remaining-gaps.md#l60) |
 | L61 | Undo | Prevent confirmed Undo/Redo overwrites after same-object external audio edits restore size/mtime; choose and implement a stronger content baseline with staging, history and cost controls. C19 retains the separate Windows replacement-identity implementation and its acceptance limits. | [Scope and evidence](research/remaining-gaps.md#l61) |
 | L63 | Languages | Add independently authored, demand-led catalogs beyond English/Dutch/German and qualify complete localized journeys, Unicode/input and layout; original bundled count is 43, not an acceptance score. | [Scope and evidence](research/remaining-gaps.md#l63) |
 | L64 | Networking | Implement/qualify needed proxy authentication, SOCKS and PAC behavior while keeping credentials out of ordinary configuration backups. | [Scope and evidence](research/remaining-gaps.md#l64) |
 | L65 | Settings research | Establish meaning/equivalents for ConvFTFShowDlg, ConvFTTShowDlg, ConvTFFShowDlg, ConvTTFShowDlg, ConvReplaceShowDlg, ToolOverwriteDefault, CoverPopup and HideID3Bar; binary strings alone do not specify behavior. | [Scope and evidence](research/remaining-gaps.md#l65) |
 | L66 | Settings research | Determine whether ID3LeadingZeros denotes a global switch beyond the implemented numbering-wizard option. | [Scope and evidence](research/remaining-gaps.md#l66) |
 | L67 | Undo | Design/qualify desktop cross-session history retention and stale-baseline rejection. Ordinary history remains session-only; C54 represents the separate nonfatal journal-startup notice repair. | [Scope and evidence](research/remaining-gaps.md#l67) |
-| L69 | CLI | Qualify/document a usable running-macOS-app argument route; open -a … --args drops arguments to an existing process. | [Scope and evidence](research/remaining-gaps.md#l69) |
-| L70 | File opening | Register/qualify Windows and Linux file associations and installed file-open/upgrade identity. | [Scope and evidence](research/remaining-gaps.md#l70) |
+| L70 | File opening | Add Windows/Linux association declarations and qualify installed file opening and upgrade continuity; stable Windows installer identity is already configured. | [Scope and evidence](research/remaining-gaps.md#l70) |
 | L71 | Distribution | Qualify Windows signing, macOS signing/notarization and physical iOS distribution; current release packages are unsigned on Windows, ad-hoc on macOS and simulator-only on iOS. Physical iOS native-library compilation is implemented; it supplies no signed IPA, notarization or device-runtime evidence. | [Scope and evidence](research/remaining-gaps.md#l71) |
 | L72 | iOS documents | Implement/qualify provider picker, document access and save-back; runtime document access currently enables Android only. | [Scope and evidence](research/remaining-gaps.md#l72) |
 | L73 | Extended Tags | Settle staged Keep changes versus disk Save with native input/navigation/close/cancel; immediate-save currently applies only when moving between files. | [Scope and evidence](research/remaining-gaps.md#l73) |
