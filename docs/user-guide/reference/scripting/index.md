@@ -107,6 +107,13 @@ empty. `''` supplies an apostrophe; it is not an empty string.
 | [`$uuid`](lists-metadata.md#uuid) | Generate a version-4 UUID |
 | [`$validate`](search-compare.md#validate) | Replace a defined set of forbidden filename characters |
 
+!!! note "Bringing formulas from Mp3tag"
+    This page describes current TagGroove behavior. Known compatibility gaps
+    remain in nested conditions, optional sections and predicate output.
+    TagGroove currently displays `1`/`0` for predicates and combines flags
+    differently from the inspected Mp3tag evaluator. Check imported formulas
+    in Preview before applying them to tags or filenames.
+
 ## Distinguish visible text, field availability and truth
 
 A function can return the text `0` while retaining a true flag inherited

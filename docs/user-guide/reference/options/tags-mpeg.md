@@ -63,7 +63,7 @@ When the complete metadata being saved is empty, Save removes the types selected
 
 Clearing visible text does not establish that every record is empty. Artwork, binary records, chapters or other retained native data can remain. Use **Remove tag…** when the intention is to remove selected tag types completely, and check those Remove switches first.
 
-Mp3tag's original reference specifically couples ID3v1 removal with removal of a dependent Lyrics3 tag. TagGroove has Lyrics3-aware raw-stream layout handling, but this guide has no verified equivalent guarantee for every MPEG removal path. Do not use the ID3v1 checkbox as a general Lyrics3-cleanup promise.
+Legacy Lyrics3 tags need special care. TagGroove currently leaves a dependent Lyrics3v2 block behind when removing ID3v1. An APE tag before that block can also be missing from the detected tag types, so selecting APE removal may leave it in the file. These are known compatibility gaps; the ID3v1 checkbox is not a complete Lyrics3-cleanup command.
 
 ## Related
 
@@ -72,4 +72,4 @@ Mp3tag's original reference specifically couples ID3v1 removal with removal of a
 - [Advanced settings](tags-advanced.md)
 - [Field mappings](tags-mapping.md)
 
-<!-- verified: crates/tag-core/src/preferences.rs MpegTagOptions; crates/tag-core/src/tag_policy.rs read_order, id3v1_sufficient, write, removed_kinds; crates/tag-core/src/raw_streams.rs mpeg_policy; crates/tag-core/src/mapping.rs latin1_lossy; crates/tag-core/tests/tag_policy.rs. Lyrics3 coupling remains explicitly unverified. -->
+<!-- verified: crates/tag-core/src/preferences.rs MpegTagOptions; crates/tag-core/src/tag_policy.rs read_order, id3v1_sufficient, write, removed_kinds; crates/tag-core/src/raw_streams.rs mpeg_policy; crates/tag-core/src/mapping.rs latin1_lossy; crates/tag-core/tests/tag_policy.rs. Lyrics3v2 dependency removal and hidden APE inventory are confirmed local gaps; original runtime remains unexecuted. -->

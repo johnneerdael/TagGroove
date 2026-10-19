@@ -8,6 +8,13 @@ text. That flag controls `$if`, `$if2`, `$and`, `$or` and `$not`.
     Follow [Format strings from zero](../../learn/format-strings-from-zero.md)
     for a worked field fallback before using this reference.
 
+!!! note "Bringing formulas from Mp3tag"
+    This page describes current TagGroove behavior. Known compatibility gaps
+    remain in nested conditions, optional sections and predicate output.
+    TagGroove currently displays `1`/`0` for predicates and combines flags
+    differently from the inspected Mp3tag evaluator. Check imported formulas
+    in Preview before applying them to tags or filenames.
+
 ## Understand what counts as true
 
 | Input to a condition | Flag |
