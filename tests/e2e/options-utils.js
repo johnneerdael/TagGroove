@@ -35,16 +35,26 @@
         await inv('save_settings', { settings });
         await inv('save_action_library', { library: { groups: [{ name: 'Append plus', enabled: true, actions: [{ type: 'format_value', field: 'COMMENT', template: '%comment%+' }] }], presets: [] } });
         await inv('remember_directories', { paths: [album] });
+        const captureWindow = async () => {
+          const state = await inv('profile_migration_status');
+          const preferences = Object.fromEntries(state.preference_keys.flatMap(key => { const value = localStorage.getItem(key); return value === null ? [] : [[key, value]]; }));
+          return { version: 2, preferences, workspace: JSON.parse(localStorage.getItem('opentag.workspace') || 'null') };
+        };
         const bundle = album + '/../opentag-configuration.json';
-        const count = await inv('export_configuration', { outputPath: bundle });
+        const exported = await inv('configuration_transfer_export', { outputPath: bundle, window: await captureWindow() });
         const changed = (await inv('load_settings')).settings; changed.general.natural_sort = false; changed.pages = {}; await inv('save_settings', { settings: changed });
-        const restored = await inv('import_configuration', { path: bundle });
+        // Validate the malformed input before Apply creates a pending receipt;
+        // otherwise a pending-state refusal could conceal missing validation.
+        let rejected = '';
+        try { await inv('configuration_transfer_preview', { path: album + '/sine-a.mp3', window: await captureWindow() }); } catch (e) { rejected = String(e); }
+        if (!rejected) throw new Error('an audio file was accepted as configuration');
+        const current = await captureWindow();
+        const reviewed = await inv('configuration_transfer_preview', { path: bundle, window: current, options: { files: null, preferences: true, workspace: false, export_assets: true }, mappings: [] });
+        const restored = await inv('configuration_transfer_apply', { token: reviewed.token, window: current });
+        if (!restored.pending) throw new Error('Reviewed restore did not retain a recovery receipt');
         const after = (await inv('load_settings')).settings;
         if (!after.general.natural_sort || after.pages.tools?.tools?.[0]?.path !== copy || after.pages.messages?.confirm_remove_tags !== false) throw new Error('settings not restored: ' + JSON.stringify(after.pages));
-        let rejected = '';
-        try { await inv('import_configuration', { path: album + '/sine-a.mp3' }); } catch (e) { rejected = String(e); }
-        if (!rejected) throw new Error('an audio file was accepted as configuration');
-        return `exported ${count} files, restored ${restored.join(',')}; invalid file rejected: ${rejected.slice(0, 60)}`;
+        return `exported ${exported.files} components, restored reviewed settings with pending recovery; invalid file rejected: ${rejected.slice(0, 60)}`;
       });
       if (results.some(r => r[0] === 'FAIL')) return await finish();
       sessionStorage.setItem('options-utils-stage', '2');
@@ -53,7 +63,7 @@
       return;
     }
     results.push(...JSON.parse(sessionStorage.getItem('options-utils-results') || '[]'));
-    await step('reload opens the previous directory from the restored configuration', async () => { await waitFor(() => rows().length >= 2, 15000, 'rows after reload'); return `${rows().length} rows`; });
+    await step('reload retains the current workspace and acknowledges reviewed settings-only recovery', async () => { await waitFor(() => rows().length >= 2 && row('sine-a.mp3') && row('sine-b.mp3'), 15000, 'retained rows after reload'); await waitFor(async () => !(await inv('profile_migration_status')).pending, 8000, 'setup recovery acknowledged'); return `${rows().length} retained rows; no pending recovery`; });
     await idle();
 
     await step('Options lists Messages, Tag Panel, Field Values and Tools pages', async () => {

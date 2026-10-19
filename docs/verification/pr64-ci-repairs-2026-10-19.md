@@ -19,7 +19,7 @@ The result below is local repair evidence; the failed CI run remains failed.
   refuse selected workspace Apply and allow reviewed settings-only restoration.
   Production policy and shared selection defaults are unchanged. See the
   [configuration receipt](portable-configuration-2026-10-18.md#windows-ci-test-domain-correction-2026-10-19).
-- macOS: all six failing native scripts reproduced locally on the repaired app
+- macOS: the six native scripts treated below reproduced their failures locally on the repaired app
   before the test updates. The table records their final runs on that same app.
 
 | Suite | Corrected test contract | Final phase | Passed |
@@ -74,3 +74,56 @@ domain or six native-script repairs. It is separate from GitHub Codex approval.
 A new exact-final-head GitHub CODE review and trusted current-main validation
 are required before merge. No local result proves native Windows/Linux reruns,
 release signing, notarization or publication.
+
+## Subsequent complete-run audit
+
+Run 39300072099 passed Android, tooling/save acceptance and documentation, but
+failed directory-history replay on Linux, an open-destination identity fixture
+on Windows, and three other Mac suites. Those three suites—options-utils,
+general-options and list-behaviour—were also failing in the first Mac job and
+were initially missed; the complete failure inventory is now audited. The six
+suites in this receipt passed on the second run.
+
+The [directory identity repair](history-directory-identity-2026-10-19.md)
+records deterministic reuse and real rollback reproductions, four passing new
+controls, complete current-source Rust validation, and the Windows fixture
+correction. The three native-script repairs now pass locally as recorded below. A fresh
+exact-head review and immutable CI remain required. Neither earlier run is overall green.
+
+## Remaining native contracts: second repair
+
+The unchanged options-utils, general-options and list-behaviour scripts reproduced
+their CI failures on the same isolated current-source debug app before correction.
+
+| Suite | Correction | Final result |
+| --- | --- | --- |
+| options-utils | Exercise current configuration export/preview/apply, explicit settings-only selection and production reload/acknowledgement. Reject invalid input before Apply can cause a pending-state refusal. | 13/13 |
+| general-options | Start the previous-directory case without the disposable ordinary-workspace snapshot, whose restored selection takes precedence. Keep inline completion and require its matching filtered list with aria-autocomplete both. | 15/15 |
+| list-behaviour | Require persisted manual mode while preserving a nonempty saved column sort and independent source rank. Retain keyboard/drag order, numbering and all save-on-move assertions. | 10/10 |
+
+Completing the manual-order test restores its intended starting order for later
+steps; the drag and Ctrl+N failures then disappear without changing production
+selection or save behavior. The scoped draft review found no blocking issue.
+
+A subsequent inventory covered all 27 suites from the actual CI workflow on the
+same repaired executable, and all 27 passed. The retained local runner initially
+omitted OPENTAG_E2E_BINARY for the launch-forwarding fixture, so that case did not
+launch; the corrected targeted run supplied the documented environment and
+passed. Those preparation failures and every original/intermediate failure are
+retained. The other passing suites were not repeated for that harness repair.
+
+Root: `taggroove-ci-native-round2-6x43lsie` under the authoring Mac temporary
+directory. `final-native-inventory.json` maps each suite to its executed driver,
+result and SHA-256; every production and final driver hash matches the current
+files. The app build/log root is `taggroove-ci-native-round2-build-kc2r4wuu`.
+The native executable SHA-256 is
+`2bf9d6655aa562b8957bc0a5719a3e385e1ceff6aede9ff3afacf2f1faabade0`;
+identifier `org.taggroove.editor.e2e.ciround2e2373403`, 1024×800 test window.
+
+This is scripted native WebKit/backend/file evidence. Physical input, original
+Mp3tag comparisons and other OS/device acceptance retain their separate limits.
+The full Rust workspace passes 1,517 tests/84 executables with 21 intentional
+ignores; strict workspace/all-target Clippy, formatting, TypeScript/Vite and the
+strict guide build pass for their bound current snapshots. Frontend production
+code is unchanged; its earlier 851-test local checkpoint belongs to c169e9ee.
+Full frontend/platform validation of the new head belongs to reviewed CI.

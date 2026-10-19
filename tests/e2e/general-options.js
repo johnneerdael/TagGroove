@@ -78,6 +78,9 @@
       if (results.some(r => r[0] === 'FAIL')) return await finish();
       sessionStorage.setItem('general-options-stage', '2');
       sessionStorage.setItem('general-options-results', JSON.stringify(results));
+      // This suite exercises previous-directory startup, without an ordinary
+      // exact-workspace snapshot taking precedence over Select added files.
+      localStorage.removeItem('opentag.workspace');
       location.reload();
       return;
     }
@@ -148,7 +151,8 @@
       artist.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'e' }));
       const completed = [artist.value, artist.selectionStart, artist.selectionEnd];
       if (completed.join() !== 'Test Artist,2,11') throw new Error('completed ' + completed.join());
-      if (artist.getAttribute('aria-autocomplete') !== 'inline') throw new Error('aria-autocomplete');
+      if (artist.getAttribute('aria-autocomplete') !== 'both') throw new Error('aria-autocomplete');
+      await waitFor(() => [...(document.getElementById(artist.getAttribute('aria-controls'))?.querySelectorAll('[role="option"]') || [])].some(option => option.textContent === 'Test Artist'), 3000, 'filtered Artist choices');
       if (document.querySelector('.dirty-count')) throw new Error('the completed value equals the saved one; nothing should be pending');
       await setOptions('general', [['pages.general.autocomplete', false]]);
       const plain = document.querySelector('.fields input[data-field="ARTIST"]');
