@@ -181,10 +181,10 @@ app-only extensions in exported `.mta` files. The group dialog labels this
 before export and repeats the notice after writing the file. Action names in
 the notice follow the current language; saved group names and export paths
 stay as entered. These three actions can round-trip in this app, but do not
-transfer to Mp3tag. Their
-original serialized identifiers/options have not yet been qualified; a shared
-action name does not establish file compatibility. Keep a separate group
-without these actions when transferring the supported mappings.
+transfer to Mp3tag. Native action identifiers and cover-option layouts differ
+from these exports. Changing action numbers by hand can change their meaning;
+it does not repair the exchange format. Keep a separate group without these
+actions when transferring the supported mappings.
 
 ## Keyboard controls in the group list
 

@@ -12,6 +12,8 @@ The catalog currently has **1533 section, functional-reference and authored acce
 
 Use [PARITY.md](PARITY.md#uncovered-work) for actionable work not covered by an inspected open or merged PR. The [coverage companion](research/remaining-gaps.md) records merged main `bb1c1ecb77c1fed424f054c88cedd55ed11cd069` after PRs49–63 merged, plus bounded represented work in consolidated draft PR64, with item-level exclusions/remainders. This inventory retains acceptance requirements even where implementation or test infrastructure is delivered or represented by an open PR. Neither these reference counts nor PR existence prove completed original-runtime, native-input, device or released-build qualification.
 
+The companion's [qualification register](research/remaining-gaps.md#qualification-of-implemented-scopes) keeps outstanding reference/platform verification out of implementation intake. Demonstrated behavior gaps remain actionable even within a represented feature: current examples include export-variable presence, Lyrics3v2 removal, playlist location identity and Undo's metadata-only external-change checks. The linked ledger and verification notes, rather than this historical requirements count, describe their current status.
+
 ## Capabilities beyond the reference scope
 
 These source-backed capabilities were previously listed in PARITY. Retain them as implementation inventory, with their existing platform and verification limits; they are not uncovered parity tasks or new runtime/release claims.

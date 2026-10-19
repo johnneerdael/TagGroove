@@ -1,5 +1,12 @@
 # Edit history, tag clipboard and Convert → Tag - Tag
 
+> Historical implementation checkpoint. Later Windows replacement-identity
+> support is recorded in [its scoped verification](undo-windows-identity-2026-10-18.md).
+> Same-object edits restoring size/mtime remain a confirmed separate gap; see
+> the [current history guide](../user-guide/guides/undo-history.md) and
+> [L61's current evidence](../research/remaining-gaps.md#l61). Older gap bullets
+> below retain this checkpoint's scope and are not a current implementation backlog.
+
 Branch `feat/edit-history`. Covers Mp3tag's Edit → Undo (Ctrl+Z), Redo
 (Ctrl+Y), Cut/Copy/Paste tag (Ctrl+X/C/V) and Convert → Tag - Tag (Alt+5).
 

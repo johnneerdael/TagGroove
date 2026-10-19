@@ -128,9 +128,15 @@ applications during a recovery attempt.
 On Windows, history also checks that a file has not been replaced by another
 file with the same size and modification date. If it cannot obtain the
 information needed for a safe snapshot, the operation can succeed without
-being recorded for Undo; read the **cannot be undone** notice. Editing the
-same file in place and restoring its size and date can still evade change
-detection. Keep an independent backup even when Undo is available.
+being recorded for Undo; read the **cannot be undone** notice.
+
+On the tested macOS filesystem, an external in-place audio edit that restores
+the recorded file size and modification date passes the current change checks.
+Undo or Redo can then replace that edit with a whole-file snapshot without an
+error. These operations restore audio as well as tags; do not use them to merge
+an external program's edits. Preserve an independent copy of those edits before
+using an older TagGroove history step. Redo is not a guaranteed recovery route
+for every external change.
 
 A failed or canceled batch is not automatically rolled back. Completed writes
 can remain, while files never processed can retain pending edits. Inspect

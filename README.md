@@ -10,13 +10,15 @@
 
 **Tag, Organize, Enjoy.** An open source music tag editor for Windows, macOS, Linux, Android and iOS.
 
-An independently authored open source reconstruction of Mp3tag 3.36.1 using Tauri 2 and a Rust tagging engine. Exact feature and performance parity remain the project goal. `docs/PARITY.md` lists what is still missing and `docs/PERFORMANCE.md` has the measurements.
+An independently authored open source reconstruction of Mp3tag 3.36.1 using Tauri 2 and a Rust tagging engine. Exact feature and performance parity remain the project goal. The [parity ledger](docs/PARITY.md) lists missing behavior and unresolved semantics; [performance measurements](docs/PERFORMANCE.md) retain their tested scope.
 
 The desktop editor loads audio folders, edits common and extended multi-value tags, manages embedded covers, previews filename conversion, edits ordered action groups, numbers tracks, looks up tags from online sources, and exports through MTE templates and playlists. Audio edits stage and verify a copy before replacing the file. Generated fixture tests check preservation of audio packet hashes, unknown fields and covers across multiple formats. The supplied TagGroove brand kit provides the interface identity and platform icons.
 
+Current compatibility gaps include scripting/export-variable presence, cover/playlist action-file exchange, Lyrics3v2 removal and exact playlist filename readback. Undo also has a known limit when another program edits a file in place and restores its size and modification date. Review the [current remainders](docs/PARITY.md#uncovered-work) before migrating these workflows. Outstanding reference/platform checks for implemented features live separately in the [qualification register](docs/research/remaining-gaps.md#qualification-of-implemented-scopes).
+
 ## Download
 
-Get platform installers from the [latest GitHub release](https://github.com/johnneerdael/TagGroove/releases/latest). Every code merge to `main` publishes a new full release with all platform builds (versions `0.2.1`, `0.2.2`, …); the [parity ledger](docs/PARITY.md) lists what is still incomplete before 1.0. Release assets include checksums and identify their operating system and architecture.
+Get platform installers from the [latest GitHub release](https://github.com/johnneerdael/TagGroove/releases/latest). Reviewed merges that change shipping files enter the release pipeline; publication waits for all required packages, source archives and verification gates. Versions follow the `0.2.1`, `0.2.2`, … sequence; docs-only merges do not advance it. Release assets include checksums and identify their operating system and architecture.
 
 See [release automation](docs/RELEASING.md) for build targets, signing status and publishing instructions. Simulator previews are labeled separately from device installers.
 
