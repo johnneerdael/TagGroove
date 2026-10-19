@@ -133,6 +133,9 @@ path system. Folder separators follow the actual platform.
 
 </div>
 
+For a single individually loaded file or playlist, its containing folder supplies
+the root context, including `/` or a Windows drive root such as `C:\`.
+
 Relative placeholders use the single listed-root context when available. With
 multiple roots, no usable root, or a file outside that root, they can return
 absolute paths. If the file is directly in the root, its relative folder

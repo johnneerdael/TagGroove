@@ -22,6 +22,15 @@ test('source folder consumers use the containing folder of playlist and individu
   assert.deepEqual(sourceFolders(['/lists/album.m3u8','/music/one.wav','/collection'],new Set(['/music/one.wav'])),['/lists','/music','/collection']);
 });
 
+test('root-level POSIX files and playlists retain the filesystem root as folder context',()=>{
+  assert.deepEqual(sourceFolders(['/song.mp3','/album.m3u8','/'],new Set(['/song.mp3'])),['/','/','/']);
+});
+
+test('drive-root files and playlists retain an absolute Windows root with its separator',()=>{
+  assert.deepEqual(sourceFolders(['C:\\song.mp3','D:/song.mp3','C:\\album.pls','D:/album.xspf','C:\\'],new Set(['C:\\song.mp3','D:/song.mp3'])),['C:\\','D:/','C:\\','D:/','C:\\']);
+  assert.deepEqual(sourceFolders(['\\\\server\\share\\song.mp3','C:\\music\\song.mp3'],new Set(['\\\\server\\share\\song.mp3','C:\\music\\song.mp3'])),['\\\\server\\share','C:\\music']);
+});
+
 test('the existing row replacement policy retains source rank on parent/chapter transitions and partial row saves',()=>{
   const parent='/book.m4b',one=parent+'\u00011',two=parent+'\u00012',last='/last.wav';
   const expanded=replaceFileRows([parent,last],[last,one,two]);assert.deepEqual(expanded,[one,two,last]);
