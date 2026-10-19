@@ -5,7 +5,7 @@
   "directories": { "subfolders": true },
   "tags": {
     "mpeg": {
-      "read_id3v1": true, "read_id3v2": true, "read_ape": true,
+      "read_id3v1": true, "read_id3v2": true, "read_ape": false,
       "write_id3v1": true, "write_id3v2": true, "write_ape": false,
       "id3v2_only_if_needed": false, "id3v2_format": "v23_utf16",
       "remove_id3v1": true, "remove_id3v2": true, "remove_ape": true

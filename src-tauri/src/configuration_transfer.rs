@@ -2202,6 +2202,16 @@ mod tests {
         let target = root.path().join("target");
         configured(&source, false);
         configured(&target, true);
+        let mut source_settings = crate::settings::load(&source.join("settings.json")).0;
+        source_settings.tags.mpeg.read_ape = true;
+        crate::settings::save(&source.join("settings.json"), &source_settings).unwrap();
+        assert!(
+            !crate::settings::load(&target.join("settings.json"))
+                .0
+                .tags
+                .mpeg
+                .read_ape
+        );
         std::fs::write(
             target.join("tag-sources.json"),
             b"excluded credential container",
@@ -2243,8 +2253,22 @@ mod tests {
             std::fs::read(target.join("tag-sources.json")).unwrap(),
             b"excluded credential container"
         );
+        assert!(
+            crate::settings::load(&target.join("settings.json"))
+                .0
+                .tags
+                .mpeg
+                .read_ape
+        );
         let restored = engine::restore(&target, current.clone()).unwrap();
         assert_eq!(engine::native(&target).unwrap(), before);
+        assert!(
+            !crate::settings::load(&target.join("settings.json"))
+                .0
+                .tags
+                .mpeg
+                .read_ape
+        );
         assert_eq!(
             serde_json::to_value(restored).unwrap()["pending"]["window"],
             serde_json::to_value(current).unwrap()

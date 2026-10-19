@@ -473,6 +473,24 @@ class SaveAcceptance(unittest.TestCase):
         changed = next(case for case in receipt["cases"] if case["file"] == path.name and case["operation"] == "edit-one" and case["stage"] == "saved")
         self.assertEqual(changed["native_id3_difference_kind"], "serialization_only")
         self.assertIn("strict observed equality", receipt["comparison_interpretation"])
+    def test_policy_preserves_native_ape_with_policy_specific_display(self):
+        receipt = json.loads((self.root / "taggroove-results.json").read_text())
+        policy = receipt["mpeg_policy"]
+        native = {"mp3gain_undo": 'Text("+001,+001,N")',
+                  "mp3gain_minmax": 'Text("094,205")',
+                  "opaque_companion": "Binary([1, 0, 255, 17])"}
+        self.assertEqual(policy["default"]["native_ape_after"], native,
+                         "ordinary MPEG Save must retain native APE recovery data")
+        self.assertEqual(policy["explicit_write_ape"]["native_ape_after"], native)
+        self.assertFalse(policy["default"]["options"]["mpeg"]["read_ape"])
+        self.assertTrue(policy["explicit_write_ape"]["options"]["mpeg"]["read_ape"])
+        displayed = policy["default"]["displayed_after"]
+        self.assertEqual(displayed["REPLAYGAIN_TRACK_GAIN"], ["-7.25 dB"])
+        self.assertNotIn("MP3GAIN_UNDO", displayed)
+        self.assertNotIn("MP3GAIN_MINMAX", displayed)
+        self.assertEqual(policy["explicit_write_ape"]["displayed_after"]["REPLAYGAIN_TRACK_GAIN"],
+                         ["-3.00 dB"])
+
     def test_policy_verdict_rejects_lost_or_changed_displayed_gain_fields(self):
         invoke = harness.invoke
         for policy in ("default", "explicit_write_ape"):
@@ -486,11 +504,18 @@ class SaveAcceptance(unittest.TestCase):
                             result = invoke(executable, *args)
                             if args[0] == "policy":
                                 result = copy.deepcopy(result)
-                                displayed = result[policy]["displayed_after"]
-                                if fault == "missing":
-                                    displayed.pop(field)
+                                if policy == "default" and field != "REPLAYGAIN_TRACK_GAIN":
+                                    target = result[policy]["native_ape_after"]
+                                    key = field.lower()
+                                    value = 'Text("changed recovery data")'
                                 else:
-                                    displayed[field] = ["changed recovery data"]
+                                    target = result[policy]["displayed_after"]
+                                    key = field
+                                    value = ["changed recovery data"]
+                                if fault == "missing":
+                                    target.pop(key)
+                                else:
+                                    target[key] = value
                             return result
 
                         with mock.patch.object(harness, "invoke", corrupt_report):
@@ -499,7 +524,55 @@ class SaveAcceptance(unittest.TestCase):
                         self.assertTrue(all(not any(case["errors"].values()) for case in receipt["cases"]),
                                         "ordinary captures must still pass in this policy-only control")
                         self.assertFalse(receipt["mpeg_policy_passed"])
-                        self.assertIn("/" + field, receipt["mpeg_policy_gain_errors"][policy])
+                        if policy == "default" and field != "REPLAYGAIN_TRACK_GAIN":
+                            self.assertIn("/" + field.lower(), receipt["mpeg_policy_native_errors"][policy])
+                        else:
+                            self.assertIn("/" + field, receipt["mpeg_policy_gain_errors"][policy])
+
+    def test_policy_verdict_requires_the_explicit_ape_configuration(self):
+        invoke = harness.invoke
+        root = Path(self.temporary.name) / "missing-explicit-policy"
+        harness.prepare(root, self.executable)
+
+        def omit_configuration(executable, *args):
+            result = invoke(executable, *args)
+            if args[0] == "policy":
+                result = copy.deepcopy(result)
+                del result["explicit_write_ape"]
+            return result
+
+        with mock.patch.object(harness, "invoke", omit_configuration):
+            with self.assertRaisesRegex(ValueError, "MPEG policy report must contain exactly"):
+                harness.run(root, self.executable)
+        self.assertFalse((root / "taggroove-results.json").exists())
+
+    def test_policy_verdict_rejects_native_byte_and_history_failures(self):
+        invoke = harness.invoke
+        faults = [
+            ("default", "ape_bytes_unchanged", False),
+            ("default", "redo_exact", False),
+            ("explicit_write_ape", "redo_exact", False),
+            ("default", "redo_errors", ["replay failed"]),
+            ("explicit_write_ape", "history_notice", "Undo unavailable"),
+        ]
+        for policy, field, changed in faults:
+            with self.subTest(policy=policy, field=field):
+                root = Path(self.temporary.name) / f"native-{policy}-{field}"
+                harness.prepare(root, self.executable)
+
+                def corrupt_report(executable, *args):
+                    result = invoke(executable, *args)
+                    if args[0] == "policy":
+                        result = copy.deepcopy(result)
+                        result[policy][field] = changed
+                    return result
+
+                with mock.patch.object(harness, "invoke", corrupt_report):
+                    self.assertFalse(harness.run(root, self.executable)["passed"])
+                receipt = json.loads((root / "taggroove-results.json").read_text())
+                self.assertTrue(all(not any(case["errors"].values()) for case in receipt["cases"]),
+                                "ordinary captures must pass in this policy-only control")
+                self.assertFalse(receipt["mpeg_policy_passed"])
 
     def source_repository(self, ignore=None):
         repository = Path(self.temporary.name) / "workspace-repository"

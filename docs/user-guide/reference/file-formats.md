@@ -42,7 +42,7 @@ The **Mpeg** policy serves MPEG audio, raw AAC, and TTA. When several enabled ta
 
 The **Ape, Mpc** policy serves Monkey's Audio, Musepack, WavPack, TAK, and OptimFROG. APE takes priority over ID3v1. An ID3v2 prefix in these files can remain physically present even though this reading policy does not display it; choose its removal explicitly if needed.
 
-Saving can synchronize written types from the displayed values and remove a type selected for removal but not writing. Keep a copy before changing policies on files that intentionally contain conflicting tag blocks. ID3v1 is especially limited: it cannot preserve arbitrary long text, custom fields, multiple values, or embedded images. APEv1 reading does not mean new writes stay APEv1; the writer normally emits APEv2.
+Saving can synchronize written types from the displayed values. Under the **Mpeg** policy, unwritten types remain in the file; **Remove tag** uses separate removal switches. The **Ape, Mpc** policy retains its own write/remove interaction. Keep a copy before changing policies on files that intentionally contain conflicting tag blocks. ID3v1 is especially limited: it cannot preserve arbitrary long text, custom fields, multiple values, or embedded images. APEv1 reading does not mean new writes stay APEv1; the writer normally emits APEv2.
 
 ID3v2.3 UTF-16 is the default MPEG write representation, with v2.4 UTF-8 and legacy v2.3 Latin-1 available. An existing ID3v2 tag in non-MPEG containers follows that format's preservation rules rather than being blindly converted by the MPEG checkbox. DSF/DFF preserve an existing revision; a new tag uses the configured revision. Test the actual player/device before choosing a non-Unicode representation.
 
@@ -156,6 +156,10 @@ Live/unknown-sized cluster layouts can be read through their metadata index but 
 ### ASF and protected files
 
 ASF can contain attributes with binary types, language/stream scope, and values larger than 64 KiB. TagGroove preserves opaque structures it cannot expose as text; Remove tag intentionally does not mean erasing every ASF object. Older consuming readers may omit large Metadata Library values even when the file remains valid. Test long lyrics or large covers in the target player.
+
+Some admitted text can display replacement characters because its stored UTF-16 bytes are noncanonical. Editing another field preserves those untouched text and name bytes, including empty Content Description slots. Explicitly replacing the affected field writes a new Unicode value; removing it discards the stored record.
+
+ASF metadata headers above 512 MiB are refused. A supported header can belong to a larger audio file, whose write and Undo costs still depend on its layout and the history budgets.
 
 An extension such as `.m4p`, or encryption objects in ASF, does not establish DRM support. Editing a container's visible metadata cannot remove protection or guarantee protected playback. Damaged metadata, unsupported encrypted layouts, read-only sources, and access-provider restrictions can prevent a write even when the general family is listed.
 

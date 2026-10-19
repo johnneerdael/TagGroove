@@ -234,6 +234,42 @@ thread_local! {
 fn current_read_options() -> tag_core::TagOptions {
     CURRENT_READ_OPTIONS.with(|options| options.borrow().clone())
 }
+// Split fixture tag regions without using the production reader. A selected
+// ID3 write may change its prefix, while the unwritten APE and MPEG payload
+// must remain exactly the same through document publication and recovery.
+fn mpeg_regions(bytes: &[u8]) -> (&[u8], &[u8], &[u8]) {
+    let id3_end = if bytes.starts_with(b"ID3") {
+        assert!(bytes.len() >= 10);
+        10 + bytes[6..10].iter().fold(0usize, |size, byte| {
+            assert_eq!(byte & 0x80, 0);
+            (size << 7) | usize::from(*byte)
+        })
+    } else {
+        0
+    };
+    let ape_start =
+        if bytes.len() >= 32 && &bytes[bytes.len() - 32..bytes.len() - 24] == b"APETAGEX" {
+            let footer = &bytes[bytes.len() - 32..];
+            let size = u32::from_le_bytes(footer[12..16].try_into().unwrap()) as usize;
+            let flags = u32::from_le_bytes(footer[20..24].try_into().unwrap());
+            let start = bytes.len().checked_sub(size).unwrap();
+            if flags & 0x8000_0000 != 0 {
+                let start = start.checked_sub(32).unwrap();
+                assert_eq!(&bytes[start..start + 8], b"APETAGEX");
+                start
+            } else {
+                start
+            }
+        } else {
+            bytes.len()
+        };
+    assert!(id3_end < ape_start);
+    (
+        &bytes[..id3_end],
+        &bytes[id3_end..ape_start],
+        &bytes[ape_start..],
+    )
+}
 fn seed_conflicting_mpeg(f: &mut Fixture) {
     let path = f.files.path("content://test/source");
     let mut frames = Vec::new();
@@ -241,17 +277,25 @@ fn seed_conflicting_mpeg(f: &mut Fixture) {
         frames.extend([0xff, 0xfb, 0x90, 0x64]);
         frames.extend((0..413u32).map(|i| ((i + frame * 7) % 200) as u8));
     }
-    fs::write(&path, frames).unwrap();
+    fs::write(&path, &frames).unwrap();
     let mut options = tag_core::TagOptions::default();
     options.mpeg.write_id3v1 = false;
     options.mpeg.remove_ape = false;
     let values = |title: &str| BTreeMap::from([("TITLE".into(), vec![title.into()])]);
     tag_core::write_fields_with_options(&path, &values("ID3 title"), false, &[], &options).unwrap();
+    let id3_seed = fs::read(&path).unwrap();
+    let (id3, sound, ape) = mpeg_regions(&id3_seed);
+    assert!(!id3.is_empty() && ape.is_empty());
+    assert_eq!(sound, frames);
     options.mpeg.write_id3v2 = false;
     options.mpeg.write_ape = true;
     options.mpeg.remove_id3v2 = false;
     tag_core::write_fields_with_options(&path, &values("APE title"), false, &[], &options).unwrap();
     f.source = fs::read(&path).unwrap();
+    let (retained_id3, retained_sound, ape) = mpeg_regions(&f.source);
+    assert_eq!(retained_id3, id3);
+    assert_eq!(retained_sound, frames);
+    assert!(!ape.is_empty());
     let mut documents = f.files.0.docs.borrow_mut();
     let document = documents.get_mut("content://test/source").unwrap();
     document.name = "mapped.mp3".into();
@@ -263,9 +307,16 @@ fn provider_policy_import_reload_and_publish_use_selected_kind_and_mapping() {
     let mut f = Fixture::with_options(true, mapped_id3_options);
     seed_conflicting_mpeg(&mut f);
     let source = f.source.clone();
-    // Establish that the carrier actually has competing readable kinds.
+    // Fresh defaults read ID3; explicit opt-in independently reads the retained APE.
+    let path = f.files.path("content://test/source");
     assert_eq!(
-        tag_core::read_entry(&f.files.path("content://test/source"))
+        tag_core::read_entry(&path).unwrap().fields["TITLE"],
+        ["ID3 title"]
+    );
+    let mut ape_read = tag_core::TagOptions::default();
+    ape_read.mpeg.read_ape = true;
+    assert_eq!(
+        tag_core::read_entry_with_options(&path, &[], &ape_read)
             .unwrap()
             .fields["TITLE"],
         ["APE title"]
@@ -309,6 +360,29 @@ fn provider_policy_import_reload_and_publish_use_selected_kind_and_mapping() {
     assert!(!edited.fields.contains_key("TITLE"));
     assert_eq!(edited.technical["_PATH"], ["content://test/source"]);
     assert_eq!(f.store.states()[&entry.path].state, "ready");
+    let published = fs::read(&path).unwrap();
+    let (old_id3, old_sound, old_ape) = mpeg_regions(&source);
+    let (new_id3, new_sound, new_ape) = mpeg_regions(&published);
+    assert_ne!(
+        new_id3, old_id3,
+        "selected ID3 edit did not reach the carrier"
+    );
+    assert_eq!(new_sound, old_sound);
+    assert_eq!(
+        new_ape, old_ape,
+        "ID3 publication changed unwritten raw APE"
+    );
+    assert_eq!(fs::read(&entry.path).unwrap(), published);
+    assert_eq!(
+        tag_core::read_entry(&path).unwrap().fields["TITLE"],
+        ["Changed"]
+    );
+    assert_eq!(
+        tag_core::read_entry_with_options(&path, &[], &ape_read)
+            .unwrap()
+            .fields["TITLE"],
+        ["APE title"]
+    );
 }
 
 #[test]
@@ -317,8 +391,18 @@ fn provider_policy_current_options_apply_to_existing_handles_and_recovery() {
     let mut f = Fixture::with_options(true, current_read_options);
     seed_conflicting_mpeg(&mut f);
     let entry = f.import();
-    assert_eq!(entry.fields["TITLE"], ["APE title"]);
-    // A newly selected policy must affect a handle already imported under defaults.
+    assert_eq!(entry.fields["TITLE"], ["ID3 title"]);
+    // Explicit APE opt-in and then mapped ID3 both affect the same existing handle.
+    let mut ape_read = tag_core::TagOptions::default();
+    ape_read.mpeg.read_ape = true;
+    CURRENT_READ_OPTIONS.with(|options| *options.borrow_mut() = ape_read);
+    let ape_entry = f.store.read_working(Path::new(&entry.path)).unwrap();
+    assert_eq!(ape_entry.fields["TITLE"], ["APE title"]);
+    assert_eq!(fs::read(&entry.path).unwrap(), f.source);
+    assert_eq!(
+        fs::read(f.files.path("content://test/source")).unwrap(),
+        f.source
+    );
     CURRENT_READ_OPTIONS.with(|options| *options.borrow_mut() = mapped_id3_options());
     let working = f.store.read_working(Path::new(&entry.path)).unwrap();
     assert_eq!(
@@ -326,6 +410,7 @@ fn provider_policy_current_options_apply_to_existing_handles_and_recovery() {
         Some(&vec!["ID3 title".into()])
     );
     assert!(!working.fields.contains_key("TITLE"));
+    assert_eq!(fs::read(&entry.path).unwrap(), f.source);
     let selected_again = f.import();
     assert_eq!(selected_again.path, entry.path);
     assert_eq!(selected_again.fields, working.fields);

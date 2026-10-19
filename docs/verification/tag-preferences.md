@@ -1,6 +1,6 @@
 # Options dialog and tag preferences
 
-> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current uncovered list is the [parity ledger](../PARITY.md); the [coverage companion](../research/remaining-gaps.md) records represented and delivered scopes.
+> **Historical record with a current MPEG correction.** The original test counts and broad gap inventory below describe an earlier checkpoint. The MPEG behavior paragraphs are updated for the coherent read/default/Save correction; its [pinned native basis](mpeg-save-mask-static-2026-10-19.md) separates static evidence from local tests. The current uncovered list is the [parity ledger](../PARITY.md); the [coverage companion](../research/remaining-gaps.md) records represented scopes and retained acceptance limits.
 
 Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, plus the General, Files, Directories and Appearance settings that change behaviour. References: `customization/options/*`, `customization/options/tags/{mpeg,ape,advanced}`, `keyboard`.
 
@@ -16,10 +16,10 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
   - ID3v2 can be written as ID3v2.3 UTF-16, ID3v2.3 ISO-8859-1 (characters outside Latin-1 become `?`) or ID3v2.4 UTF-8.
   - Converting between revisions re-expresses the documented version-specific frames. TDRC ↔ TYER/TDAT/TIME, TDOR ↔ TORY and TIPL ↔ IPLS are converted. Fields without a native v2.3 frame, such as MOOD/TMOO, are converted between their native frame and TXXX.
   - "ID3v2 only if ID3v1 too small" writes ID3v2 only for an existing ID3v2 tag, values that do not fit ID3v1 (length, Latin-1, extra fields, multiple values), a user-defined genre, or artwork.
-  - Writing APEv2 upgrades an APEv1 tag to v2 and also updates an existing ID3v1 tag.
-- *Remove:* File → Remove tag (Ctrl+R) strips the selected kinds ([remove-mapping](remove-mapping.md)). Saving also strips a selected kind that is not being written.
+  - Writing APEv2 upgrades an APEv1 tag to v2. MPEG ID3v1 writing is independent; APE-only writing leaves an existing unwritten ID3v1 tag unchanged.
+- *Remove:* File → Remove tag (Ctrl+R) strips the selected kinds ([remove-mapping](remove-mapping.md)). Ordinary MPEG Save preserves unwritten kinds regardless of these switches. Empty supplied metadata can remove selected written kinds; empty updates to nonempty metadata are not a request to remove every tag.
 
-**Ape, Mpc (Monkey's Audio, Musepack, WavPack):** the same model with Read ID3v1/APE (APE has priority), Write ID3v1/APEv2, and Remove ID3v1/ID3v2/APE.
+**Ape, Mpc (Monkey's Audio, Musepack, WavPack):** Read ID3v1/APE (APE has priority), Write ID3v1/APEv2, and Remove ID3v1/ID3v2/APE. This family's existing Save/removal interaction and APE-write update of an existing ID3v1 tag are separate from the MPEG correction; native MPEG analysis does not establish this family's original policy.
 
 **Saving model.** The displayed tag is patched in place, so unknown native items survive. Every other kind being written receives the full displayed field set, and its fields that are absent from that set are removed, so all written kinds agree. A newly created kind starts from all displayed values and artwork. Covers follow the same write and remove sets.
 
@@ -44,7 +44,9 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
 - Lofty's strict parser rejected ID3v1 tags with an empty year (`\0\0\0\0`). Common taggers write that, and lofty writes it too. Only that error is now retried in relaxed mode.
 - Removing the last frame of an ID3v2.3 tag failed with "Invalid ID3 serialization header". Such tags are now removed.
 
-## Tests
+## Original test checkpoint (historical)
+
+The following counts and original test descriptions predate the MPEG correction; they do not define current acceptance. In particular, APE deletion and implicit MPEG ID3v1 updates were port-policy assertions, not original-app observations.
 
 - `crates/tag-core/tests/tag_policy.rs` (12 tests), using independently generated MPEG frames, with packet hashes when ffmpeg is present:
   - priority display
@@ -66,7 +68,7 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
 
 ## Known gaps and risks
 
-- **The complete original initial configuration has not been captured.** Official documentation does state the [comment-language default `eng`](https://docs.mp3tag.de/customization/options/tags/advanced/) and describes [ID3v1 plus ID3v2 writing for MP3](https://docs.mp3tag.de/getting-started/first-steps/). Those statements do not establish every selected read/write/remove, revision/encoding or reuse control in the pinned 3.36.1 installation. The defaults used are: write ID3v1 + ID3v2.3 UTF-16; read all kinds; remove every kind on MP3 and ID3v1 + APE on Ape/Mpc (changed 2026-10-15 so Remove tag removes everything by default; under the default write settings saving is unaffected); APEv2-only for Ape/Mpc; natural sort on; title shows the directory. These follow common Mp3tag configurations, not a captured original configuration. Removing APE on MP3 is kept as the default (decided 2026-10-14) because APE is read first: a stale APE tag would otherwise hide every ID3v2 edit on reload. To avoid losing gain data, `REPLAYGAIN_*` and `MP3GAIN_*` fields of a removed APE tag are carried into ID3v2 user frames (TXXX) unless ID3v2 already has them; a displayed APE tag's fields are mirrored into ID3v2 anyway. MP3Gain itself only reads its undo data from APE, so `MP3GAIN_UNDO` survives as text but is no longer usable by MP3Gain.
+- **The complete original initial configuration has not been captured at runtime.** The [pinned initializer and reader/writer evidence](mpeg-save-mask-static-2026-10-19.md) establishes a narrower static contract: MPEG read/write seeds `3`, removal seed `11`, and ID3v2.3 UTF-16 seed `1`; ordinary nonempty Save preserves unwritten tag kinds. Fresh port MPEG reading now excludes APE, while explicitly saved APE reading stays intact. Unwritten APE data remains native APE; the former hidden-gain-to-ID3 rescue is superseded rather than treated as equivalent preservation. Other settings, complete startup overrides, existing-frame encoding reuse and actual original runtime behavior remain unqualified. Official docs separately describe the [comment-language default `eng`](https://docs.mp3tag.de/customization/options/tags/advanced/) and [ID3v1 plus ID3v2 writing for MP3](https://docs.mp3tag.de/getting-started/first-steps/).
 - **Mirroring is a deliberate approximation.** Other written kinds mirror the displayed text fields, but they keep their own artwork unless artwork is edited or the kind is new. Mp3tag's in-memory single-tag model may also replace that artwork.
 - **ID3v2 on Ape/Mpc files** is not displayed: the docs list only ID3v1/APE reads. It is removable.
 - **Not implemented (listed rather than shown as dead controls):**

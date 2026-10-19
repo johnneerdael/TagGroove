@@ -81,6 +81,12 @@ const MAX_HEADER: u64 = 512 * 1024 * 1024;
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Value {
     Unicode(String),
+    /// Admitted text whose original encoding is not reproduced by UTF-16LE
+    /// encoding its display value. Explicit edits create `Unicode` instead.
+    UnicodeOriginal {
+        display: String,
+        raw: Vec<u8>,
+    },
     Bytes(Vec<u8>),
     Bool(bool),
     Dword(u32),
@@ -107,6 +113,8 @@ pub(super) enum Location {
 pub(super) struct Attribute {
     pub(super) name: String,
     pub(super) value: Value,
+    // Per-occurrence provenance; distinct names can have the same lossy view.
+    pub(super) original_name: Option<Vec<u8>>,
     pub(super) stream: u16,
     pub(super) language: u16,
     /// Where the attribute was read from. New or edited attributes have none
@@ -118,10 +126,30 @@ impl Attribute {
         Self {
             name: name.into(),
             value,
+            original_name: None,
             stream: 0,
             language: 0,
             location: None,
         }
+    }
+
+    fn encoded_name(&self) -> Vec<u8> {
+        self.original_name
+            .clone()
+            .unwrap_or_else(|| utf16z(&self.name))
+    }
+
+    // Content's empty slots are not visible fields, but their original bytes
+    // must survive sibling edits. Keeping them as occurrences also makes an
+    // explicit field removal discard provenance rather than resurrect it.
+    pub(super) fn empty_content_slot(&self) -> bool {
+        self.location == Some(Location::Content)
+            && match &self.value {
+                Value::Unicode(text) | Value::UnicodeOriginal { display: text, .. } => {
+                    text.is_empty()
+                }
+                _ => false,
+            }
     }
 }
 
@@ -252,6 +280,22 @@ pub(super) fn utf16z(text: &str) -> Vec<u8> {
         .collect()
 }
 
+fn decode_text(data: &[u8]) -> Value {
+    let display = utf16(data);
+    if utf16z(&display) == data {
+        Value::Unicode(display)
+    } else {
+        Value::UnicodeOriginal {
+            display,
+            raw: data.to_vec(),
+        }
+    }
+}
+
+fn original_name(name: &str, raw: &[u8]) -> Option<Vec<u8>> {
+    (utf16z(name) != raw).then(|| raw.to_vec())
+}
+
 fn decode_value(kind: u16, data: &[u8], location: Location) -> Value {
     let other = || Value::Other {
         kind,
@@ -259,7 +303,7 @@ fn decode_value(kind: u16, data: &[u8], location: Location) -> Value {
     };
     let bool_size = if location == Location::Extended { 4 } else { 2 };
     match (kind, data.len()) {
-        (0, _) => Value::Unicode(utf16(data)),
+        (0, _) => decode_text(data),
         (1, _) => Value::Bytes(data.to_vec()),
         (2, n) if n == bool_size && data[0] <= 1 && data[1..].iter().all(|b| *b == 0) => {
             Value::Bool(data[0] == 1)
@@ -276,6 +320,7 @@ fn decode_value(kind: u16, data: &[u8], location: Location) -> Value {
 fn encode_value(value: &Value, location: Location) -> (u16, Vec<u8>) {
     match value {
         Value::Unicode(text) => (0, utf16z(text)),
+        Value::UnicodeOriginal { raw, .. } => (0, raw.clone()),
         Value::Bytes(data) => (1, data.clone()),
         Value::Bool(flag) if location == Location::Extended => {
             (2, u32::from(*flag).to_le_bytes().to_vec())
@@ -296,12 +341,13 @@ fn parse_content(body: &[u8], output: &mut Vec<Attribute>) -> Result<(), ErrorCa
         *length = reader.u16()?.into();
     }
     for (name, length) in CONTENT_NAMES.iter().zip(lengths) {
-        let text = utf16(reader.take(length)?);
-        // Absent fields are stored as empty strings.
-        if !text.is_empty() {
+        let raw = reader.take(length)?;
+        // Zero-length slots need no provenance: the encoder's absent slot is
+        // already zero-length. Nonzero empty slots remain hidden occurrences.
+        if !raw.is_empty() {
             output.push(Attribute {
                 location: Some(Location::Content),
-                ..Attribute::new(name, Value::Unicode(text))
+                ..Attribute::new(name, decode_text(raw))
             });
         }
     }
@@ -311,12 +357,14 @@ fn parse_extended(body: &[u8], output: &mut Vec<Attribute>) -> Result<(), ErrorC
     let mut reader = Reader::new(body);
     for _ in 0..reader.u16()? {
         let name_length = reader.u16()?.into();
-        let name = utf16(reader.take(name_length)?);
+        let raw_name = reader.take(name_length)?;
+        let name = utf16(raw_name);
         let kind = reader.u16()?;
         let length = reader.u16()?.into();
         let value = decode_value(kind, reader.take(length)?, Location::Extended);
         output.push(Attribute {
             location: Some(Location::Extended),
+            original_name: original_name(&name, raw_name),
             ..Attribute::new(&name, value)
         });
     }
@@ -334,9 +382,11 @@ fn parse_metadata(
         let name_length = reader.u16()?.into();
         let kind = reader.u16()?;
         let length = usize::try_from(reader.u32()?).map_err(ErrorCause::external)?;
-        let name = utf16(reader.take(name_length)?);
+        let raw_name = reader.take(name_length)?;
+        let name = utf16(raw_name);
         let value = decode_value(kind, reader.take(length)?, location);
         output.push(Attribute {
+            original_name: original_name(&name, raw_name),
             name,
             value,
             stream,
@@ -609,10 +659,13 @@ impl Asf {
                         .ok_or_else(|| {
                             ErrorCause::owned("Invalid Content Description attribute")
                         })?;
-                    let Value::Unicode(text) = &attribute.value else {
+                    if !matches!(
+                        attribute.value,
+                        Value::Unicode(_) | Value::UnicodeOriginal { .. }
+                    ) {
                         return Err(ErrorCause::owned("Content Description values must be text"));
-                    };
-                    values[i] = utf16z(text);
+                    }
+                    values[i] = encode_value(&attribute.value, location).1;
                 }
                 for value in &values {
                     let length = u16::try_from(value.len()).map_err(|_| too_many())?;
@@ -626,7 +679,7 @@ impl Asf {
                 let count = u16::try_from(attributes.len()).map_err(|_| too_many())?;
                 body.extend(count.to_le_bytes());
                 for attribute in attributes {
-                    let name = utf16z(&attribute.name);
+                    let name = attribute.encoded_name();
                     let (kind, data) = encode_value(&attribute.value, location);
                     body.extend(
                         u16::try_from(name.len())
@@ -653,7 +706,7 @@ impl Asf {
                     encode_value(&attribute.value, location).1.len() > usize::from(u16::MAX)
                 });
                 for attribute in attributes {
-                    let name = utf16z(&attribute.name);
+                    let name = attribute.encoded_name();
                     let (kind, data) = encode_value(&attribute.value, location);
                     body.extend(attribute.language.to_le_bytes());
                     body.extend(attribute.stream.to_le_bytes());

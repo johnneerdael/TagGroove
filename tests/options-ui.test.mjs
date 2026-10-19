@@ -8,6 +8,23 @@ const ui=await import(`data:text/javascript;base64,${Buffer.from(js).toString('b
 const fixture=JSON.parse(await readFile(new URL('./fixtures/default-settings.json',import.meta.url),'utf8'));
 const draft=(change=()=>{})=>{const value={...ui.defaultSettings(),appearance:'system'};change(value);return value;};
 
+test('fresh MPEG read excludes APE while saved opt-in and the APE-family controls remain distinct',async()=>{
+  const {Window}=await import('happy-dom'),window=new Window();
+  try{
+    const mpeg=ui.pageTree().find(({page})=>page.id==='tags-mpeg').page;
+    const ape=ui.pageTree().find(({page})=>page.id==='tags-ape').page;
+    const render=value=>{window.document.body.innerHTML=[mpeg,ape].flatMap(page=>page.controls.map(control=>ui.controlMarkup(control,value))).join('');};
+    render(draft());
+    const control=path=>window.document.querySelector(`[data-option="${path}"]`);
+    assert.equal(control('tags.mpeg.read_ape').checked,false);
+    assert.equal(control('tags.ape.read_ape').checked,true);
+    assert.equal(control('tags.mpeg.write_ape').closest('label').textContent.trim(),'APEv2');
+    assert.equal(control('tags.ape.write_ape').closest('label').textContent.trim(),'APEv2 (also updates an existing ID3v1 tag)');
+    render(draft(value=>{value.tags.mpeg.read_ape=true;}));
+    assert.equal(control('tags.mpeg.read_ape').checked,true);
+  }finally{await window.happyDOM.abort();}
+});
+
 test('frontend defaults match the backend defaults fixture',()=>{
   assert.deepEqual(ui.defaultSettings(),fixture);
 });
@@ -25,7 +42,7 @@ test('registered pages are ordered under their parent, orphans become top-level 
 });
 test('paths read and create nested values, including extension page storage',()=>{
   const value=draft();
-  assert.equal(ui.getPath(value,'tags.mpeg.read_ape'),true);
+  assert.equal(ui.getPath(value,'tags.mpeg.read_ape'),false);
   assert.equal(ui.getPath(value,'pages.missing.value'),undefined);
   ui.setPath(value,'pages.tag-panel.fields',['TITLE']);ui.setPath(value,'tags.mpeg.id3v2_format','v24_utf8');
   assert.deepEqual(value.pages,{'tag-panel':{fields:['TITLE']}});assert.equal(value.tags.mpeg.id3v2_format,'v24_utf8');
@@ -51,7 +68,7 @@ test('controls render current values, dependent enabling and escaped labels',()=
   const mpeg=ui.pageTree().find(({page})=>page.id==='tags-mpeg').page;
   const markup=d=>mpeg.controls.map(c=>ui.controlMarkup(c,d)).join('');
   const defaults=markup(draft());
-  assert.match(defaults,/data-option="tags\.mpeg\.read_ape" checked/);
+  assert.match(defaults,/data-option="tags\.mpeg\.read_ape"\s*>/);
   assert.match(defaults,/data-option="tags\.mpeg\.id3v2_only_if_needed"\s+>/);
   assert.match(defaults,/value="v23_utf16" checked/);
   const disabled=markup(draft(d=>{d.tags.mpeg.write_id3v1=false;d.tags.mpeg.write_id3v2=false;}));
@@ -82,4 +99,21 @@ test('associated files has a saved opt-in policy with an unchecked default',()=>
   assert.match(markup(draft()),/data-option="pages\.files\.associated_files"\s*>/);
   assert.match(markup(draft(value=>{value.pages.files={associated_files:true};})),/data-option="pages\.files\.associated_files" checked/);
   assert.match(markup(draft()),/Copy, other converters and action-driven renames do not use this option/);
+});
+
+test('actual Options dialog retains saved MPEG APE opt-in until explicit page reset',async()=>{
+  const {Window}=await import('happy-dom'),window=new Window();
+  const globals={document:window.document,window,Element:window.Element,HTMLElement:window.HTMLElement,HTMLInputElement:window.HTMLInputElement,CSS:window.CSS,getComputedStyle:window.getComputedStyle.bind(window)};
+  const previous=Object.fromEntries(Object.keys(globals).map(key=>[key,globalThis[key]]));Object.assign(globalThis,globals);
+  try{
+    const saved=ui.defaultSettings();saved.tags.mpeg.read_ape=true;saved.tags.ape.read_ape=false;saved.general.natural_sort=false;
+    const writes=[];const controller=new ui.OptionsUI({load:async()=>({settings:structuredClone(saved),defaults:ui.defaultSettings()}),save:async value=>{writes.push(structuredClone(value));return{settings:value,defaults:ui.defaultSettings()};},appearance:{get:()=> 'system',set:()=>{}},applied:async()=>{}});
+    await controller.open('tags-mpeg');
+    assert.equal(window.document.querySelector('[data-option="tags.mpeg.read_ape"]').checked,true);
+    assert.deepEqual(writes,[]);window.document.querySelector('#options-defaults').click();
+    assert.equal(window.document.querySelector('[data-option="tags.mpeg.read_ape"]').checked,false);
+    window.document.querySelector('#options-ok').click();await window.happyDOM.whenAsyncComplete();
+    assert.equal(writes.length,1);assert.equal(writes[0].tags.mpeg.read_ape,false);
+    assert.equal(writes[0].tags.ape.read_ape,false);assert.equal(writes[0].general.natural_sort,false);
+  }finally{await window.happyDOM.abort();for(const [key,value]of Object.entries(previous)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });

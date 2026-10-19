@@ -641,6 +641,45 @@ fn ffmpeg_generated_format_matrix_roundtrips_without_changing_audio_packets() {
     }
 }
 
+// Observe one physical APE item from its bounded tail/footer, independently
+// of the production reader and Lofty's decoded tag view. ID3v1 may follow it.
+fn raw_ape_item(bytes: &[u8], wanted: &[u8]) -> (Vec<u8>, u32, Vec<u8>) {
+    let end = if bytes.len() >= 128 && &bytes[bytes.len() - 128..bytes.len() - 125] == b"TAG" {
+        bytes.len() - 128
+    } else {
+        bytes.len()
+    };
+    assert!(end >= 32);
+    let footer = end - 32;
+    assert_eq!(&bytes[footer..footer + 8], b"APETAGEX");
+    let word = |at: usize| u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());
+    assert_eq!(word(footer + 8), 2000);
+    let size = word(footer + 12) as usize;
+    assert!(size >= 32 && size <= end);
+    let mut at = end - size;
+    let count = word(footer + 16) as usize;
+    assert!(count <= (footer - at) / 9);
+    let mut found = Vec::new();
+    for _ in 0..count {
+        assert!(footer - at >= 9);
+        let length = word(at) as usize;
+        let flags = word(at + 4);
+        at += 8;
+        let name_length = bytes[at..footer].iter().position(|b| *b == 0).unwrap();
+        let name = bytes[at..at + name_length].to_vec();
+        at += name_length + 1;
+        assert!(length <= footer - at);
+        let data = bytes[at..at + length].to_vec();
+        at += length;
+        if name == wanted {
+            found.push((name, flags, data));
+        }
+    }
+    assert_eq!(at, footer);
+    assert_eq!(found.len(), 1);
+    found.pop().unwrap()
+}
+
 #[test]
 fn native_vorbis_custom_text_and_ape_binary_survive_unrelated_changes() {
     use std::process::Command;
@@ -712,9 +751,25 @@ fn native_vorbis_custom_text_and_ape_binary_survive_unrelated_changes() {
         .unwrap(),
     );
     ape.save_to_path(&mp3, WriteOptions::default()).unwrap();
-    // Mp3tag removes APE from MPEG files by default; keep it as a written kind.
+    // This case edits the displayed native APE tag. Unwritten APE retention
+    // under the default MPEG read/write policy has separate policy coverage.
     let mut options = tag_core::TagOptions::default();
+    options.mpeg.read_ape = true;
     options.mpeg.write_ape = true;
+    assert_eq!(
+        tag_core::read_entry_with_options(&mp3, &[], &options)
+            .unwrap()
+            .fields["Unmanaged_Case_Field"],
+        ["first", "second"]
+    );
+    let original_binary = raw_ape_item(&fs::read(&mp3).unwrap(), b"Unmanaged Binary");
+    assert_eq!(original_binary.0, b"Unmanaged Binary");
+    assert_eq!(
+        (original_binary.1 >> 1) & 3,
+        1,
+        "fixture must contain a physical binary item"
+    );
+    assert_eq!(original_binary.2, [0, 1, 2, 255]);
     tag_core::write_fields_with_options(
         &mp3,
         &fields(&[("TITLE", &["Changed"])]),
@@ -738,7 +793,14 @@ fn native_vorbis_custom_text_and_ape_binary_survive_unrelated_changes() {
         &ItemValue::Text("first\0second".into())
     );
     assert_eq!(
-        read_entry(&mp3).unwrap().fields["Unmanaged_Case_Field"],
+        raw_ape_item(&fs::read(&mp3).unwrap(), b"Unmanaged Binary"),
+        original_binary,
+        "unrelated native APE edit changed the physical binary name, flags or data"
+    );
+    assert_eq!(
+        tag_core::read_entry_with_options(&mp3, &[], &options)
+            .unwrap()
+            .fields["Unmanaged_Case_Field"],
         ["first", "second"]
     );
 }

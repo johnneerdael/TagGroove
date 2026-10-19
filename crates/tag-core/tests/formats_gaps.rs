@@ -726,6 +726,7 @@ fn headerless_ape(items: &[(&str, &str)]) -> Vec<u8> {
 }
 fn ape_only() -> TagOptions {
     let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
     options.mpeg.write_ape = true;
     options.mpeg.remove_ape = false;
     options.mpeg.write_id3v1 = false;
@@ -735,6 +736,7 @@ fn ape_only() -> TagOptions {
 }
 fn id3v2_only() -> TagOptions {
     let mut options = TagOptions::default();
+    options.mpeg.read_ape = true;
     options.mpeg.write_ape = false;
     options.mpeg.remove_ape = false;
     options.mpeg.write_id3v1 = false;
@@ -754,7 +756,9 @@ fn adts_after_junk_is_a_raw_aac_stream() {
     let path = dir.path().join("junk.aac");
     fs::write(&path, &bytes).unwrap();
 
-    let entry = read_entry(&path).unwrap();
+    let mut ape_read = TagOptions::default();
+    ape_read.mpeg.read_ape = true;
+    let entry = read_entry_with_options(&path, &[], &ape_read).unwrap();
     assert_eq!(entry.format, "AAC");
     assert_eq!(technical(&entry, "_CODEC"), "AAC");
     assert_eq!((entry.sample_rate, entry.channels), (44_100, 2));
@@ -765,6 +769,7 @@ fn adts_after_junk_is_a_raw_aac_stream() {
     // The APE/ID3v1 policy applies; junk and frames are kept as they are.
     let mut options = TagOptions::default();
     options.mpeg.write_ape = true;
+    options.mpeg.read_ape = true;
     options.mpeg.remove_ape = false;
     write_fields_with_options(
         &path,
@@ -795,7 +800,7 @@ fn headerless_apev2_tags_are_read_and_written_without_losing_audio() {
     ] {
         let path = dir.path().join(name);
         fs::write(&path, [stream.as_slice(), &ape].concat()).unwrap();
-        let entry = read_entry(&path).unwrap();
+        let entry = read_entry_with_options(&path, &[], &ape_only()).unwrap();
         assert_eq!(
             value(&entry, "TITLE").as_deref(),
             Some("APE title"),
@@ -865,7 +870,7 @@ fn tag_inside_ape_items_is_not_taken_for_id3v1() {
     let path = dir.path().join("collide.mp3");
     fs::write(&path, &original).unwrap();
 
-    let entry = read_entry(&path).unwrap();
+    let entry = read_entry_with_options(&path, &[], &ape_only()).unwrap();
     assert_eq!(value(&entry, "COMMENT").as_deref(), Some(comment.as_str()));
     assert!(!technical(&entry, "_TAG").contains("ID3v1"));
     assert_eq!(technical(&entry, "_TAG_READ"), "APEv2");
@@ -935,7 +940,10 @@ fn a_131_byte_ape_tag_keeps_its_header() {
     .unwrap();
     assert!(fs::read(&path).unwrap().ends_with(&original));
     assert_eq!(
-        value(&read_entry(&path).unwrap(), "ENCODER"),
+        value(
+            &read_entry_with_options(&path, &[], &ape_only()).unwrap(),
+            "ENCODER"
+        ),
         Some("L".repeat(51))
     );
 }

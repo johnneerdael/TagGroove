@@ -528,6 +528,30 @@ mod tests {
     }
 
     #[test]
+    fn fresh_partial_mpeg_read_defaults_preserve_explicit_saved_ape_opt_in() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        for contents in [r#"{}"#, r#"{"tags":{"mpeg":{"read_id3v1":true}}}"#] {
+            fs::write(&path, contents).unwrap();
+            let (settings, warning) = load(&path);
+            assert!(warning.is_none());
+            assert!(!settings.tags.mpeg.read_ape);
+            assert!(settings.tags.ape.read_ape);
+        }
+        fs::write(
+            &path,
+            r#"{"tags":{"mpeg":{"read_ape":true},"ape":{"read_ape":false}}}"#,
+        )
+        .unwrap();
+        let (settings, warning) = load(&path);
+        assert!(warning.is_none());
+        assert!(settings.tags.mpeg.read_ape);
+        assert!(!settings.tags.ape.read_ape);
+        save(&path, &settings).unwrap();
+        assert_eq!(load(&path), (settings, None));
+    }
+
+    #[test]
     fn defaults_match_the_frontend_fixture() {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../../tests/fixtures/default-settings.json"))

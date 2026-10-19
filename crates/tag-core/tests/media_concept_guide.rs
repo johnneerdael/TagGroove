@@ -1,4 +1,4 @@
-//! Execute the concept pages' stored metadata and migration examples.
+//! Execute the concept pages' stored metadata and preservation examples.
 use lofty::{
     ape::{ApeItem, ApeTag},
     config::WriteOptions,
@@ -144,11 +144,12 @@ fn four_written_gain_values_roundtrip_as_metadata_and_explicit_deletion_removes_
     }
 }
 #[test]
-fn written_undisplayed_ape_migration_preserves_existing_id3_gain_precedence() {
+fn written_undisplayed_ape_preservation_keeps_gains_in_their_original_kinds() {
     for page in forms(GAIN) {
         let cases = rows(&page, "replaygain-concept-migration");
         assert_eq!(cases.len(), 3);
         for row in cases {
+            assert_eq!(row.len(), 4);
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("hidden-ape.mp3");
             let audio = mp3(&path);
@@ -193,9 +194,19 @@ fn written_undisplayed_ape_migration_preserves_existing_id3_gain_precedence() {
             } else {
                 assert_eq!(entry.fields["REPLAYGAIN_TRACK_GAIN"], [code(row[2])]);
             }
-            assert!(!entry.technical["_TAG"]
+            assert!(entry.technical["_TAG"]
                 .iter()
                 .any(|value| value.contains("APE")));
+            let mut ape_view = options.clone();
+            ape_view.mpeg.read_ape = true;
+            let retained = read_entry_with_options(&path, &[], &ape_view).unwrap();
+            assert_eq!(retained.fields["TITLE"], ["Unshown APE title"]);
+            assert!(!retained.fields.contains_key("ARTIST"));
+            if row[3] == "Absent" {
+                assert!(!retained.fields.contains_key("REPLAYGAIN_TRACK_GAIN"));
+            } else {
+                assert_eq!(retained.fields["REPLAYGAIN_TRACK_GAIN"], [code(row[3])]);
+            }
             retains_audio(&path, &audio);
         }
     }

@@ -112,6 +112,20 @@ test('suggested sorting pairs files by length or title, then keeps selection ord
   assert.deepEqual(suggestByTitle(tracks, [file('n', {name: '???'})]), ['n', null, null]);
 });
 
+test('web-source duration contract feeds production matching, display and ordinary LENGTH apply', async () => {
+  // Rust checks its actual engine/release DTO against this same literal contract.
+  // These are producer/consumer layers, not a joined process or physical save.
+  const fixture = JSON.parse(await readFile(new URL('./fixtures/web-source-length-contract.json', import.meta.url), 'utf8'));
+  assert.equal(fixture.version, 1);
+  const source = fixture.expected_release;
+  const slots = initialSlots(source.tracks, fixture.files, 'length');
+  assert.deepEqual(slots, fixture.expected_slots);
+  assert.deepEqual(source.tracks.map(track => duration(track.length)), fixture.expected_duration_labels);
+  assert.equal(fieldRows(source).find(row => row.name === 'LENGTH').perTrack, false);
+  assert.equal(fieldRows(source).some(row => row.name === '_LENGTH'), false);
+  assert.deepEqual(buildApplyItems(source, slots, new Set(['LENGTH'])), fixture.expected_apply_items);
+});
+
 test('edited values apply to the album, every track or one track', () => {
   const source = release([track(1, 1, 'One', {ARTIST: ['A']}), track(1, 2, 'Two', {ARTIST: ['A']})]);
   assert.deepEqual(splitValues(' House \\\\ Disco \\\\  '), ['House', 'Disco']);

@@ -205,12 +205,19 @@ fn competing_tag_policy_exposes_gain_location_and_can_be_undone() {
         let result =
             corpus::competing_mpeg(&dir.path().join(format!("gain-{preserve}.mp3")), preserve);
         assert_eq!(
-            result["displayed_before"]["Title"],
-            serde_json::json!(["APE wins display"])
+            result["displayed_before"][if preserve { "Title" } else { "TITLE" }],
+            serde_json::json!([if preserve {
+                "APE wins display"
+            } else {
+                "Original café 日本"
+            }])
         );
         assert_eq!(result["audio_preserved"], true);
         assert_eq!(result["undo_exact"], true);
         assert_eq!(result["undo_errors"], serde_json::json!([]));
+        assert_eq!(result["redo_exact"], true);
+        assert_eq!(result["redo_errors"], serde_json::json!([]));
+        assert!(result["history_notice"].is_null());
         if preserve {
             assert_eq!(
                 result["native_ape_after"]["mp3gain_undo"],
@@ -225,14 +232,23 @@ fn competing_tag_policy_exposes_gain_location_and_can_be_undone() {
                 "Binary([1, 0, 255, 17])"
             );
         } else {
-            assert!(
-                result["native_ape_after"].is_null(),
-                "default save removes unwritten APE"
+            assert_eq!(result["ape_bytes_unchanged"], true);
+            assert_eq!(
+                result["native_ape_after"]["mp3gain_undo"],
+                "Text(\"+001,+001,N\")"
             );
             assert_eq!(
-                result["displayed_after"]["MP3GAIN_UNDO"],
-                serde_json::json!(["+001,+001,N"]),
-                "displayed text surviving in ID3 does not prove native gain-consumer compatibility"
+                result["native_ape_after"]["mp3gain_minmax"],
+                "Text(\"094,205\")"
+            );
+            assert_eq!(
+                result["native_ape_after"]["opaque_companion"],
+                "Binary([1, 0, 255, 17])"
+            );
+            assert!(result["displayed_after"].get("MP3GAIN_UNDO").is_none());
+            assert_eq!(
+                result["displayed_after"]["REPLAYGAIN_TRACK_GAIN"],
+                serde_json::json!(["-7.25 dB"])
             );
         }
     }

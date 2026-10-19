@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "authority": "Literal native-derived duration contract; producer and consumer layers, not joined runtime or physical-save evidence.",
+  "url": "https://source-length.invalid/release/1",
+  "script": [
+    "OutputTo \"TRACKS\"",
+    "Say \"Long|Short|\"",
+    "OutputTo \"_LENGTH\"",
+    "Say \"6000|6001|\"",
+    "OutputTo \"LENGTH\"",
+    "Say \"12345\""
+  ],
+  "outputs": {
+    "TRACKS": "Long|Short|",
+    "_LENGTH": "6000|6001|",
+    "LENGTH": "12345"
+  },
+  "expected_release": {
+    "provider": "web",
+    "id": "length-contract",
+    "url": "https://source-length.invalid/release/1",
+    "title": "",
+    "artist": "",
+    "fields": {
+      "LENGTH": [
+        "12345"
+      ]
+    },
+    "tracks": [
+      {
+        "position": "1",
+        "disc": 1,
+        "number": 1,
+        "title": "Long",
+        "artist": "",
+        "length": 6000.0,
+        "fields": {
+          "TITLE": [
+            "Long"
+          ]
+        }
+      },
+      {
+        "position": "2",
+        "disc": 1,
+        "number": 2,
+        "title": "Short",
+        "artist": "",
+        "length": 6.0,
+        "fields": {
+          "TITLE": [
+            "Short"
+          ]
+        }
+      }
+    ],
+    "covers": [],
+    "more_covers": false
+  },
+  "files": [
+    {
+      "path": "short.flac",
+      "name": "short.flac",
+      "title": "",
+      "artist": "",
+      "album": "",
+      "album_artist": "",
+      "track": "",
+      "disc": "",
+      "length": 6
+    },
+    {
+      "path": "long.flac",
+      "name": "long.flac",
+      "title": "",
+      "artist": "",
+      "album": "",
+      "album_artist": "",
+      "track": "",
+      "disc": "",
+      "length": 6000
+    }
+  ],
+  "expected_slots": [
+    "long.flac",
+    "short.flac"
+  ],
+  "expected_duration_labels": [
+    "100:00",
+    "0:06"
+  ],
+  "expected_apply_items": [
+    {
+      "path": "long.flac",
+      "updates": {
+        "LENGTH": [
+          "12345"
+        ]
+      }
+    },
+    {
+      "path": "short.flac",
+      "updates": {
+        "LENGTH": [
+          "12345"
+        ]
+      }
+    }
+  ]
+}

@@ -241,16 +241,22 @@ fn tta_follows_the_mpeg_policy_and_keeps_the_stream() {
     let mut bytes = stream.clone();
     bytes.extend(ape_bytes(&[("Title", "From APE"), ("Artist", "Band")]));
     fs::write(&path, &bytes).unwrap();
-    let entry = read_entry(&path).unwrap();
+    let mut ape_read = TagOptions::default();
+    ape_read.mpeg.read_ape = true;
+    let entry = read_entry_with_options(&path, &[], &ape_read).unwrap();
     assert_eq!(value(&entry, "TITLE").as_deref(), Some("From APE"));
     assert_eq!(technical(&entry, "_TAG"), "APEv2");
 
-    // Default Mpeg options: ID3v2.3 and ID3v1 are written, APE is removed.
-    let written = write_fields(
+    // Explicit APE read sources the ID3 write; the unwritten APE remains.
+    write_fields_with_options(
         &path,
         &fields(&[("TITLE", &["Ünïcode"]), ("COMMENT", &["note"])]),
+        false,
+        &[],
+        &ape_read,
     )
     .unwrap();
+    let written = read_entry(&path).unwrap();
     assert_eq!(value(&written, "TITLE").as_deref(), Some("Ünïcode"));
     assert_eq!(value(&written, "ARTIST").as_deref(), Some("Band"));
     assert_eq!(technical(&written, "_TAG_READ"), "ID3v2.3");
@@ -260,7 +266,11 @@ fn tta_follows_the_mpeg_policy_and_keeps_the_stream() {
     let start = contains(&after, b"TTA1").unwrap();
     assert_eq!(&after[start..start + stream.len()], stream.as_slice());
     assert_eq!(&after[after.len() - 128..after.len() - 125], b"TAG");
-    assert_eq!(start + stream.len() + 128, after.len(), "APE removed");
+    let original_ape = ape_bytes(&[("Title", "From APE"), ("Artist", "Band")]);
+    assert_eq!(
+        &after[start + stream.len()..after.len() - 128],
+        original_ape
+    );
 
     // Remove Tag strips every kind, leaving exactly the stream.
     let removed = remove_tags(&path).unwrap();
@@ -409,14 +419,20 @@ fn ffmpeg_tta_decodes_identically_after_tagging() {
         String::from_utf8_lossy(&output.stderr)
     );
     let before = decoded_md5(&path);
-    let entry = read_entry(&path).unwrap();
+    let mut ape = TagOptions::default();
+    ape.mpeg.read_ape = true;
+    ape.mpeg.write_ape = true;
+    let entry = read_entry_with_options(&path, &[], &ape).unwrap();
     assert_eq!(value(&entry, "TITLE").as_deref(), Some("ffmpeg title"));
     assert_eq!(entry.sample_rate, 44_100);
     assert!((entry.duration - 1.0).abs() < 0.01);
 
-    write_fields(
+    write_fields_with_options(
         &path,
         &fields(&[("TITLE", &["Tagged"]), ("ALBUM", &["Disc"])]),
+        false,
+        &[],
+        &ape,
     )
     .unwrap();
     assert_eq!(decoded_md5(&path), before);

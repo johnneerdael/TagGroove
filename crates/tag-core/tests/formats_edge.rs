@@ -123,7 +123,9 @@ fn aac_reads_every_tag_kind_and_follows_the_mpeg_policy() {
     fs::write(&path, &bytes).unwrap();
 
     // APE is displayed first, then ID3v2, then ID3v1 (Options → Tags → Mpeg).
-    let entry = read_entry(&path).unwrap();
+    let mut ape_read = TagOptions::default();
+    ape_read.mpeg.read_ape = true;
+    let entry = read_entry_with_options(&path, &[], &ape_read).unwrap();
     assert_eq!(entry.format, "AAC");
     assert_eq!(technical(&entry, "_CODEC"), "AAC");
     assert_eq!((entry.sample_rate, entry.channels), (44_100, 2));
@@ -143,9 +145,16 @@ fn aac_reads_every_tag_kind_and_follows_the_mpeg_policy() {
     let v1_only = read_entry_with_options(&path, &[], &options).unwrap();
     assert_eq!(value(&v1_only, "TITLE").as_deref(), Some("From ID3v1"));
 
-    // Default Mpeg options: ID3v2.3 and ID3v1 are written, APE is removed and
-    // its values carried over. The ADTS stream is not touched.
-    let written = write_fields(&path, &fields(&[("TITLE", &["Ünïcode"])])).unwrap();
+    // With explicit APE reading, ID3 writes use those fields and retain APE.
+    write_fields_with_options(
+        &path,
+        &fields(&[("TITLE", &["Ünïcode"])]),
+        false,
+        &[],
+        &ape_read,
+    )
+    .unwrap();
+    let written = read_entry(&path).unwrap();
     assert_eq!(value(&written, "TITLE").as_deref(), Some("Ünïcode"));
     assert_eq!(value(&written, "ARTIST").as_deref(), Some("Band"));
     assert_eq!(technical(&written, "_TAG_READ"), "ID3v2.3");
@@ -154,12 +163,19 @@ fn aac_reads_every_tag_kind_and_follows_the_mpeg_policy() {
     assert!(after.starts_with(b"ID3\x03"));
     let start = contains(&after, &stream[..64]).unwrap();
     assert_eq!(&after[start..start + stream.len()], stream.as_slice());
-    assert_eq!(start + stream.len() + 128, after.len(), "APE removed");
+    let original_ape = ape_bytes(&[("Title", "From APE"), ("Artist", "Band")]);
+    assert_eq!(
+        &after[start + stream.len()..after.len() - 128],
+        original_ape
+    );
     assert_eq!(&after[after.len() - 128..after.len() - 125], b"TAG");
 
+    let retained_id3 = after[..start].to_vec();
+    let retained_v1 = after[after.len() - 128..].to_vec();
     // APEv2 writing, without ID3v1 and ID3v2.
     let mut options = TagOptions::default();
     options.mpeg.write_ape = true;
+    options.mpeg.read_ape = true;
     options.mpeg.write_id3v1 = false;
     options.mpeg.write_id3v2 = false;
     options.mpeg.remove_ape = false;
@@ -173,11 +189,18 @@ fn aac_reads_every_tag_kind_and_follows_the_mpeg_policy() {
     .unwrap();
     assert_eq!(technical(&ape, "_TAG_READ"), "APEv2");
     assert_eq!(value(&ape, "ALBUM").as_deref(), Some("Ape album"));
-    assert_eq!(value(&ape, "TITLE").as_deref(), Some("Ünïcode"));
+    assert_eq!(value(&ape, "TITLE").as_deref(), Some("From APE"));
     let after = fs::read(&path).unwrap();
-    assert!(!after.starts_with(b"ID3"), "ID3v2 removed");
-    assert!(after.starts_with(&stream));
-    assert_eq!(&after[stream.len()..stream.len() + 8], b"APETAGEX");
+    assert!(after.starts_with(&retained_id3), "unwritten ID3v2 kept");
+    assert_eq!(&after[after.len() - 128..], retained_v1);
+    assert_eq!(
+        &after[retained_id3.len()..retained_id3.len() + stream.len()],
+        stream
+    );
+    assert_eq!(
+        &after[retained_id3.len() + stream.len()..retained_id3.len() + stream.len() + 8],
+        b"APETAGEX"
+    );
 
     // Utils → Remove tag types accepts AAC and keeps the stream.
     remove_tag_kinds_with_options(
@@ -928,6 +951,7 @@ fn an_ape_tag_whose_header_looks_like_id3v1_is_read_and_written() {
         fs::write(&path, &bytes).unwrap();
         let mut options = TagOptions::default();
         options.mpeg.write_ape = true;
+        options.mpeg.read_ape = true;
         options.mpeg.remove_ape = false;
         options.mpeg.write_id3v1 = false;
         options.mpeg.read_id3v2 = false;

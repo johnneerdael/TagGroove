@@ -19,10 +19,12 @@ and an unselected WAV stay unchanged. The normal public apply handler validates
 and embeds the generated PNG, replaces the sidecar and uses the existing writer
 and history. Physical field reload, distinct per-file PCM, complete original and
 saved WAV/sidecar bytes, exact Undo/Redo and in-memory PCM mutation checks pass.
-`LENGTH` here is the current adapter's ordinary scalar metadata, not
-`SourceTrack.length`. Original Web Sources Framework treatment of that field
-still needs an independent contract check; this test does not certify that
-metadata-model choice as equivalent to Mp3tag.
+`LENGTH` here is ordinary scalar metadata, separate from `SourceTrack.length`.
+The later [pinned source-specific static analysis](source-length-compatibility-2026-10-19.md)
+follows that field through original source conversion, review/apply and the
+native ID3 TLEN writer, supporting this model choice. Reserved `_LENGTH`
+instead supplies technical duration. Original UI and physical-save outcomes
+remain unobserved; this WAV replay is executed TagGroove proof.
 
 The initial first-result-only harness fails the exact release identity oracle
 on the same inputs. The repaired test bridge supports optional expected-search

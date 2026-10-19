@@ -88,8 +88,11 @@ fn parse_guid(text: &str) -> Option<header::Guid> {
 
 /// The text form of a value. Binary values and artwork are not text fields.
 fn display(attribute: &Attribute) -> Option<String> {
+    if attribute.empty_content_slot() {
+        return None;
+    }
     Some(match &attribute.value {
-        Value::Unicode(text) => text.clone(),
+        Value::Unicode(text) | Value::UnicodeOriginal { display: text, .. } => text.clone(),
         Value::Bool(flag) => u8::from(*flag).to_string(),
         Value::Dword(n) if attribute.name.eq_ignore_ascii_case(RATING) => stars(*n).to_string(),
         Value::Dword(n) => n.to_string(),
@@ -179,7 +182,9 @@ fn legacy_track(attribute: &Attribute) -> Option<String> {
         Value::Dword(n) => u64::from(*n),
         Value::Word(n) => u64::from(*n),
         Value::Qword(n) => *n,
-        Value::Unicode(text) => text.trim().parse().ok()?,
+        Value::Unicode(text) | Value::UnicodeOriginal { display: text, .. } => {
+            text.trim().parse().ok()?
+        }
         _ => return None,
     };
     index.checked_add(1).map(|track| track.to_string())
@@ -244,7 +249,11 @@ pub(super) fn describe_diagnostic(
         u8::try_from(properties.channels).ok(),
         std::time::Duration::from_secs_f64(properties.duration),
     );
-    if !asf.attributes.is_empty() {
+    if asf
+        .attributes
+        .iter()
+        .any(|attribute| !attribute.empty_content_slot())
+    {
         for name in ["_TAG", "_TAG_READ"] {
             technical.insert(name.into(), vec![TAG.into()]);
         }

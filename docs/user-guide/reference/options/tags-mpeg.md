@@ -7,7 +7,7 @@ Open **File → Options… → Tags → Mpeg** to control ID3v1, ID3v2, and APE 
 
 ## Read
 
-All three reading switches default to on. TagGroove displays one enabled, present tag type, in this priority order:
+New settings enable **ID3v1** and **ID3v2** reading and leave **APE** reading off. Existing saved choices stay in effect. TagGroove displays one enabled, present tag type, in this priority order:
 
 | Priority | Switch | Reads |
 |---|---|---|
@@ -26,9 +26,11 @@ The file's technical tag information identifies present/read tag types. When dia
 | **ID3v1** | On | Write the limited legacy tag. Long text, extra fields, Unicode outside its character repertoire, multiple values, and artwork cannot all be represented. |
 | **ID3v2** | On | Write the richer ID3v2 tag using the selected revision/encoding. |
 | **ID3v2 only if ID3v1 too small** | Off | When both ID3v1 and ID3v2 writing are enabled, create ID3v2 only if needed. An existing ID3v2 tag is still updated. |
-| **APEv2 (also updates an existing ID3v1 tag)** | Off | Write APEv2, upgrading an existing APEv1 tag. If an ID3v1 tag already exists it is updated too, even when the explicit ID3v1 writing switch is off. |
+| **APEv2** | Off | Write APEv2, upgrading an existing APEv1 tag. ID3v1 writing has its own switch; APEv2 writing alone leaves an existing ID3v1 tag unchanged. |
 
-At least one write type must remain enabled. Saving synchronizes written types from the displayed field set, so enabling a second type is not a promise to preserve a conflicting hidden tag independently.
+At least one write type must remain enabled. Saving synchronizes written types from the displayed field set, so enabling a second type is not a promise to preserve a conflicting hidden tag independently. Types whose Write switches are off remain in the file. This also preserves an unread APE tag's native gain and recovery data without copying its hidden fields into ID3.
+
+If APE reading is enabled while only ID3 writing is enabled, a successful save can update ID3 while the displayed title still comes from the unchanged APE tag. Turn APE reading off to inspect ID3, or deliberately choose which types to write. Changing Read selects a view; it does not synchronize or delete the other tags.
 
 ### When ID3v1 is too small
 
@@ -53,9 +55,13 @@ Changing this setting affects future writes; it does not convert every loaded fi
 
 ## Remove
 
-**ID3v1**, **ID3v2**, and **APE** removal all default to on. **File → Remove tag…** removes the selected types that exist. Saving also removes a checked type when it is not written. Thus disabling **Write APEv2** while leaving **Remove APE** enabled can remove an existing APE tag during an ordinary save.
+**ID3v1**, **ID3v2**, and **APE** removal all default to on. **File → Remove tag…** removes the selected types that exist. These switches do not request deletion during ordinary Save. For example, leaving **Write APEv2** off preserves an existing APE tag even while **Remove APE** is checked.
 
-If every Remove switch is off, the remove command reports that no types are selected. Disabling Read alone never requests deletion. A type left unread and unwritten is retained only if the removal policy also leaves it alone.
+If every Remove switch is off, the remove command reports that no types are selected. Disabling Read alone never requests deletion.
+
+When the complete metadata being saved is empty, Save removes the types selected under **Write**. This can remove artwork or fields in a written type that was not selected for reading. Unwritten types remain untouched. For example, clearing a plain ID3 title while writing only APE can remove the old APE tag, including its hidden cover; it leaves the unwritten ID3 tag in place. Its unchanged title can therefore appear again when the file is reloaded with ID3 reading enabled.
+
+Clearing visible text does not establish that every record is empty. Artwork, binary records, chapters or other retained native data can remain. Use **Remove tag…** when the intention is to remove selected tag types completely, and check those Remove switches first.
 
 Mp3tag's original reference specifically couples ID3v1 removal with removal of a dependent Lyrics3 tag. TagGroove has Lyrics3-aware raw-stream layout handling, but this guide has no verified equivalent guarantee for every MPEG removal path. Do not use the ID3v1 checkbox as a general Lyrics3-cleanup promise.
 
