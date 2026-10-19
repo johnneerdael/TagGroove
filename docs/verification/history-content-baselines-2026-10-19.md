@@ -1,6 +1,8 @@
 # Content baselines for history and staged writes
 
-This is the L61 repair in PR64, based on `9468d3ec9ee09d34923fe28a5ea72ef467ca3df0`.
+This is the L61 repair in PR64, implemented in
+`82a46df82a866c6da57e12b8c526ea9e87e61302`, based on
+`9468d3ec9ee09d34923fe28a5ea72ef467ca3df0`.
 It supersedes the unsafe behavior recorded in the
 [concealed-edit diagnosis](undo-concealed-external-edit-2026-10-19.md).
 Cross-session history (L67) is separate and remains unimplemented at this checkpoint.
@@ -116,7 +118,7 @@ GitHub Codex review/trusted CI are separate, still-required evidence.
 Workspace compilation, final strict all-target Clippy, formatting and workspace
 doc-test commands passed (no runnable doc examples). The updated user guide passed
 its strict pinned MkDocs build. All 842 UI tests, TypeScript/Vite, extraction
-consistency (3,424 canonical keys), the 189/189-page writing plan and 1,425 local
+consistency (3,424 canonical keys), the 189/189-page writing plan and 1,426 local
 links across 150 changed documents pass. Two obsolete translated error keys
 were removed after the first UI run identified them. Both the pre-format and final formatted-source Rust runs passed 1,465 tests
 across 83 executables (21 intentional ignores). All compiled Rust source/test
