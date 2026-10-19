@@ -2454,6 +2454,7 @@
  "The Matroska media data changed while writing; original file preserved": "The Matroska media data changed while writing; original file preserved",
  "The MusicBrainz identifier is stored in MUSICBRAINZ_TRACKID": "The MusicBrainz identifier is stored in MUSICBRAINZ_TRACKID",
  "The Nero covers could not be removed; the original file was kept": "The Nero covers could not be removed; the original file was kept",
+ "The Nero tag location is ambiguous or has changed; the original file was kept": "The Nero tag location is ambiguous or has changed; the original file was kept",
  "The Nero tags could not be removed": "The Nero tags could not be removed",
  "The Nero tags did not read back as written; the original file was kept": "The Nero tags did not read back as written; the original file was kept",
  "The ZIP repeats {name} (file names ignore case).": "The ZIP repeats {name} (file names ignore case).",

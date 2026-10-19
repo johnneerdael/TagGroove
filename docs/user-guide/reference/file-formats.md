@@ -122,7 +122,13 @@ than converting an encrypted tag's revision to get around a refusal.
 
 ### MP4 metadata preservation
 
-MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. TagGroove does not add newly created fields to the Nero set. For a file without chapters, an edited value too long for its existing Nero space is written to iTunes only; the older Nero value remains hidden by iTunes precedence.
+MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. TagGroove does not add newly created fields to the Nero set.
+
+For files without chapters, an existing Nero tag can be rewritten on supported
+MP4 layouts when changed values no longer fit its space or leave too little room
+for valid padding. If the required rewrite cannot preserve the layout, the save
+is refused and the whole original file is kept. Fitting changes and unrelated
+fields retain their existing behavior.
 
 Nero artwork is displayed when iTunes artwork is absent. A cover edit writes the result to iTunes artwork and removes the Nero copy, even if it was hidden. Ordinary text-field edits preserve that artwork copy. Unrelated `udta/indx` data is retained but is not exposed for editing.
 

@@ -527,9 +527,9 @@ pub(super) fn drop_nero_covers_diagnostic(file: &mut fs::File) -> Result<(), Err
 /// After file fields `updates` were written to the iTunes tag, apply them to
 /// the file-wide Nero fields that hold them (see `NeroTags::sync_global`),
 /// so a removed field does not come back from Nero. The `tags` box is
-/// rewritten in place when it fits, otherwise with the chapters; a longer
-/// value in a file without chapters stays only in the iTunes tag, which takes
-/// precedence anyway.
+/// rewritten in place when it fits, otherwise through the supported layout
+/// writer (with existing chapters when present). An unsupported growth layout
+/// refuses the staged save, so a stale Nero copy cannot be hidden by iTunes.
 pub(super) fn sync_nero_fields_diagnostic(
     staging: &mut fs::File,
     staged_path: &Path,
@@ -547,7 +547,9 @@ pub(super) fn sync_nero_fields_diagnostic(
         return verify_nero_diagnostic(staging, &nero);
     }
     if chapters.list.is_empty() {
-        return Ok(());
+        let original = body_diagnostic(staging, &atom)?;
+        mp4_layout::write_nero_tags_diagnostic(staging, staged_path, &original, &nero.render())?;
+        return verify_nero_diagnostic(staging, &nero);
     }
     let values: Vec<String> = chapters
         .list

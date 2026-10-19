@@ -387,6 +387,55 @@ pub(crate) fn write_diagnostic(
     write_with(source, layout, reorder, target, None)
 }
 
+/// Replace the captured, unique Nero metadata leaf using the ordinary layout
+/// writer. No chapter boxes, tracks, references, or extra media are generated.
+pub(crate) fn write_nero_tags_diagnostic(
+    file: &mut fs::File,
+    staged_path: &std::path::Path,
+    original: &[u8],
+    replacement: &[u8],
+) -> Result<(), ErrorCause> {
+    let changed = || {
+        ErrorCause::owned(
+            "The Nero tag location is ambiguous or has changed; the original file was kept",
+        )
+    };
+    let mut layout = read_layout_diagnostic(file)?;
+    let children = layout.movie.children_mut().ok_or_else(changed)?;
+    let udtas: Vec<_> = children
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| node.kind == *b"udta")
+        .map(|(index, _)| index)
+        .collect();
+    if udtas.len() != 1 {
+        return Err(changed());
+    }
+    let children = children[udtas[0]].children_mut().ok_or_else(changed)?;
+    let tags: Vec<_> = children
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| node.kind == *b"tags")
+        .map(|(index, _)| index)
+        .collect();
+    if tags.len() != 1 {
+        return Err(changed());
+    }
+    let target = &mut children[tags[0]];
+    if !matches!(&target.body, Body::Leaf(bytes) if bytes == original) {
+        return Err(changed());
+    }
+    target.body = Body::Leaf(replacement.to_vec());
+    let directory = staged_path
+        .parent()
+        .ok_or_else(|| invalid(ErrorCause::owned("the staged file has no folder")))?;
+    let copy = crate::tags::staging_copy(staged_path, directory, ".opentag-nero-", "")
+        .map_err(ErrorCause::external)?;
+    let mut source = copy.reopen().map_err(io_error)?;
+    crate::write_cost::rewrote_all();
+    write_diagnostic(&mut source, layout, false, file)
+}
+
 fn write_with(
     source: &mut fs::File,
     mut layout: Layout,
@@ -1277,6 +1326,48 @@ mod tests {
             .unwrap();
         write(&mut source, layout, reorder, &mut target).unwrap();
         fs::read(out).unwrap()
+    }
+
+    #[test]
+    fn nero_metadata_writer_checks_captured_body_before_any_write_and_preserves_io_provenance() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, _) = sample(dir.path());
+        let mut source = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let mut layout = read_layout_diagnostic(&mut source).unwrap();
+        let udta = layout
+            .movie
+            .children_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|n| n.kind == *b"udta")
+            .unwrap();
+        udta.children_mut().unwrap().push(Node {
+            kind: *b"tags",
+            body: Body::Leaf(b"captured Nero bytes".to_vec()),
+        });
+        let snapshot =
+            crate::tags::staging_copy(&path, dir.path(), ".opentag-nero-test-", "").unwrap();
+        write_diagnostic(&mut snapshot.reopen().unwrap(), layout, false, &mut source).unwrap();
+        let before = fs::read(&path).unwrap();
+        let error =
+            write_nero_tags_diagnostic(&mut source, &path, b"wrong captured body", b"replacement")
+                .unwrap_err();
+        assert!(matches!(error, ErrorCause::Owned { .. }));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        let mut read_only = fs::File::open(&path).unwrap();
+        let error = write_nero_tags_diagnostic(
+            &mut read_only,
+            &path,
+            b"captured Nero bytes",
+            b"replacement",
+        )
+        .unwrap_err();
+        assert!(matches!(error, ErrorCause::External { .. }));
+        assert_eq!(fs::read(&path).unwrap(), before);
     }
 
     #[test]
