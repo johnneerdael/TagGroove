@@ -3393,5 +3393,6 @@
  "Unsupported source installation recovery intent; retained files were not changed.": "Niet-ondersteunde herstelregistratie voor de broninstallatie; de bewaarde bestanden zijn niet gewijzigd.",
  "Unsupported source publication state; retained files were not changed.": "Niet-ondersteunde publicatiestatus van de broninstallatie; de bewaarde bestanden zijn niet gewijzigd.",
  "MP4 metadata structure cannot be preserved safely; original file was not changed": "De MP4-metadatastructuur kan niet veilig behouden blijven; het oorspronkelijke bestand is niet gewijzigd",
- "The Nero tag location is ambiguous or has changed; the original file was kept": "De locatie van de Nero-tag is niet eenduidig of is gewijzigd; het oorspronkelijke bestand is behouden"
+ "The Nero tag location is ambiguous or has changed; the original file was kept": "De locatie van de Nero-tag is niet eenduidig of is gewijzigd; het oorspronkelijke bestand is behouden",
+ "Boost.Regex 1.89.0 — license and notices": "Boost.Regex 1.89.0 — licentie en kennisgevingen"
 }

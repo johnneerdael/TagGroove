@@ -30,7 +30,7 @@
     "longDescription": "TagGroove \u2014 Tag, Organize, Enjoy. An open source music metadata editor built with Tauri 2 and Rust.",
     "publisher": "TagGroove",
     "homepage": "https://github.com/johnneerdael/TagGroove",
-    "license": "MIT AND LGPL-2.1-or-later AND BSD-3-Clause AND Zlib AND bzip2-1.0.6",
+    "license": "MIT AND LGPL-2.1-or-later AND BSD-3-Clause AND Zlib AND bzip2-1.0.6 AND BSL-1.0",
     "licenseFile": "../THIRD_PARTY_NOTICES.md",
     "category": "Music",
     "icon": [

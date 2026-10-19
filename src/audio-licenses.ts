@@ -5,6 +5,7 @@ import license3 from './licenses/audio/ffmpeg-COPYING.LGPLv2.1?raw';
 import license4 from './licenses/audio/ffmpeg-LICENSE.md?raw';
 import license5 from './licenses/audio/zlib-LICENSE?raw';
 import license6 from './licenses/audio/bzip2-LICENSE?raw';
+import licenseBoost from '../crates/regex-compat/vendor/boost-regex/LICENSE_1_0.txt?raw';
 export const audioLicenses = [
   {title:"Chromaprint 1.6.2 — license and notices",text:license0},
   {title:"KissFFT — copyright notices",text:license1},
@@ -13,4 +14,5 @@ export const audioLicenses = [
   {title:"FFmpeg 9.0.2 — component license notes",text:license4},
   {title:"zlib 1.3.2 — license",text:license5},
   {title:"bzip2 1.0.8 — license",text:license6},
+  {title:"Boost.Regex 1.89.0 — license and notices",text:licenseBoost},
 ];
