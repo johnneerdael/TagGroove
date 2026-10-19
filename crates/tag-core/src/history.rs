@@ -402,12 +402,15 @@ impl Record {
         self.blobs().map(|b| b.cost).sum()
     }
     fn rebase_directory_ids(&mut self, changes: &store::DirectoryChanges) {
+        self.rebase_file_and_move_guards(changes);
+        for side in &mut self.side_files {
+            side.rebase_directory_ids(changes);
+        }
+    }
+    fn rebase_file_and_move_guards(&mut self, changes: &store::DirectoryChanges) {
         for file in &mut self.files {
             store::replace_guard_ids(&mut file.before.parents, changes);
             store::replace_guard_ids(&mut file.after.parents, changes);
-        }
-        for side in &mut self.side_files {
-            side.rebase_directory_ids(changes);
         }
         store::replace_guard_ids(&mut self.directory_guards, changes);
     }
@@ -1670,7 +1673,7 @@ impl Journal {
             record.directories.clone()
         };
         let directory_outcome = store::check_guards(&record.directory_guards)
-            .map_err(ErrorCause::external)
+            .map_err(|error| (ErrorCause::external(error), Vec::new()))
             .and_then(|()| {
                 if record.directories.is_empty() {
                     Ok(Vec::new())
@@ -1684,7 +1687,10 @@ impl Journal {
             });
         let changes = match directory_outcome {
             Ok(changes) => changes,
-            Err(error) => {
+            Err((error, changes)) => {
+                // A successful rollback can still recreate owned folders.
+                // Older retained records must follow those actual identities.
+                directory_changes.extend(changes);
                 push_error(
                     &mut replay.errors,
                     &mut diagnostics,
@@ -1707,7 +1713,9 @@ impl Journal {
                 );
             }
         };
-        record.rebase_directory_ids(&changes);
+        // The side replay already refreshed/rebased its own guards. Only the
+        // file and folder-move guards still belong to the earlier generation.
+        record.rebase_file_and_move_guards(&changes);
         for file in &mut files {
             store::replace_guard_ids(&mut file.before.parents, &changes);
             store::replace_guard_ids(&mut file.after.parents, &changes);
@@ -1806,11 +1814,13 @@ impl Journal {
             while let Some(mut side) = sides.next() {
                 match replay_side_file(&mut side, backward) {
                     Ok(changes) => {
-                        record.side_files.push(side);
                         record.rebase_directory_ids(&changes);
                         for pending in sides.as_mut_slice() {
                             pending.rebase_directory_ids(&changes);
                         }
+                        // This side already contains the freshly observed IDs;
+                        // applying the same batch again can map reused IDs back.
+                        record.side_files.push(side);
                         directory_changes.extend(changes);
                     }
                     Err(error) => {
@@ -2173,7 +2183,7 @@ fn replay_side_files_and_directories(
     sides: &mut [SideFile],
     directories: &[(PathBuf, PathBuf)],
     backward: bool,
-) -> Result<store::DirectoryChanges, ErrorCause> {
+) -> Result<store::DirectoryChanges, (ErrorCause, store::DirectoryChanges)> {
     enum Done {
         Side(usize),
         Move(PathBuf, PathBuf),
@@ -2198,8 +2208,10 @@ fn replay_side_files_and_directories(
                     continue;
                 }
                 let created = replay_side_file(side, backward)?;
-                for other in &mut *sides {
-                    other.rebase_directory_ids(&created);
+                for (other_index, other) in sides.iter_mut().enumerate() {
+                    if other_index != index {
+                        other.rebase_directory_ids(&created);
+                    }
                 }
                 changes.extend(created);
                 done.push(Done::Side(index));
@@ -2224,9 +2236,12 @@ fn replay_side_files_and_directories(
             let outcome = match step {
                 Done::Side(index) => {
                     replay_side_file(&mut sides[index], !backward).map(|created| {
-                        for other in &mut *sides {
-                            other.rebase_directory_ids(&created);
+                        for (other_index, other) in sides.iter_mut().enumerate() {
+                            if other_index != index {
+                                other.rebase_directory_ids(&created);
+                            }
                         }
+                        changes.extend(created);
                     })
                 }
                 Done::Move(from, to) => move_directories(&[(to, from)]),
@@ -2235,7 +2250,7 @@ fn replay_side_files_and_directories(
                 rollback_errors.push(error);
             }
         }
-        return Err(if rollback_errors.is_empty() {
+        let error = if rollback_errors.is_empty() {
             error
         } else {
             ErrorCause::children(
@@ -2245,7 +2260,8 @@ fn replay_side_files_and_directories(
                     ("value", ErrorCause::joined(rollback_errors, "; ")),
                 ],
             )
-        });
+        };
+        return Err((error, changes));
     }
     Ok(changes)
 }
@@ -2360,6 +2376,9 @@ mod tests {
             windows_legacy_identity(&fs::File::open(&link).unwrap()).unwrap(),
             expected
         );
+        // The hard link retains the original object while its path is replaced;
+        // this identity test does not require replacing an open destination.
+        drop(original);
         let replacement = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
         fs::write(replacement.path(), b"external").unwrap();
         replacement.persist(&path).unwrap();
@@ -2367,7 +2386,10 @@ mod tests {
             windows_legacy_identity(&fs::File::open(&path).unwrap()).unwrap(),
             expected
         );
-        assert_eq!(windows_legacy_identity(&original).unwrap(), expected);
+        assert_eq!(
+            windows_legacy_identity(&fs::File::open(&link).unwrap()).unwrap(),
+            expected
+        );
     }
 
     #[cfg(windows)]

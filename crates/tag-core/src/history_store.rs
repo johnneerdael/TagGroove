@@ -102,12 +102,14 @@ pub(super) fn check_captured_guards(
     Ok(())
 }
 
-pub(super) type DirectoryChanges = Vec<(DirectoryId, DirectoryId)>;
+// Each batch belongs to one recreation. A native ID can be reused by another
+// directory in that same batch; only later batches may follow its new identity.
+pub(super) type DirectoryChanges = Vec<Vec<(DirectoryId, DirectoryId)>>;
 
 pub(super) fn replace_guard_ids(guards: &mut [DirectoryGuard], changes: &DirectoryChanges) {
-    for (old, new) in changes {
+    for batch in changes {
         for guard in &mut *guards {
-            if guard.identity == Some(*old) {
+            if let Some((_, new)) = batch.iter().find(|(old, _)| guard.identity == Some(*old)) {
                 guard.identity = Some(*new);
             }
         }
@@ -142,7 +144,11 @@ pub(super) fn refresh_created_parents(
         }
         guard.identity = current;
     }
-    Ok(changes)
+    Ok(if changes.is_empty() {
+        Vec::new()
+    } else {
+        vec![changes]
+    })
 }
 
 fn validate_parent_guards(path: &Path, guards: &[DirectoryGuard]) -> Result<(), String> {
@@ -160,6 +166,10 @@ fn directory_id(path: &Path) -> Result<DirectoryId, String> {
     let metadata = fs::symlink_metadata(path).map_err(|error| error.to_string())?;
     if !metadata.is_dir() {
         return Err("The undo store directory changed".into());
+    }
+    #[cfg(all(test, unix))]
+    if let Some(identity) = tests::directory_identity(path) {
+        return Ok(identity);
     }
     #[cfg(unix)]
     {
@@ -1075,5 +1085,224 @@ pub(super) mod moves {
                 ))
             })
             .collect()
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    // APFS does not reliably recycle directory IDs within a short test. Keep
+    // actual directories, writes, guards and durable replay; control only the
+    // two native IDs to reproduce the reuse case implicated by Linux CI.
+    thread_local! {
+        static DIRECTORY_IDS: RefCell<Vec<(PathBuf, DirectoryId)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    pub(super) fn directory_identity(path: &Path) -> Option<DirectoryId> {
+        DIRECTORY_IDS.with(|ids| {
+            ids.borrow()
+                .iter()
+                .find_map(|(known, id)| (known == path).then_some(*id))
+        })
+    }
+
+    fn id(inode: u64) -> DirectoryId {
+        DirectoryId::Unix { device: 7, inode }
+    }
+
+    struct RecycledDirectories(Option<tempfile::TempDir>);
+    impl RecycledDirectories {
+        fn new() -> Self {
+            assert!(DIRECTORY_IDS.with(|ids| ids.borrow().is_empty()));
+            Self(Some(
+                tempfile::Builder::new()
+                    .prefix("taggroove-directory-reuse-")
+                    .tempdir()
+                    .unwrap(),
+            ))
+        }
+        fn path(&self) -> &Path {
+            self.0.as_ref().unwrap().path()
+        }
+        fn generation(&self, outer: u64, inner: u64) {
+            let root = dunce::canonicalize(self.path()).unwrap();
+            DIRECTORY_IDS.with(|ids| {
+                *ids.borrow_mut() = vec![
+                    (root.join("covers"), id(outer)),
+                    (root.join("covers/nested"), id(inner)),
+                ]
+            });
+        }
+    }
+    impl Drop for RecycledDirectories {
+        fn drop(&mut self) {
+            DIRECTORY_IDS.with(|ids| ids.borrow_mut().clear());
+            if std::thread::panicking() {
+                eprintln!(
+                    "Retained directory-ID reuse fixture: {}",
+                    self.0.take().unwrap().keep().display()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn recycled_directory_ids_do_not_chain_within_one_recreation() {
+        let mut guards = vec![
+            DirectoryGuard {
+                path: PathBuf::from("outer"),
+                identity: Some(id(11)),
+            },
+            DirectoryGuard {
+                path: PathBuf::from("inner"),
+                identity: Some(id(22)),
+            },
+        ];
+        replace_guard_ids(&mut guards, &vec![vec![(id(11), id(22)), (id(22), id(11))]]);
+        assert_eq!(guards[0].identity, Some(id(22)));
+        assert_eq!(guards[1].identity, Some(id(11)));
+    }
+
+    #[test]
+    fn distinct_directory_recreations_update_the_previous_generation() {
+        let mut guards = vec![DirectoryGuard {
+            path: PathBuf::from("parent"),
+            identity: Some(id(11)),
+        }];
+        replace_guard_ids(
+            &mut guards,
+            &vec![vec![(id(11), id(22))], vec![(id(22), id(33))]],
+        );
+        assert_eq!(guards[0].identity, Some(id(33)));
+    }
+
+    #[test]
+    fn recycled_directory_ids_preserve_side_outputs_and_outside_refusal_after_restart() {
+        let directory = RecycledDirectories::new();
+        let root = directory.path().join("history");
+        let parent = directory.path().join("covers/nested");
+        let cover = parent.join("cover.bin");
+        let other = parent.join("other.bin");
+        directory.generation(11, 22);
+        let mut journal = Journal::open(&root, Limits::default()).unwrap();
+        let mut capture = journal.begin("Export two covers", None, &[]);
+        journal.capture_side_file(&mut capture, &cover).unwrap();
+        journal.capture_side_file(&mut capture, &other).unwrap();
+        fs::create_dir_all(&parent).unwrap();
+        fs::write(&cover, b"Cover").unwrap();
+        fs::write(&other, b"Other").unwrap();
+        fs::write(directory.path().join("independent-cover.bin"), b"Cover").unwrap();
+        fs::write(directory.path().join("independent-other.bin"), b"Other").unwrap();
+        journal.commit(capture, &[], &[]);
+        drop(journal);
+        for cycle in 0..3 {
+            let mut journal = Journal::open(&root, Limits::default()).unwrap();
+            let undo = journal.undo().unwrap();
+            assert!(
+                undo.errors.is_empty(),
+                "cycle {cycle} Undo: {:?}",
+                undo.errors
+            );
+            assert!(!parent.exists());
+            drop(journal);
+            let (outer, inner) = if cycle % 2 == 0 { (22, 11) } else { (11, 22) };
+            directory.generation(outer, inner);
+            let mut journal = Journal::open(&root, Limits::default()).unwrap();
+            let redo = journal.redo().unwrap();
+            assert!(
+                redo.errors.is_empty(),
+                "cycle {cycle} Redo: {:?}",
+                redo.errors
+            );
+            assert_eq!(fs::read(&cover).unwrap(), b"Cover");
+            assert_eq!(fs::read(&other).unwrap(), b"Other");
+        }
+        fs::rename(
+            directory.path().join("covers"),
+            directory.path().join("outside-held"),
+        )
+        .unwrap();
+        fs::create_dir_all(&parent).unwrap();
+        fs::write(&cover, b"Cover").unwrap();
+        fs::write(&other, b"Other").unwrap();
+        directory.generation(33, 44);
+        let mut journal = Journal::open(&root, Limits::default()).unwrap();
+        assert!(!journal.undo().unwrap().errors.is_empty());
+        assert_eq!(fs::read(&cover).unwrap(), b"Cover");
+        assert_eq!(fs::read(&other).unwrap(), b"Other");
+        assert!(parent.is_dir());
+    }
+
+    #[test]
+    fn rolled_back_directory_recreation_keeps_a_later_redo_eligible() {
+        let directory = RecycledDirectories::new();
+        let root = directory.path().join("history");
+        let conflict = directory.path().join("conflict.bin");
+        let before = directory.path().join("X");
+        let after = directory.path().join("Y");
+        let parent = directory.path().join("covers/nested");
+        let cover = parent.join("cover.bin");
+        fs::write(&conflict, b"Before").unwrap();
+        fs::create_dir(&before).unwrap();
+        let mut journal = Journal::open(&root, Limits::default()).unwrap();
+        let mut first = journal.begin("First operation", None, &[]);
+        journal.capture_side_file(&mut first, &conflict).unwrap();
+        fs::write(&conflict, b"First").unwrap();
+        fs::rename(&before, &after).unwrap();
+        journal
+            .capture_side_file_after_moves(&mut first, &cover, 1)
+            .unwrap();
+        fs::create_dir_all(&parent).unwrap();
+        fs::write(&cover, b"First cover").unwrap();
+        journal.commit(
+            first,
+            &[],
+            &[(
+                before.to_string_lossy().into(),
+                after.to_string_lossy().into(),
+            )],
+        );
+        let mut second = journal.begin("Second operation", None, &[]);
+        journal.capture_side_file(&mut second, &cover).unwrap();
+        fs::write(&cover, b"Second cover").unwrap();
+        journal.commit(second, &[], &[]);
+        assert!(journal.undo().unwrap().errors.is_empty());
+        assert_eq!(fs::read(&cover).unwrap(), b"First cover");
+        drop(journal);
+
+        // Real open directory handles prevent reuse of these unlinked inodes.
+        // No ID override is installed for this rollback/reopen regression.
+        let _held_inner = fs::File::open(&parent).unwrap();
+        let _held_outer = fs::File::open(parent.parent().unwrap()).unwrap();
+        fs::write(&conflict, b"External").unwrap();
+        fs::write(
+            directory.path().join("independent-external.bin"),
+            b"External",
+        )
+        .unwrap();
+        fs::write(
+            directory.path().join("independent-second-cover.bin"),
+            b"Second cover",
+        )
+        .unwrap();
+        let mut journal = Journal::open(&root, Limits::default()).unwrap();
+        assert!(!journal.undo().unwrap().errors.is_empty());
+        assert_eq!(fs::read(&conflict).unwrap(), b"External");
+        assert_eq!(fs::read(&cover).unwrap(), b"First cover");
+        assert!(after.is_dir());
+        assert!(!before.exists());
+        drop(journal);
+
+        let mut journal = Journal::open(&root, Limits::default()).unwrap();
+        let redo = journal.redo().unwrap();
+        assert!(
+            redo.errors.is_empty(),
+            "Later Redo lost its rolled-back parents: {:?}",
+            redo.errors
+        );
+        assert_eq!(fs::read(&cover).unwrap(), b"Second cover");
+        assert_eq!(fs::read(&conflict).unwrap(), b"External");
     }
 }

@@ -100,7 +100,10 @@ several blocks with different values.
 Some supported operations also record explicitly captured output images,
 including action **Export Cover** and supported source-import cover writes.
 Their existing image can be restored, or their newly created image removed,
-when that recorded step can replay. This is a specific side-file capture
+when that recorded step can replay. Undo can remove empty output folders that
+the operation created; Redo recreates them. Eligible repeated Undo/Redo remains
+available across restarts. Replacing a folder outside TagGroove can still make
+the operation unavailable. This is a specific side-file capture
 path, not a promise that every external output belongs to file history.
 Ordinary text/CSV exports, playlists, arbitrary action export output,
 configuration files and changes made by external tools need their own
