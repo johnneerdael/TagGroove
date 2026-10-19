@@ -6,6 +6,7 @@ license = "MIT"
 
 [dependencies]
 crc32fast = "=1.5.2"
+sha2 = "=0.10.9"
 quick-xml = "=0.42.0"
 url = "=2.5.8"
 dunce = "1"
@@ -24,6 +25,12 @@ uuid = { version = "1", features = ["v4"] }
 regex-compat = { path = "../regex-compat" }
 libc = "0.2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"] }
+
+# SHA-256's accelerated ARM64 backend is optional in the pinned sha2 release.
+# Restrict the assembly dependency to Apple ARM64; other targets retain their
+# existing runtime-selected SHA backend and build-tool requirements.
+[target.'cfg(all(target_arch = "aarch64", target_vendor = "apple"))'.dependencies]
+sha2 = { version = "=0.10.9", features = ["asm"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem"] }

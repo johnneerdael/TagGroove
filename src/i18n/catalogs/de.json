@@ -2083,7 +2083,6 @@
  "The release list could not be read.": "Die Release-Liste konnte nicht gelesen werden.",
  "The rename preview could not be verified. Run Preview again.": "Die Umbenennungsvorschau konnte nicht verifiziert werden. Führen Sie die Vorschau erneut aus.",
  "The rename request changed; preview again": "Die Umbenennungsanforderung hat sich geändert; Vorschau erneut erstellen",
- "The restored copy is incomplete": "Die wiederhergestellte Kopie ist unvollständig",
  "The rewritten MP4 file did not verify; the original file was kept": "Die neu geschriebene MP4-Datei konnte nicht verifiziert werden; die Originaldatei wurde beibehalten",
  "The saved token is kept {where}.": "Das gespeicherte Token wird {where} aufbewahrt.",
  "The saved token is kept {where}. Changing the keychain option moves a saved token when you select Save.": "Das gespeicherte Token wird {where} aufbewahrt. Wenn Sie die Schlüsselbund-Option ändern, wird ein gespeichertes Token beim Speichern verschoben.",
@@ -2115,7 +2114,6 @@
  "The tool has no name": "Das Werkzeug hat keinen Namen",
  "The tool parameters contain an unmatched quote": "Die Werkzeugparameter enthalten ein unpaariges Anführungszeichen",
  "The undo link snapshot was modified": "Die Linksicherung zum Rückgängigmachen wurde geändert",
- "The undo snapshot is incomplete": "Der Rückgängig-Snapshot ist unvollständig",
  "The undo snapshot is missing": "Der Rückgängig-Snapshot fehlt",
  "The undo snapshot was modified": "Der Rückgängig-Snapshot wurde verändert",
  "The undo symlink target was not preserved": "Das Symlink-Ziel zum Rückgängigmachen wurde nicht beibehalten",
@@ -3440,5 +3438,6 @@
  "Unqualified native numeric setting": "Nicht verifizierte ursprüngliche numerische Einstellung",
  "Unqualified native numeric spelling": "Nicht verifizierte ursprüngliche Zahlenschreibweise",
  "Unqualified native resize tuple": "Nicht verifizierte ursprüngliche Kombination der Größeneinstellungen",
- "Cover adjustment exceeds the 512 MiB working memory limit; choose smaller dimensions": "Die Cover-Anpassung überschreitet das Arbeitsspeicherlimit von 512 MiB; wähle kleinere Abmessungen"
+ "Cover adjustment exceeds the 512 MiB working memory limit; choose smaller dimensions": "Die Cover-Anpassung überschreitet das Arbeitsspeicherlimit von 512 MiB; wähle kleinere Abmessungen",
+ "The file changed while its content was being checked": "Die Datei wurde während der Inhaltsprüfung geändert"
 }

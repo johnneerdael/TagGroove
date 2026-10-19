@@ -2070,7 +2070,6 @@
  "The release list could not be read.": "De releaselijst kon niet worden gelezen.",
  "The rename preview could not be verified. Run Preview again.": "Het voorbeeld voor hernoemen kon niet worden geverifieerd. Voer Voorbeeld opnieuw uit.",
  "The rename request changed; preview again": "Het hernoemverzoek is gewijzigd; bekijk het voorbeeld opnieuw",
- "The restored copy is incomplete": "De herstelde kopie is onvolledig",
  "The rewritten MP4 file did not verify; the original file was kept": "Het herschreven MP4-bestand kon niet worden geverifieerd; het oorspronkelijke bestand is behouden",
  "The saved token is kept {where}.": "Het opgeslagen token wordt bewaard {where}.",
  "The saved token is kept {where}. Changing the keychain option moves a saved token when you select Save.": "Het opgeslagen token wordt bewaard {where}. Als je de sleutelhangeroptie wijzigt, wordt een opgeslagen token verplaatst wanneer je Opslaan kiest.",
@@ -2102,7 +2101,6 @@
  "The tool has no name": "De tool heeft geen naam",
  "The tool parameters contain an unmatched quote": "De toolparameters bevatten een niet-afgesloten aanhalingsteken",
  "The undo link snapshot was modified": "De koppelingsmomentopname voor ongedaan maken is gewijzigd",
- "The undo snapshot is incomplete": "De snapshot voor ongedaan maken is onvolledig",
  "The undo snapshot is missing": "De snapshot voor ongedaan maken ontbreekt",
  "The undo snapshot was modified": "De snapshot voor ongedaan maken is gewijzigd",
  "The undo symlink target was not preserved": "Het symlinkdoel voor ongedaan maken is niet behouden",
@@ -3427,5 +3425,6 @@
  "Unqualified native numeric setting": "Niet-geverifieerde oorspronkelijke numerieke instelling",
  "Unqualified native numeric spelling": "Niet-geverifieerde oorspronkelijke getalnotatie",
  "Unqualified native resize tuple": "Niet-geverifieerde oorspronkelijke combinatie van formaatinstellingen",
- "Cover adjustment exceeds the 512 MiB working memory limit; choose smaller dimensions": "De hoesaanpassing overschrijdt de limiet van 512 MiB werkgeheugen; kies kleinere afmetingen"
+ "Cover adjustment exceeds the 512 MiB working memory limit; choose smaller dimensions": "De hoesaanpassing overschrijdt de limiet van 512 MiB werkgeheugen; kies kleinere afmetingen",
+ "The file changed while its content was being checked": "Het bestand is gewijzigd tijdens het controleren van de inhoud"
 }

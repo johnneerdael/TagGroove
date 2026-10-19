@@ -35,6 +35,8 @@ C47 also covers the implemented and documented direct-executable route for
 arguments sent to a running macOS app. Historical L69 now retains only actual
 macOS runtime qualification under that record; it is not missing launch code.
 
+C61 covers full-content history and staged-write checks, including concealed external edits and corrupted snapshots. Its native Mac/Windows qualifications remain under [the represented scope](research/remaining-gaps.md#c61); L67 still requires persistent-history implementation.
+
 Windows-specific work and original Windows captures are **deferred by the owner**. Retain those requirements as unqualified; continue the cross-platform work without treating deferral as completion.
 
 ## Uncovered work
@@ -76,7 +78,6 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 | L56b | Actions | Qualify EBCDIC/ISO-2022 and explicit Import Text File codepages, UTF-8-valid ANSI interpretation, quality preset numbers and default field lists; current supported choices are TagGroove policy. | [Scope and evidence](research/remaining-gaps.md#l56b) |
 | L57b | Migration | Establish semantics and implement confirmed mappings for unsupported original profile settings, including global/binary data and omitted tag-panel custom_values/prefer_tag options. Supported import/restart/restore acceptance remains under C12/C27. | [Scope and evidence](research/remaining-gaps.md#l57b) |
 | L58 | Updates | Provide/qualify downloading and installation of updates; the current check only offers the GitHub release. | [Scope and evidence](research/remaining-gaps.md#l58) |
-| L61 | Undo | Prevent confirmed Undo/Redo overwrites after same-object external audio edits restore size/mtime; choose and implement a stronger content baseline with staging, history and cost controls. C19 retains the separate Windows replacement-identity implementation and its acceptance limits. | [Scope and evidence](research/remaining-gaps.md#l61) |
 | L63 | Languages | Add independently authored, demand-led catalogs beyond English/Dutch/German and qualify complete localized journeys, Unicode/input and layout; original bundled count is 43, not an acceptance score. | [Scope and evidence](research/remaining-gaps.md#l63) |
 | L64 | Networking | Implement/qualify needed proxy authentication, SOCKS and PAC behavior while keeping credentials out of ordinary configuration backups. | [Scope and evidence](research/remaining-gaps.md#l64) |
 | L65 | Settings research | Establish meaning/equivalents for ConvFTFShowDlg, ConvFTTShowDlg, ConvTFFShowDlg, ConvTTFShowDlg, ConvReplaceShowDlg, ToolOverwriteDefault, CoverPopup and HideID3Bar; binary strings alone do not specify behavior. | [Scope and evidence](research/remaining-gaps.md#l65) |

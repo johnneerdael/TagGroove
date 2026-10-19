@@ -2,9 +2,10 @@
 
 > Historical implementation checkpoint. Later Windows replacement-identity
 > support is recorded in [its scoped verification](undo-windows-identity-2026-10-18.md).
-> Same-object edits restoring size/mtime remain a confirmed separate gap; see
-> the [current history guide](../user-guide/guides/undo-history.md) and
-> [L61's current evidence](../research/remaining-gaps.md#l61). Older gap bullets
+> The later [C61 content-baseline repair](history-content-baselines-2026-10-19.md)
+> supersedes the metadata-only concealed-edit gap; see the
+> [current history guide](../user-guide/guides/undo-history.md) and
+> [L61's represented scope](../research/remaining-gaps.md#l61). Older gap bullets
 > below retain this checkpoint's scope and are not a current implementation backlog.
 
 Branch `feat/edit-history`. Covers Mp3tag's Edit → Undo (Ctrl+Z), Redo

@@ -1,5 +1,7 @@
 # Undo and Redo: concealed external edits
 
+Historical pre-repair diagnosis. The [L61 content-baseline repair](history-content-baselines-2026-10-19.md) supersedes the unsafe behavior below; these original observations and retained artifacts remain unchanged.
+
 The current journal can overwrite an external audio edit when it preserves the
 file's identity and size and restores the recorded modification time. This
 confirms the existing L61 baseline gap; it does not supply a safeguard repair

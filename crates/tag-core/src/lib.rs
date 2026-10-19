@@ -4,6 +4,7 @@ pub mod batch_errors;
 pub mod converters;
 pub mod cue;
 pub mod export;
+mod file_baseline;
 pub mod filter;
 mod flac_metadata;
 pub mod history;

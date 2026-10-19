@@ -130,13 +130,24 @@ file with the same size and modification date. If it cannot obtain the
 information needed for a safe snapshot, the operation can succeed without
 being recorded for Undo; read the **cannot be undone** notice.
 
-On the tested macOS filesystem, an external in-place audio edit that restores
-the recorded file size and modification date passes the current change checks.
-Undo or Redo can then replace that edit with a whole-file snapshot without an
-error. These operations restore audio as well as tags; do not use them to merge
-an external program's edits. Preserve an independent copy of those edits before
-using an older TagGroove history step. Redo is not a guaranteed recovery route
-for every external change.
+History also checks the file's complete contents. An outside edit can therefore
+be refused even when it leaves the file size and modification date unchanged.
+This applies to Undo and Redo, including a recorded rename. The journal checks
+its recovery snapshots too: a damaged snapshot is refused instead of restored.
+If a file changes after capture but before a staged Save, that Save can fail;
+if it changes after Save but before the history step is recorded, the save can
+remain without an Undo step. Read both the save result and any history notice.
+
+Checking complete contents takes time proportional to file size. Large files
+can make Save, Undo and Redo slower, even when only a small tag changed. The
+check uses a bounded buffer rather than loading another whole audio file into
+memory. The normal history size and free-space limits still apply.
+
+These operations restore audio as well as tags; they do not merge another
+program's edits. Preserve an independent copy before attempting recovery, and
+keep other file-changing applications closed. A final check and file replacement
+are separate operations, so these safeguards cannot exclude every concurrent
+writer. Redo is not a guaranteed recovery route for an external edit.
 
 A failed or canceled batch is not automatically rolled back. Completed writes
 can remain, while files never processed can retain pending edits. Inspect

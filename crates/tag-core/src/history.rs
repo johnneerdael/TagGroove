@@ -18,8 +18,11 @@
 //! whole, absent or not, and undo puts back exactly what was there before.
 //! Symbolic-link side entries retain their link target verbatim; their
 //! referents are never captured or changed.
+#[cfg(all(windows, test))]
+use crate::file_baseline::windows_legacy_identity;
 use crate::{
     batch_errors::{push_error, BatchError, Detailed, Direction, ErrorCause},
+    file_baseline::{fingerprint_diagnostic, metadata_stamp, Fingerprint},
     FileError, TagOptions,
 };
 use serde::Serialize;
@@ -28,7 +31,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::Mutex,
-    time::SystemTime,
 };
 
 /// Filesystem allocation granularity used to round rewritten regions.
@@ -50,6 +52,14 @@ struct Writes {
 struct Watched {
     current: PathBuf,
     writes: Writes,
+    expected: Fingerprint,
+    valid: bool,
+}
+#[derive(Clone, Copy)]
+struct TrackedWrite {
+    writes: Writes,
+    expected: Fingerprint,
+    valid: bool,
 }
 
 /// Original journal identities and their current paths during staged operations.
@@ -64,13 +74,14 @@ static WRITES: Mutex<WriteTracking> = Mutex::new(WriteTracking {
 });
 
 /// Called by staged writes after replacing `path`.
-pub(crate) fn note_write(path: &Path, cloned: bool, rewritten: Option<u64>) {
+pub(crate) fn note_write(path: &Path, cloned: bool, rewritten: Option<u64>, produced: Fingerprint) {
     if let Ok(mut tracking) = WRITES.lock() {
         let WriteTracking { watched, paths } = &mut *tracking;
         if let Some(entry) = paths
             .get(path)
             .and_then(|original| watched.get_mut(original))
         {
+            entry.expected = produced;
             entry.writes.count += 1;
             entry.writes.rewritten = match (entry.writes.rewritten, cloned, rewritten) {
                 (Some(total), true, Some(bytes)) => Some(total.saturating_add(bytes)),
@@ -78,6 +89,45 @@ pub(crate) fn note_write(path: &Path, cloned: bool, rewritten: Option<u64>) {
             };
         }
     }
+}
+
+/// Check the capture epoch before changing a watched file. Preserve the caller's
+/// leaf path so canonicalization cannot hide a substituted symlink.
+pub(crate) fn captured_source_matches(
+    requested: &Path,
+    resolved: &Path,
+    current: Fingerprint,
+) -> bool {
+    let Ok(mut tracking) = WRITES.lock() else {
+        return false;
+    };
+    // Resolve directory aliases (/var versus /private/var on macOS), while
+    // preserving the leaf whose substitution we need to detect.
+    let parent = requested
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let leaf = requested.file_name().and_then(|name| {
+        dunce::canonicalize(parent)
+            .ok()
+            .map(|parent| parent.join(name))
+    });
+    let requested = leaf.as_deref().unwrap_or(requested);
+    let raw_watched = tracking.paths.contains_key(requested);
+    let original = tracking
+        .paths
+        .get(requested)
+        .or_else(|| tracking.paths.get(resolved))
+        .cloned();
+    let Some(original) = original else {
+        return true;
+    };
+    let Some(entry) = tracking.watched.get_mut(&original) else {
+        return false;
+    };
+    let regular_leaf = !raw_watched || fs::symlink_metadata(requested).is_ok_and(|m| m.is_file());
+    entry.valid &= regular_leaf && entry.expected == current;
+    entry.valid
 }
 
 /// Follow a completed file/folder move without changing its journal identity.
@@ -102,18 +152,24 @@ pub(crate) fn note_move(from: &Path, to: &Path, copied: bool) {
             tracking.paths.remove(&current);
             tracking.paths.insert(destination.clone(), original.clone());
             if let Some(entry) = tracking.watched.get_mut(&original) {
-                entry.current = destination;
                 if copied {
+                    match fingerprint(&destination) {
+                        Ok(current) if current.same_content(&entry.expected) => {
+                            entry.expected = current
+                        }
+                        _ => entry.valid = false,
+                    }
                     entry.writes.rewritten = None;
                 }
+                entry.current = destination;
             }
         }
     }
 }
 
-fn watch(paths: impl IntoIterator<Item = PathBuf>) {
+fn watch(paths: impl IntoIterator<Item = (PathBuf, Fingerprint)>) {
     if let Ok(mut tracking) = WRITES.lock() {
-        for path in paths {
+        for (path, expected) in paths {
             if let Some(old) = tracking.watched.remove(&path) {
                 tracking.paths.remove(&old.current);
             }
@@ -122,6 +178,8 @@ fn watch(paths: impl IntoIterator<Item = PathBuf>) {
                 path.clone(),
                 Watched {
                     current: path,
+                    expected,
+                    valid: true,
                     writes: Writes {
                         count: 0,
                         rewritten: Some(0),
@@ -132,7 +190,7 @@ fn watch(paths: impl IntoIterator<Item = PathBuf>) {
     }
 }
 
-fn unwatch<'a>(paths: impl IntoIterator<Item = &'a PathBuf>) -> BTreeMap<PathBuf, Writes> {
+fn unwatch<'a>(paths: impl IntoIterator<Item = &'a PathBuf>) -> BTreeMap<PathBuf, TrackedWrite> {
     let Ok(mut tracking) = WRITES.lock() else {
         return BTreeMap::new();
     };
@@ -141,7 +199,14 @@ fn unwatch<'a>(paths: impl IntoIterator<Item = &'a PathBuf>) -> BTreeMap<PathBuf
         .filter_map(|path| {
             tracking.watched.remove(path).map(|entry| {
                 tracking.paths.remove(&entry.current);
-                (path.clone(), entry.writes)
+                (
+                    path.clone(),
+                    TrackedWrite {
+                        writes: entry.writes,
+                        expected: entry.expected,
+                        valid: entry.valid,
+                    },
+                )
             })
         })
         .collect()
@@ -160,105 +225,8 @@ fn retained(len: u64, linked: bool, writes: Option<Writes>) -> u64 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Fingerprint {
-    len: u64,
-    modified: Option<SystemTime>,
-    #[cfg(not(windows))]
-    identity: Option<(u64, u64)>,
-    #[cfg(windows)]
-    identity: WindowsIdentity,
-}
-
-#[cfg(windows)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum WindowsIdentity {
-    FileId128 { volume: u64, file: [u8; 16] },
-    FileIndex64 { volume: u32, file: u64 },
-}
-
-#[cfg(windows)]
-fn windows_legacy_identity(file: &fs::File) -> std::io::Result<WindowsIdentity> {
-    use std::os::windows::io::AsRawHandle;
-    use windows_sys::Win32::Storage::FileSystem::{
-        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
-    };
-
-    let mut info = BY_HANDLE_FILE_INFORMATION::default();
-    // SAFETY: the file owns a live handle, and info is the correctly sized writable buffer.
-    if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(WindowsIdentity::FileIndex64 {
-        volume: info.dwVolumeSerialNumber,
-        file: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
-    })
-}
-
-#[cfg(windows)]
-fn windows_identity(file: &fs::File) -> std::io::Result<WindowsIdentity> {
-    use std::os::windows::io::AsRawHandle;
-    use windows_sys::Win32::Storage::FileSystem::{
-        FileIdInfo, GetFileInformationByHandleEx, FILE_ID_INFO,
-    };
-
-    let mut info = FILE_ID_INFO::default();
-    // Prefer the full ID: the legacy 64-bit index is not guaranteed unique on ReFS.
-    // SAFETY: the file owns a live handle, and the buffer matches FileIdInfo's ABI.
-    if unsafe {
-        GetFileInformationByHandleEx(
-            file.as_raw_handle(),
-            FileIdInfo,
-            std::ptr::from_mut(&mut info).cast(),
-            std::mem::size_of::<FILE_ID_INFO>() as u32,
-        )
-    } != 0
-    {
-        Ok(WindowsIdentity::FileId128 {
-            volume: info.VolumeSerialNumber,
-            file: info.FileId.Identifier,
-        })
-    } else {
-        // Older/network filesystems may expose only volume + file index. If neither
-        // query works, refuse the fingerprint rather than trusting size/mtime alone.
-        windows_legacy_identity(file)
-    }
-}
-
 fn fingerprint(path: &Path) -> Result<Fingerprint, String> {
     fingerprint_diagnostic(path).map_err(|cause| cause.to_string())
-}
-fn fingerprint_diagnostic(path: &Path) -> Result<Fingerprint, ErrorCause> {
-    #[cfg(windows)]
-    let file = {
-        use std::os::windows::fs::OpenOptionsExt;
-        use windows_sys::Win32::Storage::FileSystem::FILE_READ_ATTRIBUTES;
-        fs::File::options()
-            .access_mode(FILE_READ_ATTRIBUTES)
-            .open(path)
-            .map_err(ErrorCause::external)?
-    };
-    #[cfg(windows)]
-    let metadata = file.metadata().map_err(ErrorCause::external)?;
-    #[cfg(not(windows))]
-    let metadata = fs::metadata(path).map_err(ErrorCause::external)?;
-    if !metadata.is_file() {
-        return Err(ErrorCause::owned("Not a regular file"));
-    }
-    #[cfg(unix)]
-    let identity = {
-        use std::os::unix::fs::MetadataExt;
-        Some((metadata.dev(), metadata.ino()))
-    };
-    #[cfg(windows)]
-    let identity = windows_identity(&file).map_err(ErrorCause::external)?;
-    #[cfg(not(any(unix, windows)))]
-    let identity = None;
-    Ok(Fingerprint {
-        len: metadata.len(),
-        modified: metadata.modified().ok(),
-        identity,
-    })
 }
 
 /// Bounds for retained snapshots. An operation whose snapshots would retain
@@ -495,31 +463,29 @@ impl Journal {
         expected: Fingerprint,
     ) -> Result<Blob, ErrorCause> {
         let path = self.blob_path();
-        let linked = fs::hard_link(source, &path).is_ok();
-        if !linked {
-            if let Err(error) = fs::copy(source, &path) {
-                let _ = fs::remove_file(&path);
-                return Err(ErrorCause::external(error));
+        let result = (|| {
+            let linked = fs::hard_link(source, &path).is_ok();
+            if !linked {
+                fs::copy(source, &path).map_err(ErrorCause::external)?;
             }
-            if fingerprint_diagnostic(source)? != expected {
-                let _ = fs::remove_file(&path);
+            let print = fingerprint_diagnostic(&path)?;
+            if !print.same_content(&expected) || fingerprint_diagnostic(source)? != expected {
                 return Err(ErrorCause::owned(
                     "The file changed while its undo snapshot was taken",
                 ));
             }
+            Ok(Blob {
+                path: path.clone(),
+                fingerprint: print,
+                linked,
+                cost: expected.len,
+                symlink_target: None,
+            })
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&path);
         }
-        let blob = Blob {
-            fingerprint: fingerprint_diagnostic(&path)?,
-            path,
-            linked,
-            cost: expected.len,
-            symlink_target: None,
-        };
-        if blob.fingerprint.len != expected.len {
-            discard(&blob);
-            return Err(ErrorCause::owned("The undo snapshot is incomplete"));
-        }
-        Ok(blob)
+        result
     }
 
     /// Snapshot `paths` before an operation writes them. Operations sharing a
@@ -543,7 +509,7 @@ impl Journal {
             let Ok(path) = dunce::canonicalize(Path::new(raw)) else {
                 continue;
             };
-            let print = match fingerprint(&path) {
+            let print = match metadata_stamp(&path).map_err(|cause| cause.to_string()) {
                 Ok(print) => print,
                 Err(error) => {
                     #[cfg(windows)]
@@ -597,7 +563,19 @@ impl Journal {
             capture.abandoned = Some("there is not enough free disk space for undo".into());
             return capture;
         }
-        for (raw, path, print) in targets {
+        for (raw, path, stamp) in targets {
+            let print = match fingerprint(&path) {
+                Ok(print) if print.matches_metadata(&stamp) => print,
+                result => {
+                    capture.files.iter().for_each(|f| discard(&f.blob));
+                    capture.files.clear();
+                    let error = result.err().unwrap_or_else(|| {
+                        "The file changed while its undo snapshot was taken".into()
+                    });
+                    capture.abandoned = Some(format!("an undo snapshot failed: {error}"));
+                    return capture;
+                }
+            };
             match self.snapshot(&path, print) {
                 Ok(blob) => capture.files.push(Captured {
                     raw,
@@ -613,7 +591,12 @@ impl Journal {
                 }
             }
         }
-        watch(capture.files.iter().map(|f| f.path.clone()));
+        watch(
+            capture
+                .files
+                .iter()
+                .map(|f| (f.path.clone(), f.fingerprint)),
+        );
         capture
     }
 
@@ -746,6 +729,12 @@ impl Journal {
     /// Side files may be rewritten in place, so keep a bounded complete copy.
     fn copy_blob(&mut self, source: &Path, bytes: u64) -> Result<Blob, ErrorCause> {
         use std::io::Read;
+        let expected = fingerprint_diagnostic(source)?;
+        if expected.len != bytes {
+            return Err(ErrorCause::owned(
+                "The side file changed size while its undo snapshot was taken",
+            ));
+        }
         let path = self.blob_path();
         let result = (|| {
             let mut input = fs::File::open(source).map_err(ErrorCause::external)?;
@@ -758,8 +747,14 @@ impl Journal {
                     "The side file changed size while its undo snapshot was taken",
                 ));
             }
+            let print = fingerprint_diagnostic(&path)?;
+            if !print.same_content(&expected) || fingerprint_diagnostic(source)? != expected {
+                return Err(ErrorCause::owned(
+                    "The file changed while its undo snapshot was taken",
+                ));
+            }
             Ok(Blob {
-                fingerprint: fingerprint_diagnostic(&path)?,
+                fingerprint: print,
                 path: path.clone(),
                 cost: bytes,
                 linked: false,
@@ -912,12 +907,19 @@ impl Journal {
                 lost += 1;
                 continue;
             };
+            if writes.get(&captured.path).is_some_and(|track| {
+                !track.valid || track.writes.count > 0 && track.expected != after
+            }) {
+                discard(&captured.blob);
+                lost += 1;
+                continue;
+            }
             // A confirmed staged replacement still needs its snapshot when size
             // and mtime are preserved and the platform supplies no file identity.
             let content = after != captured.fingerprint
                 || writes
                     .get(&captured.path)
-                    .is_some_and(|write| write.count > 0);
+                    .is_some_and(|write| write.writes.count > 0);
             if !content && to == captured.path {
                 discard(&captured.blob);
                 continue;
@@ -929,7 +931,11 @@ impl Journal {
                 continue;
             }
             let len = captured.fingerprint.len;
-            let cost = retained(len, true, writes.get(&captured.path).copied());
+            let cost = retained(
+                len,
+                true,
+                writes.get(&captured.path).map(|track| track.writes),
+            );
             let blob = if content {
                 let mut blob = captured.blob;
                 blob.cost = if blob.linked { cost } else { len };
@@ -1220,15 +1226,29 @@ impl Journal {
             let (from, to) = file.sides(backward);
             let current = rebase(&from.path, &moves);
             let outcome = (|| {
+                if fingerprint_diagnostic(&current)? != from.fingerprint {
+                    return Err(ErrorCause::owned(
+                        "The file changed during restore; reload it and try again",
+                    ));
+                }
                 if current != to.path {
                     crate::operations::rename_no_clobber_cause(&current, &to.path)?;
                 }
                 if content {
-                    let blob = to
-                        .blob
-                        .as_ref()
-                        .ok_or_else(|| ErrorCause::owned("The undo snapshot is missing"))?;
-                    match restore(blob, &to.path, &self.options) {
+                    let restored = (|| {
+                        let blob = to
+                            .blob
+                            .as_ref()
+                            .ok_or_else(|| ErrorCause::owned("The undo snapshot is missing"))?;
+                        let expected = fingerprint_diagnostic(&to.path)?;
+                        if !expected.same_content(&from.fingerprint) {
+                            return Err(ErrorCause::owned(
+                                "The file changed during restore; reload it and try again",
+                            ));
+                        }
+                        restore(blob, &to.path, &self.options, expected)
+                    })();
+                    match restored {
                         // The replaced file now shares all but the rewritten region
                         // with the snapshot it came from.
                         Ok(cloned) => {
@@ -1373,7 +1393,7 @@ fn side_path(path: &Path) -> Result<PathBuf, ErrorCause> {
 }
 
 fn same_bytes(a: &Path, b: &Path) -> bool {
-    matches!((fs::read(a), fs::read(b)), (Ok(a), Ok(b)) if a == b)
+    matches!((fingerprint(a), fingerprint(b)), (Ok(a), Ok(b)) if a.same_content(&b))
 }
 
 /// Whether `path` is exactly `blob` (or absent for `None`).
@@ -1382,13 +1402,17 @@ fn holds(blob: Option<&Blob>, path: &Path) -> bool {
         None => {
             matches!(fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
         }
-        Some(blob) => match &blob.symlink_target {
-            Some(target) => fs::read_link(path).is_ok_and(|current| current == *target),
-            None => {
-                fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_file())
-                    && same_bytes(&blob.path, path)
+        Some(blob) => {
+            if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
+                return false;
             }
-        },
+            match &blob.symlink_target {
+                Some(target) => fs::read_link(path).is_ok_and(|current| current == *target),
+                None => {
+                    fingerprint(path).is_ok_and(|current| current.same_content(&blob.fingerprint))
+                }
+            }
+        }
     }
 }
 
@@ -1417,8 +1441,18 @@ fn put(blob: Option<&Blob>, path: &Path) -> Result<(), ErrorCause> {
         .tempfile_in(folder)
         .map_err(ErrorCause::external)?;
     let mut source = fs::File::open(&blob.path).map_err(ErrorCause::external)?;
-    std::io::copy(&mut source, staging.as_file_mut()).map_err(ErrorCause::external)?;
+    use std::io::Read;
+    std::io::copy(
+        &mut (&mut source).take(blob.fingerprint.len.saturating_add(1)),
+        staging.as_file_mut(),
+    )
+    .map_err(ErrorCause::external)?;
     staging.as_file().sync_all().map_err(ErrorCause::external)?;
+    if !fingerprint_diagnostic(staging.path())?.same_content(&blob.fingerprint)
+        || fingerprint_diagnostic(&blob.path)? != blob.fingerprint
+    {
+        return Err(ErrorCause::owned("The undo snapshot was modified"));
+    }
     staging
         .persist(path)
         .map_err(|e| ErrorCause::external(e.error))?;
@@ -1695,16 +1729,24 @@ fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), ErrorCause> {
 
 /// Replace `target` with the snapshot bytes through a verified staging file.
 /// Returns whether the staging file was a clone of the snapshot.
-fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<bool, ErrorCause> {
+fn restore(
+    blob: &Blob,
+    target: &Path,
+    options: &TagOptions,
+    expected: Fingerprint,
+) -> Result<bool, ErrorCause> {
     if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
         return Err(ErrorCause::owned("The undo snapshot was modified"));
     }
-    let target = dunce::canonicalize(target).map_err(ErrorCause::external)?;
-    let original = fs::metadata(&target).map_err(ErrorCause::external)?;
+    if fingerprint_diagnostic(target)? != expected {
+        return Err(ErrorCause::owned(
+            "The file changed during restore; reload it and try again",
+        ));
+    }
+    let original = fs::metadata(target).map_err(ErrorCause::external)?;
     if original.permissions().readonly() {
         return Err(ErrorCause::owned("The audio file is read-only"));
     }
-    let expected = fingerprint_diagnostic(&target)?;
     let (staging, cloned) = crate::staging_clone(
         &blob.path,
         target
@@ -1715,22 +1757,20 @@ fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<bool, Err
     )
     .map_err(ErrorCause::external)?;
     staging.as_file().sync_all().map_err(ErrorCause::external)?;
-    if fs::metadata(staging.path())
-        .map_err(ErrorCause::external)?
-        .len()
-        != blob.fingerprint.len
+    if !fingerprint_diagnostic(staging.path())?.same_content(&blob.fingerprint)
+        || fingerprint_diagnostic(&blob.path)? != blob.fingerprint
     {
-        return Err(ErrorCause::owned("The restored copy is incomplete"));
+        return Err(ErrorCause::owned("The undo snapshot was modified"));
     }
     crate::read_entry_summary_with_options_diagnostic(staging.path(), &[], options)?;
     fs::set_permissions(staging.path(), original.permissions()).map_err(ErrorCause::external)?;
-    if fingerprint_diagnostic(&target)? != expected {
+    if fingerprint_diagnostic(target)? != expected {
         return Err(ErrorCause::owned(
             "The file changed during restore; reload it and try again",
         ));
     }
     staging
-        .persist(&target)
+        .persist(target)
         .map_err(|e| ErrorCause::external(e.error))?;
     Ok(cloned)
 }
@@ -1959,58 +1999,62 @@ mod tests {
 
     #[test]
     fn writes_accumulate_only_for_watched_files_and_any_full_write_is_sticky() {
+        let fixture = tempfile::NamedTempFile::new().unwrap();
+        let baseline = fingerprint(fixture.path()).unwrap();
         let path = PathBuf::from("/opentag-test/watched.flac");
         let other = PathBuf::from("/opentag-test/unwatched.flac");
-        watch([path.clone()]);
-        note_write(&path, true, Some(8192));
-        note_write(&path, true, Some(100));
-        note_write(&other, true, Some(1));
+        watch([(path.clone(), baseline)]);
+        note_write(&path, true, Some(8192), baseline);
+        note_write(&path, true, Some(100), baseline);
+        note_write(&other, true, Some(1), baseline);
         let writes = unwatch([&path, &other]);
         assert_eq!(writes.len(), 1);
-        assert_eq!(writes[&path].count, 2);
-        assert_eq!(writes[&path].rewritten, Some(8292));
+        assert_eq!(writes[&path].writes.count, 2);
+        assert_eq!(writes[&path].writes.rewritten, Some(8292));
         for (cloned, rewritten) in [(false, Some(10)), (true, None)] {
-            watch([path.clone()]);
-            note_write(&path, true, Some(10));
-            note_write(&path, cloned, rewritten);
-            note_write(&path, true, Some(10));
-            assert_eq!(unwatch([&path])[&path].rewritten, None);
+            watch([(path.clone(), baseline)]);
+            note_write(&path, true, Some(10), baseline);
+            note_write(&path, cloned, rewritten, baseline);
+            note_write(&path, true, Some(10), baseline);
+            assert_eq!(unwatch([&path])[&path].writes.rewritten, None);
         }
         assert!(unwatch([&path]).is_empty(), "commit stops watching");
     }
 
     #[test]
     fn moved_watches_keep_original_identity_and_copies_keep_full_cost() {
+        let fixture = tempfile::NamedTempFile::new().unwrap();
+        let baseline = fingerprint(fixture.path()).unwrap();
         let original = PathBuf::from("/opentag-move-test/album/one.flac");
         let sibling = PathBuf::from("/opentag-move-test/album-other/two.flac");
         let renamed = PathBuf::from("/opentag-move-test/album/new.flac");
         let moved = PathBuf::from("/opentag-move-test/moved/new.flac");
         let copied = PathBuf::from("/opentag-move-test/copied/new.flac");
-        watch([original.clone(), sibling.clone()]);
+        watch([(original.clone(), baseline), (sibling.clone(), baseline)]);
         note_move(&original, &renamed, false);
-        note_write(&renamed, true, Some(10));
+        note_write(&renamed, true, Some(10), baseline);
         note_move(
             Path::new("/opentag-move-test/album"),
             Path::new("/opentag-move-test/moved"),
             false,
         );
-        note_write(&moved, true, Some(20));
-        note_write(&original, true, Some(999));
-        note_write(&sibling, true, Some(7));
+        note_write(&moved, true, Some(20), baseline);
+        note_write(&original, true, Some(999), baseline);
+        note_write(&sibling, true, Some(7), baseline);
         note_move(&moved, &copied, true);
-        note_write(&copied, true, Some(1));
+        note_write(&copied, true, Some(1), baseline);
         let writes = unwatch([&original, &sibling]);
-        assert_eq!(writes[&original].count, 3);
+        assert_eq!(writes[&original].writes.count, 3);
         assert_eq!(
-            writes[&original].rewritten, None,
+            writes[&original].writes.rewritten, None,
             "copied moves cannot claim shared snapshot blocks"
         );
         assert_eq!(
-            writes[&sibling].count, 1,
+            writes[&sibling].writes.count, 1,
             "a sibling with a similar prefix stays separate"
         );
-        assert_eq!(writes[&sibling].rewritten, Some(7));
-        note_write(&copied, true, Some(100));
+        assert_eq!(writes[&sibling].writes.rewritten, Some(7));
+        note_write(&copied, true, Some(100), baseline);
         assert!(
             unwatch([&original]).is_empty(),
             "moved aliases stop being watched at commit"

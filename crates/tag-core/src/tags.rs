@@ -4,6 +4,9 @@
 mod asf;
 #[path = "container_formats.rs"]
 mod container_formats;
+#[cfg(test)]
+#[path = "tags_content_guard_tests.rs"]
+mod content_guard_tests;
 #[path = "cover_manage.rs"]
 mod cover_manage;
 #[path = "cover_ops.rs"]
@@ -1414,6 +1417,7 @@ where
     if subsongs::split_path(path).is_some() {
         return Err(ErrorCause::owned(subsongs::ROW_OPERATION));
     }
+    let requested = path;
     let path = dunce::canonicalize(path).map_err(ErrorCause::external)?;
     let original = fs::metadata(&path).map_err(ErrorCause::external)?;
     if !original.is_file() {
@@ -1421,6 +1425,12 @@ where
     }
     if original.permissions().readonly() {
         return Err(ErrorCause::owned("The audio file is read-only"));
+    }
+    let expected = crate::file_baseline::fingerprint_for_edit_diagnostic(&path)?;
+    if !crate::history::captured_source_matches(requested, &path, expected) {
+        return Err(ErrorCause::owned(
+            "The file changed during editing; reload it before saving",
+        ));
     }
     let (mut staging, cloned) = staging_clone(
         &path,
@@ -1430,6 +1440,13 @@ where
         "",
     )
     .map_err(ErrorCause::external)?;
+    if !crate::file_baseline::fingerprint_for_edit_diagnostic(staging.path())?
+        .same_content(&expected)
+    {
+        return Err(ErrorCause::owned(
+            "The file changed during editing; reload it before saving",
+        ));
+    }
     let staged_path = staging.path().to_path_buf();
     let scope = crate::write_cost::Scope::begin();
     mutation(staging.as_file_mut(), &path, &staged_path)?;
@@ -1452,8 +1469,10 @@ where
     let mut entry =
         read_description_diagnostic(staging.path(), include_cover_data, rules, options)?;
     fs::set_permissions(staging.path(), original.permissions()).map_err(ErrorCause::external)?;
-    let current = fs::metadata(&path).map_err(ErrorCause::external)?;
-    if current.len() != original.len() || current.modified().ok() != original.modified().ok() {
+    let produced = crate::file_baseline::fingerprint_for_edit_diagnostic(staging.path())?;
+    if crate::file_baseline::fingerprint_for_edit_diagnostic(&path)? != expected
+        || !crate::history::captured_source_matches(requested, &path, expected)
+    {
         return Err(ErrorCause::owned(
             "The file changed during editing; reload it before saving",
         ));
@@ -1461,7 +1480,7 @@ where
     staging
         .persist(&path)
         .map_err(|e| ErrorCause::external(e.error))?;
-    crate::history::note_write(&path, cloned, rewritten);
+    crate::history::note_write(&path, cloned, rewritten, produced);
     entry.path = path.to_string_lossy().into_owned();
     entry.filename = path
         .file_name()

@@ -46,6 +46,12 @@ Steps:
 
 Inspect current watcher/replay paths and concealed-edit evidence; write failing same-inode/size/mtime and crash/reopen tests before implementation. Keep exact Undo/Redo, aggregate limits, refusal behavior and complete portable history state. Expected: concealed external bytes are never overwritten and committed eligible sessions reopen with verified baselines.
 
+Checkpoint 2026-10-19: L61 implementation is represented by C61 with content,
+staging, corruption, admission and measured-cost controls. The complete formatted
+Rust workspace passes 1,465 tests (83 executables; 21 intentional ignores), and
+all 842 UI tests pass. Actual Mac application acceptance remains local. L67 is
+still unimplemented, so Task 2 is not complete.
+
 ## Task 3: Remaining local ledger and handover
 
 Use the exhaustive per-ID register in docs/handover/PARITY-OTHER-MACHINES.md. Complete each local component with real validation; split OS/device-only acceptance with reproducible handover steps. Expected: no unresolved local rows, no unsupported claim of original/native equivalence.
