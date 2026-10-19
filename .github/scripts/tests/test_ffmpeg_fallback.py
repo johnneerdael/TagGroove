@@ -10,7 +10,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[3]
-WORKFLOWS = {'_reviewed-build.yml': 1}
+WORKFLOWS = {'_reviewed-native.yml': 1}
 
 
 @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell is needed to execute the fallback')

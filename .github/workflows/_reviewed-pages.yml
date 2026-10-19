@@ -47,8 +47,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r docs/site-requirements.txt
-      - run: python -m unittest discover -s docs/tests -v
-      - run: python scripts/docs-status.py
       - run: python -m mkdocs build --strict
       - name: Set the custom domain
         run: echo 'taggroove.neerdael.nl' > build/user-guide-site/CNAME

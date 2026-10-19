@@ -51,7 +51,7 @@ jobs:
           args=()
           if [ "$RETRY" = true ]; then args+=(--retry); fi
           python3 .github/scripts/review_gate.py reconcile --pr "$PR_NUMBER" "${args[@]}"
-      - name: Authorize publication only for a validated merged PR
+      - name: Authorize reviewed merged source or evidenced failed-main repair
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}

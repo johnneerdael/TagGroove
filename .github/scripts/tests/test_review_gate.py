@@ -398,12 +398,158 @@ class GateTests(unittest.TestCase):
             self.gate.check_release(self.api, 17, HEAD, SOURCE)
 
 
+class MainRepairTests(unittest.TestCase):
+    def setUp(self):
+        self.gate = load()
+        self.api = Mock()
+        self.commit = dict(message='Fix failed main build\n\nCI-Repair-Run: 42\n', parents=[dict(sha=BASE)])
+        self.run = dict(path='.github/workflows/reviewed-release.yml', event='workflow_dispatch',
+                        head_branch='main', head_sha=BASE, status='completed', conclusion='failure',
+                        display_title=f'Reviewed release {BASE}')
+        self.comparisons = {}
+        self.associated = []
+        self.jobs = [dict(name=name, status='completed', conclusion='success')
+                     for name in ('authorize', 'Validate version, tag and source commit')]
+        self.api.jobs.side_effect = lambda run_id: self.jobs
+        self.api.pages.side_effect = lambda path: self.associated if path == f'commits/{SOURCE}/pulls?per_page=100' else []
+        self.api.runs.return_value = []
+        def get(path):
+            if path == f'git/commits/{SOURCE}':
+                return self.commit
+            if path == 'actions/runs/42':
+                return self.run
+            if path.startswith('compare/'):
+                return dict(status=self.comparisons.get(path, 'ahead'))
+            raise AssertionError(f'Unexpected API request: {path}')
+        self.api.get.side_effect = get
+
+    def test_direct_main_repair_dispatches_without_fabricating_pr_review(self):
+        self.gate.reconcile_main(self.api, SOURCE)
+        self.api.post.assert_called_once_with('actions/workflows/reviewed-release.yml/dispatches',
+            dict(ref='main', inputs=dict(pr_number='0', head_sha=SOURCE, source_sha=SOURCE)))
+        self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.api.snapshot.assert_not_called()
+        self.api.status.assert_not_called()
+
+    def test_direct_main_repair_dispatch_is_idempotent(self):
+        self.api.runs.return_value = [dict(display_title=f'Reviewed release {SOURCE}')]
+        self.gate.reconcile_main(self.api, SOURCE)
+        self.api.post.assert_not_called()
+
+    def test_failed_release_controller_can_be_a_later_main_commit(self):
+        self.run['head_sha'] = HEAD
+        self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+
+    def test_failed_run_must_have_successfully_authorized_and_prepared_its_source(self):
+        for index in (0, 1):
+            for field, value in [('status', 'queued'), ('status', 'in_progress'),
+                                 ('conclusion', 'failure'), ('conclusion', 'skipped'),
+                                 ('conclusion', 'cancelled'), ('conclusion', None)]:
+                with self.subTest(job=self.jobs[index]['name'], field=field, value=value):
+                    original = self.jobs[index][field]
+                    self.jobs[index][field] = value
+                    with self.assertRaisesRegex(RuntimeError, 'authorize|prepar'):
+                        self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+                    self.jobs[index][field] = original
+        for index in (0, 1):
+            with self.subTest(missing=self.jobs[index]['name']):
+                original = self.jobs.pop(index)
+                with self.assertRaisesRegex(RuntimeError, 'authorize|prepar'):
+                    self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+                self.jobs.insert(index, original)
+        self.api.post.assert_not_called()
+
+    def test_failed_run_job_api_errors_deny_repair(self):
+        self.api.jobs.side_effect = RuntimeError('Job evidence unavailable')
+        with self.assertRaisesRegex(RuntimeError, 'Job evidence unavailable'):
+            self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.api.post.assert_not_called()
+
+    def test_failed_run_job_evidence_reads_all_pages(self):
+        self.api.repo = 'owner/repo'
+        self.api.request.return_value = [dict(total_count=102, jobs=[self.jobs[0]]),
+                                         dict(total_count=102, jobs=[self.jobs[1]])]
+        self.api.jobs.side_effect = lambda run_id: self.gate.GitHub.jobs(self.api, run_id)
+        self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.api.request.assert_called_once_with(
+            'repos/owner/repo/actions/runs/42/jobs?per_page=100', paginate=True)
+
+    def test_failed_run_rejects_ambiguous_job_evidence(self):
+        self.jobs.append(dict(self.jobs[0], conclusion='failure'))
+        with self.assertRaisesRegex(RuntimeError, 'authorize|prepar'):
+            self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+
+    def test_repair_rejects_untrusted_or_unsuccessful_run_metadata(self):
+        for field, value in [('path', '.github/workflows/reviewed-pr.yml'),
+                             ('path', '.github/workflows/reviewed-release.yml@refs/heads/other'),
+                             ('event', 'push'), ('head_branch', 'other'),
+                             ('status', 'in_progress'), ('conclusion', 'success'),
+                             ('conclusion', 'cancelled'), ('display_title', 'Unrelated run'),
+                             ('display_title', f'Reviewed release {HEAD}'), ('head_sha', 'invalid')]:
+            with self.subTest(field=field, value=value):
+                original = self.run[field]
+                self.run[field] = value
+                with self.assertRaises(RuntimeError):
+                    self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+                self.run[field] = original
+        self.api.post.assert_not_called()
+
+    def test_repair_rejects_detached_sources_and_untrusted_run_controller(self):
+        for source in (SOURCE, BASE, HEAD):
+            with self.subTest(source=source):
+                self.run['head_sha'] = HEAD
+                self.comparisons = {f'compare/{source}...main': 'diverged'}
+                with self.assertRaises(RuntimeError):
+                    self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.api.post.assert_not_called()
+
+    def test_repair_requires_exact_single_parent_and_matching_input(self):
+        for parents in ([], [dict(sha=HEAD)], [dict(sha=BASE), dict(sha=HEAD)]):
+            with self.subTest(parents=parents):
+                self.commit['parents'] = parents
+                with self.assertRaises(RuntimeError):
+                    self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.commit['parents'] = [dict(sha=BASE)]
+        with self.assertRaises(RuntimeError):
+            self.gate.check_release(self.api, 0, HEAD, SOURCE)
+
+    def test_repair_trailer_cannot_bypass_a_merged_pr(self):
+        for base in ('main', 'other'):
+            with self.subTest(base=base):
+                self.associated = [dict(number=17, merged_at='2026-10-19T10:00:00Z',
+                                        base=dict(ref=base), merge_commit_sha=HEAD)]
+                with self.assertRaises(RuntimeError):
+                    self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.api.snapshot.assert_not_called()
+        self.api.post.assert_not_called()
+
+    def test_repair_requires_one_final_numeric_trailer(self):
+        for message in ('Fix build', 'Fix build\n\nCI-Repair-Run: nope',
+                        'Fix build\n\nCI-Repair-Run: 0',
+                        'Fix build\n\nCI-Repair-Run: 42\nCI-Repair-Run: 43',
+                        'CI-Repair-Run: 42\n\nUnrelated final paragraph'):
+            with self.subTest(message=message):
+                self.commit['message'] = message
+                with self.assertRaises(RuntimeError):
+                    self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+
+    def test_publication_rechecks_failed_run_and_main_membership(self):
+        self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.run['conclusion'] = 'success'
+        with self.assertRaises(RuntimeError):
+            self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.run['conclusion'] = 'failure'
+        self.comparisons[f'compare/{SOURCE}...main'] = 'behind'
+        with self.assertRaises(RuntimeError):
+            self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+
+
 class WorkflowTrustTests(unittest.TestCase):
     def test_workload_paths_have_no_automatic_trigger(self):
         workflows = ROOT.parent / 'workflows'
         self.assertFalse((workflows / 'build.yml').exists())
         self.assertFalse((workflows / 'release.yml').exists())
-        for name in ['reviewed-pr.yml', 'reviewed-release.yml', '_reviewed-build.yml']:
+        for name in ['reviewed-pr.yml', 'reviewed-release.yml', '_reviewed-build.yml', '_reviewed-native.yml']:
             source = (workflows / name).read_text()
             header = source.split('jobs:')[0]
             self.assertNotIn('  push:', header)
@@ -456,16 +602,41 @@ class WorkflowTrustTests(unittest.TestCase):
         self.assertNotIn('secrets.', source)
         self.assertNotIn('rust-cache', source)
         self.assertNotIn('cache:', source)
-        for job in ['tooling', 'desktop', 'android', 'docs']:
+        self.assertEqual(re.findall(r'^  ([a-z0-9_-]+):$', source.split('jobs:')[1], re.M),
+                         ['authorize', 'tooling'])
+        for job in ['tooling']:
             block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
-            self.assertIn('needs: [authorize, tooling]' if job in {'desktop', 'android'} else 'needs: authorize', block)
+            self.assertIn('needs: authorize', block)
             self.assertIn("if: needs.authorize.outputs.ready == 'true'", block)
             self.assertIn('ref: ${{ inputs.merge_sha }}', block)
             self.assertIn('persist-credentials: false', block)
 
+    def test_main_native_validation_requires_release_authorization_and_exact_source(self):
+        import re
+        source = (ROOT.parent / 'workflows/_reviewed-native.yml').read_text()
+        self.assertIn("github.ref == 'refs/heads/main'", source)
+        self.assertIn("github.workflow_ref == format('{0}/.github/workflows/reviewed-release.yml@refs/heads/main', github.repository)", source)
+        self.assertIn('review_gate.py release-check', source)
+        for denied in ('secrets.', 'rust-cache', 'cache:', 'cargo test', 'cargo fmt', 'cargo clippy'):
+            self.assertNotIn(denied, source)
+        for job in ('desktop', 'android'):
+            block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
+            self.assertIn('needs: authorize', block)
+            self.assertIn("if: needs.authorize.outputs.ready == 'true'", block)
+            self.assertIn('ref: ${{ inputs.source_sha }}', block)
+            self.assertIn('persist-credentials: false', block)
+        release = (ROOT.parent / 'workflows/reviewed-release.yml').read_text()
+        native = re.search(r'^  native-validation:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', release, re.M | re.S)[1]
+        self.assertIn('needs: [authorize, prepare]', native)
+        self.assertIn("if: needs.prepare.outputs.skip != 'true'", native)
+        self.assertIn('uses: ./.github/workflows/_reviewed-native.yml', native)
+        self.assertIn('source_sha: ${{ inputs.source_sha }}', native)
+        publish = re.search(r'^  publish:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', release, re.M | re.S)[1]
+        self.assertRegex(publish, r'needs: \[[^\]\n]*native-validation[^\]\n]*\]')
+
     def test_native_desktop_jobs_install_their_toolchains_before_building(self):
         import re
-        for workflow, jobs in [('_reviewed-build.yml', ('desktop',)), ('reviewed-release.yml', ('desktop',))]:
+        for workflow, jobs in [('_reviewed-native.yml', ('desktop',)), ('reviewed-release.yml', ('desktop',))]:
             source = (ROOT.parent / 'workflows' / workflow).read_text()
             for job in jobs:
                 with self.subTest(workflow=workflow, job=job):
@@ -500,7 +671,7 @@ class WorkflowTrustTests(unittest.TestCase):
 
     def test_mobile_jobs_prepare_python_cmake_and_keep_target_sdks(self):
         import re
-        for workflow, job in [('_reviewed-build.yml', 'android'), ('reviewed-release.yml', 'android'), ('reviewed-release.yml', 'ios')]:
+        for workflow, job in [('_reviewed-native.yml', 'android'), ('reviewed-release.yml', 'android'), ('reviewed-release.yml', 'ios')]:
             with self.subTest(workflow=workflow, job=job):
                 source = (ROOT.parent / 'workflows' / workflow).read_text()
                 block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
@@ -518,8 +689,8 @@ class WorkflowTrustTests(unittest.TestCase):
     def test_documentation_is_checked_only_after_review_when_present(self):
         import re
         source = (ROOT.parent / 'workflows/_reviewed-build.yml').read_text()
-        block = re.search(r'^  docs:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
-        self.assertEqual(block.count("if: hashFiles('mkdocs.yml') != ''"), 5)
+        block = re.search(r'^  tooling:\n(.*?)(?=^  [a-z0-9_-]+:|\Z)', source, re.M | re.S)[1]
+        self.assertEqual(block.count("if: hashFiles('mkdocs.yml') != ''"), 4)
         self.assertIn("python-version: '3.12'", block)
         for command in ['python -m pip install -r docs/site-requirements.txt',
                         'python -m unittest discover -s docs/tests -v',

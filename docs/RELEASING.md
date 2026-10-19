@@ -1,6 +1,6 @@
 # Publishing TagGroove releases
 
-**Review-first workflow:** follow [CI_LOCKDOWN.md](../.github/CI_LOCKDOWN.md). Legacy automatic workflows remain disabled. Application builds and publication require a completed clean Codex code review and immutable validation proof; direct bootstrap commits do not release.
+**Review-first workflow:** follow [CI_LOCKDOWN.md](../.github/CI_LOCKDOWN.md). Legacy automatic workflows remain disabled. Normal application builds and publication require a completed clean Codex code review and immutable pre-merge test proof. Evidenced owner-authorized failed-main repairs use the separate repair path below; direct bootstrap commits do not release.
 
 `.github/workflows/reviewed-release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build and the corresponding-source archive, verifies platform and native-build manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
 
@@ -8,11 +8,11 @@ An authorized merge to `main` that changes shipping files publishes a full GitHu
 
 ## Validation and packaging boundary
 
-The approved PR pipeline runs frontend/tooling checks once, followed by cross-platform Rust/native UI checks, Android integration and strict documentation validation. Native checks share one desktop workspace per operating system. Release packages are built on main, after validating the reviewed head/base/test-merge proof and the actual merged source tree.
+The approved PR pipeline runs unit tests, lint, tooling and strict documentation checks on one Linux worker. Desktop application and Android builds, native UI suites on three desktop operating systems, screenshots and Android document integration run after merge. Native integration must pass before application publication. Its debug harness carries a test identity and is built separately from shipped packages.
 
-Release jobs do not repeat the approved frontend unit tests, Rust tests or linting. They retain all target builds and the packaged macOS document-type check, plus version, signature, native build provenance, complete-source and checksum validation. The source-built embedded audio producer needs CMake/Make and an assembler where applicable; release packaging does not install an external FFmpeg executable just to regenerate test fixtures.
+Post-merge jobs do not repeat frontend unit tests, Rust unit tests, formatting, Clippy or documentation tests. They retain target builds and packaged macOS document-type checks, plus version, signature, native provenance, complete-source and checksum validation. Pages renders the guide for deployment without repeating its test suite.
 
-Failed-main workflow repairs may be applied directly by the owner with an inspected-head lease and recorded local checks. A direct repair does not invent review/build proof or bypass publication checks.
+Owner-authorized failed-main repairs may be pushed directly with an inspected-head lease and focused checks. Record `CI-Repair-Run: <failed-run-id>` in a single-parent repair commit immediately after the failed release source. The trusted gate verifies the completed failed main release run with successful authorization and preparation, exact parent, main ancestry and absence of an associated merged PR, then rechecks that evidence before publication. Normal PR merges cannot use this exception. Preserve unrelated main commits; if main has advanced, validate its build rather than rewriting history. Workflow-only changes without repair evidence do not authorize a release.
 
 ## How versions are derived
 
@@ -89,7 +89,7 @@ The download table, signing status (Windows and Linux packages are unsigned, mac
 | Android arm64 UI preview | `ubuntu-24.04` | Release APK signed with the persistent TagGroove application key; document editing/save-back still in progress |
 | iOS arm64 simulator UI preview | `macos-15` | Unsigned debug `.app` ZIP for the simulator; document editing/save-back still in progress; not an iPhone/iPad installer or App Store package |
 
-Approved PR validation runs frontend tests once and combines Rust tests, formatting, Clippy and native UI suites in one workspace per desktop OS. Main desktop jobs build versioned release packages and check their bundled metadata; they do not rerun those validation suites. Tauri's [GitHub pipeline guidance](https://v2.tauri.app/distribute/pipelines/github/) and [tauri-action v1](https://github.com/tauri-apps/tauri-action/tree/v1) provide the build path. The action receives no release ID or tag name: it builds only. Its `artifactPaths` output feeds the collection script. The collector supplies a tested tar fallback for `.app` directories if the action does not create their app archives.
+Approved PR validation runs frontend and Rust unit tests, formatting and Clippy on Linux. Main runs the native UI and Android integration suites, builds versioned packages and checks bundled metadata; it does not rerun pre-merge unit tests or lint. Tauri's [GitHub pipeline guidance](https://v2.tauri.app/distribute/pipelines/github/) and [tauri-action v1](https://github.com/tauri-apps/tauri-action/tree/v1) provide the build path. The action receives no release ID or tag name: it builds only. Its `artifactPaths` output feeds the collection script. The collector supplies a tested tar fallback for `.app` directories if the action does not create their app archives.
 
 Native build tools are installed explicitly before compilation: Python 3.12, CMake, Make and the target C/C++ toolchain, plus NASM for x86 assembly. Windows exposes the MSVC developer environment, binds `OPENTAG_MSYS2` to the setup action's actual installation after verifying Bash and Make, verifies the NASM executable, and adds its installation directory to `PATH`; Apple and Linux jobs install the matching tools through their existing package managers. Android and iOS retain their existing NDK/SDK and simulator targets. These are build prerequisites and do not add runtime programs to the application.
 

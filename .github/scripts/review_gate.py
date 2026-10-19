@@ -32,6 +32,10 @@ class GitHub(BaseGitHub):
             raise
         return [run for page in pages for run in page['workflow_runs'] if run['head_branch'] == 'main']
 
+    def jobs(self, run_id):
+        pages = self.request(f'repos/{self.repo}/actions/runs/{run_id}/jobs?per_page=100', paginate=True)
+        return [job for page in pages for job in page['jobs']]
+
 
 def shas(*values):
     if any(not re.fullmatch(r'[0-9a-f]{40}', value or '') for value in values):
@@ -200,7 +204,7 @@ def finish(api, number, source, preflight, result, url):
     if preflight != 'success':
         state, reason = 'pending', 'Preflight did not authorize application execution'
     elif result != 'success':
-        state, reason = 'failure', 'Required builds failed, were cancelled or skipped'
+        state, reason = 'failure', 'Required pre-merge checks failed, were cancelled or skipped'
     else:
         state, reason = 'success', f'Passed {base} {merge}'
     if state == 'success':
@@ -212,8 +216,59 @@ def finish(api, number, source, preflight, result, url):
     api.status(head, state, reason, context=CONTEXT, url=url)
 
 
+def repair_run(commit):
+    """Read one explicit repair trailer from the final commit-message block."""
+    message = commit.get('message', '').rstrip()
+    trailers = [line for line in message.splitlines() if line.startswith('CI-Repair-Run:')]
+    if not trailers:
+        return None
+    if (len(trailers) != 1 or trailers[0] not in message.split('\n\n')[-1].splitlines()
+            or not re.fullmatch(r'CI-Repair-Run: [1-9][0-9]*', trailers[0])):
+        raise RuntimeError('Require one final numeric CI-Repair-Run trailer')
+    return trailers[0].split(': ')[1]
+
+
+def check_main_repair(api, head, source):
+    """Authorize only an explicit direct-main successor of a failed release source.
+
+    Repository push protections authorize the writer. Commit author/committer
+    strings are forgeable and cannot establish that authorization themselves.
+    This path creates no PR review or premerge-validation proof.
+    """
+    if head != source:
+        raise RuntimeError('Repair head must equal its main release source')
+    commit = api.get(f'git/commits/{source}')
+    run_id = repair_run(commit)
+    if run_id is None:
+        raise RuntimeError('Direct-main source has no CI-Repair-Run trailer')
+    if any(pr.get('merged_at') for pr in api.pages(f'commits/{source}/pulls?per_page=100')):
+        raise RuntimeError('Merged PR sources must use normal reviewed-PR authorization')
+    run = api.get(f'actions/runs/{run_id}')
+    failed = re.fullmatch(r'Reviewed release ([0-9a-f]{40})', run.get('display_title', ''))
+    if (run.get('path') not in {'.github/workflows/reviewed-release.yml',
+                               '.github/workflows/reviewed-release.yml@refs/heads/main'}
+            or run.get('event') != 'workflow_dispatch' or run.get('head_branch') != 'main'
+            or run.get('status') != 'completed' or run.get('conclusion') != 'failure'
+            or not failed or not re.fullmatch(r'[0-9a-f]{40}', run.get('head_sha', ''))):
+        raise RuntimeError('Repair requires a failed trusted main release run')
+    parent = failed[1]
+    if [item['sha'] for item in commit['parents']] != [parent]:
+        raise RuntimeError('Repair must have the failed release source as its sole parent')
+    jobs = api.jobs(run_id)
+    for name in ('authorize', 'Validate version, tag and source commit'):
+        matching = [job for job in jobs if job.get('name') == name]
+        if (len(matching) != 1 or matching[0].get('status') != 'completed'
+                or matching[0].get('conclusion') != 'success'):
+            raise RuntimeError('Failed release must have successfully authorized and prepared its source')
+    for revision in {source, parent, run['head_sha']}:
+        if api.get(f'compare/{revision}...main')['status'] not in {'ahead', 'identical'}:
+            raise RuntimeError('Repair source, failed source and release controller must be on main')
+
+
 def check_release(api, number, head, source):
     shas(head, source)
+    if number == 0:
+        return check_main_repair(api, head, source)
     pr, (ready, reason) = api.snapshot(number, merged=True)
     if (not ready or not pr.get('merged') or pr['state'] != 'closed' or pr['base']['ref'] != 'main'
             or pr['head']['sha'] != head or pr.get('merge_commit_sha') != source):
@@ -253,14 +308,17 @@ def reconcile_main(api, source):
     candidates = [pr for pr in api.pages(f'commits/{source}/pulls?per_page=100')
                   if pr.get('merged_at') and pr['base']['ref'] == 'main' and pr.get('merge_commit_sha') == source]
     if len(candidates) != 1:
-        print(f'{source}: no unique merged PR; no release authorized')
-        return
-    pr = candidates[0]
-    check_release(api, pr['number'], pr['head']['sha'], source)
+        if candidates or repair_run(api.get(f'git/commits/{source}')) is None:
+            print(f'{source}: no unique merged PR or explicit main repair; no release authorized')
+            return
+        number, head = 0, source
+    else:
+        number, head = candidates[0]['number'], candidates[0]['head']['sha']
+    check_release(api, number, head, source)
     if any(run['display_title'] == f'Reviewed release {source}' for run in api.runs('reviewed-release.yml')):
         return
     api.post('actions/workflows/reviewed-release.yml/dispatches', dict(ref='main', inputs=dict(
-        pr_number=str(pr['number']), head_sha=pr['head']['sha'], source_sha=source)))
+        pr_number=str(number), head_sha=head, source_sha=source)))
 
 
 def main():
