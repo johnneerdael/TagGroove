@@ -25,7 +25,9 @@ use crate::{
     file_baseline::{fingerprint_diagnostic, metadata_stamp, Fingerprint},
     FileError, TagOptions,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+#[path = "history_store.rs"]
+mod store;
 use std::{
     collections::BTreeMap,
     fs,
@@ -50,6 +52,7 @@ struct Writes {
 }
 
 struct Watched {
+    owner: Option<uuid::Uuid>,
     current: PathBuf,
     writes: Writes,
     expected: Fingerprint,
@@ -167,7 +170,12 @@ pub(crate) fn note_move(from: &Path, to: &Path, copied: bool) {
     }
 }
 
+#[cfg(test)]
 fn watch(paths: impl IntoIterator<Item = (PathBuf, Fingerprint)>) {
+    watch_owned(paths, None);
+}
+
+fn watch_owned(paths: impl IntoIterator<Item = (PathBuf, Fingerprint)>, owner: Option<uuid::Uuid>) {
     if let Ok(mut tracking) = WRITES.lock() {
         for (path, expected) in paths {
             if let Some(old) = tracking.watched.remove(&path) {
@@ -177,6 +185,7 @@ fn watch(paths: impl IntoIterator<Item = (PathBuf, Fingerprint)>) {
             tracking.watched.insert(
                 path.clone(),
                 Watched {
+                    owner,
                     current: path,
                     expected,
                     valid: true,
@@ -190,15 +199,32 @@ fn watch(paths: impl IntoIterator<Item = (PathBuf, Fingerprint)>) {
     }
 }
 
+#[cfg(test)]
 fn unwatch<'a>(paths: impl IntoIterator<Item = &'a PathBuf>) -> BTreeMap<PathBuf, TrackedWrite> {
+    unwatch_owned(paths, None)
+}
+
+fn unwatch_owned<'a>(
+    paths: impl IntoIterator<Item = &'a PathBuf>,
+    owner: Option<uuid::Uuid>,
+) -> BTreeMap<PathBuf, TrackedWrite> {
     let Ok(mut tracking) = WRITES.lock() else {
         return BTreeMap::new();
     };
     paths
         .into_iter()
         .filter_map(|path| {
+            if !tracking
+                .watched
+                .get(path)
+                .is_some_and(|entry| entry.owner == owner)
+            {
+                return None;
+            }
             tracking.watched.remove(path).map(|entry| {
-                tracking.paths.remove(&entry.current);
+                if tracking.paths.get(&entry.current) == Some(path) {
+                    tracking.paths.remove(&entry.current);
+                }
                 (
                     path.clone(),
                     TrackedWrite {
@@ -210,6 +236,32 @@ fn unwatch<'a>(paths: impl IntoIterator<Item = &'a PathBuf>) -> BTreeMap<PathBuf
             })
         })
         .collect()
+}
+
+fn unwatch_owner(owner: uuid::Uuid) {
+    let Ok(mut tracking) = WRITES.lock() else {
+        return;
+    };
+    let originals: Vec<_> = tracking
+        .watched
+        .iter()
+        .filter(|(_, entry)| entry.owner == Some(owner))
+        .map(|(original, _)| original.clone())
+        .collect();
+    for original in originals {
+        if let Some(entry) = tracking.watched.remove(&original) {
+            if tracking.paths.get(&entry.current) == Some(&original) {
+                tracking.paths.remove(&entry.current);
+            }
+        }
+    }
+}
+
+struct WatchLease(uuid::Uuid);
+impl Drop for WatchLease {
+    fn drop(&mut self) {
+        unwatch_owner(self.0);
+    }
 }
 
 /// Bytes a snapshot of a `len`-byte file keeps on disk after the operation.
@@ -250,8 +302,10 @@ impl Default for Limits {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Blob {
+    #[serde(with = "store::blob_name")]
     path: PathBuf,
     fingerprint: Fingerprint,
     /// A hard link to the file's previous inode rather than a copy.
@@ -259,15 +313,20 @@ struct Blob {
     /// Bytes this snapshot keeps on disk.
     cost: u64,
     /// Side-file links retain the entry target verbatim, not its referent.
+    #[serde(with = "store::optional_path")]
     symlink_target: Option<PathBuf>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Side {
+    #[serde(with = "store::native_path")]
     path: PathBuf,
     blob: Option<Blob>,
     fingerprint: Fingerprint,
+    parents: Vec<store::DirectoryGuard>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct FileRecord {
     before: Side,
     after: Side,
@@ -288,22 +347,44 @@ impl FileRecord {
 }
 /// A file that is not audio, created or replaced by an operation: its
 /// complete bytes or symlink entry on each side, or `None` where absent.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SideFile {
     /// Path at the capture epoch, before subsequent directory moves.
+    #[serde(with = "store::native_path")]
     path: PathBuf,
     epoch: usize,
-    created_parents: Vec<PathBuf>,
+    created_parents: Vec<store::DirectoryGuard>,
     before: Option<Blob>,
     after: Option<Blob>,
+    parents: Vec<store::DirectoryGuard>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Record {
     label: String,
     group: Option<String>,
     files: Vec<FileRecord>,
+    #[serde(with = "store::moves")]
     directories: Vec<(PathBuf, PathBuf)>,
     side_files: Vec<SideFile>,
+    directory_guards: Vec<store::DirectoryGuard>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RecoveryKind {
+    Capture,
+    Undo,
+    Redo,
+    RetiredHistory,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RecoveryOperation {
+    kind: RecoveryKind,
+    record: Record,
 }
 impl Record {
     fn blobs(&self) -> impl Iterator<Item = &Blob> {
@@ -320,6 +401,22 @@ impl Record {
     fn bytes(&self) -> u64 {
         self.blobs().map(|b| b.cost).sum()
     }
+    fn rebase_directory_ids(&mut self, changes: &store::DirectoryChanges) {
+        for file in &mut self.files {
+            store::replace_guard_ids(&mut file.before.parents, changes);
+            store::replace_guard_ids(&mut file.after.parents, changes);
+        }
+        for side in &mut self.side_files {
+            side.rebase_directory_ids(changes);
+        }
+        store::replace_guard_ids(&mut self.directory_guards, changes);
+    }
+}
+impl SideFile {
+    fn rebase_directory_ids(&mut self, changes: &store::DirectoryChanges) {
+        store::replace_guard_ids(&mut self.parents, changes);
+        store::replace_guard_ids(&mut self.created_parents, changes);
+    }
 }
 
 type Moved = Vec<(PathBuf, Fingerprint, Fingerprint)>;
@@ -329,21 +426,71 @@ struct Captured {
     path: PathBuf,
     fingerprint: Fingerprint,
     blob: Blob,
+    parents: Vec<store::DirectoryGuard>,
 }
 struct SideCapture {
     path: PathBuf,
     before: Option<Blob>,
     epoch: usize,
     created_parents: Vec<PathBuf>,
+    parents: Vec<store::DirectoryGuard>,
 }
 /// Snapshots taken before one operation; pass it back to [`Journal::commit`].
 pub struct Capture {
+    transaction: Option<uuid::Uuid>,
+    _watcher: Option<WatchLease>,
     label: String,
     group: Option<String>,
     files: Vec<Captured>,
     side_files: Vec<SideCapture>,
     planned_bytes: u64,
     abandoned: Option<String>,
+}
+
+impl Capture {
+    fn recovery_operation(&self) -> RecoveryOperation {
+        RecoveryOperation {
+            kind: RecoveryKind::Capture,
+            record: Record {
+                label: self.label.clone(),
+                group: None,
+                files: self
+                    .files
+                    .iter()
+                    .map(|file| FileRecord {
+                        before: Side {
+                            path: file.path.clone(),
+                            blob: Some(file.blob.clone()),
+                            fingerprint: file.fingerprint,
+                            parents: file.parents.clone(),
+                        },
+                        after: Side {
+                            path: file.path.clone(),
+                            blob: None,
+                            fingerprint: file.fingerprint,
+                            parents: file.parents.clone(),
+                        },
+                        content: true,
+                        cost: file.blob.cost,
+                    })
+                    .collect(),
+                directories: Vec::new(),
+                directory_guards: Vec::new(),
+                side_files: self
+                    .side_files
+                    .iter()
+                    .map(|side| SideFile {
+                        path: side.path.clone(),
+                        epoch: 0,
+                        created_parents: Vec::new(),
+                        before: side.before.clone(),
+                        after: None,
+                        parents: side.parents.clone(),
+                    })
+                    .collect(),
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -356,6 +503,15 @@ pub struct HistoryState {
     pub undo: Option<Step>,
     pub redo: Option<Step>,
     pub notice: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<RecoverySummary>,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct RecoverySummary {
+    pub operations: usize,
+    pub copies: usize,
+    pub bytes: u64,
 }
 /// The outcome of one undo or redo: final paths of restored files, path
 /// changes in the same shape as rename results, and per-file failures.
@@ -370,6 +526,8 @@ pub struct Replay {
 
 pub struct Journal {
     dir: PathBuf,
+    store_id: store::DirectoryId,
+    lock_stamp: crate::file_baseline::MetadataStamp,
     limits: Limits,
     undo: Vec<Record>,
     redo: Vec<Record>,
@@ -377,50 +535,22 @@ pub struct Journal {
     notice: Option<String>,
     abandoned_group: Option<String>,
     options: TagOptions,
+    pending: bool,
+    intent: Option<RecoveryOperation>,
+    recovery: Vec<RecoveryOperation>,
+    store_failed: bool,
+    active_capture: Option<uuid::Uuid>,
+    outcome_revision: u64,
     _lock: fs::File,
 }
 
 const LOCK: &str = ".session-lock";
 
 impl Journal {
-    /// Open a session journal below `root`. Each process owns a locked session
-    /// directory; directories of sessions that are no longer running are removed.
+    /// Open the exclusively locked durable store. Completed operations survive
+    /// process exit; malformed or interrupted state is never replayed implicitly.
     pub fn open(root: &Path, limits: Limits) -> Result<Self, String> {
-        fs::create_dir_all(root).map_err(|e| e.to_string())?;
-        if let Ok(entries) = fs::read_dir(root) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if !entry.file_name().to_string_lossy().starts_with("session-") {
-                    continue;
-                }
-                let stale = match fs::File::open(path.join(LOCK)) {
-                    Ok(file) => file.try_lock().is_ok(),
-                    Err(_) => true,
-                };
-                if stale {
-                    let _ = fs::remove_dir_all(&path);
-                }
-            }
-        }
-        let dir = root.join(format!(
-            "session-{}-{}",
-            std::process::id(),
-            uuid::Uuid::new_v4().simple()
-        ));
-        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let lock = fs::File::create(dir.join(LOCK)).map_err(|e| e.to_string())?;
-        lock.lock().map_err(|e| e.to_string())?;
-        Ok(Self {
-            dir,
-            limits,
-            undo: Vec::new(),
-            redo: Vec::new(),
-            next: 0,
-            notice: None,
-            abandoned_group: None,
-            options: TagOptions::default(),
-            _lock: lock,
-        })
+        store::open(root, limits)
     }
 
     /// Tag preferences used to verify that a restored copy still reads as audio.
@@ -429,26 +559,78 @@ impl Journal {
         self.options = options;
     }
 
+    /// Process-local revision of new commit results (a recorded change or a
+    /// fresh refusal). Loading existing history and no-op captures do not advance it.
+    pub fn outcome_revision(&self) -> u64 {
+        self.outcome_revision
+    }
+
     pub fn state(&self) -> HistoryState {
         let step = |r: &Record| Step {
             label: r.label.clone(),
             files: r.files.len(),
         };
         HistoryState {
-            undo: self.undo.last().map(step),
-            redo: self.redo.last().map(step),
+            undo: (!self.store_failed)
+                .then(|| self.undo.last().map(step))
+                .flatten(),
+            redo: (!self.store_failed)
+                .then(|| self.redo.last().map(step))
+                .flatten(),
             notice: self.notice.clone(),
+            recovery: (!self.recovery.is_empty()).then(|| RecoverySummary {
+                operations: self.recovery.len(),
+                copies: self
+                    .recovery
+                    .iter()
+                    .flat_map(|op| op.record.blobs())
+                    .count(),
+                bytes: self.recovery.iter().map(|op| op.record.bytes()).sum(),
+            }),
         }
     }
 
     /// Bytes currently retained by audio and side-file snapshots.
     pub fn retained_bytes(&self) -> u64 {
-        self.undo.iter().chain(&self.redo).map(Record::bytes).sum()
+        self.undo
+            .iter()
+            .chain(&self.redo)
+            .chain(self.recovery.iter().map(|op| &op.record))
+            .map(Record::bytes)
+            .sum()
     }
 
-    fn blob_path(&mut self) -> PathBuf {
-        self.next += 1;
-        self.dir.join(format!("{}.snapshot", self.next))
+    /// Copy retained recovery data into a new folder without changing originals
+    /// or consuming the recovery entries.
+    pub fn export_recovery(&self, destination: &Path) -> Result<PathBuf, String> {
+        store::export_recovery(self, destination)
+    }
+
+    fn blob_path(&mut self) -> Result<PathBuf, ErrorCause> {
+        self.next = self
+            .next
+            .checked_add(1)
+            .ok_or_else(|| ErrorCause::owned("The undo snapshot counter is exhausted"))?;
+        Ok(self.dir.join(format!("{}.snapshot", self.next)))
+    }
+
+    fn create_blob(&mut self, path: &Path) -> Result<fs::File, ErrorCause> {
+        self.validate_store().map_err(ErrorCause::external)?;
+        let mut options = fs::OpenOptions::new();
+        options.read(true).write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        options.open(path).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::AlreadyExists
+                || fs::symlink_metadata(path).is_ok()
+            {
+                self.store_failed = true;
+            }
+            ErrorCause::external(error)
+        })
     }
 
     // Prefer a hard link: the staged write replaces the inode, so the link keeps
@@ -462,12 +644,31 @@ impl Journal {
         source: &Path,
         expected: Fingerprint,
     ) -> Result<Blob, ErrorCause> {
-        let path = self.blob_path();
+        self.validate_store().map_err(ErrorCause::external)?;
+        let path = self.blob_path()?;
+        let mut created = false;
         let result = (|| {
-            let linked = fs::hard_link(source, &path).is_ok();
-            if !linked {
-                fs::copy(source, &path).map_err(ErrorCause::external)?;
-            }
+            let linked = match fs::hard_link(source, &path) {
+                Ok(()) => {
+                    created = true;
+                    true
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    self.store_failed = true;
+                    return Err(ErrorCause::external(error));
+                }
+                Err(_) => {
+                    let mut output = self.create_blob(&path)?;
+                    created = true;
+                    use std::io::Read;
+                    let input = fs::File::open(source).map_err(ErrorCause::external)?;
+                    std::io::copy(&mut input.take(expected.len.saturating_add(1)), &mut output)
+                        .map_err(ErrorCause::external)?;
+                    output.sync_all().map_err(ErrorCause::external)?;
+                    false
+                }
+            };
+            store::sync_path(&path).map_err(ErrorCause::external)?;
             let print = fingerprint_diagnostic(&path)?;
             if !print.same_content(&expected) || fingerprint_diagnostic(source)? != expected {
                 return Err(ErrorCause::owned(
@@ -482,7 +683,7 @@ impl Journal {
                 symlink_target: None,
             })
         })();
-        if result.is_err() {
+        if result.is_err() && created {
             let _ = fs::remove_file(&path);
         }
         result
@@ -491,7 +692,52 @@ impl Journal {
     /// Snapshot `paths` before an operation writes them. Operations sharing a
     /// `group` (one Save click writing files one by one) merge into one step.
     pub fn begin(&mut self, label: &str, group: Option<&str>, paths: &[String]) -> Capture {
+        if self.validate_store().is_err() {
+            self.store_failed = true;
+        }
+        if self.store_failed || self.pending {
+            return Capture {
+                transaction: None,
+                _watcher: None,
+                label: label.into(),
+                group: group.map(str::to_owned),
+                files: Vec::new(),
+                side_files: Vec::new(),
+                planned_bytes: 0,
+                abandoned: Some("history has an interrupted or unsaved operation".into()),
+            };
+        }
+        let mut capture = self.begin_inner(label, group, paths);
+        if capture.abandoned.is_none() {
+            let transaction = uuid::Uuid::new_v4();
+            self.active_capture = Some(transaction);
+            capture.transaction = Some(transaction);
+            watch_owned(
+                capture
+                    .files
+                    .iter()
+                    .map(|file| (file.path.clone(), file.fingerprint)),
+                Some(transaction),
+            );
+            capture._watcher = Some(WatchLease(transaction));
+            self.intent = Some(capture.recovery_operation());
+            let result = capture
+                .files
+                .iter()
+                .try_for_each(|file| store::sync_blob(&file.blob))
+                .and_then(|()| self.checkpoint(true));
+            if let Err(error) = result {
+                capture.abandoned = Some(format!("history could not be prepared: {error}"));
+                self.store_failed = true;
+            }
+        }
+        capture
+    }
+
+    fn begin_inner(&mut self, label: &str, group: Option<&str>, paths: &[String]) -> Capture {
         let mut capture = Capture {
+            transaction: None,
+            _watcher: None,
             label: label.into(),
             group: group.map(str::to_owned),
             files: Vec::new(),
@@ -576,12 +822,22 @@ impl Journal {
                     return capture;
                 }
             };
+            let parents = match store::parent_guards(&path) {
+                Ok(parents) => parents,
+                Err(error) => {
+                    capture.files.clear();
+                    capture.abandoned =
+                        Some(format!("an undo parent could not be captured: {error}"));
+                    return capture;
+                }
+            };
             match self.snapshot(&path, print) {
                 Ok(blob) => capture.files.push(Captured {
                     raw,
                     path,
                     fingerprint: print,
                     blob,
+                    parents,
                 }),
                 Err(error) => {
                     capture.files.iter().for_each(|f| discard(&f.blob));
@@ -591,12 +847,6 @@ impl Journal {
                 }
             }
         }
-        watch(
-            capture
-                .files
-                .iter()
-                .map(|f| (f.path.clone(), f.fingerprint)),
-        );
         capture
     }
 
@@ -637,6 +887,7 @@ impl Journal {
             return Ok(());
         }
         let created_parents = missing_parents(&path)?;
+        let parents = store::parent_guards(&path).map_err(ErrorCause::external)?;
         let retained = capture
             .side_files
             .iter()
@@ -650,11 +901,28 @@ impl Journal {
             before,
             epoch: completed_moves,
             created_parents,
+            parents,
         });
+        if let Some(blob) = capture
+            .side_files
+            .last()
+            .and_then(|side| side.before.as_ref())
+        {
+            store::sync_blob(blob).map_err(ErrorCause::external)?;
+        }
+        self.intent = Some(capture.recovery_operation());
+        if let Err(error) = self.checkpoint(true) {
+            self.store_failed = true;
+            capture.abandoned = Some(format!(
+                "history could not retain its side-file intent: {error}"
+            ));
+            return Err(ErrorCause::external(error));
+        }
         Ok(())
     }
 
     fn copy_side_file(&mut self, source: &Path, retained: u64) -> Result<Option<Blob>, ErrorCause> {
+        self.validate_store().map_err(ErrorCause::external)?;
         match fs::symlink_metadata(source) {
             Ok(metadata) if metadata.file_type().is_symlink() => {
                 #[cfg(windows)]
@@ -677,11 +945,18 @@ impl Journal {
                     .parent()
                     .ok_or_else(|| ErrorCause::owned("The side file has no folder"))?;
                 let _probe = stage_side_link_diagnostic(&target, folder)?;
-                let path = self.blob_path();
-                if let Err(error) = fs::write(&path, target.as_os_str().as_encoded_bytes()) {
+                let path = self.blob_path()?;
+                let mut output = self.create_blob(&path)?;
+                use std::io::Write;
+                if let Err(error) = output
+                    .write_all(target.as_os_str().as_encoded_bytes())
+                    .and_then(|()| output.sync_all())
+                {
+                    drop(output);
                     let _ = fs::remove_file(&path);
                     return Err(ErrorCause::external(error));
                 }
+                drop(output);
                 let fingerprint = match fingerprint_diagnostic(&path) {
                     Ok(print) => print,
                     Err(error) => {
@@ -735,10 +1010,10 @@ impl Journal {
                 "The side file changed size while its undo snapshot was taken",
             ));
         }
-        let path = self.blob_path();
+        let path = self.blob_path()?;
+        let mut output = self.create_blob(&path)?;
         let result = (|| {
             let mut input = fs::File::open(source).map_err(ErrorCause::external)?;
-            let mut output = fs::File::create(&path).map_err(ErrorCause::external)?;
             let copied = std::io::copy(&mut (&mut input).take(bytes), &mut output)
                 .map_err(ErrorCause::external)?;
             let mut extra = [0];
@@ -747,6 +1022,8 @@ impl Journal {
                     "The side file changed size while its undo snapshot was taken",
                 ));
             }
+            output.sync_all().map_err(ErrorCause::external)?;
+            drop(output);
             let print = fingerprint_diagnostic(&path)?;
             if !print.same_content(&expected) || fingerprint_diagnostic(source)? != expected {
                 return Err(ErrorCause::owned(
@@ -802,7 +1079,25 @@ impl Journal {
                 before,
                 epoch,
                 created_parents,
+                parents: captured_parents,
             } = capture;
+            let later_moves = &directories[epoch..];
+            let guards =
+                store::check_captured_guards(&captured_parents, later_moves).and_then(|()| {
+                    Ok((
+                        store::parent_guards_after_moves(&captured_path, later_moves)?,
+                        store::created_parent_guards(created_parents, later_moves)?,
+                    ))
+                });
+            let (parents, created_parents) = match guards {
+                Ok(guards) => guards,
+                Err(_) => {
+                    lost += 1;
+                    before.iter().for_each(discard);
+                    retained = retained.saturating_sub(before.as_ref().map_or(0, |blob| blob.cost));
+                    continue;
+                }
+            };
             let before_cost = before.as_ref().map_or(0, |blob| blob.cost);
             let after = match self.copy_side_file(&path, retained) {
                 Ok(after) => after,
@@ -838,6 +1133,7 @@ impl Journal {
                 created_parents,
                 before,
                 after,
+                parents,
             });
         }
         (recorded, lost)
@@ -848,15 +1144,56 @@ impl Journal {
     /// directory moves in the order they happened.
     pub fn commit(
         &mut self,
-        mut capture: Capture,
+        capture: Capture,
         renamed: &[(String, String)],
         directories: &[(String, String)],
     ) {
+        if (self.pending || self.active_capture.is_some() || capture.transaction.is_some())
+            && (capture.transaction.is_none() || capture.transaction != self.active_capture)
+        {
+            self.notice =
+                Some("An overlapping operation cannot be recorded in Undo history".into());
+            self.outcome_revision = self.outcome_revision.wrapping_add(1);
+            return;
+        }
+        let mut changed = self.commit_inner(capture, renamed, directories);
+        self.active_capture = None;
+        if !self.store_failed {
+            if let Err(error) = self.checkpoint(false) {
+                self.store_failed = true;
+                self.notice = Some(format!("Undo history could not be saved: {error}"));
+                changed = true;
+            }
+        }
+        if changed {
+            self.outcome_revision = self.outcome_revision.wrapping_add(1);
+        }
+    }
+
+    fn commit_inner(
+        &mut self,
+        mut capture: Capture,
+        renamed: &[(String, String)],
+        directories: &[(String, String)],
+    ) -> bool {
         let directories: Vec<(PathBuf, PathBuf)> = directories
             .iter()
-            .map(|(from, to)| (PathBuf::from(from), PathBuf::from(to)))
+            .map(|(from, to)| {
+                let normalize =
+                    |raw: &str| side_path(Path::new(raw)).unwrap_or_else(|_| PathBuf::from(raw));
+                (normalize(from), normalize(to))
+            })
             .collect();
-        let writes = unwatch(capture.files.iter().map(|f| &f.path));
+        let writes = unwatch_owned(capture.files.iter().map(|f| &f.path), capture.transaction);
+        let directory_guards = match store::directory_guards(&directories) {
+            Ok(guards) => guards,
+            Err(error) => {
+                capture.abandoned = Some(format!(
+                    "undo directory identities could not be retained: {error}"
+                ));
+                Vec::new()
+            }
+        };
         let (mut side_files, side_lost) = if capture.abandoned.is_some() {
             capture
                 .side_files
@@ -888,7 +1225,7 @@ impl Journal {
             }
             self.clear_redo();
             self.notice = Some(format!("{} cannot be undone: {reason}.", capture.label));
-            return;
+            return true;
         }
         let mut files = Vec::new();
         let mut lost = side_lost;
@@ -901,6 +1238,13 @@ impl Journal {
                 .map(|(_, to)| PathBuf::from(to))
                 .unwrap_or_else(|| rebase(&captured.path, &directories));
             let to = dunce::canonicalize(&to).unwrap_or(to);
+            let parents = store::check_captured_guards(&captured.parents, &directories)
+                .and_then(|()| store::parent_guards(&to));
+            let Ok(parents) = parents else {
+                discard(&captured.blob);
+                lost += 1;
+                continue;
+            };
             let Ok(after) = fingerprint(&to) else {
                 // The operation removed or lost the file; there is nothing to restore onto.
                 discard(&captured.blob);
@@ -949,11 +1293,13 @@ impl Journal {
                     path: captured.path,
                     blob,
                     fingerprint: captured.fingerprint,
+                    parents: captured.parents,
                 },
                 after: Side {
                     path: to,
                     blob: None,
                     fingerprint: after,
+                    parents,
                 },
                 content,
                 cost,
@@ -967,7 +1313,7 @@ impl Journal {
                     if lost == 1 { "" } else { "s" }
                 ));
             }
-            return;
+            return lost > 0;
         }
         self.clear_redo();
         self.notice = (lost > 0).then(|| {
@@ -1032,6 +1378,7 @@ impl Journal {
                 files,
                 directories,
                 side_files,
+                directory_guards,
             });
         }
         let limit = self.limits.bytes;
@@ -1046,15 +1393,45 @@ impl Journal {
             ));
         }
         self.enforce_limits();
+        true
     }
 
     fn enforce_limits(&mut self) {
-        while self.undo.len() > 1
-            && (self.undo.len() + self.redo.len() > self.limits.operations
-                || self.retained_bytes() > self.limits.bytes)
-        {
-            let record = self.undo.remove(0);
-            discard_record(&record);
+        let mut count = self.undo.len() + self.redo.len() + self.recovery.len();
+        let mut bytes = self.retained_bytes();
+        let mut recovery_removed = 0;
+        for operation in &self.recovery {
+            if count <= self.limits.operations && bytes <= self.limits.bytes {
+                break;
+            }
+            count -= 1;
+            bytes = bytes.saturating_sub(operation.record.bytes());
+            recovery_removed += 1;
+        }
+        self.recovery.drain(..recovery_removed);
+        if recovery_removed > 0 {
+            self.notice = Some("Older recovery copies were removed to keep history within its operation and storage limits.".into());
+        }
+        let mut obsolete = [0, 0];
+        for (index, records) in [&self.undo, &self.redo].into_iter().enumerate() {
+            for record in records {
+                if count <= self.limits.operations && bytes <= self.limits.bytes {
+                    break;
+                }
+                count -= 1;
+                bytes = bytes.saturating_sub(record.bytes());
+                obsolete[index] += 1;
+            }
+        }
+        for (records, count) in [(&mut self.undo, obsolete[0]), (&mut self.redo, obsolete[1])] {
+            for record in records.drain(..count) {
+                discard_record(&record);
+            }
+        }
+        if obsolete != [0, 0] && self.undo.is_empty() && self.redo.is_empty() {
+            self.notice = Some(
+                "History was cleared because its retained storage exceeded the undo limit".into(),
+            );
         }
     }
 
@@ -1064,6 +1441,23 @@ impl Journal {
         }
     }
 
+    fn prepare_replay(&mut self, record: &Record, backward: bool) -> Result<(), String> {
+        self.intent = Some(RecoveryOperation {
+            kind: if backward {
+                RecoveryKind::Undo
+            } else {
+                RecoveryKind::Redo
+            },
+            record: record.clone(),
+        });
+        if let Err(error) = self.checkpoint(true) {
+            self.store_failed = true;
+            self.notice = Some(format!("Undo history could not be prepared: {error}"));
+            return Err(error);
+        }
+        Ok(())
+    }
+
     /// Restore the most recent operation. Errors when there is nothing to undo.
     pub fn undo(&mut self) -> Result<Replay, String> {
         self.undo_diagnostic().map(|report| report.result)
@@ -1071,9 +1465,17 @@ impl Journal {
 
     /// Undo with additive presentation companions; bookkeeping is shared with undo.
     pub fn undo_diagnostic(&mut self) -> Result<Detailed<Replay>, String> {
+        if self.store_failed || self.pending {
+            return Err("Undo history has an interrupted or unsaved operation".into());
+        }
+        if self.undo.is_empty() {
+            return Err("There is nothing to undo".into());
+        }
         let record = self.undo.pop().ok_or("There is nothing to undo")?;
+        self.prepare_replay(&record, true)?;
         self.notice = None;
-        let (record, replay, moved) = self.replay(record, true);
+        let (record, replay, moved, directory_changes) = self.replay(record, true);
+        self.rebase_directory_ids(&directory_changes);
         // The previous step now expects the restored file, not the bytes it wrote.
         for (path, old, new) in moved {
             let side = self
@@ -1089,6 +1491,12 @@ impl Journal {
             self.redo.push(record);
         }
         self.enforce_limits();
+        if !self.store_failed {
+            if let Err(error) = self.checkpoint(false) {
+                self.store_failed = true;
+                self.notice = Some(format!("Undo history could not be saved: {error}"));
+            }
+        }
         Ok(replay)
     }
 
@@ -1099,9 +1507,17 @@ impl Journal {
 
     /// Redo with additive presentation companions; bookkeeping is shared with redo.
     pub fn redo_diagnostic(&mut self) -> Result<Detailed<Replay>, String> {
+        if self.store_failed || self.pending {
+            return Err("Undo history has an interrupted or unsaved operation".into());
+        }
+        if self.redo.is_empty() {
+            return Err("There is nothing to redo".into());
+        }
         let record = self.redo.pop().ok_or("There is nothing to redo")?;
+        self.prepare_replay(&record, false)?;
         self.notice = None;
-        let (record, replay, moved) = self.replay(record, false);
+        let (record, replay, moved, directory_changes) = self.replay(record, false);
+        self.rebase_directory_ids(&directory_changes);
         for (path, old, new) in moved {
             let side = self
                 .redo
@@ -1116,7 +1532,19 @@ impl Journal {
             self.undo.push(record);
         }
         self.enforce_limits();
+        if !self.store_failed {
+            if let Err(error) = self.checkpoint(false) {
+                self.store_failed = true;
+                self.notice = Some(format!("Undo history could not be saved: {error}"));
+            }
+        }
         Ok(replay)
+    }
+
+    fn rebase_directory_ids(&mut self, changes: &store::DirectoryChanges) {
+        for record in self.undo.iter_mut().chain(&mut self.redo) {
+            record.rebase_directory_ids(changes);
+        }
     }
 
     /// Move one record's files to its other side. Also returns, per restored
@@ -1125,9 +1553,15 @@ impl Journal {
         &mut self,
         mut record: Record,
         backward: bool,
-    ) -> (Option<Record>, Detailed<Replay>, Moved) {
+    ) -> (
+        Option<Record>,
+        Detailed<Replay>,
+        Moved,
+        store::DirectoryChanges,
+    ) {
         let mut diagnostics = Vec::new();
         let mut moved = Vec::new();
+        let mut directory_changes = Vec::new();
         let mut replay = Replay {
             label: record.label.clone(),
             ..Default::default()
@@ -1142,7 +1576,10 @@ impl Journal {
         for mut file in std::mem::take(&mut record.files) {
             let content = file.content;
             let (from, _) = file.sides(backward);
-            if fingerprint(&from.path).ok() != Some(from.fingerprint) {
+            if store::check_guards(&from.parents).is_err()
+                || store::safe_parents(&from.path).is_err()
+                || fingerprint(&from.path).ok() != Some(from.fingerprint)
+            {
                 push_error(
                     &mut replay.errors,
                     &mut diagnostics,
@@ -1177,6 +1614,50 @@ impl Journal {
             }
             files.push(file);
         }
+        if files.is_empty() && record.directories.is_empty() && record.side_files.is_empty() {
+            return (
+                None,
+                Detailed {
+                    result: replay,
+                    error_diagnostics: diagnostics,
+                },
+                moved,
+                directory_changes,
+            );
+        }
+        // Publish every reverse copy before the first folder, side-file or
+        // audio mutation. A process dying during snapshot preparation has not
+        // started replay; a process dying after this point has durable copies
+        // for both eligible sides.
+        if let Some(intent) = self.intent.as_mut() {
+            intent.record = record.clone();
+            intent.record.files = files.clone();
+        }
+        if let Err(error) = self.checkpoint(true) {
+            self.store_failed = true;
+            self.notice = Some(format!(
+                "Undo history could not retain its replay copies: {error}"
+            ));
+            push_error(
+                &mut replay.errors,
+                &mut diagnostics,
+                record.label.clone(),
+                BatchError::HistoryFailed {
+                    direction,
+                    cause: ErrorCause::external(error),
+                },
+            );
+            record.files = files;
+            return (
+                Some(record),
+                Detailed {
+                    result: replay,
+                    error_diagnostics: diagnostics,
+                },
+                moved,
+                directory_changes,
+            );
+        }
         // 2. Replay folder/side-file epochs together, rolling back completed steps on failure.
         let moves: Vec<(PathBuf, PathBuf)> = if backward {
             record
@@ -1188,32 +1669,50 @@ impl Journal {
         } else {
             record.directories.clone()
         };
-        let directory_outcome = if record.directories.is_empty() {
-            Ok(())
-        } else {
-            replay_side_files_and_directories(&record.side_files, &record.directories, backward)
+        let directory_outcome = store::check_guards(&record.directory_guards)
+            .map_err(ErrorCause::external)
+            .and_then(|()| {
+                if record.directories.is_empty() {
+                    Ok(Vec::new())
+                } else {
+                    replay_side_files_and_directories(
+                        &mut record.side_files,
+                        &record.directories,
+                        backward,
+                    )
+                }
+            });
+        let changes = match directory_outcome {
+            Ok(changes) => changes,
+            Err(error) => {
+                push_error(
+                    &mut replay.errors,
+                    &mut diagnostics,
+                    record.label.clone(),
+                    BatchError::HistoryFoldersFailed {
+                        direction,
+                        cause: error,
+                    },
+                );
+                files.iter().for_each(discard_file);
+                discard_record(&record);
+                return (
+                    None,
+                    Detailed {
+                        result: replay,
+                        error_diagnostics: diagnostics,
+                    },
+                    moved,
+                    directory_changes,
+                );
+            }
         };
-        if let Err(error) = directory_outcome {
-            push_error(
-                &mut replay.errors,
-                &mut diagnostics,
-                record.label.clone(),
-                BatchError::HistoryFoldersFailed {
-                    direction,
-                    cause: error,
-                },
-            );
-            files.iter().for_each(discard_file);
-            discard_record(&record);
-            return (
-                None,
-                Detailed {
-                    result: replay,
-                    error_diagnostics: diagnostics,
-                },
-                moved,
-            );
+        record.rebase_directory_ids(&changes);
+        for file in &mut files {
+            store::replace_guard_ids(&mut file.before.parents, &changes);
+            store::replace_guard_ids(&mut file.after.parents, &changes);
         }
+        directory_changes.extend(changes);
         replay.directories = moves
             .iter()
             .map(|(from, to)| (display(from), display(to)))
@@ -1226,6 +1725,7 @@ impl Journal {
             let (from, to) = file.sides(backward);
             let current = rebase(&from.path, &moves);
             let outcome = (|| {
+                store::check_guards(&to.parents).map_err(ErrorCause::external)?;
                 if fingerprint_diagnostic(&current)? != from.fingerprint {
                     return Err(ErrorCause::owned(
                         "The file changed during restore; reload it and try again",
@@ -1254,7 +1754,7 @@ impl Journal {
                         Ok(cloned) => {
                             if let Some(left) = from.blob.as_mut() {
                                 left.cost = if cloned && left.linked && cheap {
-                                    cost
+                                    cost.min(left.fingerprint.len)
                                 } else {
                                     left.fingerprint.len
                                 };
@@ -1302,9 +1802,17 @@ impl Journal {
             if backward {
                 sides.reverse();
             }
-            for side in sides {
-                match replay_side_file(&side, backward) {
-                    Ok(()) => record.side_files.push(side),
+            let mut sides = sides.into_iter();
+            while let Some(mut side) = sides.next() {
+                match replay_side_file(&mut side, backward) {
+                    Ok(changes) => {
+                        record.side_files.push(side);
+                        record.rebase_directory_ids(&changes);
+                        for pending in sides.as_mut_slice() {
+                            pending.rebase_directory_ids(&changes);
+                        }
+                        directory_changes.extend(changes);
+                    }
                     Err(error) => {
                         push_error(
                             &mut replay.errors,
@@ -1326,6 +1834,15 @@ impl Journal {
                 record.side_files.reverse();
             }
         }
+        match store::directory_guards(&record.directories) {
+            Ok(guards) => record.directory_guards = guards,
+            Err(error) => {
+                self.store_failed = true;
+                self.notice = Some(format!(
+                    "Undo directory identities could not be saved: {error}"
+                ));
+            }
+        }
         if record.files.is_empty() && record.directories.is_empty() && record.side_files.is_empty()
         {
             return (
@@ -1335,6 +1852,7 @@ impl Journal {
                     error_diagnostics: diagnostics,
                 },
                 moved,
+                directory_changes,
             );
         }
         (
@@ -1344,7 +1862,17 @@ impl Journal {
                 error_diagnostics: diagnostics,
             },
             moved,
+            directory_changes,
         )
+    }
+}
+
+impl Drop for Journal {
+    fn drop(&mut self) {
+        if let Some(owner) = self.active_capture {
+            unwatch_owner(owner);
+        }
+        // Completed and interrupted on-disk state remains available on reopen.
     }
 }
 
@@ -1418,6 +1946,7 @@ fn holds(blob: Option<&Blob>, path: &Path) -> bool {
 
 /// Make `path` hold `blob` (written through a sibling staging file), or remove it.
 fn put(blob: Option<&Blob>, path: &Path) -> Result<(), ErrorCause> {
+    store::safe_parents(path).map_err(ErrorCause::external)?;
     let Some(blob) = blob else {
         return fs::remove_file(path).map_err(ErrorCause::external);
     };
@@ -1501,12 +2030,6 @@ fn stage_side_link_diagnostic(
     Ok((directory, staging))
 }
 
-impl Drop for Journal {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.dir);
-    }
-}
-
 /// The device a path lives on, where the platform exposes it.
 fn volume_id(path: &Path) -> Option<u64> {
     #[cfg(unix)]
@@ -1588,13 +2111,20 @@ fn missing_parents(path: &Path) -> Result<Vec<PathBuf>, ErrorCause> {
 fn clean_side_parents(side: &SideFile) {
     for parent in &side.created_parents {
         // Only an empty folder known to have been absent at capture is ours.
-        if fs::remove_dir(parent).is_err() {
+        if store::check_guards(std::slice::from_ref(parent)).is_err()
+            || fs::remove_dir(&parent.path).is_err()
+        {
             break;
         }
     }
 }
 
-fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), ErrorCause> {
+fn replay_side_file(
+    side: &mut SideFile,
+    backward: bool,
+) -> Result<store::DirectoryChanges, ErrorCause> {
+    store::check_guards(&side.parents).map_err(ErrorCause::external)?;
+    store::safe_parents(&side.path).map_err(ErrorCause::external)?;
     let (from, to) = if backward {
         (&side.after, &side.before)
     } else {
@@ -1610,11 +2140,11 @@ fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), ErrorCause> {
         let mut created = Vec::new();
         let result = (|| {
             for parent in side.created_parents.iter().rev() {
-                match fs::create_dir(parent) {
+                match fs::create_dir(&parent.path) {
                     Ok(()) => created.push(parent),
                     Err(error)
-                        if error.kind() == std::io::ErrorKind::AlreadyExists && parent.is_dir() => {
-                    }
+                        if error.kind() == std::io::ErrorKind::AlreadyExists
+                            && parent.path.is_dir() => {}
                     Err(error) => return Err(ErrorCause::external(error)),
                 }
             }
@@ -1622,27 +2152,34 @@ fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), ErrorCause> {
         })();
         if result.is_err() {
             for parent in created.into_iter().rev() {
-                let _ = fs::remove_dir(parent);
+                let _ = fs::remove_dir(&parent.path);
             }
         }
-        result
+        result?;
     } else {
         put(None, &side.path)?;
         clean_side_parents(side);
-        Ok(())
     }
+    let changes = if to.is_some() {
+        store::refresh_created_parents(&mut side.created_parents).map_err(ErrorCause::external)?
+    } else {
+        Vec::new()
+    };
+    side.parents = store::parent_guards(&side.path).map_err(ErrorCause::external)?;
+    Ok(changes)
 }
 
 fn replay_side_files_and_directories(
-    sides: &[SideFile],
+    sides: &mut [SideFile],
     directories: &[(PathBuf, PathBuf)],
     backward: bool,
-) -> Result<(), ErrorCause> {
+) -> Result<store::DirectoryChanges, ErrorCause> {
     enum Done {
         Side(usize),
         Move(PathBuf, PathBuf),
     }
     let mut done = Vec::new();
+    let mut changes = Vec::new();
     let result = (|| {
         for offset in 0..=directories.len() {
             let epoch = if backward {
@@ -1656,11 +2193,15 @@ fn replay_side_files_and_directories(
                 } else {
                     offset
                 };
-                let side = &sides[index];
+                let side = &mut sides[index];
                 if side.epoch != epoch {
                     continue;
                 }
-                replay_side_file(side, backward)?;
+                let created = replay_side_file(side, backward)?;
+                for other in &mut *sides {
+                    other.rebase_directory_ids(&created);
+                }
+                changes.extend(created);
                 done.push(Done::Side(index));
             }
             let movement = if backward {
@@ -1681,7 +2222,13 @@ fn replay_side_files_and_directories(
         let mut rollback_errors = Vec::new();
         for step in done.into_iter().rev() {
             let outcome = match step {
-                Done::Side(index) => replay_side_file(&sides[index], !backward),
+                Done::Side(index) => {
+                    replay_side_file(&mut sides[index], !backward).map(|created| {
+                        for other in &mut *sides {
+                            other.rebase_directory_ids(&created);
+                        }
+                    })
+                }
                 Done::Move(from, to) => move_directories(&[(to, from)]),
             };
             if let Err(error) = outcome {
@@ -1700,7 +2247,7 @@ fn replay_side_files_and_directories(
             )
         });
     }
-    Ok(())
+    Ok(changes)
 }
 
 fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), ErrorCause> {
@@ -1735,6 +2282,7 @@ fn restore(
     options: &TagOptions,
     expected: Fingerprint,
 ) -> Result<bool, ErrorCause> {
+    store::safe_parents(target).map_err(ErrorCause::external)?;
     if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
         return Err(ErrorCause::owned("The undo snapshot was modified"));
     }
@@ -1775,8 +2323,10 @@ fn restore(
     Ok(cloned)
 }
 
-fn discard(blob: &Blob) {
-    let _ = fs::remove_file(&blob.path);
+fn discard(_blob: &Blob) {
+    // Removing a reference retires a blob logically. The store collects physical
+    // files only after the replacement index has been synchronized and published;
+    // the previous on-disk index must remain complete across a failed commit.
 }
 fn discard_file(file: &FileRecord) {
     [file.before.blob.as_ref(), file.after.blob.as_ref()]

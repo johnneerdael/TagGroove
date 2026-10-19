@@ -1,5 +1,6 @@
 export type HistoryStep = { label: string; files: number };
-export type HistoryState = { undo: HistoryStep|null; redo: HistoryStep|null; notice: string|null };
+export type RecoverySummary = {operations:number; copies:number; bytes:number};
+export type HistoryState = { undo: HistoryStep|null; redo: HistoryStep|null; notice: string|null; recovery?:RecoverySummary };
 export const emptyHistory: HistoryState = { undo: null, redo: null, notice: null };
 
 /** Edit menu text, e.g. "Undo Save tags (3 files)". */

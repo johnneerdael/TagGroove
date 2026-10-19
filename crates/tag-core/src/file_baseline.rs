@@ -3,9 +3,11 @@ use crate::batch_errors::ErrorCause;
 use sha2::{Digest, Sha256};
 use std::{fs, io::Read, path::Path, time::SystemTime};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MetadataStamp {
     pub(crate) len: u64,
+    #[serde(with = "native_time")]
     modified: Option<SystemTime>,
     #[cfg(not(windows))]
     identity: Option<(u64, u64)>,
@@ -13,9 +15,11 @@ pub(crate) struct MetadataStamp {
     identity: Option<WindowsIdentity>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Fingerprint {
     pub(crate) len: u64,
+    #[serde(with = "native_time")]
     modified: Option<SystemTime>,
     #[cfg(not(windows))]
     identity: Option<(u64, u64)>,
@@ -33,10 +37,62 @@ impl Fingerprint {
 }
 
 #[cfg(windows)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum WindowsIdentity {
     FileId128 { volume: u64, file: [u8; 16] },
     FileIndex64 { volume: u32, file: u64 },
+}
+
+// Preserve pre-epoch timestamps too; serde's default SystemTime representation
+// cannot encode them. Reject out-of-range native times instead of truncating.
+mod native_time {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    #[derive(Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Time {
+        before_epoch: bool,
+        seconds: u64,
+        nanos: u32,
+    }
+    pub(super) fn serialize<S: Serializer>(
+        value: &Option<SystemTime>,
+        s: S,
+    ) -> Result<S::Ok, S::Error> {
+        value
+            .map(|time| {
+                let (before_epoch, duration) = match time.duration_since(UNIX_EPOCH) {
+                    Ok(duration) => (false, duration),
+                    Err(error) => (true, error.duration()),
+                };
+                Time {
+                    before_epoch,
+                    seconds: duration.as_secs(),
+                    nanos: duration.subsec_nanos(),
+                }
+            })
+            .serialize(s)
+    }
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<Option<SystemTime>, D::Error> {
+        Option::<Time>::deserialize(d)?
+            .map(|time| {
+                if time.nanos >= 1_000_000_000 {
+                    return Err(serde::de::Error::custom("Invalid history timestamp"));
+                }
+                let duration = Duration::new(time.seconds, time.nanos);
+                let result = if time.before_epoch {
+                    UNIX_EPOCH.checked_sub(duration)
+                } else {
+                    UNIX_EPOCH.checked_add(duration)
+                };
+                result.ok_or_else(|| {
+                    serde::de::Error::custom("History timestamp is outside the native range")
+                })
+            })
+            .transpose()
+    }
 }
 
 #[cfg(windows)]
@@ -58,7 +114,7 @@ pub(crate) fn windows_legacy_identity(file: &fs::File) -> std::io::Result<Window
 }
 
 #[cfg(windows)]
-fn windows_identity(file: &fs::File) -> std::io::Result<WindowsIdentity> {
+pub(crate) fn windows_identity(file: &fs::File) -> std::io::Result<WindowsIdentity> {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
         FileIdInfo, GetFileInformationByHandleEx, FILE_ID_INFO,
@@ -153,6 +209,10 @@ fn change_time(file: &fs::File, metadata: &fs::Metadata) -> Option<(i64, i64)> {
 /// Metadata-only admission: do not read audio that cannot enter the journal.
 pub(crate) fn metadata_stamp(path: &Path) -> Result<MetadataStamp, ErrorCause> {
     metadata_stamp_for(path, true)
+}
+pub(crate) fn metadata_stamp_for_handle(file: &fs::File) -> Result<MetadataStamp, ErrorCause> {
+    let metadata = file.metadata().map_err(ErrorCause::external)?;
+    stamp(file, &metadata, true)
 }
 fn metadata_stamp_for(path: &Path, require_identity: bool) -> Result<MetadataStamp, ErrorCause> {
     let leaf = fs::symlink_metadata(path).map_err(ErrorCause::external)?;

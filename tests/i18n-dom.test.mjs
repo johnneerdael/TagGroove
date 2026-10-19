@@ -512,8 +512,8 @@ test('the production Language page exposes its folder action only after a native
     try{
       const languagePage=rendererVariable(parsed,'languagePage',{desktop,ENGLISH:english,languageOptionsPage,onLanguageChange:()=>()=>{},invoke:async(command,args)=>{calls.push([command,args]);}});
       if(family&&desktop){
-        const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},optionsReady:Promise.resolve(),profileWorkspaceReady:Promise.resolve(false),fileOps:{initialize:async()=>{}},run:async()=>{}};
-        await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false,directoriesReady=Promise.resolve();${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
+        const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},refreshHistory:async()=>{},optionsReady:Promise.resolve(),profileWorkspaceReady:Promise.resolve(false),coordinateConfigurationLaunches:job=>job(),restoreOrdinaryWorkspace:async()=>false,rememberOrdinaryWorkspace:()=>{},fileOps:{initialize:async()=>{}},run:async()=>{}};
+        await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false,directoriesReady=Promise.resolve(),ordinaryWorkspaceReady=false,errors=[];${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
       }
       p.body.innerHTML=languagePage.controls.map(controlMarkup).join('');p.translate('de');
       const button=p.body.querySelector('[data-option-button="open-languages-folder"]'),supported=desktop&&family==='desktop';

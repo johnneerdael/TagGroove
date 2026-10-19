@@ -1628,6 +1628,7 @@ pub fn run() {
             converters::preview_text_import,
             converters::apply_text_import,
             history::history_state,
+            history::export_history_recovery,
             history::ipc::undo_last_with_diagnostics,
             history::ipc::redo_last_with_diagnostics,
             history::ipc::convert_tag_to_tag_with_diagnostics,

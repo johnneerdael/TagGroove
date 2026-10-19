@@ -71,3 +71,32 @@ Save retains its existing ability to proceed when Windows cannot provide one,
 while checking the available metadata and complete contents. Such a Save does
 not promise an Undo step. Qualify this unsupported-identity case on Windows;
 source inspection and Mac execution do not establish its native behavior.
+
+
+## Recovery decisions during implementation
+
+Use a version-2 typed operation intent, with captured original paths and snapshot
+references published before work, plus an updated replay intent containing reverse
+snapshots before any replay mutation. Record side-output preimages in the intent
+before the side-output hook returns. A real process-exit test bypasses all destructors;
+it does not establish hardware power-loss durability.
+
+On reopening an interrupted operation, preserve current files. Move the ambiguous
+active stacks and intent into separate verified recovery records and allow fresh
+Undo history. Expose recovery availability independently of transient operation
+notices. Recovery and active Undo/Redo share the existing operation and byte caps;
+evict the oldest recovery records first and report eviction. Charge interrupted
+capture preimages conservatively at full length, because their final write cost was
+never committed. Retain known clone-backed charges for already committed operations.
+
+Persist native identity guards for audio ancestors, side-output epochs and folder
+moves. Cleanup ownership retains the identities of created parent directories.
+Propagate an owned directory recreation to sibling and stacked references to that
+same native identity; an outside-created directory does not qualify. Preserve
+independent file/side failures and existing ordered folder/side rollback.
+
+The remaining recovery UI must offer explicit export into a new no-clobber folder,
+with a manifest that preserves native paths, operation/side roles and literal link
+targets. Never restore over current audio or recreate links automatically. Export
+must verify snapshot content and leave the bounded recovery store intact. Finish
+its fault, native-path, corruption and space controls before claiming L67 complete.
