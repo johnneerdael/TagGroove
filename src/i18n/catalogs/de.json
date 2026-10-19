@@ -3354,6 +3354,7 @@
  "The portable configuration contains more than 4096 files.": "Die übertragbare Konfiguration enthält mehr als 4096 Dateien.",
  "The selected workspace cannot be restored.": "Der ausgewählte Arbeitsbereich kann nicht wiederhergestellt werden.",
  "The selected workspace is unavailable: {value}": "Der ausgewählte Arbeitsbereich ist nicht verfügbar: {value}",
+ "The setup workspace root kinds must describe every captured root.": "Für jeden gespeicherten Quellpfad muss eine Typangabe vorhanden sein.",
  "The setup workspace source order must rank every captured row exactly once.": "Die Quellreihenfolge des Konfigurationsarbeitsbereichs muss jede erfasste Zeile genau einmal enthalten.",
  "This replaces the latest setup rollback checkpoint.": "Dies ersetzt den letzten Wiederherstellungspunkt der Konfiguration.",
  "Unselected components and the current file list are preserved. Restoring a selected empty workspace clears the list.": "Nicht ausgewählte Bestandteile und die aktuelle Dateiliste bleiben erhalten. Das Wiederherstellen eines ausgewählten leeren Arbeitsbereichs leert die Liste.",

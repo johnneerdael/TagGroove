@@ -890,8 +890,14 @@ test('actual playlist expansion retains independently indexed diagnostics while 
   const cases=batchDiagnosticCases.filter(item=>item.diagnostic.kind==='playlist_line');
   assert.ok(cases.length>=2);
   const calls=[],replies=cases.slice(0,2).map((item,index)=>({files:[`/Music/track-${index}.wav`],errors:[{path:`/Music/Help; Title-${index}.m3u`,error:item.source}],error_diagnostics:[{index:0,diagnostic:item.diagnostic}]}));
-  const ui=new PlaylistUI({invoke:async(command,args)=>{assert.equal(command,'read_playlist');calls.push(args.path);return normalizeBatchDiagnostics(replies[calls.length-1],true);}});
-  const expanded=await ui.expand(['/Music/first.m3u','/Music/ordinary.wav','/Music/second.cue']);
+  const roots=['/Music/first.m3u','/Music/ordinary.wav','/Music/second.cue'],filesystemKinds=new Map(roots.map(path=>[path,'file'])),commands=[];
+  const ui=new PlaylistUI({invoke:async(command,args)=>{
+    commands.push(command);
+    if(command==='classify_source_paths'){assert.deepEqual(args.paths,roots);return args.paths.map(path=>{assert.ok(filesystemKinds.has(path));return filesystemKinds.get(path);});}
+    assert.equal(command,'read_playlist');calls.push(args.path);return normalizeBatchDiagnostics(replies[calls.length-1],true);
+  }});
+  const expanded=await ui.expand(roots);
+  assert.deepEqual(commands,['classify_source_paths','read_playlist','read_playlist']);assert.deepEqual(expanded.rootKinds,['file','file','file']);
   assert.deepEqual(expanded.paths,['/Music/track-0.wav','/Music/ordinary.wav','/Music/track-1.wav']);
   assert.deepEqual(calls,['/Music/first.m3u','/Music/second.cue']);
   assert.equal(expanded.playlist,'/Music/second.cue');

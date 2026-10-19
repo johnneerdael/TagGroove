@@ -826,6 +826,7 @@
  "The setup window state exceeds 2 MB.",
  "The setup workspace has invalid file identities.",
  "The setup workspace receipt expired.",
+ "The setup workspace root kinds must describe every captured root.",
  "The setup workspace source order must rank every captured row exactly once.",
  "The side file changed size while its undo snapshot was taken",
  "The side file has no folder",

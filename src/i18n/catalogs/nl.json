@@ -3341,6 +3341,7 @@
  "The portable configuration contains more than 4096 files.": "De overdraagbare instellingen bevatten meer dan 4096 bestanden.",
  "The selected workspace cannot be restored.": "De geselecteerde werkruimte kan niet worden hersteld.",
  "The selected workspace is unavailable: {value}": "De geselecteerde werkruimte is niet beschikbaar: {value}",
+ "The setup workspace root kinds must describe every captured root.": "Voor elk opgeslagen bronpad moet een type zijn vastgelegd.",
  "The setup workspace source order must rank every captured row exactly once.": "De bronvolgorde van de instellingenwerkruimte moet elke vastgelegde rij precies eenmaal bevatten.",
  "This replaces the latest setup rollback checkpoint.": "Dit vervangt het laatste herstelpunt voor instellingen.",
  "Unselected components and the current file list are preserved. Restoring a selected empty workspace clears the list.": "Niet-geselecteerde onderdelen en de huidige bestandslijst blijven behouden. Een geselecteerde lege werkruimte herstellen maakt de lijst leeg.",

@@ -37,6 +37,14 @@ are covered. TypeScript passes in `taggroove-empty-active-types-xueu17ss`; both
 changed source/test hashes match before and after. Independent read-only review
 has no concrete findings. No Rust build or native UI run was repeated.
 
+## CI native-bridge and catalog integration follow-up — 2026-10-20
+
+[Linux validation 39333168455](https://github.com/johnneerdael/TagGroove/actions/runs/39333168455/job/118336307261) passes the Rust workspace tests and strict workspace/all-target Clippy at `91accdb9fc52b37d9b90a12d2359caa324392d63`. Its frontend suite then reports 853 passes, 11 failures and one skip. The failed job log is retained as `/tmp/taggroove-pr64-91accdb-linux-118336307261-plain.log`.
+
+One failure was the new root-kind error missing from the backend-key snapshot. Regeneration adds exactly that key, with English/Dutch/German entries; all three catalogs now have 3,494 canonical keys. One playlist-diagnostic test assumed every native call was `read_playlist`; nine bundled startup/recovery cases lacked the registered `classify_source_paths` command. The native test doubles now provide explicit filesystem kinds and reject missing fixture paths. Additional assertions verify metadata initialization and scan order. Existing diagnostic, pending-receipt, recovery, acknowledgement, launch and timeout assertions remain intact. Production TypeScript and Rust logic are unchanged by this follow-up.
+
+Focused baseline startup: six passes/nine failures; named playlist diagnostic: one failure; catalog-registration case: one failure. Corrected checks: **15 startup tests**, **one named playlist-diagnostic test** and **46 localization/extraction tests** pass. Retained runs: `taggroove-kind-mocks-startup-final-ie5dnu0a`, `taggroove-kind-mocks-dom-final-0uwhj6m1`, and `taggroove-ci-frontend-catalog-green-nwz6ff5_`. The changed test-file bindings match before and after execution. Catalog extraction consistency and whitespace checks pass; independent read-only review has no concrete findings. No full frontend suite, Rust workspace, native app build or native UI sweep was repeated locally.
+
 ## Limits
 
 These checks concern local filesystem input classification and represented workspace state. They do not establish original Windows behavior, native GUI acceptance on other operating systems, physical provider behavior, arbitrary concurrent filesystem-writer exclusion, or a new rename/Refresh membership policy. No local application build or broad native UI sweep is needed for this repair; post-merge native integration remains a separate CI evidence layer.
