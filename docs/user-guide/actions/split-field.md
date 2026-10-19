@@ -34,7 +34,7 @@ not kept and is not interpreted as a regular expression.
 If a field already has two values, both are processed and their resulting
 pieces are collected in order. A separator at the start or end, or two
 separators together, can produce empty pieces. Clean the input first when
-those empty values are unwanted.
+those empty values are unwanted. The current action also trims surrounding whitespace when no separator is found. For a field with one padded value and no separator, the traced Mp3tag action leaves that value unchanged. With several existing values, its decision depends on the field’s total split-piece count. This compatibility difference remains open; check imported actions on copies before applying them to a collection.
 
 TagGroove's display may join values with ` \\ `. That is a display convention;
 do not use it as a separator unless those characters actually occur inside
