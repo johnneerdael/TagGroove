@@ -116,7 +116,7 @@ jobs:
             runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             bundles: deb,rpm,appimage
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.platform == 'windows-x64' && vars.CLOUDRUNNER_WINDOWS_ENABLED == 'true' && fromJSON('["self-hosted","windows","x64","cloudrunner","taggroove"]') || matrix.runner }}
     timeout-minutes: 120
     env:
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
