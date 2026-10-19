@@ -152,93 +152,7 @@ These **10 outstanding verification records** have left implementation intake. T
 
 ## Open items
 
-Use [PARITY.md](../PARITY.md#uncovered-work) for the actionable list. The records below explain its exclusions and remainders; they do not assign represented implementation work again.
-
-### Original register crosswalk
-
-All 79 roadmap row identities are retained, including rows already reconciled before this snapshot. A split row preserves every uncovered part while its covered portion stays in the C records. Source pointers in the next section are current-baseline files; linked verification notes establish the practical evidence boundary.
-
-| Original ID | Original area / item | Initiative; historical impact/size | Disposition at snapshot |
-| --- | --- | --- | --- |
-| L01 | Toolbars / Toolbar command catalogue | R09; M/M | C07/C23 represent the command routes. Remove L01 from implementation intake; original identifier mapping and native interaction/availability acceptance remain with those records and L78/L79. |
-| L02 | Toolbars / Movable toolbar bands | R18; L/M | Retain L02: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L03 | Menus / File → Exit | R18; L/S | Retain L03: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L04 | Menus / Alt+Enter | R18; L/S | C17 corrects the stale Extended Tags claim; L04 retains the separate Windows Properties question. |
-| L05 | Tag panel / Floating panel | R18; L/M | Retain L05: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L06 | File table / Find regex | R05; L/S | C01 implements Find/Boost. Remove L06 from implementation intake; original/native input, Unicode/multiline and large-list qualification remain with C01 and L78/L79. |
-| L07 | File table / `columns.ini` import | R02; L/S | C12 represents guided import only; L07 retains unknown-key semantics. |
-| L08 | Scripting / `$caps`, `$caps2`, `$caps3` word starts | R05; M/S | C41 represents the known separator/trigger-state fixes. Remove L08 from implementation intake; Unicode/locale/UTF-16 and public extra-argument/error qualification stays under C41 and L78/L79. |
-| L09 | Scripting / Presence and conditions | R05; M/S | Pinned native counter/publication evidence establishes a sequential-state and empty-predicate mismatch. Retain the coherent evaluator/guide correction; no covering implementation exists yet. |
-| L10 | Scripting / Error and fallback semantics | R05; M/S | Native unknown-name fallback and same-frame rescan are known mismatches. Retain the correction and separate error/arity research; a design alone is not coverage. |
-| L11 | Filters / Mixed quoted and bare words | R05; L/S | Retain L11: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L12 | Filters / AND/OR precedence | R05; L/S | Retain L12: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L13 | Actions / Adjust Cover "Original" format | R15; L/S | Retain L13: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L14 | Actions / Remove Fields Except | R06; L/M | Retain L14: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L15 | Actions / Split Field | R05; L/S | Retain L15: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L16 | Actions / Convert Codepage default | R11; L/S | C24 represents validated last-confirmed group codepage memory; original/native qualification remains L78/L79. |
-| L17 | Actions / `.mta` type IDs | R06; M/M | Native factory/record evidence establishes Type17/18/19 and incompatible cover-option layouts. Actual public-codec canonical records remain unresolved while complete legacy controls work. Retain the L17 schema/legacy-preservation repair; C10 opaque preservation is already represented. |
-| L18 | Actions / Mobile provider documents | R19; L/L | Retain L18: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L19 | Converters / Filename → Filename with an extension in the pattern | R08; L/S | C16 removes the already-delivered matching-suffix claim; L19 keeps the different-suffix comparison. |
-| L20 | Converters / Text File → Tag positional record-count mismatch | R08; L/M | C16 includes PR27’s keyed-list matching and unmatched-file handling; retain only positional count-mismatch/original-policy qualification in L20. |
-| L21 | File operations / Last Copy/Move destination | R08; L/S | C02 delivered destination memory; no duplicate implementation task. Native/reference acceptance is retained in L48/L79. |
-| L22 | File operations / Associated `.lrc` and `.cdg` files | R08; L/M | C06 delivers Tag → Filename and Move companions. L22a retains other routes; L22b native/cross-volume/fault acceptance stays with C06 rather than duplicating implementation intake. |
-| L23 | Formats / TAK and OptimFROG | R14; L/S | Remove L23 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L24 | Formats / Nero details | R14; L/S | C34 covers ordinary supported chapterless mirror growth/shrink and atomic refusal; retain indx/cover editing, guarded rewrite topologies and original/native acceptance. |
-| L25 | Formats / Chapter rows | R14; L/M | Retain L25: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L26 | Formats / ADTS and ID3 limits | R14; L/M | C26 supports the named non-unsynchronised v2.3 extended-header and v2.4 CRC/footer cases; retain broader ADTS/combined-transform/opaque-frame and original/native acceptance. |
-| L27 | Formats / MP4 cover type and description | R14; L/— | B01 records an MP4 format boundary; no impossible implementation task is assigned. |
-| L28 | Formats / Reference files | R01; M/M | Remove L28 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L29 | Covers / Resampler | R15; L/M | Remove L29 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L30 | Sources / Live-provider coverage | R04; M/S | Remove L30 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L31 | Sources / Keyed services | R16; L/— | Remove L31 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L32 | Sources / `.src` scripts | R16; L/S | Retain L32: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L33 | Sources / Mobile | R19; L/M | Retain L33: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L34 | Formats / Native-field limits | R14; L/M | C14 observes native retention on authored inputs; L34 retains original syntax/grouping semantics. |
-| L35 | Matroska / Edge cases | R14; L/M | C37 qualifies the named local unindexed round trip and safe full-head refusal; retain growth support, mapping/title/segment semantics and original/native qualification. |
-| L36 | Formats / ASF/WMA | R14; L/M | C43 represents raw text/name/Content-slot preservation. Retain the header-size and whole-file rewrite-cost qualification. |
-| L37 | Formats / APE | R14; L/S | C09: implemented by merged PR26; merged PR57 reconciles the stale claim. Do not rebuild APE detection. L28/L38/L79 retain distinct acceptance. |
-| L38 | Tag preferences / Tag-kind and dependent removal | R01; M/S | Retain the confirmed Lyrics3v2/hidden-APE defect and Ape/Mpc display qualification. Move implemented WAV/AIFF v2.3/v2.4 revision selection and v2.2-upgrade acceptance under C26; v1 retention matches the traced reference. |
-| L39 | Tag preferences / Defaults | R01; M/S | C42 represents the corrected fresh MPEG read/default and Save/Remove policy. Remove L39 from implementation intake; actual loaded-profile and field/encoding acceptance stays with C42/C26 and L79. |
-| L40 | Chapters / Whole-file commands | R14; L/S | Existing merged routing processes the embedded chapter parent once and rejects CUE rows; retain original/native qualification and subsong/name semantics. |
-| L41 | Utils / Optimize and Remove Unsupported Fields | R14; L/M | Retain L41: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L42 | Scripting / `%_md5audio%` | R14; L/M | Documented-format Export support already exists. Retain research into additional contexts/formats only; establish an original requirement before adding support. |
-| L43 | Scripting / `%_vbr%` and tag sizes | R14; L/S | Retain L43: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L44 | Export / Dropped files | R10; L/S | C18 represents the bounded stale-library retirement fix, including actual repeated-save and retry regressions; broader export acceptance remains L79. |
-| L45 | Playlists / Reading and ordering | R10; L/S | C13 supplies local XML readers; C25 represents original-root Refresh and independent source/manual/column order. L45a retains the demonstrated comment/whitespace location-identity defect; L25/L74 retain chapter/provider implementation and L78/L79 retain original/native qualification. |
-| L46 | Covers / Linux drag-out | R15; L/S | Retain L46: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L47 | File list / Inline rename and order | R11; L/M | L47a–L47c separate filename/refresh, ordinary order persistence and save-on-move. C12 local rollback does not establish ordinary session persistence. |
-| L48 | File operations / Details | R11; L/S | L48 retains playback/picker work; B03 records reserved macOS shortcut adaptation. |
-| L49 | Tag panel / Details | R11; L/M | C16 removes stale typed-directory/multi-selection claims; L49 retains dropdown and format-string fields. |
-| L50 | Toolbars / Custom toolbar | R09; L/M | C07 delivers individual built-in source commands and some catalog icons; L50 retains import/user symbol choice. C12 does not parse toolbar layouts. |
-| L51 | Tools / Default tool | R11; L/S | C39 fixes No action row double-click dispatch. L51 retains original non-path placeholders, Windows tool forms and per-file cap policy. |
-| L52 | Sources / freedb | R16; M/M | Retain L52: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L53 | Sources / Review step | R04; L/S | C07 represents remembered quick-source routing and C35 represents review/apply. Remove L53 from implementation intake; original Utils/Suggest-sorting and exact quick-source shortcut acceptance stays under C35 and L78/L79. |
-| L54 | Rename / Reserved characters | R08; L/S | Retain L54: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L55 | Converters / Path edge cases | R08; L/S | Retain L55: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L56 | Actions / Plan clashes and codepages | R08; L/M | L56a–L56b separate converter clash policy from action codepages/presets. |
-| L57 | Configuration / Storage | R02; M/M | C15 backs up helper histories; C12 represents supported migration/local rollback; C27 represents saved-only portable browser/workspace transfer. L57b retains populated original/native acceptance and unsupported settings; L75/L78/L79 retain platform/runtime qualification. |
-| L58 | Updates / Install | R13; L/M | Retain L58: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L59 | General / Auto-completion | R11; L/S | C38 represents filtered whole-value completion and its repaired multi-keystroke candidate lifetime. Remove L59 from implementation intake; exact native/original/visual/accessibility/performance limits stay with C38 and L77a/L78/L79. |
-| L60 | Library / Locale | R11; L/S | C30 represents raw-backed cache-date formatting; retain native OS-locale/region and already-loaded list notification qualification as L60. |
-| L61 | Undo / External changes | R17; L/S | C19 represents Windows replacement identity. Eight current-core cases confirm two same-inode/size/mtime PCM edits admitted and overwritten by Undo/Redo, with six ordinary controls. Retain the stronger-baseline repair; Windows/fallback/network acceptance stays under C19. |
-| L62 | Launch / Open With | R13; L/— | Remove L62 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L63 | Settings / UI languages | R20; M/L | Retain L63: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L64 | Settings / Networking | R16; L/S | Retain L64: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L65 | Settings / Setting names in the binary with no confirmed equivalent | R18; L/S | L65 retains undocumented non-shell names; ContextMenuDisabled belongs to the unsupported shell integration in Out of scope. |
-| L66 | Settings / `ID3LeadingZeros` | R18; L/S | Retain L66: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L67 | Undo / Persistence | R17; L/L | Retain L67: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L68 | Undo / Non-cloning volumes | R17; L/M | Existing history budgets and C37 admission controls are represented. Remove L68 from implementation intake; non-cloning volumes, the 2 GiB full-size cap and first-unpadded-save qualification stays under C37 and L77a/L79. |
-| L69 | CLI / `open -a … --args` | R13; L/— | Retain L69: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L70 | CLI / File associations | R13; L/S | Retain L70: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L71 | Platforms / Signing | R13; M/M | Retain L71: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L72 | Platforms / iOS documents | R19; L/L | Retain L72: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L73 | Tag panel / Extended Tags save | R07; L/S | Retain L73: the inspected PR scopes supply no implementation or acceptance evidence closing this remainder. |
-| L74 | Platforms / Mobile provider documents | R19; L/M | C05 delivers artwork copy and C11 represents provider reads; L74 retains only provider playlist/export/Undo operations. |
-| L75 | Platforms / Mobile | R19; L/L | Remove L75 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L76 | Distribution / Audit | R13; M/M | C36 represents the compiled Boost notice repair; retain the complete dependency/artifact audit and reproducible-build qualification. |
-| L77 | Performance / Comparison | R12; M/M | L77a original/platform measurement stays in the qualification register; L77b retains rewrite-cost implementation work. |
-| L78 | Native UI proof / Input | R12; M/L | Remove L78 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
-| L79 | All areas / Differential proof | R01; H/L | Remove L79 from implementation intake; represented scope and outstanding acceptance remain in the [qualification register](#qualification-of-implemented-scopes). |
+Use [PARITY.md](../PARITY.md#uncovered-work) for the actionable list. The table below contains only its current active IDs. Delivered work and acceptance-only items appear exclusively in the represented-scope and qualification sections above; historical identity numbers are not additional open tasks.
 
 ### Evidence for each uncovered item
 
@@ -347,7 +261,7 @@ C16 retains matching-suffix and typed-directory/multi-selection corrections plus
 
 ## Refresh and evidence rules
 
-The original hold is satisfied: PRs49–63 have all merged. This refresh uses their recorded final heads/merge identities and merged main `bb1c1ecb77c1fed424f054c88cedd55ed11cd069`. PR64 is the sole consolidated draft; its planned checklist does not close work. After earlier implementation exclusions, ten further acceptance-only records (L23/L28/L29/L30/L31/L62/L75/L77a/L78/L79) now live in the qualification register. The demonstrated playlist identity defect is a narrowed new L45a remainder. There are 64 active atomic remainders, 64 matching active evidence records, 79 historical row identities, 48 represented-scope records and 10 qualification records. These are not feature or completion counts.
+The original hold is satisfied: PRs49–63 have all merged. This refresh uses their recorded final heads/merge identities and merged main `bb1c1ecb77c1fed424f054c88cedd55ed11cd069`. PR64 is the sole consolidated draft; its planned checklist does not close work. After earlier implementation exclusions, ten further acceptance-only records (L23/L28/L29/L30/L31/L62/L75/L77a/L78/L79) now live in the qualification register. The demonstrated playlist identity defect is a narrowed new L45a remainder. There are 64 active atomic remainders, 64 matching active evidence records, 48 represented-scope records and 10 qualification records. These are not feature or completion counts.
 
 Preserve PR57’s APE correction and real-encoder proof limits: header-less/tag-collision implementation is delivered, while original-written fixtures and original behavior remain open. Final PR58 includes backslash/control-character preservation; final PR60 includes lastBuiltIn and resumable recovery; final PR61 includes Unix colon paths and bounded scalar diagnostic tracking; final PR62 retains complete mandatory byte bindings, private read-only observation and workspace-aware producer identity. Their implementation/test corrections are represented work, not new uncovered assignments or proof of the acceptance remainders.
 
