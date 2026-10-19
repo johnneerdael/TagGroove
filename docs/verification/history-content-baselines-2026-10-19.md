@@ -5,7 +5,7 @@ This is the L61 repair in PR64, implemented in
 `9468d3ec9ee09d34923fe28a5ea72ef467ca3df0`.
 It supersedes the unsafe behavior recorded in the
 [concealed-edit diagnosis](undo-concealed-external-edit-2026-10-19.md).
-Cross-session history (L67) is separate and remains unimplemented at this checkpoint.
+Cross-session history was unimplemented at this checkpoint; the later [C62 durable-history receipt](durable-history-2026-10-19.md) now records that implementation and bounded native Mac acceptance.
 
 ## Implemented safety boundary
 

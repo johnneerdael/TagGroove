@@ -1,0 +1,124 @@
+{
+  "date": "2026-10-19",
+  "published_head": "6f0e3add4a94858023de9596f67635066febfe3d",
+  "implementation": "7f29fd7914d6b62fa25bf8fc666d425fbcae08c7",
+  "core": {
+    "passed": 290,
+    "ignored": 1,
+    "proof": "/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-native-daily-workspace-tests-4vw2uk7k"
+  },
+  "backend": {
+    "passed": 571,
+    "ignored": 18,
+    "proof": "/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-native-daily-workspace-tests-pdjg7gw7"
+  },
+  "ui": {
+    "passed": 849,
+    "failed": 0,
+    "proof": "/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-history-startup-ui-complete-ncvum91d"
+  },
+  "strict_clippy": "taggroove-history-recovery-strict-clippy-2-9s65ggd4",
+  "ts_vite": "taggroove-history-native-startup-fixed-build-33mbkimy",
+  "strict_guide": "taggroove-history-final-strict-guide-5jtz9d9c",
+  "native": {
+    "passed": 7,
+    "outcomes": [
+      {
+        "phase": "save",
+        "exit": 0,
+        "summary": "[e2e] SUMMARY PASS save"
+      },
+      {
+        "phase": "undo",
+        "exit": 0,
+        "summary": "[e2e] SUMMARY PASS undo"
+      },
+      {
+        "phase": "redo",
+        "exit": 0,
+        "summary": "[e2e] SUMMARY PASS redo"
+      },
+      {
+        "phase": "recover",
+        "exit": 0,
+        "summary": "[e2e] SUMMARY PASS recover"
+      },
+      {
+        "phase": "redo-guard",
+        "exit": 0,
+        "summary": "[e2e] SUMMARY PASS redo-guard"
+      },
+      {
+        "phase": "fresh-save",
+        "exit": 0,
+        "summary": "[e2e] SUMMARY PASS fresh-save"
+      },
+      {
+        "phase": "undo-guard",
+        "exit": 0,
+        "summary": "[e2e] SUMMARY PASS undo-guard"
+      }
+    ],
+    "artifact_sha256": "6db6b630321929c9c854f3e6573d69d36a48a73e9d48499b6a31a7c91d5e140e",
+    "manifest": "/private/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-history-native-final-retry-th0p23s9/exports/TagGroove recovery 00809517-d834-47f7-93b7-30031d8914f1/manifest.json",
+    "fixture": "/private/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-history-native-final-retry-th0p23s9/fixture",
+    "cache": "/Users/jneerdael/Library/Caches/org.taggroove.editor.e2e.history5bd939c4/undo",
+    "power_loss_qualified": false,
+    "synthetic_ui_events": "save/undo/redo",
+    "native_picker": "Actual native Export button, Go to Folder and Open selection completed through CUA",
+    "cua_picker_completed": true,
+    "cache_caveat": {
+      "exists": false,
+      "path": "/Users/jneerdael/Library/Caches/org.taggroove.editor.e2e.history5bd939c4/undo",
+      "note": "Previous native Save/Undo/Redo phases passed; cache subsequently absent before recovery fixture setup"
+    }
+  },
+  "native_proof_root": "/private/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-history-native-final-retry-th0p23s9",
+  "source_sha256": {
+    "crates/tag-core/src/history.rs": "0dfb2310ba648e472050860a9c14fc3b6b9778e416706e2c17467cd6d170ed80",
+    "crates/tag-core/src/history_store.rs": "202ebbb93fce223d8d66935e3003f964f4257b9bd1c7673ace75bc90028687f9",
+    "crates/tag-core/src/file_baseline.rs": "928cf52d9a2bd50d79740b68a79727dbfd7cc097223e38c0e694e17d8b26aa4e",
+    "crates/tag-core/tests/history_durable.rs": "62378930bdbbcc9bc795ad3217d5db4191e5f61f8179486a39dfba3202ad8831",
+    "src-tauri/src/history.rs": "3e23728cb42187e0486e0772b4f0fa0f424419fa61f9cba80cfa0b8a455d83f6",
+    "src-tauri/src/lib.rs": "f68246e2fa098998af91599650139090b400aa73967954b11d69a091916c13cd",
+    "src/main.ts": "fcdee05ef5887d8bbaffd280018178ae55d70b8de4b88ee6c4cf6a37e970ae78",
+    "src/edit-history.ts": "31d7136b4f7209dbf725fe12f048d52e5b2686ebf981fdbaf8ba26662b7d3afa",
+    "tests/history-recovery.test.mjs": "c006f3ec27f15d4b684a810ac2b64b2dead0ff99ae67d080d371ad02ba94eaa4"
+  },
+  "not_claimed": [
+    "Genuine final-head GitHub Codex CODE review",
+    "Final current-main CI",
+    "Native Windows or Linux runtime",
+    "Hardware power-loss durability",
+    "Exhaustive native keyboard/IME/accessibility or original Windows equivalence"
+  ],
+  "workspace": {
+    "passed": 1510,
+    "failed": 0,
+    "ignored": 21,
+    "executables": 84,
+    "proof": "/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/taggroove-native-daily-workspace-tests-sk0eggvx",
+    "compiled_rust_source_drift": []
+  },
+  "ordinary_startup": {
+    "red": "taggroove-history-normal-native-red-tyh_ywr_",
+    "green": "taggroove-history-normal-native-green-8hwz49y7",
+    "result": "PASS native no-argument restart: restored row and recovery banner visible",
+    "artifact_sha256": "9f6c5626ede3430553c1f4365b91f981eb8cc79804ee26aee340cbafb34068ea",
+    "build": "taggroove-history-native-startup-fixed-build-33mbkimy",
+    "regression": "actual production initializer: restored workspace and empty workspace, 7 history UI controls passed",
+    "scope": "Seven earlier native phases used the recorded preceding executable; this later executable adds the normal-startup UI fix, without Rust history changes."
+  },
+  "local_links": {
+    "documents": 153,
+    "links": 1521,
+    "errors": 0,
+    "proof": "/tmp/taggroove-final-history-local-links.json"
+  },
+  "local_review": {
+    "scope": "Fresh whole-branch production-path review, followed by targeted startup/capture-epoch rereview",
+    "finding": "Ordinary no-argument startup omitted history refresh; repaired with production-initializer and native RED/GREEN",
+    "remaining_in_targeted_rereview": 0,
+    "github_code_review": false
+  }
+}

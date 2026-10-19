@@ -1,5 +1,8 @@
 # Edit history, tag clipboard and Convert → Tag - Tag
 
+> Cross-session retention is now implemented by [C62](durable-history-2026-10-19.md).
+> Session-only statements in this historical receipt describe its earlier snapshot.
+
 > Historical implementation checkpoint. Later Windows replacement-identity
 > support is recorded in [its scoped verification](undo-windows-identity-2026-10-18.md).
 > The later [C61 content-baseline repair](history-content-baselines-2026-10-19.md)

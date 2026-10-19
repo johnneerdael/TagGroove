@@ -1,5 +1,7 @@
 # Mp3tag 3.36.1: uncovered parity work
 
+For the next work sequence, use the [user-impact, effort and environment table](handover/PARITY-PRIORITIES.md). Merge the frozen PR64 first; remaining implementation belongs in a new PR, selected by importance.
+
 This is the single actionable **uncovered** list: missing behavior and unresolved semantic research for which the inspected open or merged PRs provide no covering implementation. Outstanding verification of implemented behavior belongs in the [qualification register](research/remaining-gaps.md#qualification-of-implemented-scopes), outside this intake. Represented work is excluded even while its PR is open; exclusion is not a completion claim. The [coverage companion](research/remaining-gaps.md) records delivered work, inspected PR scopes, historical row IDs, evidence and intentional limits. The [feature inventory](FEATURE-INVENTORY.md) retains the full acceptance contract.
 
 Reference: Windows x64 Mp3tag 3.36.1, executable SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Inspected merged application baseline: `main` `bb1c1ecb77c1fed424f054c88cedd55ed11cd069`, after PR63. PRs49–63 are merged; [consolidated PR64](https://github.com/johnneerdael/TagGroove/pull/64) remains draft. Intake refreshed **2026-10-19**.
@@ -13,7 +15,7 @@ Implemented features leave this intake even when their native/original acceptanc
 C51–C54 represent the scoped scripting/export, Lyrics3v2, playlist-filename and
 history-startup repairs in PR64. Historical L09/L45a anchors now point to their
 covering records; L10 error behavior and L38 Ape/Mpc display remain separate
-qualification records. L67 retains cross-session lifecycle work and N04 retains
+qualification records. C62 now represents cross-session history and N04 retains
 column/self-reference semantic research. The [repair evidence ledger](verification/four-parity-repairs-2026-10-19.md)
 records focused results and their limits; these are not full parity or release proof.
 
@@ -35,7 +37,7 @@ C47 also covers the implemented and documented direct-executable route for
 arguments sent to a running macOS app. Historical L69 now retains only actual
 macOS runtime qualification under that record; it is not missing launch code.
 
-C61 covers full-content history and staged-write checks, including concealed external edits and corrupted snapshots. Its native Mac/Windows qualifications remain under [the represented scope](research/remaining-gaps.md#c61); L67 still requires persistent-history implementation.
+C61 covers full-content history and staged-write checks, including concealed external edits and corrupted snapshots. A bounded native Mac Save/Undo/Redo journey passes; broader native/Windows qualifications remain under [the represented scope](research/remaining-gaps.md#c61). C62 now covers persistent history, interruption recovery and verified-copy export; see [the durable-history receipt](verification/durable-history-2026-10-19.md).
 
 Windows-specific work and original Windows captures are **deferred by the owner**. Retain those requirements as unqualified; continue the cross-platform work without treating deferral as completion.
 
@@ -82,7 +84,6 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 | L64 | Networking | Implement/qualify needed proxy authentication, SOCKS and PAC behavior while keeping credentials out of ordinary configuration backups. | [Scope and evidence](research/remaining-gaps.md#l64) |
 | L65 | Settings research | Establish meaning/equivalents for ConvFTFShowDlg, ConvFTTShowDlg, ConvTFFShowDlg, ConvTTFShowDlg, ConvReplaceShowDlg, ToolOverwriteDefault, CoverPopup and HideID3Bar; binary strings alone do not specify behavior. | [Scope and evidence](research/remaining-gaps.md#l65) |
 | L66 | Settings research | Determine whether ID3LeadingZeros denotes a global switch beyond the implemented numbering-wizard option. | [Scope and evidence](research/remaining-gaps.md#l66) |
-| L67 | Undo | Design/qualify desktop cross-session history retention and stale-baseline rejection. Ordinary history remains session-only; C54 represents the separate nonfatal journal-startup notice repair. | [Scope and evidence](research/remaining-gaps.md#l67) |
 | L70 | File opening | Add Windows/Linux association declarations and qualify installed file opening and upgrade continuity; stable Windows installer identity is already configured. | [Scope and evidence](research/remaining-gaps.md#l70) |
 | L71 | Distribution | Qualify Windows signing, macOS signing/notarization and physical iOS distribution; current release packages are unsigned on Windows, ad-hoc on macOS and simulator-only on iOS. Physical iOS native-library compilation is implemented; it supplies no signed IPA, notarization or device-runtime evidence. | [Scope and evidence](research/remaining-gaps.md#l71) |
 | L72 | iOS documents | Implement/qualify provider picker, document access and save-back; runtime document access currently enables Android only. | [Scope and evidence](research/remaining-gaps.md#l72) |
