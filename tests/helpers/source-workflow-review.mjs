@@ -66,6 +66,7 @@ try {
   const javascript=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
   const {TagSourcesUI}=await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
   const calls=[],applied=[];
+  let selectedResultIndex=null;
   const ui=new TagSourcesUI({files:()=>input.files,reason:()=>'',options:()=>({cover_filename:'folder'}),pickSave:async()=>{throw Error('Unexpected picker');},evaluate:async()=> 'Fixture Artist',
     invoke:async(command,args)=>{
       calls.push({command,args});
@@ -84,7 +85,21 @@ try {
     dialog.querySelector('#ts-search').click();
     await window.happyDOM.waitUntilComplete();
     if(rpc)await waitFor(()=>dialog.querySelector('#ts-apply')||(dialog.querySelector('#ts-next')&&!dialog.querySelector('#ts-next').disabled));
-    if(!(rpc?input.direct:input.search.direct)){assert.ok(dialog.querySelector('#ts-next'),'missing result selection');dialog.querySelector('#ts-next').click();await window.happyDOM.waitUntilComplete();}
+    if(!(rpc?input.direct:input.search.direct)){
+      assert.ok(dialog.querySelector('#ts-next'),'missing result selection');
+      if(rpc&&input.expected_search!=null){
+        const expected=input.expected_search;
+        assert.ok(expected&&Array.isArray(expected.columns)&&Array.isArray(expected.results),'missing independent search oracle');
+        assert.deepEqual([...dialog.querySelectorAll('.ts-results thead th')].map(cell=>cell.textContent),expected.columns,'rendered search columns');
+        const rows=[...dialog.querySelectorAll('.ts-results tbody tr')];
+        assert.deepEqual(rows.map(row=>[...row.querySelectorAll('td')].map(cell=>cell.textContent)),expected.results.map(row=>row.values),'rendered search rows');
+        const selected=expected.results.flatMap((row,index)=>row.url===input.selected_result_url?[index]:[]);
+        assert.equal(selected.length,1,'selected release must uniquely identify a parsed result');
+        selectedResultIndex=selected[0];rows[selectedResultIndex].click();
+        assert.deepEqual(rows.map(row=>row.getAttribute('aria-selected')),rows.map((_,index)=>String(index===selectedResultIndex)),'production selected search row');
+      }else assert.ok(input.selected_result_url==null,'selected release requires an independent search oracle');
+      dialog.querySelector('#ts-next').click();await window.happyDOM.waitUntilComplete();
+    }
     if(rpc)await waitFor(()=>dialog.querySelector('#ts-apply'));
     assert.ok(dialog.querySelector('#ts-apply'),'production review did not open');
     for(const box of dialog.querySelectorAll('input[data-field]')){
@@ -101,6 +116,6 @@ try {
     if(rpc)await waitFor(()=>applied.length===1);
     assert.equal(applied.length,1,'review must emit exactly one import');
     assert.equal(requests.length,0,'replay must make zero network requests');
-    await writeFile(outputPath,JSON.stringify({version:1,scenario:input.scenario,...applied[0],calls,network_requests:requests.length}));
+    await writeFile(outputPath,JSON.stringify({version:1,scenario:input.scenario,...applied[0],calls,network_requests:requests.length,selected_result_index:selectedResultIndex}));
   }finally{bridge?.close();await window.happyDOM.abort();}
 }catch(error){bridge?.close();console.error(`Source workflow review protocol failed: ${error.stack||error}`);process.exitCode=1;}

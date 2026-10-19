@@ -326,7 +326,16 @@ fn review_and_save(root: &Path, replay: ReplayReview, public: Option<&PublicRepl
     let input = root.join("review-input.json");
     let output = root.join("review-output.json");
     let search_by = public.map(|p| load(&p.installed, &replay.source_id).unwrap().search_by);
-    std::fs::write(&input, serde_json::to_vec(&json!({"version":1,"scenario":replay.scenario,"source":{"id":replay.source_id,"name":"Offline parser replay","search_by":search_by},"checked_fields":checked_fields,"files":files,"search":replay.search,"release":replay.release,"png":base64::engine::general_purpose::STANDARD.encode(&image_bytes),"transport":public.map(|_|"public-acquisition-v1"),"values":public.map(|p|&p.values),"direct":replay.search.direct,"bridge_control":std::env::var("TAGGROOVE_WORKFLOW_BRIDGE_CONTROL").ok()})).unwrap()).unwrap();
+    let selected_result_url = public.map(|p| {
+        if mutation.as_deref() == Some("selected-result") {
+            p.manifest.expected_search["results"][0]["url"]
+                .as_str()
+                .unwrap()
+        } else {
+            &p.manifest.page_url
+        }
+    });
+    std::fs::write(&input, serde_json::to_vec(&json!({"version":1,"scenario":replay.scenario,"source":{"id":replay.source_id,"name":"Offline parser replay","search_by":search_by},"checked_fields":checked_fields,"files":files,"search":replay.search,"release":replay.release,"png":base64::engine::general_purpose::STANDARD.encode(&image_bytes),"transport":public.map(|_|"public-acquisition-v1"),"values":public.map(|p|&p.values),"direct":replay.search.direct,"expected_search":public.map(|p|&p.manifest.expected_search),"selected_result_url":selected_result_url,"bridge_control":std::env::var("TAGGROOVE_WORKFLOW_BRIDGE_CONTROL").ok()})).unwrap()).unwrap();
     crate::history::TEST_ROOTS
         .lock()
         .unwrap()
@@ -359,6 +368,17 @@ fn review_and_save(root: &Path, replay: ReplayReview, public: Option<&PublicRepl
     assert_eq!(reviewed["version"], 1);
     assert_eq!(reviewed["scenario"], replay.scenario);
     assert_eq!(reviewed["network_requests"], 0);
+    if let Some(public) = public.filter(|_| !replay.search.direct) {
+        let selected = public.manifest.expected_search["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .filter_map(|(index, row)| (row["url"] == public.manifest.page_url).then_some(index))
+            .collect::<Vec<_>>();
+        assert_eq!(selected.len(), 1, "unique expected release result");
+        assert_eq!(reviewed["selected_result_index"], selected[0]);
+    }
     // Intentional oracle failures must be caught before the writer is called.
     match mutation.as_deref() {
         Some("matching") => {
@@ -374,6 +394,7 @@ fn review_and_save(root: &Path, replay: ReplayReview, public: Option<&PublicRepl
             reviewed["cover"]["url"] = json!("https://workflow.invalid/unreturned.png")
         }
         Some("checked-fields") | None => {}
+        Some("selected-result") => panic!("selected-result mutation escaped the release oracle"),
         _ => panic!("unknown oracle mutation"),
     }
     for (i, updates) in replay.expected_updates.iter().enumerate() {
@@ -486,7 +507,7 @@ fn review_and_save(root: &Path, replay: ReplayReview, public: Option<&PublicRepl
     };
     println!(
         "WORKFLOW_RECEIPT {}",
-        json!({"scenario":replay.scenario,"case":replay.label,"independent_fixture":true,"private_parser":replay.private_input,"public_acquisition":public.is_some(),"matched":matched,"untouched":1,"network_requests":reviewed["network_requests"],"history":{"label":history["undo"]["label"],"files":history["undo"]["files"]},"audio_sha256":{"before":hashes(&originals),"saved":hashes(&written),"undo":hashes(&undone),"redo":hashes(&redone)},"pcm_sha256":{"before":pcm_hashes(&originals),"saved":pcm_hashes(&written),"undo":pcm_hashes(&undone),"redo":pcm_hashes(&redone)},"pcm_mutation_control_detected":pcm_mutation_detected,"saved_cover_sha256":format!("{:x}",Sha256::digest(&image_bytes))})
+        json!({"scenario":replay.scenario,"case":replay.label,"independent_fixture":true,"private_parser":replay.private_input,"public_acquisition":public.is_some(),"matched":matched,"untouched":1,"network_requests":reviewed["network_requests"],"selected_result_index":reviewed["selected_result_index"],"history":{"label":history["undo"]["label"],"files":history["undo"]["files"]},"audio_sha256":{"before":hashes(&originals),"saved":hashes(&written),"undo":hashes(&undone),"redo":hashes(&redone)},"pcm_sha256":{"before":pcm_hashes(&originals),"saved":pcm_hashes(&written),"undo":pcm_hashes(&undone),"redo":pcm_hashes(&redone)},"pcm_mutation_control_detected":pcm_mutation_detected,"saved_cover_sha256":format!("{:x}",Sha256::digest(&image_bytes))})
     );
     assert_eq!(
         serde_json::to_value(tauri::async_runtime::block_on(crate::history::undo_last()).unwrap())
@@ -740,6 +761,7 @@ fn public_review_helper(
     let mut images = 0;
     let mut applied = false;
     let mut failure = None;
+    let mut refusal_transport_before = None;
     loop {
         let mut line = Vec::new();
         let length = (&mut stdout)
@@ -771,6 +793,7 @@ fn public_review_helper(
             break;
         }
         // Errors sent back to Node intentionally omit private script diagnostics.
+        let command_transport_before = http::fixture::active_counts();
         let result: Result<Value, &'static str> = tauri::async_runtime::block_on(async {
             match request.command.as_str() {
                 "web_source_search" => {
@@ -909,6 +932,7 @@ fn public_review_helper(
             Ok(value) => json!({"version":1,"id":request.id,"result":value}),
             Err(error) => {
                 failure = Some(error);
+                refusal_transport_before = Some(command_transport_before);
                 json!({"version":1,"id":request.id,"error":error})
             }
         };
@@ -994,6 +1018,38 @@ fn public_review_helper(
         println!(
             "ACQUISITION_PREWRITE_REFUSAL {}",
             json!({"guard":"pre-write field/artwork oracle","writer_called":false,"wav_sidecar_history_unchanged":true,"files":observed.len()})
+        );
+    }
+    if matches!(
+        failure,
+        Some("independent index oracle" | "release oracle" | "independent album oracle")
+    ) {
+        assert!(!applied && !released);
+        assert_eq!(
+            observed
+                .iter()
+                .map(|p| std::fs::read(p).unwrap())
+                .collect::<Vec<_>>(),
+            before
+        );
+        assert_eq!(
+            serde_json::to_value(crate::history::history_state().unwrap()).unwrap(),
+            history_before
+        );
+        let counts = http::fixture::active_counts();
+        assert_eq!(counts.1, 0, "source refusal attempted unexpected transport");
+        let index_bodies = usize::from(public.manifest.index.is_some());
+        assert_eq!(
+            counts.0,
+            index_bodies + usize::from(failure == Some("independent album oracle"))
+        );
+        if failure == Some("release oracle") {
+            assert_eq!(Some(counts), refusal_transport_before);
+        }
+        assert!(child.reaped.load(std::sync::atomic::Ordering::SeqCst));
+        println!(
+            "ACQUISITION_SOURCE_REFUSAL {}",
+            json!({"guard":failure,"writer_called":false,"wav_sidecar_history_unchanged":true,"consumed_bodies":counts.0,"transport_misses":counts.1,"pending_bodies":counts.2,"release_body_consumed":failure==Some("independent album oracle"),"release_request_transport_unchanged":failure==Some("release oracle"),"reaped":true})
         );
     }
     assert!(
@@ -1133,6 +1189,7 @@ fn private_public_acquisition_review_apply_and_journaled_audio_workflow() {
     let (matched, checked_fields) = match fixture.case.as_str() {
         "traxsource" => (1, vec!["ALBUM".into(), "YEAR".into()]),
         "soundcloud" => (2, vec!["TITLE".into()]),
+        "traxsource-track-search" => (1, vec!["TITLE".into(), "LENGTH".into(), "YEAR".into()]),
         _ => panic!("unknown private case"),
     };
     let expected_release = SourceRelease {
