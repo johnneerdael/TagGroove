@@ -136,6 +136,12 @@ path system. Folder separators follow the actual platform.
 For a single individually loaded file or playlist, its containing folder supplies
 the root context, including `/` or a Windows drive root such as `C:\`.
 
+An actual loaded folder supplies its own path, even when its name ends in a
+playlist suffix. For example, loading the folder `/Music/archive.m3u` makes
+that folder the relative-path root; loading the playlist file
+`/Music/archive.m3u` instead uses `/Music`. The filesystem kind, rather than
+the name alone, decides which case applies.
+
 Relative placeholders use the single listed-root context when available. With
 multiple roots, no usable root, or a file outside that root, they can return
 absolute paths. If the file is directly in the root, its relative folder

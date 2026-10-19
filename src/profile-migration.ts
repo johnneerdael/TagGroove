@@ -1,6 +1,7 @@
+import type {SourceRootKind} from './playlist-order';
 /** Setup migration changes configuration, never audio tags. */
 type LegacyWorkspace = {paths:string[];selected:string[];roots:string[];location:string;location_is_data:boolean;filter:string;filter_draft:string|null;anchor:string|null;playlist:string|null};
-export type ProfileWorkspaceV2 = LegacyWorkspace & {version:2;working_directory:string|null;list_order:'columns'|'manual'|'playlist';source_order:string[]|null};
+export type ProfileWorkspaceV2 = LegacyWorkspace & {version:2;root_kinds?:SourceRootKind[];working_directory:string|null;list_order:'columns'|'manual'|'playlist';source_order:string[]|null};
 export type ProfileWorkspace = LegacyWorkspace | ProfileWorkspaceV2;
 export type ProfileWindow = {version:1;preferences:Record<string,string>;workspace:LegacyWorkspace}|{version:2;preferences:Record<string,string>;workspace:ProfileWorkspaceV2|null};
 type Item = {file:string;kind:string;name:string;warnings:string[];collision:boolean;supported:boolean};

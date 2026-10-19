@@ -1633,6 +1633,7 @@ pub fn run() {
             history::ipc::redo_last_with_diagnostics,
             history::ipc::convert_tag_to_tag_with_diagnostics,
             export_csv,
+            playlists::classify_source_paths,
             playlists::ipc::read_playlist_with_diagnostics,
             playlists::plan_playlists,
             playlists::create_playlists,

@@ -6,6 +6,7 @@ export function savedWorkspace(value:unknown):ProfileWorkspaceV2|null {
   const strings=(v:unknown):v is string[]=>Array.isArray(v)&&v.every(p=>typeof p==='string'&&!!p);
   const local=(p:string)=>!p.includes('\0')&&(p.startsWith('/')||/^[A-Za-z]:[\\/]/.test(p)||p.startsWith('\\\\'));
   if(w.version!==2||!strings(w.paths)||!Array.isArray(w.selected)||!w.selected.every(p=>typeof p==='string')||!Array.isArray(w.roots)||!w.roots.every(p=>typeof p==='string'&&local(p))||!w.paths.every(local))return null;
+  if(w.root_kinds!==undefined&&(!Array.isArray(w.root_kinds)||w.root_kinds.length!==w.roots.length||!w.root_kinds.every(kind=>['file','directory','unknown'].includes(kind))))return null;
   const listed=new Set(w.paths);
   if(new Set(w.selected).size!==w.selected.length||listed.size!==w.paths.length||!w.selected.every(p=>listed.has(p)))return null;
   if(!['columns','manual','playlist'].includes(w.list_order)||!(w.source_order===null||strings(w.source_order)&&w.source_order.length===w.paths.length&&new Set(w.source_order).size===w.paths.length&&w.source_order.every(p=>listed.has(p))))return null;

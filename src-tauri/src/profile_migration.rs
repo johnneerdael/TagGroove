@@ -108,6 +108,8 @@ pub struct Workspace {
     pub paths: Vec<String>,
     pub selected: Vec<String>,
     pub roots: Vec<String>,
+    #[serde(default)]
+    pub root_kinds: Option<Vec<crate::playlists::SourceRootKind>>,
     pub location: String,
     pub location_is_data: bool,
     pub filter: String,
@@ -119,8 +121,10 @@ impl Serialize for Workspace {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
         // Preserve v1 field order: existing journal checksums include these bytes.
-        let mut state = serializer
-            .serialize_struct("Workspace", if self.version.is_some() { 13 } else { 9 })?;
+        let mut state = serializer.serialize_struct(
+            "Workspace",
+            (if self.version.is_some() { 13 } else { 9 }) + usize::from(self.root_kinds.is_some()),
+        )?;
         state.serialize_field("paths", &self.paths)?;
         state.serialize_field("selected", &self.selected)?;
         state.serialize_field("roots", &self.roots)?;
@@ -135,6 +139,9 @@ impl Serialize for Workspace {
             state.serialize_field("working_directory", &self.working_directory)?;
             state.serialize_field("list_order", &self.list_order)?;
             state.serialize_field("source_order", &self.source_order)?;
+        }
+        if let Some(kinds) = &self.root_kinds {
+            state.serialize_field("root_kinds", kinds)?;
         }
         state.end()
     }
@@ -169,7 +176,8 @@ pub(crate) fn validate_window_shape(window: &WindowState) -> Result<(), String> 
         && (workspace.version.is_some()
             || workspace.working_directory.is_some()
             || workspace.list_order.is_some()
-            || workspace.source_order.is_some()))
+            || workspace.source_order.is_some()
+            || workspace.root_kinds.is_some()))
         || (window.version == 2
             && (workspace.version != Some(2)
                 || !workspace
@@ -181,6 +189,13 @@ pub(crate) fn validate_window_shape(window: &WindowState) -> Result<(), String> 
     }
     if workspace.paths.len() > 10000 || workspace.roots.len() > 10000 {
         return Err("Setup workspace recovery supports at most 10000 listed files and 10000 roots. Save the larger file list as a playlist, clear it, then inspect the setup again; no files are truncated.".into());
+    }
+    if workspace
+        .root_kinds
+        .as_ref()
+        .is_some_and(|kinds| kinds.len() != workspace.roots.len())
+    {
+        return Err("The setup workspace root kinds must describe every captured root.".into());
     }
     let listed = workspace.paths.iter().collect::<BTreeSet<_>>();
     if workspace.selected.len() > workspace.paths.len()
@@ -1613,6 +1628,25 @@ mod tests {
         validate_window(&state).unwrap();
         assert_eq!(serde_json::to_value(state).unwrap(), value);
     }
+    #[test]
+    fn portable_window_root_kinds_roundtrip_and_validate_alignment() {
+        let mut value = serde_json::to_value(window()).unwrap();
+        value["version"] = 2.into();
+        value["workspace"]["version"] = 2.into();
+        value["workspace"]["list_order"] = "manual".into();
+        value["workspace"]["root_kinds"] = serde_json::json!(["directory"]);
+        value["workspace"]["working_directory"] = serde_json::Value::Null;
+        value["workspace"]["source_order"] = serde_json::Value::Null;
+        let state: WindowState = serde_json::from_value(value.clone()).unwrap();
+        validate_window(&state).unwrap();
+        assert_eq!(serde_json::to_value(&state).unwrap(), value);
+        value["workspace"]["root_kinds"] = serde_json::json!([]);
+        let state: WindowState = serde_json::from_value(value.clone()).unwrap();
+        assert!(validate_window(&state).unwrap_err().contains("root kinds"));
+        value["workspace"]["root_kinds"] = serde_json::json!(["playlist"]);
+        assert!(serde_json::from_value::<WindowState>(value).is_err());
+    }
+
     fn window() -> WindowState {
         let root = std::env::temp_dir()
             .join("profile-music")
@@ -1640,6 +1674,7 @@ mod tests {
                 paths: vec![path.clone()],
                 selected: vec![path.clone()],
                 roots: vec![root.clone()],
+                root_kinds: None,
                 location: root,
                 location_is_data: true,
                 filter: "ARTIST HAS Practice".into(),

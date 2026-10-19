@@ -12,20 +12,21 @@ const {rowFile}=await import(`data:text/javascript;base64,${Buffer.from(chapters
 const order=ts.transpileModule(await readFile(new URL('../src/playlist-order.ts',import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const workspaceModule=ts.transpileModule(await readFile(new URL('../src/workspace-session.ts',import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {savedWorkspace}=await import(`data:text/javascript;base64,${Buffer.from(workspaceModule).toString('base64')}`);
+const {isPlaylistPath}=await import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(await readFile(new URL('../src/playlist-ui.ts',import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText).toString('base64')}`);
 const {rankSourceRows}=await import(`data:text/javascript;base64,${Buffer.from(order).toString('base64')}`);
 function harness(){
   const calls=[],entry=path=>({path,fields:{TITLE:['Saved']},covers:[]});
-  const h={rowFile,rankSourceRows,entries:new Map([['/Current/keep.wav',entry('/Current/keep.wav')]]),selected:new Set(['/Current/keep.wav']),listRoots:['/Current'],fileOps:{history:{current:'/Current'}},listOrder:'manual',sourceOrder:['/Current/keep.wav','/Removed/tombstone.wav'],location:'/Current',locationIsData:true,filter:'TITLE HAS Saved',filterDraft:'unapplied',anchor:'/Current/keep.wav',loadedPlaylist:'/Current/list.m3u8',documentAccess:{states:{}},sourceGeneration:0,cellEditor:{cancel:()=>calls.push(['cancel-cell'])},coverIndex:0,busy:false,actionUI:{hasUnsavedChanges:false},drafts:new Map([['/Current/keep.wav',{TITLE:['Unsaved']}]]),pendingCovers:new Map([['/Current/keep.wav',['pending-art']]]),configurationRecoveryActive:false,layoutSaveTimer:0,ownLayoutSave:'',mainLayout:{dock:'left'},configurationWrites:{flush:async()=>calls.push(['saved-flush'])},helperLists:{ready:Promise.resolve(),flush:async()=>calls.push(['history-flush'])},window:{clearTimeout:()=>calls.push(['clear-layout-timer'])},normalizeMainLayout:value=>value,optionsUI:{updatePage:async(...args)=>calls.push(['layout-save',...args])},messages:{confirm:async()=>true},render:()=>{},changedData:()=>calls.push(['changed']),status:'Ready'};
+  const h={rowFile,rankSourceRows,isPlaylistPath,entries:new Map([['/Current/keep.wav',entry('/Current/keep.wav')]]),selected:new Set(['/Current/keep.wav']),listRoots:['/Current'],listRootKinds:{'/Current':'directory'},fileOps:{history:{current:'/Current'}},listOrder:'manual',sourceOrder:['/Current/keep.wav','/Removed/tombstone.wav'],location:'/Current',locationIsData:true,filter:'TITLE HAS Saved',filterDraft:'unapplied',anchor:'/Current/keep.wav',loadedPlaylist:'/Current/list.m3u8',documentAccess:{states:{}},sourceGeneration:0,cellEditor:{cancel:()=>calls.push(['cancel-cell'])},coverIndex:0,busy:false,actionUI:{hasUnsavedChanges:false},drafts:new Map([['/Current/keep.wav',{TITLE:['Unsaved']}]]),pendingCovers:new Map([['/Current/keep.wav',['pending-art']]]),configurationRecoveryActive:false,layoutSaveTimer:0,ownLayoutSave:'',mainLayout:{dock:'left'},configurationWrites:{flush:async()=>calls.push(['saved-flush'])},helperLists:{ready:Promise.resolve(),flush:async()=>calls.push(['history-flush'])},window:{clearTimeout:()=>calls.push(['clear-layout-timer'])},normalizeMainLayout:value=>value,optionsUI:{updatePage:async(...args)=>calls.push(['layout-save',...args])},messages:{confirm:async()=>true},render:()=>{},changedData:()=>calls.push(['changed']),status:'Ready'};
   h.removeEntries=paths=>{calls.push(['remove',paths]);paths.forEach(path=>h.entries.delete(path));};
   h.accept=batch=>{calls.push(['accept',batch]);batch.entries.forEach(item=>h.entries.set(item.path,item));};
-  h.invoke=async(command,args)=>{calls.push([command,structuredClone(args)]);if(command==='scan_files')return{entries:args.paths.map(entry),errors:[]};if(command==='set_working_directory')return;throw new Error(command);};
+  h.invoke=async(command,args)=>{calls.push([command,structuredClone(args)]);if(command==='classify_source_paths')return args.paths.map(path=>h.rootKinds?.[path]??'directory');if(command==='scan_files')return{entries:args.paths.map(entry),errors:[]};if(command==='set_working_directory')return;throw new Error(command);};
   const saved=new Map();Object.assign(h,{savedWorkspace,ordinaryWorkspaceReady:true,ordinaryWorkspaceSaved:'',ordinaryWorkspaceRestoreFailed:false,ordinaryWorkspaceState:[],errors:[],localStorage:{getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value)}});
   Object.assign(h,{desktop:true,profileBootstrap:{desktop:true},runtimePlatform:{family:'desktop'},coverOperations:{},listOperations:[],configurationLaunchesPending:0});
   const api=new Function('host',`with(host){${compiled};return{${names.join(',')}};}`)(h);
   return{h,calls,...api};
 }
 test('production workspace capture keeps manual insertion, prunes removed source rank and excludes provider working copies',()=>{
-  const p=harness();assert.deepEqual(p.captureConfigurationWorkspace(),{version:2,paths:['/Current/keep.wav'],selected:['/Current/keep.wav'],roots:['/Current'],working_directory:'/Current',list_order:'manual',source_order:['/Current/keep.wav'],location:'/Current',location_is_data:true,filter:'TITLE HAS Saved',filter_draft:'unapplied',anchor:'/Current/keep.wav',playlist:'/Current/list.m3u8'});
+  const p=harness();assert.deepEqual(p.captureConfigurationWorkspace(),{version:2,paths:['/Current/keep.wav'],selected:['/Current/keep.wav'],roots:['/Current'],root_kinds:['directory'],working_directory:'/Current',list_order:'manual',source_order:['/Current/keep.wav'],location:'/Current',location_is_data:true,filter:'TITLE HAS Saved',filter_draft:'unapplied',anchor:'/Current/keep.wav',playlist:'/Current/list.m3u8'});
   p.h.documentAccess.states['/Current/keep.wav']={uri:'content://provider/private'};assert.equal(p.captureConfigurationWorkspace(),null,'a provider working path is never serialized as local workspace');
   assert.equal(p.h.drafts.get('/Current/keep.wav').TITLE[0],'Unsaved');
   p.h.entries.clear();p.h.selected.clear();p.h.listRoots=['content://provider/tree'];assert.equal(p.captureConfigurationWorkspace(),null,'empty provider trees do not leak grants through roots');
@@ -38,7 +39,7 @@ test('capture ranks new unranked rows exactly as Playlist order displays them wh
 test('production restoration validates every exact virtual row before clearing live state and restores both orders/workdir',async()=>{
   const p=harness(),one='/Music/chapters.m4a\u00011',two='/Music/chapters.m4a\u00012';
   const workspace={...p.captureConfigurationWorkspace(),paths:[two,one],selected:[one],roots:['/Music/list.m3u8'],working_directory:'/Music',source_order:[one,two],list_order:'playlist',location:'/Music/list.m3u8',filter:'',filter_draft:null,anchor:one,playlist:'/Music/list.m3u8'};
-  let release;p.h.invoke=async(command,args)=>{p.calls.push([command,args]);if(command==='scan_files')return new Promise(resolve=>{release=()=>resolve({entries:args.paths.map(path=>({path})),errors:[]});});};
+  let release;p.h.invoke=async(command,args)=>{p.calls.push([command,args]);if(command==='classify_source_paths')return args.paths.map(()=>'file');if(command==='scan_files')return new Promise(resolve=>{release=()=>resolve({entries:args.paths.map(path=>({path})),errors:[]});});};
   const restoring=p.restoreConfigurationWorkspace(workspace);assert.deepEqual([...p.h.entries.keys()],['/Current/keep.wav']);assert.ok(!p.calls.some(([name])=>name==='remove'));release();assert.equal(await restoring,true);
   assert.deepEqual(p.calls.find(([name])=>name==='scan_files')[1],{paths:[two,one],recursive:false,exactRows:true});
   assert.deepEqual([...p.h.entries.keys()],[two,one]);assert.deepEqual([...p.h.selected],[one]);assert.deepEqual(p.h.sourceOrder,[one,two]);assert.equal(p.h.listOrder,'playlist');assert.equal(p.h.fileOps.history.current,'/Music');assert.deepEqual(p.h.listRoots,['/Music/list.m3u8']);
@@ -92,4 +93,34 @@ test('ordinary persisted restart uses production saved-only capture and exact-ro
  p.h.drafts.set(one,{TITLE:['Not persisted']});p.h.pendingCovers.set(one,[{data:'Not persisted'}]);p.rememberOrdinaryWorkspace();const raw=p.h.localStorage.getItem('opentag.workspace');assert.ok(raw);assert.equal(raw.includes('Not persisted'),false);assert.equal(raw.includes('Saved A'),false);
  p.h.entries.clear();p.h.selected.clear();p.h.drafts.clear();p.h.pendingCovers.clear();p.h.sourceOrder=undefined;p.h.listOrder='columns';await p.restoreOrdinaryWorkspace();
  assert.deepEqual([...p.h.entries.keys()],[two,one]);assert.deepEqual(p.h.sourceOrder,[one,two]);assert.equal(p.h.listOrder,'manual');assert.deepEqual([...p.h.selected],[one]);assert.equal(p.h.drafts.size,0);assert.equal(p.h.pendingCovers.size,0);assert.equal(p.calls.find(call=>call[0]==='scan_files')[1].exactRows,true);
+});
+
+
+test('ordinary restart rechecks captured kinds when a suffixed directory replaces a playlist',async()=>{
+  const p=harness(),root='/Music/archive.m3u';p.h.listRoots=[root];p.h.listRootKinds={[root]:'file'};p.h.rootKinds={[root]:'directory'};p.h.loadedPlaylist=root;
+  p.rememberOrdinaryWorkspace();assert.deepEqual(JSON.parse(p.h.localStorage.getItem('opentag.workspace')).root_kinds,['file']);
+  p.h.listRoots=[];p.h.listRootKinds={};p.h.drafts.clear();p.h.pendingCovers.clear();assert.equal(await p.restoreOrdinaryWorkspace(),true);
+  assert.deepEqual(p.h.listRoots,[root]);assert.deepEqual(p.h.listRootKinds,{[root]:'directory'});assert.equal(p.h.loadedPlaylist,undefined);assert.deepEqual([...p.h.selected],['/Current/keep.wav']);
+  assert.ok(p.calls.some(([name,args])=>name==='classify_source_paths'&&args.paths[0]===root));assert.ok(p.calls.every(([name])=>!['save_tags','read_playlist'].includes(name)));
+});
+
+test('portable restore rechecks mapped root kinds including empty and unknown roots before publishing',async()=>{
+  const p=harness(),workspace={...p.captureConfigurationWorkspace(),roots:['/Mapped/archive.cue','/Mapped/missing','/Mapped/new.m3u'],root_kinds:['file','directory','directory']};
+  p.h.rootKinds={'/Mapped/archive.cue':'directory','/Mapped/missing':'unknown','/Mapped/new.m3u':'file'};
+  await p.restoreConfigurationWorkspace(workspace);assert.equal(p.h.loadedPlaylist,undefined);assert.deepEqual(p.h.listRootKinds,p.h.rootKinds);assert.deepEqual(p.captureConfigurationWorkspace().root_kinds,['directory','unknown','file']);
+  assert.deepEqual([...p.h.selected],workspace.selected);assert.equal(p.h.fileOps.history.current,workspace.working_directory);assert.ok(p.calls.every(([name])=>!['save_tags','read_playlist'].includes(name)));
+  const legacy={...workspace};delete legacy.root_kinds;await p.restoreConfigurationWorkspace(legacy);assert.deepEqual(p.h.listRootKinds,p.h.rootKinds);
+  const empty={...workspace,paths:[],selected:[],source_order:[],anchor:null};await p.restoreConfigurationWorkspace(empty);assert.deepEqual([...p.h.entries],[]);assert.deepEqual(p.h.listRootKinds,p.h.rootKinds);
+});
+
+test('ordinary snapshot parser rejects mismatched or invalid root-kind companions and admits older snapshots',()=>{
+  const p=harness(),workspace=p.captureConfigurationWorkspace();assert.ok(savedWorkspace(workspace));
+  assert.equal(savedWorkspace({...workspace,root_kinds:[]}),null);assert.equal(savedWorkspace({...workspace,root_kinds:['playlist']}),null);
+  delete workspace.root_kinds;assert.ok(savedWorkspace(workspace));
+});
+
+
+test('restoring a captured null active playlist never adopts an appended playlist root',async()=>{
+  const p=harness(),root='/Music/appended.m3u',workspace={...p.captureConfigurationWorkspace(),roots:['/Music',root],root_kinds:['directory','file'],playlist:null};
+  p.h.rootKinds={'/Music':'directory',[root]:'file'};await p.restoreConfigurationWorkspace(workspace);assert.equal(p.h.loadedPlaylist,undefined);assert.equal(p.captureConfigurationWorkspace().playlist,null);
 });

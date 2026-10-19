@@ -25,6 +25,7 @@ function host(overrides={}){
   const calls=[],done=[];
   return {calls,done,host:{
     invoke:async(command,args)=>{calls.push([command,structuredClone(args)]);
+      if(command==='classify_source_paths')return args.paths.map(()=>'file');
       if(command==='read_playlist')return args.path.endsWith('b.cue')?{files:['/m/disc.flac'],errors:[]}:{files:['/m/2.mp3','/m/1.mp3'],errors:[{path:args.path,error:'Line 3: gone.mp3: file not found'}]};
       if(command==='create_playlists')return {playlists:[{path:'/w/list.m3u8',files:args.request.paths.length}],errors:[]};
       throw new Error(`unexpected ${command}`);},
@@ -39,8 +40,8 @@ test('expanding keeps playlist order, ordinary paths and missing-entry errors',a
   const result=await ui.expand(['/m/a.m3u8','/m/x.flac','/m/b.cue']);
   assert.deepEqual(result.paths,['/m/2.mp3','/m/1.mp3','/m/x.flac','/m/disc.flac']);
   assert.equal(result.errors.length,1);assert.equal(result.playlist,'/m/b.cue');
-  assert.deepEqual(calls.map(([command,args])=>[command,args.path]),[['read_playlist','/m/a.m3u8'],['read_playlist','/m/b.cue']]);
-  assert.deepEqual(await ui.expand(['/m/x.flac']),{paths:['/m/x.flac'],errors:[]});
+  assert.deepEqual(calls.filter(([command])=>command==='read_playlist').map(([command,args])=>[command,args.path]),[['read_playlist','/m/a.m3u8'],['read_playlist','/m/b.cue']]);
+  assert.deepEqual(await ui.expand(['/m/x.flac']),{paths:['/m/x.flac'],errors:[],rootKinds:['file']});
 });
 
 test('playlist creation sends list order, working directory and loaded playlist',async()=>{

@@ -74,7 +74,7 @@ function runtime(state={}){
     const sourcePolicy=()=>documentSelection([...selected],{states:state.documents??{},refreshError:null},runtimePlatform.document_access_supported);
     const visible=()=>[...entries.values()],dirtySelected=()=>!!state.dirty,paths=()=>[...selected];
     let anchor,coverIndex=0;const refreshSelection=()=>{calls.push(['selection','all']);};
-    const utilOperations={},selectedFiles=()=>[],mp4ChapterFiles=()=>({files:0}),listRoots=['/Music'];
+    const utilOperations={},selectedFiles=()=>[],mp4ChapterFiles=()=>({files:0}),listRoots=['/Music'],listRootKinds={'/Music':'directory'};
     const columnLayout={sort:[]},tableColumns=()=>[{id:'filename'}],editKey=()=> '_FILENAME_EXT';
     const history={undo:null},repeatState=()=>({kind:'none'}),tagClipboard=null;
     const coverUI={canRemove:()=>!!state.covers,run:async op=>{calls.push(['cover',op]);}};

@@ -18,17 +18,20 @@ test('grouped loads preserve first membership rank without accepting later manua
   assert.deepEqual(rankSourceRows(rows.filter(row=>row.path!=='/a.wav'),initial).map(row=>row.path),['/a.cue\u00012','/a.cue\u00011','/b.wav','/new.wav'],'removed members stay removed until refresh');
 });
 
-test('source folder consumers use the containing folder of playlist and individual-file roots',()=>{
-  assert.deepEqual(sourceFolders(['/lists/album.m3u8','/music/one.wav','/collection'],new Set(['/music/one.wav'])),['/lists','/music','/collection']);
+test('source folder consumers use filesystem kinds rather than suffixes or listed rows',()=>{
+  assert.deepEqual(sourceFolders(['/lists/album.m3u8','/music/one.wav','/collection','/music/archive.m3u'],{'/lists/album.m3u8':'file','/music/one.wav':'file','/collection':'directory','/music/archive.m3u':'directory'}),['/lists','/music','/collection','/music/archive.m3u']);
+  assert.deepEqual(sourceFolders(['/missing.m3u','/unknown'],{'/missing.m3u':'unknown'}),[],'unknown roots never imply a folder');
 });
 
 test('root-level POSIX files and playlists retain the filesystem root as folder context',()=>{
-  assert.deepEqual(sourceFolders(['/song.mp3','/album.m3u8','/'],new Set(['/song.mp3'])),['/','/','/']);
+  assert.deepEqual(sourceFolders(['/song.mp3','/album.m3u8','/'],{'/song.mp3':'file','/album.m3u8':'file','/':'directory'}),['/','/','/']);
 });
 
 test('drive-root files and playlists retain an absolute Windows root with its separator',()=>{
-  assert.deepEqual(sourceFolders(['C:\\song.mp3','D:/song.mp3','C:\\album.pls','D:/album.xspf','C:\\'],new Set(['C:\\song.mp3','D:/song.mp3'])),['C:\\','D:/','C:\\','D:/','C:\\']);
-  assert.deepEqual(sourceFolders(['\\\\server\\share\\song.mp3','C:\\music\\song.mp3'],new Set(['\\\\server\\share\\song.mp3','C:\\music\\song.mp3'])),['\\\\server\\share','C:\\music']);
+  const roots=["C:\\song.mp3", "D:/song.mp3", "C:\\album.pls", "D:/album.xspf", "C:\\"];
+  assert.deepEqual(sourceFolders(roots,Object.fromEntries(roots.map((path,index)=>[path,index===4?'directory':'file']))),["C:\\", "D:/", "C:\\", "D:/", "C:\\"]);
+  const files=["\\\\server\\share\\song.mp3", "C:\\music\\song.mp3"];
+  assert.deepEqual(sourceFolders(files,Object.fromEntries(files.map(path=>[path,'file']))),["\\\\server\\share", "C:\\music"]);
 });
 
 test('the existing row replacement policy retains source rank on parent/chapter transitions and partial row saves',()=>{

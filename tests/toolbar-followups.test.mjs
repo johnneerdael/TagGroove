@@ -60,7 +60,7 @@ function runtime(state={}){
     const sourcePolicy=()=>documentSelection([...selected],{states:state.documents??{},refreshError:null},runtimePlatform.document_access_supported);
     const dirtySelected=()=>!!state.dirty,paths=()=>[...selected],visible=()=>[...entries.values()];
     const fileOps={reason:()=>''},selectedFiles=()=>[],mp4ChapterFiles=()=>({files:state.chapters===false?0:1});
-    const history={undo:null},repeatState=()=>({kind:'none'}),tagClipboard=null,listRoots=[];
+    const history={undo:null},repeatState=()=>({kind:'none'}),tagClipboard=null,listRoots=[],listRootKinds={};
     const columnLayout={sort:state.sort??[{id:'filename',ascending:true}]},tableColumns=()=>[{id:'filename'}],editKey=()=> '_FILENAME_EXT';
     let listOrder='columns';const sourceOrder=undefined,refreshList=()=>calls.push(['list-order',listOrder]);let orderCacheKey='',filterCacheKey='';
     const toolbarConfig={shown:true,items:followups.map(id=>({id,visible:true}))},customToolbar=toolbarConfig;

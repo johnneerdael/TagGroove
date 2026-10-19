@@ -50,7 +50,7 @@ import { openTagToTag } from './tag-tag-ui';
 import { ConfigListStorage, installHelperMenus } from './helper-menu';
 import { FileOpsUI, fileShortcut, startupChoice, startupOptionsPage, type FileOperation } from './file-ops';
 import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, playlistValues, type PlaylistPlan } from './playlist-ui';
-import { mergeSourceOrder, rankSourceRows, sourceFolders, type ListOrderMode } from './playlist-order';
+import { mergeSourceOrder, rankSourceRows, sourceFolders, type ListOrderMode, type SourceRootKind } from './playlist-order';
 import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
 import { imageExtensions, type CoverInfo, type CoverCommand } from './cover-model';
@@ -201,7 +201,7 @@ const clipCovers = new Map<string, ClipCover>(), clipImages = new Map<string, st
 const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
-let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],slowEditTimer=0;
+let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],listRootKinds:Record<string,SourceRootKind>={},slowEditTimer=0;
 // Source rank and display mode belong to this workspace, not saved columns.
 let listOrder:ListOrderMode='columns',sourceOrder:string[]|undefined,sourceGeneration=0;
 let filter = '', anchor: string | undefined, busy = false, status: string|ColumnImportStatus = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
@@ -413,7 +413,7 @@ let lastActionGroups:ActionGroup[]|undefined;
 const repeatState=()=>redoOrRepeat(history,enabled('action')?lastActionGroups:undefined);
 const toolsUI=new ToolsUI({
   values:()=>optionsUI.page('tools'),mac:macPlatform,
-  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?sourceFolders(listRoots,new Set(entries.keys()))[0]:null}),
+  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?sourceFolders(listRoots,listRootKinds)[0]??null:null}),
   selection:()=>paths(),reason:()=>!desktop?'Tools require the desktop app.':!selected.size?'Select files first.':operationReason('file-play'),
   confirm:(text,title)=>ask(text,{title,kind:'warning'}),
   report:text=>{status=text;render();},fail:error=>{errors=[{path:'Tools',label:'Tools',error:publicMessage(error)}];status='Tool failed';render();},
@@ -554,7 +554,7 @@ let ordinaryWorkspaceReady=false,ordinaryWorkspaceSaved='',ordinaryWorkspaceRest
 let ordinaryWorkspaceState:unknown[]=[];
 function rememberOrdinaryWorkspace(force=false){
   if(!desktop||!ordinaryWorkspaceReady||configurationRecoveryActive||runtimePlatform.family!=='desktop')return;
-  const state=[entries.revision,entries.size,listRoots,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+  const state=[entries.revision,entries.size,listRoots,listRootKinds,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
   const same=state.every((value,index)=>value===ordinaryWorkspaceState[index]);
   if(same&&(ordinaryWorkspaceRestoreFailed||!force))return;
   ordinaryWorkspaceRestoreFailed=false;ordinaryWorkspaceState=state;
@@ -573,7 +573,7 @@ async function restoreOrdinaryWorkspace(){
   }catch(error){
     // Automatic renders and close must retain failed recovery input. A real
     // membership/order/root change starts a new ordinary workspace explicitly.
-    ordinaryWorkspaceState=[entries.revision,entries.size,listRoots,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+    ordinaryWorkspaceState=[entries.revision,entries.size,listRoots,listRootKinds,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
     ordinaryWorkspaceRestoreFailed=true;throw error;
   }
 }
@@ -599,7 +599,7 @@ function captureConfigurationWorkspace():ProfileWorkspaceV2|null {
   const local=(path:string)=>path.startsWith('/')||/^[A-Za-z]:[\\/]/.test(path)||path.startsWith('\\\\');
   const references=[...listRoots,...(fileOps.history.current?[fileOps.history.current]:[]),...(loadedPlaylist?[loadedPlaylist]:[]),...(locationIsData?[location]:[])];
   if(references.some(path=>!local(path))||paths.some(path=>!local(rowFile(path))||!!documentAccess.states[rowFile(path)]))return null;
-  return{version:2,paths,selected:[...selected],roots:[...listRoots],working_directory:fileOps.history.current??null,list_order:listOrder,source_order:sourceOrder?rankSourceRows([...entries.values()],sourceOrder).map(entry=>entry.path):null,location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null};
+  return{version:2,paths,selected:[...selected],roots:[...listRoots],root_kinds:listRoots.map(root=>listRootKinds[root]??'unknown'),working_directory:fileOps.history.current??null,list_order:listOrder,source_order:sourceOrder?rankSourceRows([...entries.values()],sourceOrder).map(entry=>entry.path):null,location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null};
 }
 async function readConfigurationWorkspace(workspace:ProfileWorkspace){
   const batch=workspace.paths.length?await invoke<Batch>('scan_files',{paths:[...workspace.paths],recursive:false,exactRows:true}):{entries:[],errors:[]};
@@ -612,10 +612,13 @@ async function restoreConfigurationWorkspace(workspace:ProfileWorkspace){
   const {available,unavailable}=await readConfigurationWorkspace(workspace);
   if(unavailable.length)throw new Error(`Workspace restoration is incomplete: ${unavailable.length} unavailable rows. ${unavailable.join('\n')}`);
   const restored=workspace.paths.map(path=>available.get(path)!);
+  // Recheck even captured kinds: an offline move or portable mapping can change the root type.
+  const sourcePaths=workspace.playlist&&!workspace.roots.includes(workspace.playlist)?[...workspace.roots,workspace.playlist]:workspace.roots;
+  const rootKinds=await invoke<SourceRootKind[]>('classify_source_paths',{paths:sourcePaths});
   if('version'in workspace){await invoke('set_working_directory',{path:workspace.working_directory});fileOps.history.current=workspace.working_directory??undefined;}
   clearWorkspace();accept({entries:restored,errors:[]},'Restored setup workspace',false);
   entries.clear();restored.forEach(entry=>entries.set(entry.path,entry));
-  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist??undefined;
+  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,rootKinds[index]]));location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist&&rootKinds[sourcePaths.indexOf(workspace.playlist)]==='file'&&isPlaylistPath(workspace.playlist)?workspace.playlist:undefined;
   if('version'in workspace){sourceOrder=workspace.source_order??undefined;listOrder=workspace.list_order;}
   changedData();render();return true;
 }
@@ -783,7 +786,7 @@ function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
 function activeSort(){return listOrder==='columns'?columnLayout.sort:[];}
 function setListOrder(mode:ListOrderMode){listOrder=mode;orderCacheKey='';filterCacheKey='';refreshList();}
 /** Exclude hydrated artwork/cache revisions; refuse replacing new edits or a changed workspace. */
-function sourceReadContext(){return JSON.stringify([listRoots,[...entries.keys()],[...drafts],[...pendingCovers]]);}
+function sourceReadContext(){return JSON.stringify([listRoots,listRootKinds,[...entries.keys()],[...drafts],[...pendingCovers]]);}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
   const ms=performance.now()-start;
   perfSink()?.push({name,at:start,ms,...extra});
@@ -1001,7 +1004,7 @@ function enabled(op: Operation): boolean {
   if (op === 'discard') return dirtySelected();
   if (listOperations.includes(op)) return listEnabled(op);
   if (op === 'list-unsorted') return activeSort().length > 0||listOrder==='playlist';
-  if (op === 'list-playlist-order') return !!sourceOrder&&listRoots.some(isPlaylistPath);
+  if (op === 'list-playlist-order') return !!sourceOrder&&listRoots.some(root=>listRootKinds[root]==='file'&&isPlaylistPath(root));
   if (!desktop) return false;
   if(op==='groups'||op==='export-config'||op==='export-folders'||op==='panel-options'||op==='field-values'||op==='options'||op==='source-token'||op==='source-keys'||op==='source-options'||op==='source-install'||op==='source-folder'||op==='tools-options'||op.startsWith('config-')||op.startsWith('help-'))return true;
   if(op==='refresh-source')return runtimePlatform.document_access_supported;
@@ -1539,12 +1542,12 @@ function spliceRows(order:string[],next:string[]){
 }
 function applyRenamed(batch:Batch){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
-  listRoots=rebaseCaseOnly(listRoots,batch.moved_directories||[]);
+  rebaseSourceRoots(roots=>rebaseCaseOnly(roots,batch.moved_directories||[]));
   // Listed folders, taken before files added on their own are renamed away.
-  const folders=sourceFolders(listRoots.filter(root=>!isPlaylistPath(root)),new Set(entries.keys()));
-  if(listRoots.some(isPlaylistPath))folders.push(...[...entries.keys()].map(path=>dirname(rowFile(path))));
+  const folders=sourceFolders(listRoots.filter(root=>!(listRootKinds[root]==='file'&&isPlaylistPath(root))),listRootKinds);
+  if(listRoots.some(root=>listRootKinds[root]==='file'&&isPlaylistPath(root)))folders.push(...[...entries.keys()].map(path=>dirname(rowFile(path))));
   const rebase=(targets:string[])=>{const moved=resolvePathChanges(targets,batch.renamed||[],batch.moved_directories||[]);return targets.map(path=>moved.get(path)??path);};
-  listRoots=rebase(listRoots);
+  rebaseSourceRoots(rebase);
   if(loadedPlaylist)loadedPlaylist=rebase([loadedPlaylist])[0];
   if(locationIsData)location=rebase([location])[0];
   const working=fileOps.history.current;
@@ -1559,8 +1562,14 @@ function applyRenamed(batch:Batch){
   // Options → General → Keep moved files: without it, files moved out of the listed folders leave the list (unless they have pending edits).
   if(!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));gone.forEach(path=>movedOut.add(path));if(gone.length)removeEntries(gone);}
 }
+/** Rebase paths and their filesystem kinds together, including case-only moves. */
+function rebaseSourceRoots(rebase:(roots:string[])=>string[]){
+  const previous=listRoots;
+  listRoots=rebase(previous);
+  listRootKinds=Object.fromEntries(previous.map((root,index)=>[listRoots[index],listRootKinds[root]??'unknown']));
+}
 // Replacing the list (Change directory) happens only after the new scan succeeds.
-async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {
+async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];rootKinds?:SourceRootKind[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {
   const generation=options.generation??++sourceGeneration,context=options.context??sourceReadContext(),roots=options.roots??newPaths;
   return !!await run('Reading audio files…',async job=>{
     const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
@@ -1573,6 +1582,8 @@ async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boo
     sourceOrder=sourceOrder?mergeSourceOrder(sourceOrder,result.entries.map(entry=>entry.path),false):empty?mergeSourceOrder([],result.entries.map(entry=>entry.path),true):undefined;
     if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}
     listRoots=mergeSourceOrder(listRoots,roots,!!options.replace);
+    const incomingKinds=Object.fromEntries(roots.map((root,index)=>[root,options.rootKinds?.[index]??'unknown']));
+    listRootKinds=Object.fromEntries(listRoots.map(root=>[root,incomingKinds[root]??listRootKinds[root]??'unknown']));
     if(options.playlist&&(options.replace||empty)){loadedPlaylist=options.playlist;listOrder='playlist';}
     if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}
     if(empty||!options.location){location=options.location??(roots.length===1?roots[0]:`${roots.length} added locations`);locationIsData=options.location?options.locationIsData!==false:roots.length===1;}
@@ -1585,19 +1596,18 @@ async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:
   if(busy)return false;
   if(newPaths.some(path=>path.includes('://'))){errors=[{path:'Playlist',label:'Playlist',error:'Playlist and folder sources require local file paths.'}];status='Source could not be read';render();return false;}
   const generation=++sourceGeneration,context=sourceReadContext();
-  if(!newPaths.some(isPlaylistPath))return scan(newPaths,{...options,roots:newPaths,generation,context});
   let expanded;
   try{expanded=await playlistUI.expand(newPaths);}catch(error){if(generation===sourceGeneration&&context===sourceReadContext()){errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();}return false;}
   if(generation!==sourceGeneration||context!==sourceReadContext())return false;
   const playlist=expanded.playlist;
-  return scan(expanded.paths,{...options,roots:newPaths,generation,context,playlist,errors:expanded.errors,location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true});
+  return scan(expanded.paths,{...options,roots:newPaths,rootKinds:expanded.rootKinds,generation,context,playlist,errors:expanded.errors,...(playlist?{location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true}:{})});
 }
 // Drop entries and everything cached for them (Remove from list, Clear list, Refresh, Delete, Change directory).
 function removeEntries(removed:string[]){
   removed.forEach(path=>{invalidateCovers(path);entries.delete(path);drafts.delete(path);pendingCovers.delete(path);copyOverrides.delete(path);workingReadErrors.delete(path);selected.delete(path);if(anchor===path)anchor=undefined;});
   columnValues.retain(path=>entries.has(path));changedData();
 }
-function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
+function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];listRootKinds={};coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
 // Immediate mutations may change retained bytes even when publication fails.
 // Keep those local contents separate from source success and pending field intent.
 async function reconcileWorkingEntries(targets:string[]){
@@ -2131,7 +2141,7 @@ async function listOperation(op:Operation){
     if(pending&&!await messages.confirm('unsaved_changes',`${pending} file${pending===1?' has':'s have'} pending tag changes. Remove ${targets.length===1?'it':'them'} from the list and discard the changes? Files on disk are not changed.`,op==='clear-list'?'Clear list':'Remove from list'))return;
     const removed=new Set(targets),next=list.slice(Math.max(0,...list.map((path,index)=>removed.has(path)?index:-1))).find(path=>!removed.has(path))||[...list].reverse().find(path=>!removed.has(path));
     cellEditor.cancel();removeEntries(targets);
-    if(op==='clear-list'||!entries.size){listRoots=[];loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
+    if(op==='clear-list'||!entries.size){listRoots=[];listRootKinds={};loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
     status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
     choose(next?[next]:[],next,true);return;
   }
@@ -2143,6 +2153,8 @@ async function listOperation(op:Operation){
     await run('Refreshing file list…',async job=>{
       const expanded=await playlistUI.expand(listRoots).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
       if(!expanded||generation!==sourceGeneration||context!==sourceReadContext())return;
+      const playlistKind=loadedPlaylist?(listRoots.includes(loadedPlaylist)?expanded.rootKinds[listRoots.indexOf(loadedPlaylist)]:(await invoke<SourceRootKind[]>('classify_source_paths',{paths:[loadedPlaylist]}))[0]):undefined;
+      if(generation!==sourceGeneration||context!==sourceReadContext())return;
       if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
       const batch=await invoke<Batch>('scan_files',{paths:expanded.paths,recursive:optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
       if(!batch)return;
@@ -2154,6 +2166,8 @@ async function listOperation(op:Operation){
       drafts.clear();pendingCovers.clear();copyOverrides.clear();workingReadErrors.clear();folderImages.clear();
       accept(batch,'Refreshed');
       sourceOrder=mergeSourceOrder([],batch.entries.map(entry=>entry.path),true);
+      listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,expanded.rootKinds[index]]));
+      if(loadedPlaylist&&playlistKind!=='file')loadedPlaylist=undefined;
       const refreshed=mergeSourceOrder(retainedOrder,[...sourceOrder,...entries.keys()],false).map(path=>entries.get(path)!);entries.clear();refreshed.forEach(entry=>entries.set(entry.path,entry));orderCacheKey='';filterCacheKey='';
       if(expanded.errors.length){errors=[...expanded.errors,...errors];status+=`, ${expanded.errors.length} playlist entr${expanded.errors.length===1?'y':'ies'} not loaded`;}
       if(!anchor||!selected.has(anchor))anchor=paths()[0];

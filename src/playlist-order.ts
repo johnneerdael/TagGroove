@@ -9,12 +9,14 @@ export function rankSourceRows<T extends {path:string}>(rows:readonly T[],order:
   const ranks=new Map(order.map((path,index)=>[path,index]));
   return [...rows].sort((a,b)=>(ranks.get(a.path)??Infinity)-(ranks.get(b.path)??Infinity));
 }
+export type SourceRootKind='file'|'directory'|'unknown';
 /** Tool and keep-moved folder context for original, unexpanded input roots. */
-export function sourceFolders(roots:readonly string[],listed:ReadonlySet<string>):string[]{
-  return roots.map(root=>{
-    if(!listed.has(root)&&!/\.(m3u8?|pls|cue|xspf|wpl|asx)$/i.test(root))return root;
+export function sourceFolders(roots:readonly string[],kinds:Readonly<Record<string,SourceRootKind>>):string[]{
+  return roots.flatMap(root=>{
+    if(kinds[root]==='directory')return [root];
+    if(kinds[root]!=='file')return [];
     const folder=root.replace(/[\\/][^\\/]*$/,'');
     // Root separators distinguish an absolute root from a file or drive-relative path.
-    return !folder||/^[A-Za-z]:$/.test(folder)?root.slice(0,folder.length+1):folder;
+    return [!folder||/^[A-Za-z]:$/.test(folder)?root.slice(0,folder.length+1):folder];
   });
 }

@@ -1917,6 +1917,7 @@ mod tests {
         workspace.selected = vec![row.clone()];
         workspace.anchor = Some(row.clone());
         workspace.roots = vec![old.to_string_lossy().into_owned()];
+        workspace.root_kinds = Some(vec![crate::playlists::SourceRootKind::Directory]);
         workspace.working_directory = Some(old.to_string_lossy().into_owned());
         workspace.source_order = Some(vec![row]);
         workspace.list_order = Some("playlist".into());
@@ -1939,6 +1940,10 @@ mod tests {
         )
         .unwrap();
         assert!(mapped.workspace_available, "{:?}", mapped.unavailable);
+        assert_eq!(
+            mapped.workspace.as_ref().unwrap().root_kinds,
+            Some(vec![crate::playlists::SourceRootKind::Directory])
+        );
         let status =
             serde_json::to_value(apply(&target, &mapped.token, window()).unwrap()).unwrap();
         let restored = &status["pending"]["window"]["workspace"];

@@ -2,13 +2,14 @@
 // File → Playlist (all files / selected files), File → Generate Playlists and
 // Options → Playlist. Options → Export (https://docs.mp3tag.de/customization/options/export/)
 // lives here too because both pages configure written output files.
+import type { SourceRootKind } from './playlist-order';
 import type { OptionsPage } from './options-ui';
 
 type FileError={path:string;error:string};
 export type PlannedPlaylist={path:string;files:number};
 export type PlaylistPlan={playlists:PlannedPlaylist[];errors:FileError[]};
 export type PlaylistContents={files:string[];errors:FileError[]};
-export type ExpandedPaths={paths:string[];errors:FileError[];playlist?:string};
+export type ExpandedPaths={paths:string[];errors:FileError[];playlist?:string;rootKinds:SourceRootKind[]};
 export type PlaylistScope='all'|'selected';
 
 export const PLAYLIST_EXTENSIONS=['m3u','m3u8','pls','cue','xspf','wpl','asx'];
@@ -73,9 +74,10 @@ export class PlaylistUI {
   constructor(private host:PlaylistHost){}
   /** Replace playlists and cue sheets among `paths` by their entries, in order. */
   async expand(paths:string[]):Promise<ExpandedPaths>{
-    const result:ExpandedPaths={paths:[],errors:[]};
-    for(const path of paths){
-      if(!isPlaylistPath(path)){result.paths.push(path);continue;}
+    const rootKinds=await this.host.invoke<SourceRootKind[]>('classify_source_paths',{paths});
+    const result:ExpandedPaths={paths:[],errors:[],rootKinds};
+    for(const [index,path] of paths.entries()){
+      if(rootKinds[index]==='directory'||!isPlaylistPath(path)){result.paths.push(path);continue;}
       const contents=await this.host.invoke<PlaylistContents>('read_playlist',{path});
       result.paths.push(...contents.files);result.errors.push(...contents.errors);result.playlist=path;
     }

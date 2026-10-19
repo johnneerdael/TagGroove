@@ -122,6 +122,12 @@ URLs can produce errors. CUE/chapter rows have different write and command
 limits; read [Playlists](../guides/playlists.md) and
 [Chapters](../guides/chapters.md) before treating them as ordinary files.
 
+A folder can have a name such as `archive.m3u` or `album.cue`. TagGroove checks
+whether the input is a file or a directory: an existing folder with one of
+these suffixes is scanned as a folder, rather than read as a playlist. Refresh
+keeps that distinction. A missing or unreadable path can still report an error;
+its suffix alone does not prove that it is a readable playlist.
+
 ## Understand platform access
 
 Desktop folder loading describes local filesystem paths. In a document-provider
