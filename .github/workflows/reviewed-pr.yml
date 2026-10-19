@@ -45,6 +45,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
         run: python3 .github/scripts/review_gate.py preflight --pr "$PR_NUMBER"
   build:
+    name: Pre-merge tests, lint and documentation
     needs: preflight
     uses: ./.github/workflows/_reviewed-build.yml
     with:

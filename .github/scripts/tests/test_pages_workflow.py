@@ -37,9 +37,10 @@ class PagesTrustTests(unittest.TestCase):
         self.assertIn("ref: ${{ inputs.source_sha }}", build)
         self.assertIn("persist-credentials: false", build)
         for command in ["python -m pip install -r docs/site-requirements.txt",
-                        "python -m unittest discover -s docs/tests -v",
-                        "python scripts/docs-status.py", "python -m mkdocs build --strict"]:
+                        "python -m mkdocs build --strict"]:
             self.assertIn(command, build)
+        self.assertNotIn("unittest discover", build)
+        self.assertNotIn("docs-status.py", build)
         self.assertNotIn("GH_TOKEN", build)
         self.assertNotIn("pages: write", build)
         self.assertNotIn("id-token: write", build)

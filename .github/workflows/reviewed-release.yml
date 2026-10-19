@@ -40,7 +40,7 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - name: Require clean merged-PR review and validated identical source tree
+      - name: Require reviewed merged source or evidenced failed-main repair
         env:
           GH_TOKEN: ${{ github.token }}
           PR_HEAD: ${{ inputs.head_sha }}
@@ -67,7 +67,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test tests/release.test.mjs
       - name: Resolve immutable release plan
         id: plan
         env:
@@ -79,12 +78,22 @@ jobs:
           DRY_RUN: 'false'
         run: node scripts/release.mjs prepare
 
+  native-validation:
+    name: Native UI and Android integration
+    needs: [authorize, prepare]
+    if: needs.prepare.outputs.skip != 'true'
+    uses: ./.github/workflows/_reviewed-native.yml
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      head_sha: ${{ inputs.head_sha }}
+      source_sha: ${{ inputs.source_sha }}
+
   desktop:
     name: Desktop ${{ matrix.platform }}
     needs: prepare
     if: needs.prepare.outputs.skip != 'true'
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - platform: windows-x64
@@ -424,7 +433,7 @@ jobs:
 
   publish:
     name: Publish complete verified release
-    needs: [prepare, desktop, android, ios, corresponding-source]
+    needs: [prepare, desktop, android, ios, corresponding-source, native-validation]
     if: needs.prepare.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     permissions:

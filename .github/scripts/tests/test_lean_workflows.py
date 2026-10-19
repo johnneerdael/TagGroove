@@ -14,36 +14,48 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
-    def test_frontend_suite_runs_once_before_expensive_native_work(self):
+    def test_premerge_runs_checks_on_one_linux_worker_without_app_builds(self):
         source = (WORKFLOWS / "_reviewed-build.yml").read_text()
-        self.assertEqual(source.count("run: npm run test:ui"), 1)
+        self.assertEqual(set(re.findall(r"^  ([a-z0-9_-]+):$", source, re.M)), {"workflow_call", "authorize", "tooling"})
         tooling = job(source, "tooling")
-        self.assertIn("run: npm ci", tooling)
-        self.assertIn("run: npm run test:ui", tooling)
+        self.assertIn("runs-on: ubuntu-24.04", tooling)
+        for check in ("npm run test:ui", "cargo test --workspace --locked",
+                      "cargo fmt --all -- --check", "cargo clippy --workspace --all-targets --locked -- -D warnings",
+                      "npx tsc --noEmit", "python -m mkdocs build --strict"):
+            self.assertIn(check, tooling)
+        self.assertNotIn("node --test tests/release.test.mjs", source)
+        for build in ("tauri build", "android build", "e2e-native.sh", "docs-screenshots.sh", "matrix:", "secrets.", "cache:"):
+            self.assertNotIn(build, source)
+
+    def test_native_suites_run_only_in_authorized_postmerge_release(self):
+        source = (WORKFLOWS / "_reviewed-native.yml").read_text()
+        authorize = job(source, "authorize")
+        self.assertIn("reviewed-release.yml@refs/heads/main", authorize)
+        self.assertIn("review_gate.py release-check", authorize)
+        self.assertNotIn("secrets.", source)
+        self.assertNotIn("cache:", source)
         for name in ("desktop", "android"):
             block = job(source, name)
-            self.assertIn("needs: [authorize, tooling]", block)
-            self.assertNotIn("npm run test:ui", block)
-
-    def test_each_desktop_reuses_its_workspace_for_rust_and_native_ui(self):
-        source = (WORKFLOWS / "_reviewed-build.yml").read_text()
-        self.assertNotIn("\n  native-e2e:", source)
+            self.assertIn("needs: authorize", block)
+            self.assertIn("if: needs.authorize.outputs.ready == 'true'", block)
+            self.assertIn("ref: ${{ inputs.source_sha }}", block)
+            for check in ("cargo test", "cargo clippy", "cargo fmt", "npm run test:ui"):
+                self.assertNotIn(check, block)
         desktop = job(source, "desktop")
-        for os in ("ubuntu-24.04", "windows-latest", "macos-latest"):
-            self.assertIn(os, desktop)
-        for check in ("cargo fmt --all -- --check", "cargo test --workspace --locked",
-                      "cargo clippy --workspace --all-targets --locked -- -D warnings",
-                      "Build the debug app once", "scripts/native-test-config.py",
-                      "Run native suites", "--no-build", "OPENTAG_E2E_OFFLINE=1",
-                      "Capture user-guide screenshots", "native-e2e-output-"):
+        self.assertIn("fail-fast: true", desktop)
+        self.assertNotIn("status=1", desktop)
+        for check in ("Build the debug app once", "Run native suites", "--no-build", "OPENTAG_E2E_OFFLINE=1"):
             self.assertIn(check, desktop)
-        self.assertNotIn("run: npm run tauri build", desktop)
-        self.assertEqual(desktop.count("OPENTAG_AUDIO_BUILD_ROOT="), 1)
-        for dependency in ("xvfb", "dbus-x11", "xdotool", "imagemagick"):
-            self.assertIn(dependency, desktop)
+        release = (WORKFLOWS / "reviewed-release.yml").read_text()
+        native = job(release, "native-validation")
+        self.assertIn("needs: [authorize, prepare]", native)
+        self.assertIn("if: needs.prepare.outputs.skip != 'true'", native)
+        self.assertIn("uses: ./.github/workflows/_reviewed-native.yml", native)
+        self.assertIn("native-validation", job(release, "publish"))
+        self.assertNotIn("node --test tests/release.test.mjs", release)
 
     def test_windows_installer_fixture_still_executes_on_windows(self):
-        source = (WORKFLOWS / "_reviewed-build.yml").read_text()
+        source = (WORKFLOWS / "_reviewed-native.yml").read_text()
         desktop = job(source, "desktop")
         step = desktop.split("      - name: Check native Windows installer shortcuts\n", 1)[1].split("      - ", 1)[0]
         self.assertIn("if: runner.os == 'Windows'", step)

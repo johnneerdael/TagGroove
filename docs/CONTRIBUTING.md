@@ -4,7 +4,7 @@ Open changes through a feature branch and pull request. The PR template separate
 
 ## Review and merge
 
-Request `@codex review` on the PR's final commit. Address findings, resolve their review threads and request a new code review after the last change. Merge only after that exact head has a clean GitHub Codex code review and all required build, native UI, Android, tooling and documentation checks have passed. A local review or a security-only review does not satisfy the code-review requirement.
+Request `@codex review` on the PR's final commit. Address findings, resolve their review threads and request a new code review after the last change. Merge only after that exact head has a clean GitHub Codex code review and the required Linux unit tests, lint, tooling and documentation checks have passed. A local review or a security-only review does not satisfy the code-review requirement.
 
 The trusted `Review authorization controller` workflow publishes these commit statuses:
 
@@ -12,7 +12,7 @@ The trusted `Review authorization controller` workflow publishes these commit st
 | --- | --- |
 | `Codex review` | The authenticated Codex connector completed a code review of the current full head SHA, supplied clean-review approval, and no outstanding findings, review requests or requested changes remain. |
 | `Release notes` | The current PR body contains a substantive public release-note section. |
-| `Reviewed PR builds` | All required validation passed for the reviewed head, current main and immutable test merge. |
+| `Reviewed PR builds` | Linux unit tests, lint, tooling and documentation passed for the reviewed head, current main and immutable test merge. The historical status name is retained for branch protection. |
 
 The gate reads GitHub's full review/comment/thread history. A short displayed SHA must resolve to the exact full commit; a thumbs-up without revision metadata is insufficient. Resolving an earlier finding does not substitute for a newer clean review. New pushes invalidate the review, and a newly edited review request requires a later completion. API failures keep the gate pending.
 
@@ -28,7 +28,7 @@ Commit statuses are shared by SHA. Withhold review, release-note and build succe
 
 ### Repository protection and containment
 
-Main requires PRs, a current base, resolved threads, `Codex review` and `Reviewed PR builds`; use merge commits without bypassing protection. The controller validates release notes before dispatch, during validation preflights and before publication. `Release notes` also exposes a separate diagnostic status. A green optional status does not enforce a merge policy.
+Normal changes require PRs, a current base, resolved threads, `Codex review` and `Reviewed PR builds`; use merge commits. The owner-authorized direct-main workflow and failed-build repair exceptions are described below. The controller validates release notes before dispatch, during validation preflights and before publication. `Release notes` also exposes a separate diagnostic status. A green optional status does not enforce a merge policy.
 
 Keep the legacy build/release, Docs, Docs screenshots and CI tooling workflows disabled. Do not restore automatic application jobs. Releases use only the reviewed controller and `reviewed-release.yml`, including successful trusted build proof and identical validated source checks. See [the containment contract](../.github/CI_LOCKDOWN.md). No Codex API key is needed: the installed GitHub connector performs reviews; the controller uses the workflow token for metadata and dispatch authorization. Failed validation needs an explicit `retry_build=true` dispatch after investigation; an API error or elapsed time never authorizes execution.
 
@@ -42,11 +42,11 @@ The release publisher collects each merged PR's public notes since the previous 
 
 ## Lean validation and main-build repairs
 
-After the exact-head Codex gate, run frontend/tooling checks once before expensive native work. Each desktop runner shares its checkout and build directory for formatting, Rust tests, Clippy, the debug app and native UI suites. Android integration and strict documentation checks remain required. PR validation does not create a second set of release packages.
+After the exact-head Codex gate, one Linux worker runs frontend and Rust unit tests, formatting, Clippy, TypeScript checking, tooling tests and strict documentation validation. Tests compile their test binaries, but this stage does not build a desktop app or Android package, run native UI suites or generate screenshots. PR execution receives no signing secrets, checkout credentials or shared caches. The existing `Reviewed PR builds` status name remains for branch-protection compatibility.
 
-Main release jobs package the already validated source for all required targets, then verify signatures, versions, native provenance, complete corresponding source and checksums before publication. They do not repeat frontend unit tests, Rust unit tests or linting. Keep PR execution free of signing secrets, checkout credentials and shared caches.
+After merge, the release workflow builds all required application targets. Native UI suites on Linux, macOS and Windows, guide screenshots and Android document integration run in the same post-merge workflow and must pass before application publication. Desktop matrices stop remaining matrix work on failure, and native suites stop at their first failing suite. Native UI uses an instrumented debug app with a separate test identity; that harness is distinct from the shipped release package. Post-merge jobs do not repeat frontend or Rust unit tests, formatting, Clippy or documentation test suites. They retain package metadata, signature, version, native provenance, corresponding-source and checksum checks; Pages renders the validated guide for deployment.
 
-Owner-authorized repairs for failed builds on main go directly to main. Retain the failing run and diagnosis, run the appropriate checks, and push with a lease on the inspected main head. Do not rewrite unrelated history or claim a clean PR review for a repair commit that has no such review. Publication still requires the trusted release authorization and artifact/source checks; direct-main workflow repairs do not themselves authorize a new application release.
+Owner-authorized workflow changes and repairs for failed builds on main go directly to main. Retain the failing run and diagnosis, run focused checks, and push with a lease on the inspected main head. Preserve unrelated history. A release-producing repair uses a single-parent commit directly after the failed release source and a commit-message trailer `CI-Repair-Run: <failed-run-id>`. The trusted gate verifies the referenced completed failed main release run with successful authorization and preparation, both revisions' main ancestry and the absence of an associated merged PR before authorizing the repair. This is a separate owner-authorized repair path, not a fabricated PR review. If main has advanced beyond the failed source, validate that newer main and diagnose its build rather than rewriting intervening commits. Workflow-only/bootstrap pushes without this evidence do not authorize an application release. All native integration and publication safeguards still apply.
 
 ## Validation
 

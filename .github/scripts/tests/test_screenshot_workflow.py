@@ -44,9 +44,9 @@ class ScreenshotWorkflowTests(unittest.TestCase):
                         self.assertEqual(window["backgroundThrottling"], "disabled")
 
     def test_capture_is_inside_the_review_authorized_linux_job(self):
-        workflow = (ROOT / ".github/workflows/_reviewed-build.yml").read_text()
+        workflow = (ROOT / ".github/workflows/_reviewed-native.yml").read_text()
         native = workflow.split("  desktop:\n", 1)[1].split("  android:\n", 1)[0]
-        self.assertIn("needs: [authorize, tooling]", native)
+        self.assertIn("needs: authorize", native)
         self.assertIn("if: needs.authorize.outputs.ready == 'true'", native)
         self.assertIn("python scripts/native-test-config.py", native)
         self.assertIn("if: runner.os == 'Linux'\n        run: scripts/docs-screenshots.sh", native)
