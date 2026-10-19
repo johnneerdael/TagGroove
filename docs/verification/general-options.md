@@ -58,5 +58,5 @@ The defaults are a judgement call; the documentation does not state them. Comple
 - **Notification area** options and **Symbols** (alternative icon set) are not implemented.
 - **Proxy**: no credentials, no SOCKS. The system proxy relies on reqwest's detection (no PAC scripts).
 - **Updates**: only GitHub releases of this repository; no download or installation. Release notes after an update are tracked per device.
-- **Auto-completion** completes from the first matching drop-down value only and not in multiline fields; there is no filtered suggestion list while typing.
+- **Auto-completion**: PR64 adds automatic filtered whole-value choices alongside ordinary single-line inline completion in the panel, metadata cells and Extended Tags. See the [controlled-DOM verification](filtered-value-completion-2026-10-19.md) for exact staging, composition and accessibility-state controls. Native/original input, visual/screen-reader and large-list qualification remain open.
 - **Optimize MP4** does not promote `stco` to `co64` and refuses fragmented files; **Optimize FLAC** refuses ID3v2-prefixed files.

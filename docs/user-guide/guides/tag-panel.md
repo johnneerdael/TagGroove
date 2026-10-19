@@ -63,14 +63,37 @@ the individual stored values directly.
 Suggestions help keep spelling consistent; they do not restrict a field to
 the list. Type a new artist, genre or composer normally when needed.
 **Options → General → Auto-completion at selection boxes** enables inline
-completion from the field's available values. Check the completed spelling
-before saving, especially when names share a prefix.
+completion and an automatic list of all matching values. Filtering uses the
+prefix typed before the inline suffix was added. The automatic list contains
+values grouped by Selected files, Custom values and Genres as applicable;
+the **▾** button and **Alt+Up/Down** open the full dropdown with
+Keep/Blank commands. Opening one list closes the other. Check the completed
+spelling before saving, especially when names share a prefix.
 
-For text controls, the arrow keys open and move through the dropdown; **Enter**
-accepts its active entry and **Esc** closes it. In a multiline control, ordinary
-Up/Down move the text cursor; use **Alt+Up/Down** to open its value list.
-With a value list open, **Alt+Home/End** selects its first/last entry. Tab closes
-the popup while moving focus.
+A suggestion containing several separate stored values shows each value in
+quotes, such as `“Rock” · “live”`. Choosing it keeps those separate values.
+A single stored value containing the literal two-backslash display separator
+is a separate choice, such as `Rock \\ live`; choosing it keeps one value.
+Whole choices retain leading/trailing spaces and line breaks. Typing text
+continues to use the trimming and two-backslash parsing rules described above.
+Multi-value choices and values whose whitespace or separators would be changed
+by that parser require explicit selection; they remain in the matching list.
+Selection choices stay available as typing updates pending edits. Selecting
+other files or refreshing the panel updates those choices.
+
+Up/Down highlights matching choices; **Enter** chooses a highlighted value.
+Nothing starts highlighted in the automatic list, so ordinary Enter in a
+multiline field still inserts a newline. Multiline suggestions replace the
+whole value only when explicitly chosen, including all its lines. With no
+list open, ordinary Up/Down keeps moving the multiline text cursor. Text
+controls can still open the full dropdown with an arrow key. In that full
+list, **Alt+Home/End** selects its first/last entry.
+
+**Esc** closes a suggestion list before other Escape actions. Tab closes it
+while moving focus without choosing a highlighted alternative. Choosing a
+suggestion changes the pending field edit and does not save tags. Pasting or
+deleting updates the matching choices without inserting a suffix; free text
+remains valid. Completion waits for input-method composition to finish.
 
 With the value list closed, **Shift+Enter** adds the current trimmed,
 nonempty single-line text to that field's custom values. This saves a

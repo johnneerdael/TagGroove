@@ -1,3 +1,4 @@
+import {loadProductionModule} from './helpers/load-production-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -5,6 +6,7 @@ import ts from 'typescript';
 // Names someone gave (columns, tag panel labels, toolbar items) are rendered inside
 // translate="no" or with data-verbatim, so a name such as "Help" is never translated.
 const load=async file=>{
+  if(file==='tag-panel.ts')return loadProductionModule(file);
   const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
   const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);

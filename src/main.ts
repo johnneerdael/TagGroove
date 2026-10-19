@@ -328,7 +328,7 @@ const extendedTags=new ExtendedTags({
   describe:path=>{const entry=entries.get(path);return{name:entry?.filename||displayName(path),tag:entry?.technical?._TAG?.[0]};},
   stage:changes=>changes.forEach(({path,updates})=>Object.entries(updates).forEach(([key,values])=>updateDraft(path,key,values))),
   select:path=>{const previous=paths();selected.clear();selected.add(path);anchor=path;coverIndex=0;coverError=undefined;if(activeCover?.path!==path)activeCover=undefined;refreshSelection();revealRow(path,false);saveOnMove(previous);},
-  completions:cellCompletions,autocomplete:()=>generalPrefs().autocomplete?completeInput:undefined,
+  completions:cellCompletions,autocomplete:()=>generalPrefs().autocomplete&&!busy?completeInput:undefined,
   coverMarkup:()=>coverMarkup(`<button type="button" data-cover="add">Add cover…</button><button type="button" data-cover="remove" ${coverUI.canRemove()?'':'disabled'}>Remove cover</button><button type="button" data-cover="extract" ${coverUI.state().state==='same'&&coversFor(active()).length?'':'disabled'}>Extract cover…</button>`),
   bindCover:root=>{coverUI.bind(root);coverUI.paint();},
   modal:(title,content,buttons)=>modal(title,content,buttons),modalError:(dialog,error)=>modalError(dialog,error),
@@ -371,7 +371,7 @@ const tagPanel=new TagPanel({
   importList:path=>invoke<string[]>('import_value_list',{path}),exportList:(path,values)=>invoke<void>('export_value_list',{path,values}),
   pickOpen:async kind=>{const path=await open({multiple:false,title:kind==='layout'?'Load tag panel configuration':kind==='mp3tag'?'Import Mp3tag tag panel configuration (usrfields.ini)':'Import custom values',filters:kind==='mp3tag'?[{name:'Mp3tag configuration',extensions:['ini']},{name:'All files',extensions:['*']}]:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]});return typeof path==='string'?path:null;},
   pickSave:(kind,name)=>save({title:kind==='layout'?'Save tag panel configuration':'Export custom values',defaultPath:name,filters:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]}),
-  values:key=>paths().map(path=>field(entries.get(path)!,key)),disabled:()=>!selected.size||busy,
+  values:key=>paths().map(path=>{const entry=entries.get(path)!,fields=merged(entry);return fields[panelKey({format:entry.format,fields},key)]??[];}),disabled:()=>!selected.size||busy,
   directories:()=>{const local=(list:Entry[])=>list.filter(entry=>!providerEntry(entry)).map(entry=>dirname(entry.path));return{selected:local(paths().map(path=>entries.get(path)!)),all:local([...entries.values()])};},
   selectDirectory:directory=>{selected.clear();visible().filter(entry=>!providerEntry(entry)&&dirname(entry.path)===directory).forEach(entry=>selected.add(entry.path));anchor=paths()[0];coverIndex=0;render();},
   openFolder:()=>void operate('folder'),draft:draftField,keep:keepField,changed:()=>render(),
@@ -661,9 +661,15 @@ const cellEditor=new CellEditor({
   },
   ended:()=>{const path=anchor&&selected.has(anchor)?anchor:paths()[0];if(path&&!document.querySelector('dialog[open]'))document.querySelector<HTMLElement>(`tr[data-path="${CSS.escape(path)}"]`)?.focus({preventScroll:true});},
   advance:()=>generalPrefs().auto_select_next,
-  complete:(input,event,target)=>{
+  autocomplete:()=>generalPrefs().autocomplete&&!busy,
+  multiline:target=>{const key=editKey(columnLayout.columns.find(c=>c.id===target.column)||{field:''});return!!key&&!key.startsWith('_');},
+  candidates:target=>{
     const key=editKey(columnLayout.columns.find(c=>c.id===target.column)||{field:''});
-    if(generalPrefs().autocomplete&&key&&!key.startsWith('_'))completeInput(input,event,()=>cellCompletions(key));
+    return key&&!key.startsWith('_')?cellCompletions(key):[];
+  },
+  complete:(input,event,target,candidates)=>{
+    const key=editKey(columnLayout.columns.find(c=>c.id===target.column)||{field:''});
+    if(generalPrefs().autocomplete&&key&&!key.startsWith('_'))completeInput(input,event,candidates);
   },
 });
 /** Values offered while editing a File List cell: custom field values, then the values of loaded files. */
@@ -1129,7 +1135,7 @@ function selectionInfoMarkup(selectedEntries:Entry[],list:Entry[]){
   const current=selected.size===1?active():undefined,technical=current?technicalSummary(current):undefined;
   return listSummary(selectedEntries,list,entries.size).map(segment=>`<span>${esc(segment)}</span>`).join('')+(technical?`<span>${[technical.codec?`<span translate="no">${esc(technical.codec)}</span>`:'',...technical.details.map(detail=>`<span>${esc(detail)}</span>`)].filter(Boolean).join(' · ')}</span>`:'');
 }
-function bindFields(root:ParentNode){root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el=>el.addEventListener('input',()=>draftField(el.dataset.field!,el.value)));}
+function bindFields(root:ParentNode){root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el=>el.addEventListener('input',()=>{const values=draftField(el.dataset.field!,el.value);tagPanel.inputDrafted(el,values);}));}
 /**
  * Selection changes update only what depends on the selection: table rows, tag panel fields, cover,
  * counts and command states. A full render rebuilds every menu and forces layout of the whole window,
@@ -1223,8 +1229,8 @@ function updateDraft(path: string, key: string, values: string[]) {
   if (Object.keys(draft).length||pendingCovers.has(path)) drafts.set(path,draft); else drafts.delete(path);
   changedData();
 }
-function draftField(key: string, value: string) {
-  const values = value ? value.split('\\\\').map(v => v.trim()) : [];
+function draftField(key: string, value: string, exactValues?:readonly string[]) {
+  const values = exactValues===undefined?(value ? value.split('\\\\').map(v => v.trim()) : []):[...exactValues];
   paths().forEach(path => {const entry=entries.get(path)!;updateDraft(path,panelKey({format:entry.format,fields:merged(entry)},key),values);});
   status = `Pending changes for ${selected.size} file${selected.size===1?'':'s'}. ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
   document.querySelector('.status-message')!.textContent = status;
@@ -1235,6 +1241,7 @@ function draftField(key: string, value: string) {
   if(!drafts.size) oldCount?.remove();
   updateVirtualRows(true);
   document.querySelector('.filterbar .count')!.textContent=countText(visible());
+  return values;
 }
 function keepField(key:string){
   paths().forEach(path=>{const entry=entries.get(path)!,name=panelKey({format:entry.format,fields:merged(entry)},key);updateDraft(path,name,[...(entry.fields[name]||[])]);});
@@ -2095,12 +2102,13 @@ async function listOperation(op:Operation){
     },{progress:true});
   }
 }
-async function commitCell(target:CellTarget,value:string):Promise<string|undefined>{
+async function commitCell(target:CellTarget,value:string,exactValues?:readonly string[]):Promise<string|undefined>{
   const entry=entries.get(target.path),column=columnLayout.columns.find(c=>c.id===target.column);if(!entry||!column)return undefined;
   const key=editKey(column);if(!key)return target.path;
   if(key==='_FILENAME'||key==='_FILENAME_EXT')return renameFromList(entry,key,value);
-  if(value===field(entry,key))return target.path;
-  updateDraft(target.path,panelKey({format:entry.format,fields:merged(entry)},key),value?value.split('\\\\').map(v=>v.trim()):[]);
+  const fields=merged(entry),native=panelKey({format:entry.format,fields},key);
+  if(exactValues===undefined?value===field(entry,key):JSON.stringify(exactValues)===JSON.stringify(fields[native]??[]))return target.path;
+  updateDraft(target.path,native,exactValues===undefined?(value?value.split('\\\\').map(v=>v.trim()):[]):[...exactValues]);
   status=`Pending changes for ${drafts.size} file${drafts.size===1?'':'s'}. ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
   render();return target.path;
 }

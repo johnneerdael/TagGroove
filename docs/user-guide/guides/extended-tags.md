@@ -53,6 +53,17 @@ textarea and remove **×** control. Enter within a textarea starts another
 line in that value. Two lines in one lyrics/comment value are different
 from two ARTIST values.
 
+With **Options → General → Auto-completion at selection boxes** enabled,
+typing shows matching whole values from the field's custom/loaded values.
+No suffix is inserted in these multiline boxes. Use Up/Down to highlight a
+choice, then Enter to replace the whole value; the choice changes only this
+dialog's edit, without saving tags or pressing **Keep changes**. Enter with
+no highlighted choice, including after a choice was accepted, inserts a
+newline as usual. **Alt+Down** opens matching choices explicitly, **Esc**
+closes them first, and Tab moves focus without accepting a highlighted
+alternative. Suggestions do not restrict free text and pause during
+input-method composition.
+
 For a duet credit, keep `Juniper Vale` and `Mira Solberg` as two value boxes
 when the format/workflow supports separate artists. The
 [multi-value explanation](../concepts/multi-value-fields.md) shows why typing

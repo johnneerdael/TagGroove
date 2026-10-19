@@ -1,3 +1,4 @@
+import {loadProductionModule} from './helpers/load-production-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -5,6 +6,7 @@ import ts from 'typescript';
 const root = new URL('../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
 const load = async name => {
+  if(['tag-panel','cell-editor','extended-tags'].includes(name))return loadProductionModule(`${name}.ts`);
   const source = await read(`src/${name}.ts`);
   const javascript = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);

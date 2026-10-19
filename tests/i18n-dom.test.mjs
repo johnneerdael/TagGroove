@@ -1,3 +1,4 @@
+import {loadProductionModule} from './helpers/load-production-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -11,7 +12,7 @@ const moduleUrl=async(file,replacements={})=>{
   for(const [from,to] of Object.entries(replacements))js=js.replace(from,to);
   return `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 };
-const load=async file=>import(await moduleUrl(file));
+const load=async file=>['tag-panel.ts','cell-editor.ts'].includes(file)?loadProductionModule(file):import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
 const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle,parseExtensions}=await load('options-ui.ts');
 const {ColumnUI,defaultLayout,normalizeLayout:normalizeColumns,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI,panelKey}=await load('action-ui.ts');
@@ -20,7 +21,7 @@ const {TagPanel,defaultLayout:defaultPanelLayout,defaultSettings:defaultPanelSet
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
 const {PICTURE_TYPES}=await load('cover-model.ts');
 const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
-const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import './extended-tags.css';":'',"'./tag-edits'":JSON.stringify(await moduleUrl('tag-edits.ts')),"'./row-context-menu'":JSON.stringify(await moduleUrl('row-context-menu.ts'))}));
+const {ExtendedTags}=await loadProductionModule('extended-tags.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS}=await load('toolbar.ts');
 const {copyAsTextDialog,UTILS}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
@@ -1349,7 +1350,7 @@ test('the real cell-editor host preserves custom column labels and translates de
     try{
       const t=new Translator(locale,catalog);setColumnNameTranslation(text=>t.translate(text));
       p.body.innerHTML=`<div class="table-wrap"><table><thead><tr>${headerMarkup([column],[])}</tr></thead><tbody><tr><td data-col="${column.id}"></td></tr></tbody></table></div>`;
-      editor=rendererVariable(parsed,'cellEditor',{CellEditor,commitCell:()=>path,revealRow:()=>p.body.querySelector('tbody tr'),CSS:p.window.CSS,entries:new Map([[path,{filename:'Help.mp3'}]]),editKey,columnLayout:{columns:[column]},columnName,field:()=>raw,anchor:undefined,paths:()=>[],selected:new Set()});
+      editor=rendererVariable(parsed,'cellEditor',{CellEditor,commitCell:()=>path,revealRow:()=>p.body.querySelector('tbody tr'),CSS:p.window.CSS,entries:new Map([[path,{filename:'Help.mp3'}]]),editKey,columnLayout:{columns:[column]},columnName,field:()=>raw,anchor:undefined,paths:()=>[],selected:new Set(),generalPrefs:()=>({autocomplete:true}),busy:false});
       assert.equal(editor.start({path,column:column.id}),true);p.translate(locale,catalog);
       const input=p.body.querySelector('.cell-editor'),shown=column.id==='title'?t.t('Title'):column.name;
       assert.equal(p.body.querySelector('[data-sort] > span').textContent,shown);

@@ -137,10 +137,25 @@ columns cannot be made writable merely by clicking them.
 
 | Key in the cell editor | Effect |
 | --- | --- |
-| Enter | Accept the value; the General option can advance to the next file in the same column. |
-| Escape | Cancel the current cell edit. |
+| Enter | Choose an explicitly highlighted matching suggestion first. A later Enter accepts the cell value; the General option can advance to the next file in the same column. |
+| Escape | Close matching suggestions first; a later Escape cancels the current cell edit. |
 | Tab | Accept and move to the next editable cell, wrapping to the next row. |
 | Shift+Tab | Accept and move backward through editable cells/rows. |
+
+With **Auto-completion at selection boxes** enabled in General options,
+metadata cells show matching custom/loaded values while retaining the first
+inline completion. Up/Down highlights a choice and Enter inserts it without
+committing the cell or saving tags. Tab commits the current editor text using
+its normal navigation policy, without accepting a highlighted alternative.
+Escape closes matching suggestions before a later Escape cancels the cell.
+Whole multiline suggestions keep their line breaks in the cell editor and
+remain pending until the cell is committed. Explicitly choosing a suggestion
+keeps its whole stored value, including leading/trailing spaces, line breaks
+and literal two-backslash text. Typing a value still uses the usual trimming
+and two-backslash separator policy. Enter and Tab still finish a File
+List cell; they do not insert newlines here. For ordinary Enter-to-newline
+editing, use a multiline tag-panel field or Extended Tags. Filename and
+technical controls do not offer metadata suggestions.
 
 Ordinary field edits become pending changes. Save tags explicitly, or use
 the configured save-on-selection-change behavior, when they must reach

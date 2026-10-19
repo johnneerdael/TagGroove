@@ -11,12 +11,25 @@ Open **File → Options… → General** to control everyday selection, sorting,
 |---|---|---|
 | **Show current directory in window title** | On | Add the working folder to the title, for example `TagGroove — /Music/Juniper Vale`. Useful with several windows or similar album folders. With no folder loaded, the title remains `TagGroove`. |
 | **Automatically select next file when editing in file view** | Off | After committing an edit in a file-list cell, move the selection to the next file. Enable for entering a sequence of titles down a column; disable when several fields on one file need attention. |
-| **Auto-completion at selection boxes** | On | Complete typed prefixes using available values in tag-panel fields and file-list cells. The added suffix is selected, so further typing replaces it. Disable if suggestions interfere with free typing. |
+| **Auto-completion at selection boxes** | On | Show matching values while typing in tag-panel fields, File List metadata cells and Extended Tags. Single-line entry also completes the first matching suffix and select it, so further typing replaces it. Multiline values, separate-value lists and values whose spaces or separators require exact preservation need an explicit choice. Disable if suggestions interfere with free typing. |
 | **Use natural sorting (1, 2, 11, …)** | On | Treat digit sequences numerically: `Track 2` precedes `Track 11`. With it off, textual sorting can place `Track 11` before `Track 2`. This changes list order, not track fields or filenames. |
 | **Select files automatically when they are added to the list** | Off | Select incoming files after adding them. Useful for adding one album and immediately editing it; check the resulting selection before a batch command. |
 | **Keep moved files in the file list** | On | Retain files moved outside a listed folder. With it off, those files leave the list after a move unless they have pending changes. This does not delete the moved files. |
 
-Completion matches prefixes without regard to case and retains the characters already typed. If a candidate is `Juniper Vale` and the typed text is `ju`, the suggested text starts `ju` and completes the rest. Empty input is not filled automatically, and pasting does not trigger this inline completion. The candidates depend on the field's [custom value lists](field-values.md) and current selection.
+Completion matches prefixes without regard to case and retains the characters already typed. If a candidate is `Juniper Vale` and the typed text is `ju`, the suggested text starts `ju` and completes the rest. Empty input is not filled automatically. Pasting and deleting can update the matching list without inserting a suffix. The candidates depend on the field's [custom value lists](field-values.md) and current selection.
+
+The matching list contains values, without the tag panel's Keep/Blank commands.
+Use Up/Down to highlight an option and Enter to choose it; no option starts
+highlighted. Choosing changes the editor value without saving tags. A later
+Enter finishes a File List cell as usual. Tab closes the list and follows the
+editor's normal navigation/commit policy without choosing a highlighted
+alternative. Escape closes the list first. Free text remains valid.
+In multiline tag-panel controls and Extended Tags, ordinary Enter inserts a
+newline until an option has been highlighted; choosing replaces the whole
+value. File List cells retain their Enter/Tab commit policy even when the
+chosen value contains line breaks. Alt+Down opens matching
+choices explicitly. The tag panel's dropdown button and Alt+Up/Down retain its
+full list, including Keep/Blank commands.
 
 Completion waits while an input method is composing a character. Finish that
 choice before using Enter or Tab to finish a file-list cell. Escape during
