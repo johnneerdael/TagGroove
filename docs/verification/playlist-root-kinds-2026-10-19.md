@@ -15,11 +15,27 @@ Independent review found and corrected an interaction in the first repair draft:
 ## Focused evidence
 
 - The sanitized baseline replay against the earlier production source fails the new suffixed-directory loading case with `false !== true`; it is an actual load failure, not a missing test symbol. Retained run: `taggroove-root-kinds-red-bbcxch2x`.
-- The final nine directly affected frontend files pass **89 tests**, with no failures or skips. Cases cover all seven playlist suffixes on directories, actual playlist files, tool-relative roots, Keep moved files, append/replace/rebase, active-playlist preservation, mapped/legacy workspace restoration and stale/cancelled publication. Retained run: `taggroove-root-kinds-final-ui-qyph681l`; all 14 changed frontend source/test hashes match before and after execution.
+- At repair checkpoint `493ecf1b5c1e3e06058c7808a362de657daeef85`, the nine directly affected frontend files pass **89 tests**, with no failures or skips. Cases cover all seven playlist suffixes on directories, actual playlist files, tool-relative roots, Keep moved files, append/replace/rebase, active-playlist preservation, mapped/legacy workspace restoration and stale/cancelled publication. Retained run: `taggroove-root-kinds-final-ui-qyph681l`; all 14 changed frontend source/test hashes match before and after execution.
 - Final TypeScript checking passes in `taggroove-root-kinds-final-types-pfdulwjl`. Formatting and whitespace checks pass. The strict guide passes in `taggroove-playlist-root-kind-guide-o3u3k5w8`.
 - Independent read-only review found the active-playlist interaction described above, then verified its correction and the legacy outside-root context. Final re-review has no remaining concrete findings.
 - The final Rust checks pass **28 tests**: one filesystem-metadata test covering actual files/directories for every supported playlist suffix; 26 profile-migration/legacy-journal compatibility tests; and one portable-root mapping/row-rank/audio-byte preservation test. The profile module's one intentionally ignored controlled restart child is invoked by its parent sandbox test. Retained runs: `taggroove-root-kinds-native-metadata-final-0upwuxz7`, `taggroove-root-kinds-profile-compat-final-2qvas22p` and `taggroove-root-kinds-native-remap-d67b8kkb`; final before/after source bindings match.
 - All 16 local links across the three changed Markdown documents resolve. The initial Rust invocation compiled but selected zero tests because its exact filter was unqualified; it is retained as compilation-only evidence, not counted in these results. An incomplete new JSON test fixture was corrected before the final compatibility run; production behavior was unchanged by that correction.
+
+## Empty active playlist append follow-up
+
+The next exact-head Codex review identified a separate row-count edge: an active
+playlist with zero readable rows was treated as an unchosen source when another
+playlist was appended. Source choice must survive that empty result. Explicit
+replacement still chooses the replacement playlist; an empty workspace with no
+active playlist can still adopt its first playlist. The corrected condition also retains the source's displayed location/data flag
+and chosen playlist/column/manual order. The sanitized regression against the
+preceding source has 32 passes and one actual A-to-B context failure
+(`taggroove-empty-active-red-final-qf3y84yz`); the corrected file passes all
+**33 focused loading tests** (`taggroove-empty-active-green-gh5d5kch`). Empty
+and all-missing playlists, empty/nonempty folder controls and explicit replacement
+are covered. TypeScript passes in `taggroove-empty-active-types-xueu17ss`; both
+changed source/test hashes match before and after. Independent read-only review
+has no concrete findings. No Rust build or native UI run was repeated.
 
 ## Limits
 

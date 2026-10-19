@@ -280,3 +280,35 @@ test('Refresh rechecks a captured active playlist outside legacy input roots wit
   assert.deepEqual(model.snapshot().rootKinds,{'/music':'directory'});assert.ok(model.calls.some(([name,args])=>name==='classify_source_paths'&&args.paths.length===1&&args.paths[0]===playlist));
   model.state.directories[playlist]=[];await model.refresh();assert.equal(model.snapshot().playlist,undefined);assert.deepEqual(model.snapshot().rootKinds,{'/music':'directory'});
 });
+
+
+test('appending preserves an active playlist with no valid rows, its source location and chosen order',async()=>{
+  const a='/lists/empty.m3u',b='/lists/added.m3u';
+  for(const errors of [[],[{path:a,error:'Line 1: missing.wav: file not found'}]])for(const mode of ['playlist','columns','manual']){
+    const model=runtime({playlists:{[a]:{files:[],errors},[b]:{files:['/music/added.wav'],errors:[]}}});
+    assert.equal(await model.loadPaths([a],{replace:true}),true);assert.equal(model.snapshot().playlist,a);assert.deepEqual(model.snapshot().paths,[]);
+    if(mode==='columns')await model.sort();else if(mode==='manual')await model.unsorted();
+    const before=model.snapshot();assert.equal(before.mode,mode);
+    assert.equal(await model.loadPaths([b]),true);assert.equal(model.snapshot().playlist,a,'appending rows must retain the chosen active source');
+    assert.equal(model.snapshot().location,before.location);assert.equal(model.snapshot().locationIsData,before.locationIsData);assert.equal(model.snapshot().mode,mode);
+    assert.deepEqual(model.snapshot().roots,[a,b]);assert.deepEqual(model.snapshot().paths,['/music/added.wav']);
+    await model.refresh();assert.equal(model.snapshot().playlist,a);assert.ok(model.calls.every(([name])=>name!=='create_playlists'));
+  }
+});
+
+test('appending a first playlist adopts it only when the prior folder list is empty',async()=>{
+  const folder='/music',playlist='/lists/added.m3u';
+  for(const rows of [[],['/music/existing.wav']]){
+    const model=runtime({directories:{[folder]:rows},playlists:{[playlist]:{files:['/music/added.wav'],errors:[]}}});
+    await model.loadPaths([folder],{replace:true});assert.equal(model.snapshot().playlist,undefined);await model.loadPaths([playlist]);
+    assert.equal(model.snapshot().playlist,rows.length?undefined:playlist);assert.equal(model.snapshot().mode,rows.length?'columns':'playlist');assert.deepEqual(model.snapshot().roots,[folder,playlist]);
+  }
+});
+
+test('explicit replacement selects the new playlist even when the old and new playlists are empty',async()=>{
+  const a='/lists/empty.m3u',b='/lists/replacement.m3u';
+  for(const files of [[],['/music/replacement.wav']]){
+    const model=runtime({playlists:{[a]:{files:[],errors:[]},[b]:{files,errors:[]}}});await model.loadPaths([a],{replace:true});await model.loadPaths([b],{replace:true});
+    assert.equal(model.snapshot().playlist,b);assert.deepEqual(model.snapshot().roots,[b]);assert.deepEqual(model.snapshot().paths,files);assert.equal(model.snapshot().mode,'playlist');
+  }
+});

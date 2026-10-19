@@ -1577,16 +1577,16 @@ async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boo
     if(progressJob?.cancelling){status='Reading cancelled. The list is unchanged.';return false;}
     if(generation!==sourceGeneration||context!==sourceReadContext()){status='Files or pending changes changed while reading. The list is unchanged.';return false;}
     if(options.replace)clearWorkspace();
-    const empty=!entries.size;
+    const empty=!entries.size,keepPlaylist=!!options.playlist&&!options.replace&&!!loadedPlaylist;
     folderImages.clear();accept(result,'Loaded',false);
     sourceOrder=sourceOrder?mergeSourceOrder(sourceOrder,result.entries.map(entry=>entry.path),false):empty?mergeSourceOrder([],result.entries.map(entry=>entry.path),true):undefined;
     if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}
     listRoots=mergeSourceOrder(listRoots,roots,!!options.replace);
     const incomingKinds=Object.fromEntries(roots.map((root,index)=>[root,options.rootKinds?.[index]??'unknown']));
     listRootKinds=Object.fromEntries(listRoots.map(root=>[root,incomingKinds[root]??listRootKinds[root]??'unknown']));
-    if(options.playlist&&(options.replace||empty)){loadedPlaylist=options.playlist;listOrder='playlist';}
+    if(options.playlist&&!keepPlaylist&&(options.replace||empty)){loadedPlaylist=options.playlist;listOrder='playlist';}
     if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}
-    if(empty||!options.location){location=options.location??(roots.length===1?roots[0]:`${roots.length} added locations`);locationIsData=options.location?options.locationIsData!==false:roots.length===1;}
+    if(!keepPlaylist&&(empty||!options.location)){location=options.location??(roots.length===1?roots[0]:`${roots.length} added locations`);locationIsData=options.location?options.locationIsData!==false:roots.length===1;}
     if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}
     return true;
   },{progress:true});

@@ -76,6 +76,12 @@ not replace the current display-order choice or remembered loaded-playlist
 context. Added source groups follow existing members; duplicate references
 keep their first position.
 
+A chosen playlist stays active when another playlist is appended, even when
+the first currently has no readable audio rows. Loaded-playlist placeholders
+still refer to that chosen source, and Refresh does not select the last added
+playlist instead. Use **File → Load playlist/cue sheet…** to replace the list
+and choose a different active playlist.
+
 Review the [file-list order](file-list.md) before writing. Header sorting and
 manual row ordering while holding Alt (Option on macOS) affect the sequence
 supplied to a playlist. A
