@@ -63,7 +63,17 @@
       return;
     }
     results.push(...JSON.parse(sessionStorage.getItem('options-utils-results') || '[]'));
-    await step('reload retains the current workspace and acknowledges reviewed settings-only recovery', async () => { await waitFor(() => rows().length >= 2 && row('sine-a.mp3') && row('sine-b.mp3'), 15000, 'retained rows after reload'); await waitFor(async () => !(await inv('profile_migration_status')).pending, 8000, 'setup recovery acknowledged'); return `${rows().length} retained rows; no pending recovery`; });
+    await step('reload retains the workspace and finishes interactive settings-only recovery', async () => {
+      await waitFor(() => rows().length >= 2 && row('sine-a.mp3') && row('sine-b.mp3'), 15000, 'retained rows after reload');
+      await waitFor(async () => !(await inv('profile_migration_status')).pending, 8000, 'setup recovery acknowledged');
+      // The durable receipt can be acknowledged before the remaining startup
+      // work releases the keyboard guard. Send shortcuts only once interactive.
+      await waitFor(() => {
+        const app = document.querySelector('#app');
+        return app && !app.inert && getComputedStyle(app).visibility !== 'hidden';
+      }, 10000, 'interactive app after setup recovery');
+      return `${rows().length} retained rows; no pending recovery; app interactive`;
+    });
     await idle();
 
     await step('Options lists Messages, Tag Panel, Field Values and Tools pages', async () => {

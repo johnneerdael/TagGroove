@@ -114,8 +114,8 @@ retained. The other passing suites were not repeated for that harness repair.
 
 Root: `taggroove-ci-native-round2-6x43lsie` under the authoring Mac temporary
 directory. `final-native-inventory.json` maps each suite to its executed driver,
-result and SHA-256; every production and final driver hash matches the current
-files. The app build/log root is `taggroove-ci-native-round2-build-kc2r4wuu`.
+result and SHA-256; production and final driver hashes matched the inspected
+`f8a0e3f` checkpoint. The app build/log root is `taggroove-ci-native-round2-build-kc2r4wuu`.
 The native executable SHA-256 is
 `2bf9d6655aa562b8957bc0a5719a3e385e1ceff6aede9ff3afacf2f1faabade0`;
 identifier `org.taggroove.editor.e2e.ciround2e2373403`, 1024×800 test window.
@@ -158,3 +158,42 @@ Commands, source bindings, original CI log and runtime output are retained.
 The earlier full-workspace/native results keep their earlier source pins;
 no local UI sweep was repeated. A fresh exact-head GitHub Codex code review and
 trusted current-main validation, including Windows, remain required.
+
+## Startup readiness and Windows test-import scope
+
+[Validation 39313791194](https://github.com/johnneerdael/TagGroove/actions/runs/39313791194)
+of `55bcf9f8386aa3dea0ba964e04796c7f92a82884` passed macOS, Android,
+frontend/tooling/save acceptance and documentation. Windows passed the full
+Rust test step, including the repaired recovery-export assertion, then failed
+strict Clippy on `PathBuf` and `load_playlist` imports used only inside a
+Unix-only test module. Those imports now live in that module; no test or
+production behavior is removed. The complete Windows compiler-warning inventory
+contains only those two unused imports. Windows native suites had not run.
+
+Linux passed Rust/Clippy and all native suites except `options-utils`. Its first
+post-recovery Options shortcut timed out; two dependent dialog checks then
+failed, giving 10/13. The backend recovery receipt can be acknowledged before
+remaining startup work releases the app's inert keyboard guard. The script now
+waits for the actual app to be non-inert and visible before sending that shortcut.
+It retains the same keyboard route, dialog assertions and configuration checks.
+
+On the retained source-bound native Mac app, a controlled 2-second inert barrier
+on the reload page reproduces the same three failures with the old script:
+**10/13**. With the readiness wait, the same barrier passes **13/13**; a normal
+run without the barrier also passes **13/13**. This controls the real native app
+guard and exercises its WebKit/backend/files; it does not capture the exact
+Linux scheduling state or qualify physical keyboard input. An earlier IPC-delay
+preparation installed after acknowledgement and did not delay anything; its
+13/13 output is retained and is not labeled a RED reproduction.
+
+The retained phases `startup-gate-red`, `startup-gate-green` and
+`startup-ready-normal` are under `taggroove-ci-native-round2-6x43lsie` in the
+authoring Mac temporary directory, with executed drivers, input hashes, results
+and archived owned profiles. The same executable SHA-256 remains
+`2bf9d6655aa562b8957bc0a5719a3e385e1ceff6aede9ff3afacf2f1faabade0`.
+Only the affected native suite was run. Focused strict Clippy for
+`playlist_filename_identity`, JavaScript syntax, formatting and whitespace pass.
+Clippy evidence is `taggroove-playlist-unix-import-clippy-y2ajkh9u`.
+Production source is unchanged by these two test repairs. The failed run stays
+failed; fresh exact-head GitHub Codex code review and trusted current-main CI
+remain required before merge.

@@ -1,12 +1,9 @@
 //! Authored playlist data must select the intended member even when a legacy
 //! trimmed or percent-decoded spelling names a different existing file.
-use std::{
-    cell::Cell,
-    path::{Path, PathBuf},
-};
+use std::{cell::Cell, path::Path};
 use tag_core::playlist::{
-    decode_playlist, entry_candidates, load_playlist, parse_entries, render_playlist,
-    resolve_entries, PlaylistItem, PlaylistKind, PlaylistWriteOptions, RawEntry,
+    decode_playlist, entry_candidates, parse_entries, render_playlist, resolve_entries,
+    PlaylistItem, PlaylistKind, PlaylistWriteOptions, RawEntry,
 };
 
 #[test]
@@ -257,7 +254,8 @@ fn line_break_paths_still_refuse_every_writable_format() {
 #[cfg(unix)]
 mod unix_identity {
     use super::*;
-    use std::{collections::HashSet, fs, io::Write, os::unix::fs::MetadataExt};
+    use std::{collections::HashSet, fs, io::Write, os::unix::fs::MetadataExt, path::PathBuf};
+    use tag_core::playlist::load_playlist;
 
     fn create_members(directory: &Path, names: &[&str]) -> Vec<(PathBuf, Vec<u8>)> {
         let mut identities = HashSet::new();
