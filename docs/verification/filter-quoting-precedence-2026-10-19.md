@@ -1,5 +1,9 @@
 # Filter quoting and precedence: native static and public-port comparison
 
+The five demonstrated quoting differences below are preserved baseline results. C55 now implements the correction and all 12 frozen vectors match; see [current local evidence](local-parity-closeout-2026-10-19.md#filter-quoting-c55-l11).
+
+## Preserved baseline
+
 This comparison uses the pinned Windows x64 Mp3tag 3.36.1 executable, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`, and the current TagGroove public `compile_filter`/`matches` API. **Mp3tag was not executed.** Its results below are predictions from the native parser and predicate control flow, not original GUI observations.
 
 ## Evidence and execution

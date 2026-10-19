@@ -1,5 +1,9 @@
 # Split Field: empty values and unchanged-count behavior
 
+The eight mismatches below are preserved pre-repair results. C56 now implements the count/empty publication contract, with model and actual Save/history controls; see [current local evidence](local-parity-closeout-2026-10-19.md#split-field-c56-l15).
+
+## Preserved baseline
+
 Eight native-derived literal cases were compared with the current public `apply_action_spec` API. Native results are **static control-flow predictions** from the pinned Mp3tag 3.36.1 x64 executable, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. The original application, GUI and file writer were not executed.
 
 ## Evidence bindings

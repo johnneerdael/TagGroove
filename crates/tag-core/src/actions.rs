@@ -1046,11 +1046,22 @@ where
             let mut fields = state.fields.clone();
             for key in metadata_keys(&fields, field).map_err(ErrorCause::owned_text)? {
                 if let Some(values) = fields.get(&key) {
-                    let split = values
+                    let mut split: Vec<String> = values
                         .iter()
+                        .filter(|value| !value.is_empty())
                         .flat_map(|value| value.split(separator).map(|part| part.trim().to_owned()))
                         .collect();
-                    fields.insert(key, split);
+                    // Native publication compares raw piece count, before
+                    // removing empties, with the original value count.
+                    if split.len() == values.len() {
+                        continue;
+                    }
+                    split.retain(|value| !value.is_empty());
+                    if split.is_empty() {
+                        fields.remove(&key);
+                    } else {
+                        fields.insert(key, split);
+                    }
                 }
             }
             state.fields = fields;

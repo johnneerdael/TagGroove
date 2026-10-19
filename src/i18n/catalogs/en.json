@@ -794,7 +794,6 @@
  "Enable or disable the selected groups": "Enable or disable the selected groups",
  "Enable {name}": "Enable {name}",
  "Enclose the complete filter operand in one pair of quotes": "Enclose the complete filter operand in one pair of quotes",
- "Enclose the complete search string in one pair of quotes": "Enclose the complete search string in one pair of quotes",
  "Encrypted ID3v2 frames cannot be converted to another ID3v2 revision; original file preserved": "Encrypted ID3v2 frames cannot be converted to another ID3v2 revision; original file preserved",
  "End": "End",
  "Endif without If": "Endif without If",

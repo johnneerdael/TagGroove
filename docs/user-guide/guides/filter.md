@@ -25,7 +25,7 @@ The search does not require complete words: `harb` can match `Harbour`. An aster
 
 Write keywords such as `IS`, `HAS`, and `AND` in uppercase. Field names and compared text are case-insensitive. Quote a multiword value as one operand; the quotes group the filter text and are not part of the wanted tag value.
 
-`HAS` asks about contained words. `IS` asks whether a complete stored value equals the text. `MATCHES` runs a regular expression. These are different questions: `TITLE IS "Live*"` looks for the literal asterisk, while `TITLE MATCHES "^Live"` finds a value beginning with Live.
+Unquoted `HAS` asks about contained words; quoted `HAS` asks for a contiguous phrase. `IS` asks whether a complete stored value equals the text. `MATCHES` runs a regular expression. These are different questions: `TITLE IS "Live*"` looks for the literal asterisk, while `TITLE MATCHES "^Live"` finds a value beginning with Live.
 
 The complete [filter syntax reference](../reference/filter-syntax.md) covers all operators, missing versus empty fields, quoting, numeric rules, and format-string selectors.
 

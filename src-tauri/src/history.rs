@@ -553,6 +553,78 @@ mod tests {
     }
 
     #[test]
+    fn split_field_native_vectors_reach_real_save_and_exact_history() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let cases: serde_json::Value = serde_json::from_str(include_str!(
+            "../../crates/tag-core/tests/fixtures/parity-native/split-field.json"
+        ))
+        .unwrap();
+        let mut exercised = 0;
+        for case in cases.as_array().unwrap() {
+            // The pure model covers an explicitly empty string. WAV's writer
+            // normalizes that input to absence, so it is not a physical oracle.
+            if case["id"] == 5 {
+                continue;
+            }
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let _scope = IsolatedHistory::new(&root);
+            let audio = root.join("selected.wav");
+            let other = root.join("unselected.wav");
+            wav_with_opaque_chunk(&audio);
+            wav(&other, "Untouched");
+            let other_before = std::fs::read(&other).unwrap();
+            let values: Vec<String> = serde_json::from_value(case["input_values"].clone()).unwrap();
+            tag_core::write_fields(&audio, &Fields::from([("TITLE".into(), values.clone())]))
+                .unwrap();
+            assert_eq!(title(&audio), values, "setup case {}", case["id"]);
+            let before = std::fs::read(&audio).unwrap();
+            let pcm = riff_chunk(&audio, b"data");
+            let opaque = riff_chunk(&audio, b"uNKn");
+            let result = run(crate::execute_action_groups(
+                vec![audio.to_string_lossy().into_owned()],
+                vec![tag_core::actions::ActionGroup {
+                    name: "Split native vector".into(),
+                    enabled: true,
+                    actions: vec![tag_core::actions::ActionSpec::SplitField {
+                        field: "TITLE".into(),
+                        separator: case["delimiter"].as_str().unwrap().into(),
+                    }],
+                }],
+                None,
+            ));
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            let expected: Option<Vec<String>> =
+                serde_json::from_value(case["native_output_values"].clone()).unwrap();
+            assert_eq!(
+                tag_core::read_entry_summary(&audio)
+                    .unwrap()
+                    .fields
+                    .get("TITLE"),
+                expected.as_ref()
+            );
+            assert_eq!(riff_chunk(&audio, b"data"), pcm);
+            assert_eq!(riff_chunk(&audio, b"uNKn"), opaque);
+            assert_eq!(std::fs::read(&other).unwrap(), other_before);
+            let after = std::fs::read(&audio).unwrap();
+            let state = history_state().unwrap();
+            assert!(state.notice.is_none(), "{:?}", state.notice);
+            if case["id"] == 8 {
+                assert_eq!(after, before);
+                assert!(state.undo.is_none());
+            } else {
+                assert!(state.undo.is_some());
+                assert!(run(undo_last()).result.errors.is_empty());
+                assert_eq!(std::fs::read(&audio).unwrap(), before);
+                assert!(run(redo_last()).result.errors.is_empty());
+                assert_eq!(std::fs::read(&audio).unwrap(), after);
+            }
+            exercised += 1;
+        }
+        assert_eq!(exercised, 7);
+    }
+
+    #[test]
     fn startup_failure_is_nonfatal_and_notice_survives_until_a_recorded_save() {
         let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
         let dir = tempfile::tempdir().unwrap();

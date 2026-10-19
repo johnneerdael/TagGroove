@@ -11,7 +11,11 @@ An empty query matches every loaded file. A nonempty query without uppercase fil
 
 `Juniper Harbour` can match an artist containing Juniper and an album containing Harbour. The same words in another order have the same all-words requirement. Punctuation is literal in plain search, including parentheses, brackets, and `*`; a regular expression is used only with `MATCHES`.
 
-In the current TagGroove version, wrapping that whole plain query in double quotes still uses the all-words rule; it does not require an exact phrase in one field. To require the phrase in a particular field, use a regex filter such as `TITLE MATCHES "Juniper Harbour"`. This pattern contains literal letters and a space; ordinary `HAS` also uses the all-words rule. Whole-query quoted search currently differs from the traced Mp3tag behavior; a compatibility correction remains open.
+Wrap a plain query in double quotes to search for a contiguous phrase:
+`"Juniper Harbour"` requires those words together inside a searchable value.
+Without quotes, `Juniper Harbour` can find the two words in different metadata
+values. The same distinction applies to `HAS`: `ARTIST HAS Juniper Vale`
+requires both words, while `ARTIST HAS "Juniper Vale"` requires the phrase.
 
 Plain search includes metadata values plus the filename with extension. It excludes other technical values such as bitrate and full folder path. `* HAS text` searches tag values only, so it can differ from plain search when the text occurs only in the filename.
 
@@ -35,7 +39,7 @@ Plain search includes metadata values plus the filename with extension. It exclu
 
 Keywords must be uppercase. Field names and text comparisons ignore case. The all-tag-fields selector `*` is supported only with `HAS` and `MATCHES`; `* IS x` and `* PRESENT` are invalid. It excludes technical names beginning with `_` and does not add the filename.
 
-`IS` compares individual values. If ARTIST has `Juniper Vale` and `Mira Solberg`, `ARTIST IS "Juniper Vale"` succeeds. It does not compare a separator-joined display string. `HAS` can find its different words across those values.
+`IS` compares individual values. If ARTIST has `Juniper Vale` and `Mira Solberg`, `ARTIST IS "Juniper Vale"` succeeds. It does not compare a separator-joined display string. Unquoted `HAS` can find its different words across those values; quoted `HAS` requires the complete phrase in one value.
 
 ## Boolean precedence
 
@@ -185,8 +189,10 @@ expression. Fix the query and apply it again. A quotation error gives the
 character where its opening quote occurred, counting non-ASCII characters
 as one character each.
 
-Mixed quoted and bare text in one search or operand is currently rejected.
-For example, replace `hidden "orchestra"` with `"hidden orchestra"`, or
-`artist HAS hidden "orchestra"` with `artist HAS "hidden orchestra"`.
-This is the app's current restriction; exact Mp3tag behavior for mixed
-fragments remains unqualified.
+For plain search and `HAS`, a leading quoted phrase supplies the search text;
+trailing bare text is ignored. Thus `"hidden" orchestra` searches only for
+`hidden`. Quotes embedded in a bare-first operand remain literal characters:
+`hidden "orchestra"` requires both `hidden` and the literal `"orchestra"`.
+Prefer one complete quoted phrase or a clear unquoted word query so that the
+filter expresses the intended question. Other operators still enforce their
+own operand grammar; malformed leading quotes remain errors.

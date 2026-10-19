@@ -1,0 +1,200 @@
+[
+  {
+    "id": 1,
+    "fields": {
+      "TITLE": [
+        "blue"
+      ],
+      "ARTIST": [
+        "sky"
+      ]
+    },
+    "expression": "blue sky",
+    "native_compiles": true,
+    "native_matches": true,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "Bare plain text becomes separate lowercased AND needles across the vertical-tab-separated field aggregate.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 2,
+    "fields": {
+      "TITLE": [
+        "blue"
+      ],
+      "ARTIST": [
+        "sky"
+      ]
+    },
+    "expression": "\"blue sky\"",
+    "native_compiles": true,
+    "native_matches": false,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "Quoted plain text becomes one phrase needle; vertical-tab between fields does not equal its space.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 3,
+    "fields": {
+      "TITLE": [
+        "blue"
+      ]
+    },
+    "expression": "\"blue\" sky",
+    "native_compiles": true,
+    "native_matches": true,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "No operator fast path extracts first quoted prefix blue, ignores trailing sky, and makes one phrase needle.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 4,
+    "fields": {
+      "TITLE": [
+        "blue sky"
+      ]
+    },
+    "expression": "blue \"sky\"",
+    "native_compiles": true,
+    "native_matches": false,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "Bare-first extraction preserves embedded quote bytes; the second required needle is literal doublequote-sky-doublequote, absent here.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 5,
+    "fields": {
+      "TITLE": [
+        "blue"
+      ]
+    },
+    "expression": "TITLE HAS \"blue\" sky",
+    "native_compiles": true,
+    "native_matches": true,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "HAS parses quoted right prefix blue without a remainder check; matches TITLE blue.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 6,
+    "fields": {
+      "TITLE": [
+        "blue sky"
+      ]
+    },
+    "expression": "TITLE HAS blue \"sky\"",
+    "native_compiles": true,
+    "native_matches": false,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "HAS bare right side retains quotes; required quoted-sky needle is absent.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 7,
+    "fields": {
+      "A": [
+        "1"
+      ],
+      "B": [
+        "0"
+      ],
+      "C": [
+        "0"
+      ]
+    },
+    "expression": "A IS 1 OR B IS 1 AND C IS 1",
+    "native_compiles": true,
+    "native_matches": true,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "OR table priority splits first; recursive right subtree is AND: true OR(false AND false).",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 8,
+    "fields": {
+      "A": [
+        "1"
+      ],
+      "B": [
+        "0"
+      ],
+      "C": [
+        "0"
+      ]
+    },
+    "expression": "(A IS 1 OR B IS 1) AND C IS 1",
+    "native_compiles": true,
+    "native_matches": false,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "Scanner treats parenthesized left expression as one atom; explicit outer AND =>false.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 9,
+    "fields": {
+      "A": [
+        "1"
+      ],
+      "B": [
+        "0"
+      ],
+      "C": [
+        "0"
+      ]
+    },
+    "expression": "A IS 1 OR (B IS 1 AND C IS 1)",
+    "native_compiles": true,
+    "native_matches": true,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "Explicit grouping agrees with unparenthesized OR/AND priority.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 10,
+    "fields": {
+      "A": [
+        "1"
+      ],
+      "B": [
+        "0"
+      ],
+      "C": [
+        "0"
+      ]
+    },
+    "expression": "NOT A IS 1 AND B IS 1",
+    "native_compiles": true,
+    "native_matches": false,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "AND splits outer expression; NOT is left child over IS, not the whole AND. NOT true AND false =>false.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 11,
+    "fields": {
+      "TITLE": [
+        "blue"
+      ]
+    },
+    "expression": "\"blue",
+    "native_compiles": false,
+    "native_matches": null,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "Plain operand extraction starts with quote, cannot find a closing quote, and throws the native filter-parse exception; original GUI error presentation unexecuted.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  },
+  {
+    "id": 12,
+    "fields": {
+      "TITLE": [
+        "blue"
+      ]
+    },
+    "expression": "TITLE HAS",
+    "native_compiles": false,
+    "native_matches": null,
+    "native_authority": "static prediction from closed current native parser/predicate path; no original execution",
+    "why": "HAS is detected at word boundary; empty RHS throws the native filter-parse exception; original GUI error presentation unexecuted.",
+    "native_context": "only declared tag fields; filename_ext=song.mp3 contains none of the search terms"
+  }
+]

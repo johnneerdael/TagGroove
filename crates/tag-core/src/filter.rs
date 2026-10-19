@@ -45,22 +45,12 @@ pub fn compile_filter(query: &str) -> Result<Filter, String> {
         .iter()
         .any(|token| filter_keywords.iter().any(|word| token.keyword(word)))
     {
-        let text = if tokens.len() == 1 {
-            match &tokens[0].kind {
-                TokenKind::Text(text, true) => text.as_str(),
-                _ => query.trim(),
-            }
-        } else {
-            if tokens
-                .iter()
-                .any(|token| matches!(token.kind, TokenKind::Text(_, true)))
-            {
-                return Err("Enclose the complete search string in one pair of quotes".into());
-            }
-            query.trim()
+        let terms = match &tokens[0].kind {
+            TokenKind::Text(text, true) => search_terms(text, true),
+            _ => search_terms(query.trim(), false),
         };
         return Ok(Filter {
-            expression: Expression::Search(words(text)),
+            expression: Expression::Search(terms),
         });
     }
     let mut parser = Parser {
@@ -147,6 +137,14 @@ fn words(text: &str) -> Vec<String> {
         .filter(|word| !word.is_empty())
         .map(str::to_lowercase)
         .collect()
+}
+
+fn search_terms(text: &str, quoted: bool) -> Vec<String> {
+    if quoted {
+        vec![text.to_lowercase()]
+    } else {
+        words(text)
+    }
 }
 
 fn contains_words(values: &[Cow<'_, str>], words: &[String]) -> bool {
@@ -433,7 +431,20 @@ impl Parser<'_> {
         Ok(self.query[self.tokens[start].start..self.tokens[end - 1].end].to_owned())
     }
 
-    fn rhs(&mut self) -> Result<String, String> {
+    fn literal_operand(&self, start: usize, end: usize) -> Result<(String, bool), String> {
+        if start == end {
+            return Err("Missing filter operand".into());
+        }
+        if let TokenKind::Text(text, true) = &self.tokens[start].kind {
+            return Ok((text.clone(), true));
+        }
+        Ok((
+            self.query[self.tokens[start].start..self.tokens[end - 1].end].to_owned(),
+            false,
+        ))
+    }
+
+    fn rhs(&mut self, literal_fragments: bool) -> Result<(String, bool), String> {
         let start = self.position;
         let mut depth = 0usize;
         while let Some(token) = self.tokens.get(self.position) {
@@ -454,7 +465,10 @@ impl Parser<'_> {
         if depth != 0 {
             return Err("Unclosed parentheses in filter operand".into());
         }
-        self.text(start, self.position)
+        if literal_fragments {
+            return self.literal_operand(start, self.position);
+        }
+        Ok((self.text(start, self.position)?, false))
     }
 
     fn predicate(&mut self) -> Result<Expression, String> {
@@ -477,7 +491,6 @@ impl Parser<'_> {
             }
             self.position += 1;
         }
-        let lhs = self.text(start, self.position)?;
         let Some(operator) = self
             .tokens
             .get(self.position)
@@ -490,8 +503,10 @@ impl Parser<'_> {
             })
             .filter(|word| keywords.contains(&word.as_str()))
         else {
-            return Ok(Expression::Search(words(&lhs)));
+            let (lhs, quoted) = self.literal_operand(start, self.position)?;
+            return Ok(Expression::Search(search_terms(&lhs, quoted)));
         };
+        let lhs = self.text(start, self.position)?;
         self.position += 1;
         let presence = ["PRESENT", "MISSING", "ABSENT"].contains(&operator.as_str());
         let selector = if lhs == "*" {
@@ -528,9 +543,9 @@ impl Parser<'_> {
         let operation = if presence {
             Operation::Present(operator == "PRESENT")
         } else {
-            let rhs = self.rhs()?;
+            let (rhs, quoted) = self.rhs(operator == "HAS")?;
             match operator.as_str() {
-                "HAS" => Operation::Has(words(&rhs)),
+                "HAS" => Operation::Has(search_terms(&rhs, quoted)),
                 "IS" => Operation::Is(rhs.to_lowercase()),
                 "MATCHES" => Operation::Matches(regex(&rhs, true).map_err(|error| {
                     format!("Invalid regular expression in MATCHES operand: {error}")

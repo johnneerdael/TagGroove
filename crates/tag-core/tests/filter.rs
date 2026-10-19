@@ -209,7 +209,8 @@ fn ordinary_search_preserves_literal_parentheses_and_brackets() {
     assert!(matches_filter("symphony (猫)", &f).unwrap());
     assert!(matches_filter("(猫)", &f).unwrap());
     assert!(!matches_filter("(wrong)", &f).unwrap());
-    assert!(matches_filter("\"symphony (猫)\"", &f).unwrap());
+    assert!(!matches_filter("\"symphony (猫)\"", &f).unwrap());
+    assert!(matches_filter("\"Symphony No. 3 (猫)\"", &f).unwrap());
     assert!(matches_filter("genre HAS electronic AND title HAS (猫)", &f).unwrap());
 }
 
@@ -283,12 +284,24 @@ fn error_messages_identify_the_failed_filter_context() {
     let error = compile_filter("猫 HAS \"unfinished").unwrap_err();
     assert!(error.contains("character 7"), "{error}");
     assert!(error.contains("Close the double quote"), "{error}");
-    // Preserve the current explicit refusal until original mixed-quote semantics
-    // are qualified; never silently turn a fragment into another expression.
-    assert!(compile_filter("hidden \"orchestra\"")
-        .unwrap_err()
-        .contains("complete search string"));
-    assert!(compile_filter("artist HAS hidden \"orchestra\"")
-        .unwrap_err()
-        .contains("complete filter operand"));
+    // Bare embedded quotes are literal; a leading quoted prefix is a phrase.
+    assert!(!matches_filter("hidden \"orchestra\"", &fields()).unwrap());
+    assert!(!matches_filter("artist HAS hidden \"orchestra\"", &fields()).unwrap());
+    assert!(matches_filter("\"hidden\" ignored", &fields()).unwrap());
+}
+
+#[test]
+fn quoted_search_and_has_require_contiguous_text_inside_one_value() {
+    let f = Fields::from([("TITLE".into(), vec!["blue".into(), "sky".into()])]);
+    assert!(matches_filter("blue sky", &f).unwrap());
+    assert!(matches_filter("TITLE HAS blue sky", &f).unwrap());
+    assert!(!matches_filter("\"blue sky\"", &f).unwrap());
+    assert!(!matches_filter("TITLE HAS \"blue sky\"", &f).unwrap());
+    assert!(!matches_filter("\"blue sky\" OR TITLE IS missing", &f).unwrap());
+    let f = Fields::from([("TITLE".into(), vec!["blue sky".into()])]);
+    assert!(matches_filter("\"blue sky\"", &f).unwrap());
+    assert!(matches_filter("TITLE HAS \"blue sky\"", &f).unwrap());
+    let f = Fields::from([("TITLE".into(), vec!["blue \"sky\"".into()])]);
+    assert!(matches_filter("blue \"sky\"", &f).unwrap());
+    assert!(matches_filter("TITLE HAS blue \"sky\"", &f).unwrap());
 }

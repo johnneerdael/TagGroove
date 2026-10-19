@@ -17,6 +17,11 @@ qualification records. L67 retains cross-session lifecycle work and N04 retains
 column/self-reference semantic research. The [repair evidence ledger](verification/four-parity-repairs-2026-10-19.md)
 records focused results and their limits; these are not full parity or release proof.
 
+C55/C56 now cover the native-derived filter-quoting and Split Field publication
+repairs. Their original-runtime acceptance remains with those records; these
+implemented behaviors have left active intake. See the [local closeout evidence](verification/local-parity-closeout-2026-10-19.md)
+and [OS/device handover register](handover/PARITY-OTHER-MACHINES.md).
+
 Windows-specific work and original Windows captures are **deferred by the owner**. Retain those requirements as unqualified; continue the cross-platform work without treating deferral as completion.
 
 ## Uncovered work
@@ -28,10 +33,8 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 | L04 | Menus | Qualify Windows Properties versus the current Alt+Enter file-manager reveal route and choose the platform behavior from observed reference evidence. | [Scope and evidence](research/remaining-gaps.md#l04) |
 | L05 | Tag panel | Qualify a separate OS-window floating panel; the existing undocked panel is an in-window overlay. | [Scope and evidence](research/remaining-gaps.md#l05) |
 | L07 | Migration | Determine unsupported/undocumented columns.ini keys from populated original profiles; guided import does not extend the existing known-key parser. | [Scope and evidence](research/remaining-gaps.md#l07) |
-| L11 | Filters | Correct confirmed quoted-search semantics: a fully quoted plain query must retain phrase matching, leading quoted fragments and bare embedded quotes differ from current refusals. Native static predictions and 12 public-port cases identify five differences; preserve matching precedence and malformed-query controls. | [Scope and evidence](research/remaining-gaps.md#l11) |
 | L13 | Covers | Establish Original-format fallback for TIFF/unknown input; current Adjust Cover requires JPEG or PNG for these inputs. | [Scope and evidence](research/remaining-gaps.md#l13) |
 | L14 | Actions | Observe original Remove Fields Except behavior for unmapped PRIV/GEOB/chapter frames before changing their retention. | [Scope and evidence](research/remaining-gaps.md#l14) |
-| L15 | Actions | Correct Split Field empty-piece and field-removal handling, and preserve original values when the total raw split-piece count is unchanged. Eight native-derived public-port cases differ; literal separators, value order and duplicate retention are already implemented. | [Scope and evidence](research/remaining-gaps.md#l15) |
 | L17 | Action interchange | Implement the confirmed native Type 17/18/19 action-file schemas for Adjust Cover, Set Cover Properties and Generate Playlists, preserving legacy 1001–1003 records and option meaning. Renumbering alone is unsafe; original generated-file/re-import acceptance remains separate. | [Scope and evidence](research/remaining-gaps.md#l17) |
 | L18 | Mobile actions | Implement provider execution for in-place tag/embedded-artwork action groups, plus file, cover-file and rename actions. Only in-place validation exists; the managed command still rejects all action groups. Qualify actual device save-back separately. | [Scope and evidence](research/remaining-gaps.md#l18) |
 | L19 | Converters | Compare a nonmatching explicit Filename → Filename suffix: song.mp3 plus %1.flac currently becomes song.flac.mp3. Matching suffixes are already deduplicated ignoring case. | [Scope and evidence](research/remaining-gaps.md#l19) |

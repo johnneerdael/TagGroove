@@ -1,0 +1,118 @@
+[
+  {
+    "id": 1,
+    "field": "TITLE",
+    "input_values": [
+      "a;;b"
+    ],
+    "delimiter": ";",
+    "native_output_values": [
+      "a",
+      "b"
+    ],
+    "native_field_present": true,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "Adjacent separator emits empty internal piece, then publication branch removes empty strings."
+  },
+  {
+    "id": 2,
+    "field": "TITLE",
+    "input_values": [
+      ";a"
+    ],
+    "delimiter": ";",
+    "native_output_values": [
+      "a"
+    ],
+    "native_field_present": true,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "Leading empty piece is removed."
+  },
+  {
+    "id": 3,
+    "field": "TITLE",
+    "input_values": [
+      "a;"
+    ],
+    "delimiter": ";",
+    "native_output_values": [
+      "a"
+    ],
+    "native_field_present": true,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "Trailing empty piece is explicitly appended by splitter and removed before metadata assignment."
+  },
+  {
+    "id": 4,
+    "field": "TITLE",
+    "input_values": [
+      ";;"
+    ],
+    "delimiter": ";",
+    "native_output_values": null,
+    "native_field_present": false,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "Three empty pieces become zero stored values; field index is queued for metadata removal."
+  },
+  {
+    "id": 5,
+    "field": "TITLE",
+    "input_values": [
+      ""
+    ],
+    "delimiter": ";",
+    "native_output_values": null,
+    "native_field_present": false,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "Empty input adds no split pieces; original count1 versus output0 enters removal branch."
+  },
+  {
+    "id": 6,
+    "field": "TITLE",
+    "input_values": [
+      "a;;b",
+      "c;d",
+      "a"
+    ],
+    "delimiter": ";",
+    "native_output_values": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "a"
+    ],
+    "native_field_present": true,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "Every existing value is split and appended in input order; empty pieces removed, duplicatea preserved."
+  },
+  {
+    "id": 7,
+    "field": "TITLE",
+    "input_values": [
+      "a.*b.*"
+    ],
+    "delimiter": ".*",
+    "native_output_values": [
+      "a",
+      "b"
+    ],
+    "native_field_present": true,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "Delimiter is full literal UTF16 substring, not regex; trailing empty removed."
+  },
+  {
+    "id": 8,
+    "field": "TITLE",
+    "input_values": [
+      " a "
+    ],
+    "delimiter": ";",
+    "native_output_values": [
+      " a "
+    ],
+    "native_field_present": true,
+    "native_authority": "static factory/Run/metadata prediction; no original execution",
+    "why": "No delimiter => original count1 equals split count1, so no setter/removal called; transient trim is not published."
+  }
+]
