@@ -1,12 +1,14 @@
 # Daily workflows: C58–C60 — 2026-10-19
 
 This receipt represents the locally implemented toolbar-band, ordinary restart
-and loaded-row date-refresh scopes in draft PR64. It removes those
+and loaded-row date-refresh scopes in PR64. It removes those
 implementation tasks from [active intake](../PARITY.md), retaining their
 historical L02/L47b/L60 anchors on [C58–C60](../research/remaining-gaps.md#c58).
 C57 is reserved for the separately coordinated native action-file repair.
-There is no release, immutable final-head CI, final GitHub Codex approval or
-native journey claim here.
+The implementation checks below retain their original source checkpoints.
+Later named native journeys are recorded in the
+[native workspace receipt](native-workspace-acceptance-2026-10-19.md). Neither
+receipt supplies release or original Windows-runtime proof.
 
 ## C58: toolbar bands
 
@@ -122,31 +124,22 @@ harnesses omitted the newly accessed error-state fixture. That output remains
 cohort rerun to the 102/102 result above. Neither that intermediate failure nor
 earlier source-bound counts are represented as final-head integration proof.
 
-## Native journeys: zero executed
+## Native journeys: completed cases and remaining work
 
-The prepared local workspace is `/tmp/taggroove-native-daily.y4p1t7ee/`, with
-isolated configuration identifier
-`org.opentag.editor.e2e.daily20261019.y4p1t7ee`, generated/copied WAV fixtures,
-source playlist, CUE rows, baseline SHA-256s and a read-only inspection hook.
-Its `PROCEDURE.md` records build/launch arguments and the required native
-journeys. The preparation has not built or launched a native app, browser or
-server, and has not changed OS preferences.
+The original preparation at `/tmp/taggroove-native-daily.y4p1t7ee/` supplied
+fixtures and a procedure; it supplied no runtime result at that checkpoint.
+Subsequent native runs are recorded with their separate source/executable pins
+in the [native workspace receipt](native-workspace-acceptance-2026-10-19.md).
 
-These checks remain assigned to the available Mac:
+| Scope | Named native macOS cases completed | Still pending on this Mac |
+| --- | --- | --- |
+| C58 | All four arrangements through native controls; save/reopen/Cancel, ordinary restart and list/left/right filter docks with typing/Enter/F3. Normal/compact geometry and a separate fresh compact Files/Tags/select/restart control are observed. | VoiceOver, broader keyboard/IME/accessibility and the retained AX/AppKit menu-tracking observation. The geometry case does not certify all controls at every size. |
+| C59 / C47 | Manual reorder and normal restarts, independent source/manual/column modes, exact CUE and embedded chapter identities, missing-CUE recovery, corrupt-JSON retention and native folder-picker recovery. Running-app explicit replace/add and relative paths with spaces plus pending-edit No/Yes are observed. | Actual storage-quota refusal/retry and queued arrivals during restoration; broader native input/accessibility. |
+| C60 | Source-bound formatter/handler controls above; no actual OS-preference-transition result. | Actual live region, custom date-pattern and timezone transitions while tags/artwork remain staged. Observe loaded-row changes without a rescan/save and preserve RAW values and whole-media hashes. |
 
-1. C58: actual screenshots and keyboard/pointer/accessibility for all four
-   arrangements, save/Cancel/reopen, list/left/right filter docks and normal/
-   compact geometry.
-2. C59: actual normal-close/restart twice in manual mode; independent source
-   and column modes; exact CUE/chapter identities; missing/corrupt-row and
-   storage-failure recovery; explicit and queued native launch priority.
-3. C60: final integrated-head regression and actual live region, custom date
-   pattern and timezone transitions while tags/artwork remain staged. Observe
-   loaded-row updates without a rescan/save, retaining RAW and complete media
-   hashes and the real native/source identity.
-
-Windows/Linux runtime checks and original Windows 3.36.1 comparisons remain
-separate [handover assignments](../handover/PARITY-OTHER-MACHINES.md).
-Synthetic DOM events, direct backend calls and explicit CoreFoundation controls
-do not supply native hit-testing, real app restart or an observed OS-settings
-transition. Preparation and represented implementation are not acceptance.
+These cases narrow their named acceptance requirements; they do not close C58,
+C59, C60 or the cross-cutting L78/L79 qualifications. Retained earlier failures
+and limits remain visible. Use [the environment register](../handover/PARITY-OTHER-MACHINES.md)
+and [engineer procedures](../handover/PARITY-VERIFICATION-PROCEDURES.md) for native
+Windows/Linux and original Windows 3.36.1 work. Synthetic DOM events, direct
+backend calls and CoreFoundation controls keep their separate evidence limits.
