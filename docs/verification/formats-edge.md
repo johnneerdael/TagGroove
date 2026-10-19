@@ -34,7 +34,7 @@ on a desktop; UI checks run headless in CI only.
   points to `COMMENT <description>` (previously written as `Comment 1`… frames,
   which would now read back as separate fields). Lyrics keep one text per
   language.
-- UNIQUEFILEID uses `owner|identifier`, like POPULARIMETER's `|` syntax.
+- TagGroove's UNIQUEFILEID text grammar is `owner|identifier`, chosen by analogy with POPULARIMETER's `|` syntax. The inspected original mapping documents the UFID field/frame identity; it does not establish that owner/identifier edit grammar. Original edit/readback remains L34.
 - Reuse off means: on every save a TXXX frame named after a documented field
   that lives elsewhere (TXXX:MOOD in ID3v2.4, TXXX:MUSICBRAINZ_ALBUMID) and a
   freeform/alternative MP4 atom (`----:com.apple.iTunes:COMPOSER`, `©art`)
