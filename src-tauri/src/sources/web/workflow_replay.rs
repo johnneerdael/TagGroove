@@ -1,10 +1,17 @@
+#![cfg(test)]
+
 //! Independent saved-page → production review → real writer/history control.
 //! HTTP acquisition is deliberately outside this filesystem replay's evidence.
 use super::*;
 use base64::Engine;
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, ops::Range, path::PathBuf, process::Command};
+use std::{
+    collections::BTreeMap,
+    ops::Range,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 fn png(width: u32) -> Vec<u8> {
     let mut bytes = std::io::Cursor::new(Vec::new());
@@ -254,6 +261,7 @@ fn replay(scenario: &str) {
             cover_url,
             private_input: false,
         },
+        None,
     );
 }
 
@@ -272,7 +280,7 @@ struct ReplayReview {
 
 /// Reuse the production review and the existing writer/history seam for every
 /// parser fixture. The image is controlled bytes, never a network acquisition.
-fn review_and_save(root: &Path, replay: ReplayReview) {
+fn review_and_save(root: &Path, replay: ReplayReview, public: Option<&PublicReplay>) {
     let matched = replay.expected_updates.len();
     assert!(matched > 0);
     assert!(replay
@@ -317,8 +325,31 @@ fn review_and_save(root: &Path, replay: ReplayReview) {
     std::fs::write(&saved_cover, &old_png).unwrap();
     let input = root.join("review-input.json");
     let output = root.join("review-output.json");
-    std::fs::write(&input, serde_json::to_vec(&json!({"version":1,"scenario":replay.scenario,"source":{"id":replay.source_id,"name":"Offline parser replay"},"checked_fields":checked_fields,"files":files,"search":replay.search,"release":replay.release,"png":base64::engine::general_purpose::STANDARD.encode(&image_bytes)})).unwrap()).unwrap();
-    let child = review_helper(&input, &output);
+    let search_by = public.map(|p| load(&p.installed, &replay.source_id).unwrap().search_by);
+    std::fs::write(&input, serde_json::to_vec(&json!({"version":1,"scenario":replay.scenario,"source":{"id":replay.source_id,"name":"Offline parser replay","search_by":search_by},"checked_fields":checked_fields,"files":files,"search":replay.search,"release":replay.release,"png":base64::engine::general_purpose::STANDARD.encode(&image_bytes),"transport":public.map(|_|"public-acquisition-v1"),"values":public.map(|p|&p.values),"direct":replay.search.direct,"bridge_control":std::env::var("TAGGROOVE_WORKFLOW_BRIDGE_CONTROL").ok()})).unwrap()).unwrap();
+    crate::history::TEST_ROOTS
+        .lock()
+        .unwrap()
+        .push(root.to_path_buf());
+    let expected_items = replay
+        .expected_updates
+        .iter()
+        .enumerate()
+        .map(|(i, updates)| json!({"path":paths[i].to_string_lossy(),"updates":updates}))
+        .collect::<Vec<_>>();
+    let expected_cover = json!({"url":replay.cover_url,"replace_existing":true,"save_as":"folder"});
+    let child = if let Some(public) = public {
+        public_review_helper(
+            &input,
+            &output,
+            public,
+            &expected_items,
+            &expected_cover,
+            &image_bytes,
+        )
+    } else {
+        review_helper(&input, &output)
+    };
     assert!(
         child.status.success(),
         "production review helper failed: {}",
@@ -363,27 +394,25 @@ fn review_and_save(root: &Path, replay: ReplayReview) {
     let cover: crate::sources::ApplyCover =
         serde_json::from_value(reviewed["cover"].clone()).unwrap();
     let image = http::Image::validate(image_bytes.clone()).unwrap();
-    crate::history::TEST_ROOTS
-        .lock()
-        .unwrap()
-        .push(root.to_path_buf());
-    let report = crate::sources::write_import_diagnostic(
-        &items,
-        Some(&image),
-        &crate::sources::ImportCover {
-            replace: cover.replace_existing,
-            preserve: cover.preserve_existing,
-            save_as: cover.save_as,
-        },
-        &crate::evaluation_settings(None).unwrap(),
-    )
-    .unwrap();
-    assert!(
-        report.result.errors.is_empty(),
-        "{:?}",
-        report.result.errors
-    );
-    assert_eq!(report.result.entries.len(), matched);
+    if public.is_none() {
+        let report = crate::sources::write_import_diagnostic(
+            &items,
+            Some(&image),
+            &crate::sources::ImportCover {
+                replace: cover.replace_existing,
+                preserve: cover.preserve_existing,
+                save_as: cover.save_as,
+            },
+            &crate::evaluation_settings(None).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            report.result.errors.is_empty(),
+            "{:?}",
+            report.result.errors
+        );
+        assert_eq!(report.result.entries.len(), matched);
+    }
     let written: Vec<_> = paths.iter().map(|p| std::fs::read(p).unwrap()).collect();
     let saved_pcm: Vec<_> = written
         .iter()
@@ -457,7 +486,7 @@ fn review_and_save(root: &Path, replay: ReplayReview) {
     };
     println!(
         "WORKFLOW_RECEIPT {}",
-        json!({"scenario":replay.scenario,"case":replay.label,"independent_fixture":true,"private_parser":replay.private_input,"matched":matched,"untouched":1,"network_requests":reviewed["network_requests"],"history":{"label":history["undo"]["label"],"files":history["undo"]["files"]},"audio_sha256":{"before":hashes(&originals),"saved":hashes(&written),"undo":hashes(&undone),"redo":hashes(&redone)},"pcm_sha256":{"before":pcm_hashes(&originals),"saved":pcm_hashes(&written),"undo":pcm_hashes(&undone),"redo":pcm_hashes(&redone)},"pcm_mutation_control_detected":pcm_mutation_detected,"saved_cover_sha256":format!("{:x}",Sha256::digest(&image_bytes))})
+        json!({"scenario":replay.scenario,"case":replay.label,"independent_fixture":true,"private_parser":replay.private_input,"public_acquisition":public.is_some(),"matched":matched,"untouched":1,"network_requests":reviewed["network_requests"],"history":{"label":history["undo"]["label"],"files":history["undo"]["files"]},"audio_sha256":{"before":hashes(&originals),"saved":hashes(&written),"undo":hashes(&undone),"redo":hashes(&redone)},"pcm_sha256":{"before":pcm_hashes(&originals),"saved":pcm_hashes(&written),"undo":pcm_hashes(&undone),"redo":pcm_hashes(&redone)},"pcm_mutation_control_detected":pcm_mutation_detected,"saved_cover_sha256":format!("{:x}",Sha256::digest(&image_bytes))})
     );
     assert_eq!(
         serde_json::to_value(tauri::async_runtime::block_on(crate::history::undo_last()).unwrap())
@@ -487,6 +516,882 @@ struct PrivateReplay {
     expected_artist: String,
     expected_cover_url: String,
     expected_updates: Fields,
+}
+
+/// External-only inputs and independent expectations for the public acquisition
+/// route. This schema contains no script bodies or baked-in provider fixtures.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PublicManifest {
+    version: u32,
+    private_manifest: PathBuf,
+    values: Vec<String>,
+    index: Option<PathBuf>,
+    search_url: String,
+    page_url: String,
+    expected_search: Value,
+    input_sha256: BTreeMap<PathBuf, String>,
+}
+struct PublicReplay {
+    installed: PathBuf,
+    fixture: PrivateReplay,
+    manifest: PublicManifest,
+    values: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BridgeRequest {
+    version: u32,
+    id: u64,
+    command: String,
+    args: Value,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SearchArgs {
+    source: String,
+    values: Vec<String>,
+    ticket: u64,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReleaseArgs {
+    source: String,
+    url: String,
+    ticket: u64,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImageArgs {
+    url: String,
+    ticket: u64,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ApplyArgs {
+    items: Value,
+    cover: Value,
+    columns: Value,
+}
+
+/// Kill and reap the child even when a pipe blocks, a protocol assertion
+/// panics, or the child closes stdout but keeps running. The watchdog owns an
+/// independent deadline; it does not depend on Node timers or pipe progress.
+struct BridgeChild {
+    child: std::sync::Arc<std::sync::Mutex<std::process::Child>>,
+    stop: Option<std::sync::mpsc::Sender<()>>,
+    watchdog: Option<std::thread::JoinHandle<()>>,
+    timed_out: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    killed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    reaped: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+impl BridgeChild {
+    fn new(child: std::process::Child, timeout: std::time::Duration) -> Self {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            mpsc, Arc, Mutex,
+        };
+        let child = Arc::new(Mutex::new(child));
+        let timed_out = Arc::new(AtomicBool::new(false));
+        let killed = Arc::new(AtomicBool::new(false));
+        let reaped = Arc::new(AtomicBool::new(false));
+        let (stop, receive) = mpsc::channel();
+        let (process, expired, terminated, waited) = (
+            child.clone(),
+            timed_out.clone(),
+            killed.clone(),
+            reaped.clone(),
+        );
+        let watchdog = std::thread::spawn(move || {
+            if matches!(
+                receive.recv_timeout(timeout),
+                Err(mpsc::RecvTimeoutError::Timeout)
+            ) {
+                expired.store(true, Ordering::SeqCst);
+                let mut child = process.lock().unwrap_or_else(|p| p.into_inner());
+                if child.try_wait().ok().flatten().is_none() {
+                    child.kill().expect("bridge deadline kill");
+                    terminated.store(true, Ordering::SeqCst);
+                }
+                child.wait().expect("bridge deadline reap");
+                waited.store(true, Ordering::SeqCst);
+            }
+        });
+        Self {
+            child,
+            stop: Some(stop),
+            watchdog: Some(watchdog),
+            timed_out,
+            killed,
+            reaped,
+        }
+    }
+    fn expired(&self) -> bool {
+        self.timed_out.load(std::sync::atomic::Ordering::SeqCst)
+    }
+    fn finish(&mut self, force: bool) -> std::process::ExitStatus {
+        use std::sync::atomic::Ordering;
+        let status = loop {
+            {
+                let mut child = self.child.lock().unwrap_or_else(|p| p.into_inner());
+                if let Some(status) = child.try_wait().expect("bridge status") {
+                    break status;
+                }
+                if force {
+                    child.kill().expect("bridge refusal kill");
+                    self.killed.store(true, Ordering::SeqCst);
+                    break child.wait().expect("bridge refusal reap");
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        };
+        self.reaped.store(true, Ordering::SeqCst);
+        if let Some(stop) = self.stop.take() {
+            let _ = stop.send(());
+        }
+        if let Some(watchdog) = self.watchdog.take() {
+            watchdog.join().expect("bridge watchdog");
+        }
+        status
+    }
+}
+impl Drop for BridgeChild {
+    fn drop(&mut self) {
+        self.finish(true);
+    }
+}
+
+fn public_review_helper(
+    input: &Path,
+    output: &Path,
+    public: &PublicReplay,
+    expected_items: &[Value],
+    expected_cover: &Value,
+    image: &[u8],
+) -> std::process::Output {
+    use std::io::{BufRead, BufReader, Read, Write};
+    let root = input.parent().unwrap();
+    let mut observed = std::fs::read_dir(root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "wav"))
+        .collect::<Vec<_>>();
+    observed.push(root.join("folder.png"));
+    observed.sort();
+    let before = observed
+        .iter()
+        .map(|p| std::fs::read(p).unwrap())
+        .collect::<Vec<_>>();
+    let history_before = serde_json::to_value(crate::history::history_state().unwrap()).unwrap();
+    let transport_before = http::fixture::active_counts();
+    let control = std::env::var("TAGGROOVE_WORKFLOW_BRIDGE_CONTROL").ok();
+    assert!(
+        matches!(
+            control.as_deref(),
+            None | Some("large-stderr" | "stall" | "closed-protocol")
+        ),
+        "unknown bridge control"
+    );
+    let mut child = Command::new("node")
+        .arg(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../tests/helpers/source-workflow-review.mjs"),
+        )
+        .arg(input)
+        .arg(output)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("public review requires Node");
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stderr = child.stderr.take().unwrap();
+    let started = std::time::Instant::now();
+    let mut child = BridgeChild::new(
+        child,
+        std::time::Duration::from_secs(if control.as_deref() == Some("stall") {
+            1
+        } else {
+            30
+        }),
+    );
+    // Drain continuously, retain only 64 KiB, and count the discarded bytes.
+    // A data-URL stack trace must never fill the pipe or exhaust parent memory.
+    let stderr_reader = std::thread::spawn(move || {
+        let mut retained = Vec::new();
+        let mut total = 0usize;
+        let mut buffer = [0u8; 8192];
+        loop {
+            let count = stderr.read(&mut buffer).expect("bridge stderr read");
+            if count == 0 {
+                break;
+            }
+            total = total.saturating_add(count);
+            let keep = count.min((64 * 1024usize).saturating_sub(retained.len()));
+            retained.extend_from_slice(&buffer[..keep]);
+        }
+        (retained, total)
+    });
+    let mut sequence = 0;
+    let mut searched = false;
+    let mut released = false;
+    let mut images = 0;
+    let mut applied = false;
+    let mut failure = None;
+    loop {
+        let mut line = Vec::new();
+        let length = (&mut stdout)
+            .take(1024 * 1024 + 1)
+            .read_until(b'\n', &mut line)
+            .unwrap();
+        if length == 0 {
+            if child.expired() {
+                failure = Some("bridge parent deadline");
+            } else if !applied {
+                failure = Some("bridge closed before apply");
+            }
+            break;
+        }
+        if length > 1024 * 1024 || line.last() != Some(&b'\n') {
+            failure = Some("bridge request bound");
+            break;
+        }
+        let request: BridgeRequest = match serde_json::from_slice(&line) {
+            Ok(request) => request,
+            Err(_) => {
+                failure = Some("bridge schema");
+                break;
+            }
+        };
+        sequence += 1;
+        if request.version != 1 || request.id != sequence || sequence > 24 {
+            failure = Some("bridge sequence");
+            break;
+        }
+        // Errors sent back to Node intentionally omit private script diagnostics.
+        let result: Result<Value, &'static str> = tauri::async_runtime::block_on(async {
+            match request.command.as_str() {
+                "web_source_search" => {
+                    let args: SearchArgs =
+                        serde_json::from_value(request.args).map_err(|_| "search schema")?;
+                    if searched
+                        || args.source != public.fixture.source
+                        || args.values != public.values
+                    {
+                        return Err("search oracle");
+                    }
+                    let found = search_with_preparation(
+                        args.source.clone(),
+                        args.values,
+                        args.ticket,
+                        prepare_in(public.installed.clone(), &args.source),
+                    )
+                    .await
+                    .map_err(|_| "search refused")?;
+                    let found = serde_json::to_value(found).unwrap();
+                    if found != public.manifest.expected_search {
+                        return Err("independent index oracle");
+                    }
+                    searched = true;
+                    Ok(found)
+                }
+                "web_source_release" => {
+                    let args: ReleaseArgs =
+                        serde_json::from_value(request.args).map_err(|_| "release schema")?;
+                    if !searched
+                        || released
+                        || args.source != public.fixture.source
+                        || args.url != public.manifest.page_url
+                    {
+                        return Err("release oracle");
+                    }
+                    let release = release_with_preparation(
+                        args.source.clone(),
+                        args.url,
+                        args.ticket,
+                        prepare_in(public.installed.clone(), &args.source),
+                    )
+                    .await
+                    .map_err(|_| "release refused")?;
+                    if release.url != public.manifest.page_url
+                        || release.fields != public.fixture.expected_fields
+                        || release.title != public.fixture.expected_title
+                        || release.artist != public.fixture.expected_artist
+                        || !release.tracks.is_empty()
+                        || release
+                            .covers
+                            .iter()
+                            .map(|c| c.url.as_str())
+                            .collect::<Vec<_>>()
+                            != [public.fixture.expected_cover_url.as_str()]
+                    {
+                        return Err("independent album oracle");
+                    }
+                    released = true;
+                    Ok(serde_json::to_value(release).unwrap())
+                }
+                "tag_source_image" => {
+                    let args: ImageArgs =
+                        serde_json::from_value(request.args).map_err(|_| "image schema")?;
+                    if !released || args.url != public.fixture.expected_cover_url || images != 0 {
+                        return Err("image provenance oracle");
+                    }
+                    let data = crate::sources::tag_source_image(args.url, args.ticket)
+                        .await
+                        .map_err(|_| "image refused")?;
+                    if data
+                        != format!(
+                            "data:image/png;base64,{}",
+                            base64::engine::general_purpose::STANDARD.encode(image)
+                        )
+                    {
+                        return Err("preview bytes oracle");
+                    }
+                    images += 1;
+                    Ok(json!(data))
+                }
+                "tag_source_apply" => {
+                    let mut args: ApplyArgs =
+                        serde_json::from_value(request.args).map_err(|_| "apply schema")?;
+                    if !released || images != 1 || applied || !args.columns.is_null() {
+                        return Err("apply ordering");
+                    }
+                    match std::env::var("TAGGROOVE_WORKFLOW_ORACLE_MUTATION")
+                        .ok()
+                        .as_deref()
+                    {
+                        Some("selected-field") => {
+                            args.items[0]["updates"]["ARTIST"] = json!(["unexpected"])
+                        }
+                        Some("artwork") => {
+                            args.cover["url"] = json!("https://unreturned.invalid/cover.png")
+                        }
+                        Some("checked-fields") | None => {}
+                        _ => return Err("unknown public mutation"),
+                    }
+                    if args.items != json!(expected_items) || args.cover != *expected_cover {
+                        return Err("pre-write field/artwork oracle");
+                    }
+                    let items = serde_json::from_value(args.items).map_err(|_| "apply items")?;
+                    let cover = serde_json::from_value(args.cover).map_err(|_| "apply cover")?;
+                    let report = crate::sources::ipc::tag_source_apply_with_diagnostics(
+                        items,
+                        Some(cover),
+                        None,
+                    )
+                    .await
+                    .map_err(|_| "public apply refused")?;
+                    if !report.result.errors.is_empty()
+                        || report.result.entries.len() != expected_items.len()
+                    {
+                        return Err("public apply result");
+                    }
+                    applied = true;
+                    Ok(Value::Null)
+                }
+                "tag_source_cancel" => {
+                    #[derive(serde::Deserialize)]
+                    #[serde(deny_unknown_fields)]
+                    struct CancelArgs {
+                        ticket: u64,
+                    }
+                    let args: CancelArgs =
+                        serde_json::from_value(request.args).map_err(|_| "cancel schema")?;
+                    crate::sources::tag_source_cancel(args.ticket);
+                    Ok(Value::Null)
+                }
+                _ => Err("unknown bridge command"),
+            }
+        });
+        let response = match result {
+            Ok(value) => json!({"version":1,"id":request.id,"result":value}),
+            Err(error) => {
+                failure = Some(error);
+                json!({"version":1,"id":request.id,"error":error})
+            }
+        };
+        let bytes = serde_json::to_vec(&response).unwrap();
+        assert!(bytes.len() <= 1024 * 1024);
+        if stdin
+            .write_all(&bytes)
+            .and_then(|_| stdin.write_all(b"\n"))
+            .and_then(|_| stdin.flush())
+            .is_err()
+        {
+            failure = Some(if child.expired() {
+                "bridge parent deadline"
+            } else {
+                "bridge input closed"
+            });
+        }
+        if failure.is_some() {
+            break;
+        }
+    }
+    drop(stdin);
+    let status = child.finish(failure.is_some());
+    if child.expired() {
+        failure = Some("bridge parent deadline");
+    }
+    let (stderr, stderr_total) = stderr_reader.join().expect("bridge stderr drain");
+    let result = std::process::Output {
+        status,
+        stdout: Vec::new(),
+        stderr,
+    };
+    if matches!(
+        failure,
+        Some("bridge parent deadline" | "bridge closed before apply")
+    ) {
+        assert!(!applied && sequence == 0);
+        assert_eq!(
+            http::fixture::active_counts(),
+            transport_before,
+            "stalled/closed child consumed transport"
+        );
+        assert_eq!(
+            observed
+                .iter()
+                .map(|p| std::fs::read(p).unwrap())
+                .collect::<Vec<_>>(),
+            before
+        );
+        assert_eq!(
+            serde_json::to_value(crate::history::history_state().unwrap()).unwrap(),
+            history_before
+        );
+        assert!(child.reaped.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(child.killed.load(std::sync::atomic::Ordering::SeqCst));
+        println!(
+            "ACQUISITION_BRIDGE_REFUSAL {}",
+            json!({"guard":failure,"control":control,"writer_called":false,"commands":sequence,"transport_unchanged":true,"killed":true,"reaped":true,"wav_sidecar_history_unchanged":true,"elapsed_ms":started.elapsed().as_millis()})
+        );
+    }
+    if control.as_deref() == Some("large-stderr") {
+        assert!(stderr_total >= 256 * 1024);
+        assert_eq!(result.stderr.len(), 64 * 1024);
+        assert!(status.success() && failure.is_none());
+        println!(
+            "ACQUISITION_BRIDGE_STDERR {}",
+            json!({"total_bytes":stderr_total,"retained_bytes":result.stderr.len(),"bounded_capture":true,"reaped":true,"public_flow_complete":applied})
+        );
+    }
+    if failure == Some("pre-write field/artwork oracle") {
+        assert!(!applied);
+        assert_eq!(
+            observed
+                .iter()
+                .map(|p| std::fs::read(p).unwrap())
+                .collect::<Vec<_>>(),
+            before
+        );
+        assert_eq!(
+            serde_json::to_value(crate::history::history_state().unwrap()).unwrap(),
+            history_before
+        );
+        println!(
+            "ACQUISITION_PREWRITE_REFUSAL {}",
+            json!({"guard":"pre-write field/artwork oracle","writer_called":false,"wav_sidecar_history_unchanged":true,"files":observed.len()})
+        );
+    }
+    assert!(
+        failure.is_none(),
+        "public bridge refused: {}",
+        failure.unwrap_or_default()
+    );
+    assert!(
+        searched && released && images == 1 && applied,
+        "public bridge incomplete"
+    );
+    result
+}
+
+fn fixture_reply(url: &str, status: u16, body: Vec<u8>, image: bool) -> http::fixture::Reply {
+    http::fixture::Reply {
+        url: url.into(),
+        status,
+        body,
+        content_type: if image {
+            "image/png"
+        } else {
+            "text/html; charset=utf-8"
+        },
+        cancel: None,
+    }
+}
+
+#[test]
+#[ignore = "private public-acquisition fixture; separate process with TAGGROOVE_PRIVATE_ACQUISITION_MANIFEST and OS network denial"]
+fn private_public_acquisition_review_apply_and_journaled_audio_workflow() {
+    let _guard = crate::history::TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    assert!(!debug_enabled(), "private parser debug must be disabled");
+    let manifest: PublicManifest = serde_json::from_slice(
+        &std::fs::read(
+            std::env::var_os("TAGGROOVE_PRIVATE_ACQUISITION_MANIFEST")
+                .expect("private acquisition manifest"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(manifest.version, 1);
+    let fixture: PrivateReplay =
+        serde_json::from_slice(&std::fs::read(&manifest.private_manifest).unwrap()).unwrap();
+    assert_eq!(fixture.version, 1);
+    let hashes = || {
+        manifest
+            .input_sha256
+            .keys()
+            .map(|path| {
+                (
+                    path.clone(),
+                    format!("{:x}", Sha256::digest(std::fs::read(path).unwrap())),
+                )
+            })
+            .collect::<BTreeMap<_, _>>()
+    };
+    assert_eq!(
+        hashes(),
+        manifest.input_sha256,
+        "private inputs before acquisition"
+    );
+    for (path, hash) in &fixture.input_sha256 {
+        assert_eq!(manifest.input_sha256.get(path), Some(hash));
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let installed = root.join("sources");
+    install(&installed, &[fixture.bundle.to_string_lossy().into_owned()])
+        .unwrap_or_else(|_| panic!("private install refused"));
+    save_settings(
+        &installed,
+        &fixture.settings_id,
+        fixture.settings_values.clone(),
+    )
+    .unwrap_or_else(|_| panic!("private settings refused"));
+    let file = load(&installed, &fixture.source).unwrap_or_else(|_| panic!("private load refused"));
+    assert_eq!(manifest.values.len(), file.search_by.len());
+    assert_eq!(file.direct(), manifest.index.is_none());
+    if file.direct() {
+        assert_eq!(file.direct_url(&manifest.values), manifest.page_url);
+    } else {
+        assert_eq!(file.search_url(&manifest.values), manifest.search_url);
+    }
+    let page_url = Url::parse(&manifest.page_url).unwrap();
+    let cover_url = Url::parse(&fixture.expected_cover_url).unwrap();
+    assert!(!http::web_registered(&page_url));
+    assert!(!http::web_registered(&cover_url));
+    let mut replies = Vec::new();
+    if let Some(index) = &manifest.index {
+        replies.push(fixture_reply(
+            &manifest.search_url,
+            200,
+            std::fs::read(index).unwrap(),
+            false,
+        ));
+    }
+    replies.push(fixture_reply(
+        &manifest.page_url,
+        200,
+        std::fs::read(&fixture.page).unwrap(),
+        false,
+    ));
+    replies.push(fixture_reply(
+        &fixture.expected_cover_url,
+        200,
+        png(2),
+        true,
+    ));
+    replies.push(fixture_reply(
+        &fixture.expected_cover_url,
+        200,
+        png(2),
+        true,
+    ));
+    let count = replies.len();
+    let scope = http::fixture::Scope::start(replies);
+    // Even a fixture entry must never act as a session grant. These refusals
+    // occur before deferred preparation and before transport consumption.
+    let denied = tauri::async_runtime::block_on(release_with_preparation(
+        fixture.source.clone(),
+        manifest.page_url.clone(),
+        1,
+        async { panic!("unauthorized release prepared source") },
+    ));
+    assert!(denied.is_err());
+    assert!(
+        tauri::async_runtime::block_on(crate::sources::tag_source_image(
+            fixture.expected_cover_url.clone(),
+            1
+        ))
+        .is_err()
+    );
+    assert_eq!(scope.counts(), (0, 0, count));
+    let (matched, checked_fields) = match fixture.case.as_str() {
+        "traxsource" => (1, vec!["ALBUM".into(), "YEAR".into()]),
+        "soundcloud" => (2, vec!["TITLE".into()]),
+        _ => panic!("unknown private case"),
+    };
+    let expected_release = SourceRelease {
+        provider: Provider::Web,
+        id: String::new(),
+        url: manifest.page_url.clone(),
+        title: fixture.expected_title.clone(),
+        artist: fixture.expected_artist.clone(),
+        fields: fixture.expected_fields.clone(),
+        tracks: vec![],
+        covers: vec![SourceCover {
+            url: fixture.expected_cover_url.clone(),
+            thumb: None,
+            kind: "Front cover".into(),
+            width: None,
+            height: None,
+        }],
+        more_covers: false,
+    };
+    let review = ReplayReview {
+        label: fixture.case.clone(),
+        scenario: "scalar".into(),
+        source_id: fixture.source.clone(),
+        checked_fields,
+        selected_indices: if matched == 1 { vec![0] } else { vec![1, 0] },
+        search: WebSearchPage {
+            direct: file.direct(),
+            ..WebSearchPage::default()
+        },
+        release: expected_release,
+        expected_updates: vec![fixture.expected_updates.clone(); matched],
+        cover_url: fixture.expected_cover_url.clone(),
+        private_input: true,
+    };
+    let public = PublicReplay {
+        installed,
+        values: manifest.values.clone(),
+        fixture,
+        manifest,
+    };
+    review_and_save(&root, review, Some(&public));
+    assert_eq!(
+        scope.counts(),
+        (count, 0, 0),
+        "every acquisition used its exact fixture"
+    );
+    drop(scope);
+    acquisition_refusal_controls(&root, &public);
+    assert_eq!(
+        hashes_for(&public.manifest.input_sha256),
+        public.manifest.input_sha256,
+        "private inputs after acquisition"
+    );
+    println!(
+        "ACQUISITION_RECEIPT {}",
+        json!({"case":public.fixture.case,"fixture_responses":count,"real_search_release_image_public_apply":true,"manual_grants":false,"wire_http_tls_provider_native":false,"input_hash_count":public.manifest.input_sha256.len()})
+    );
+}
+
+fn hashes_for(expected: &BTreeMap<PathBuf, String>) -> BTreeMap<PathBuf, String> {
+    expected
+        .keys()
+        .map(|path| {
+            (
+                path.clone(),
+                format!("{:x}", Sha256::digest(std::fs::read(path).unwrap())),
+            )
+        })
+        .collect()
+}
+
+fn acquisition_refusal_controls(root: &Path, public: &PublicReplay) {
+    let mut paths = std::fs::read_dir(root)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|e| e == "wav"))
+        .collect::<Vec<_>>();
+    paths.sort();
+    let mut observed = paths.clone();
+    observed.push(root.join("folder.png"));
+    let before = observed
+        .iter()
+        .map(|p| std::fs::read(p).unwrap())
+        .collect::<Vec<_>>();
+    let history_before = serde_json::to_value(crate::history::history_state().unwrap()).unwrap();
+    let url = "https://unreturned.invalid/negative";
+    let ticket = u64::MAX - 100;
+    // Fail-closed miss: a valid page URL without a mapped GET never sends.
+    {
+        let scope = http::fixture::Scope::start(vec![]);
+        let error = tauri::async_runtime::block_on(http::web_page(
+            "Fixture",
+            url,
+            None,
+            Channel::Search,
+            ticket,
+        ))
+        .unwrap_err();
+        assert!(error.contains("network fallback refused"));
+        assert_eq!(scope.counts(), (0, 1, 0));
+    }
+    // Exact method as well as exact URL: mapped GET bytes never admit POST.
+    {
+        let scope = http::fixture::Scope::start(vec![fixture_reply(url, 200, vec![], false)]);
+        let service = http::Service::new("Fixture", &http::IMAGES, 0);
+        let error =
+            tauri::async_runtime::block_on(http::fixture::post_probe(&service, url, ticket))
+                .unwrap_err();
+        assert!(error.contains("network fallback refused"));
+        assert_eq!(scope.counts(), (0, 1, 1));
+    }
+    // A mapped but unreturned artwork address cannot authorize public apply.
+    {
+        let scope = http::fixture::Scope::start(vec![fixture_reply(url, 200, png(2), true)]);
+        let result =
+            tauri::async_runtime::block_on(crate::sources::ipc::tag_source_apply_with_diagnostics(
+                vec![crate::sources::ApplyItem {
+                    path: paths[0].to_string_lossy().into_owned(),
+                    updates: public.fixture.expected_updates.clone(),
+                    raw_lyrics: false,
+                }],
+                Some(crate::sources::ApplyCover {
+                    url: url.into(),
+                    replace_existing: true,
+                    preserve_existing: false,
+                    save_as: Some("folder".into()),
+                }),
+                None,
+            ));
+        let error = match result {
+            Err(error) => error,
+            Ok(_) => panic!("unreturned cover accepted"),
+        };
+        assert_eq!(
+            error,
+            "This image address is not from a supported tag source."
+        );
+        assert_eq!(scope.counts(), (0, 0, 1));
+    }
+    // Search/album status, actual bounded bytes, and supersession after response.
+    for (label, status, body, cancel) in [
+        ("status", 404, vec![], false),
+        ("size", 200, vec![b'x'; 8 * 1024 * 1024 + 1], false),
+        ("cancel", 200, b"unused parser input".to_vec(), true),
+    ] {
+        let mut reply = fixture_reply(url, status, body, false);
+        if cancel {
+            reply.cancel = Some((Channel::Release, ticket + 1));
+        }
+        let scope = http::fixture::Scope::start(vec![reply]);
+        let result = tauri::async_runtime::block_on(http::web_page(
+            "Fixture",
+            url,
+            None,
+            Channel::Release,
+            ticket,
+        ));
+        let error = result.unwrap_err();
+        let expected = match label {
+            "status" => format!("Fixture returned HTTP 404 for {url}"),
+            "size" => "Fixture returned more data than expected.".into(),
+            "cancel" => http::CANCELLED.into(),
+            _ => unreachable!(),
+        };
+        assert_eq!(error, expected, "wrong {label} refusal");
+        assert_eq!(scope.counts(), (1, 0, 0));
+    }
+    {
+        let scope = http::fixture::Scope::start(vec![fixture_reply(url, 200, vec![], false)]);
+        let result = tauri::async_runtime::block_on(http::web_page(
+            "Fixture",
+            url,
+            None,
+            Channel::Release,
+            ticket,
+        ));
+        assert_eq!(result.unwrap_err(), http::CANCELLED);
+        assert_eq!(scope.counts(), (0, 0, 1));
+    }
+    // Public apply still owns authorization, status, size and image validation
+    // before mutation. Cover URL was granted only by the real album worker.
+    for (label, status, bytes) in [
+        ("status", 404, vec![]),
+        ("size", 200, vec![0; http::MAX_IMAGE_BYTES + 1]),
+        ("image", 200, b"not an image".to_vec()),
+    ] {
+        let scope = http::fixture::Scope::start(vec![fixture_reply(
+            &public.fixture.expected_cover_url,
+            status,
+            bytes,
+            true,
+        )]);
+        let items = vec![crate::sources::ApplyItem {
+            path: paths[0].to_string_lossy().into_owned(),
+            updates: public.fixture.expected_updates.clone(),
+            raw_lyrics: false,
+        }];
+        let cover = crate::sources::ApplyCover {
+            url: public.fixture.expected_cover_url.clone(),
+            replace_existing: true,
+            preserve_existing: false,
+            save_as: Some("folder".into()),
+        };
+        let result = tauri::async_runtime::block_on(
+            crate::sources::ipc::tag_source_apply_with_diagnostics(items, Some(cover), None),
+        );
+        let error = match result {
+            Err(error) => error,
+            Ok(_) => panic!("public apply {label} accepted"),
+        };
+        let expected = match label {
+            "status" => "This release has no image at that address.",
+            "size" => "The image server returned more data than expected.",
+            "image" => "The downloaded cover is not a supported image.",
+            _ => unreachable!(),
+        };
+        assert_eq!(error, expected, "wrong public apply {label} refusal");
+        assert_eq!(scope.counts(), (1, 0, 0));
+        assert_eq!(
+            observed
+                .iter()
+                .map(|p| std::fs::read(p).unwrap())
+                .collect::<Vec<_>>(),
+            before,
+            "refused apply changed audio or sidecar"
+        );
+    }
+    {
+        let image_ticket = u64::MAX - 50;
+        let mut reply = fixture_reply(&public.fixture.expected_cover_url, 200, png(2), true);
+        reply.cancel = Some((Channel::Image, image_ticket + 1));
+        let scope = http::fixture::Scope::start(vec![reply]);
+        assert_eq!(
+            tauri::async_runtime::block_on(crate::sources::tag_source_image(
+                public.fixture.expected_cover_url.clone(),
+                image_ticket
+            ))
+            .unwrap_err(),
+            http::CANCELLED
+        );
+        assert_eq!(scope.counts(), (1, 0, 0));
+    }
+    assert_eq!(
+        observed
+            .iter()
+            .map(|p| std::fs::read(p).unwrap())
+            .collect::<Vec<_>>(),
+        before,
+        "refused acquisition changed audio or sidecar"
+    );
+    assert_eq!(
+        serde_json::to_value(crate::history::history_state().unwrap()).unwrap(),
+        history_before,
+        "refused acquisition changed history"
+    );
+    println!(
+        "ACQUISITION_NEGATIVE_RECEIPT {}",
+        json!({"unauthorized_release_and_image_before_transport":true,"unexpected_request_no_fallback":true,"unexpected_method_no_fallback":true,"unreturned_artwork_public_apply_refused_before_transport":true,"status_and_size_refused":true,"post_response_and_pre_dispatch_cancel_refused":true,"image_preview_post_response_cancel_refused":true,"invalid_image_public_apply_refused":true,"audio_sidecar_history_unchanged_on_refusal":true})
+    );
 }
 
 #[test]
@@ -597,6 +1502,7 @@ fn private_saved_page_production_review_and_journaled_audio_workflow() {
             cover_url: fixture.expected_cover_url.clone(),
             private_input: true,
         },
+        None,
     );
     assert!(!http::web_registered(&page.url));
     assert!(!http::web_registered(&cover_address));

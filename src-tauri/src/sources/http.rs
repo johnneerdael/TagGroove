@@ -21,6 +21,109 @@ pub const CANCELLED: &str = "Cancelled: a newer tag source request replaced this
 const MAX_JSON_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_IMAGE_BYTES: usize = 25 * 1024 * 1024;
 
+/// In-process acquisition fixtures for separately invoked, opt-in tests only.
+/// Active scopes are fail-closed: no request can reach the network. Bodies
+/// still pass through reqwest's Response and the production status/read limits.
+#[cfg(test)]
+pub(super) mod fixture {
+    use super::*;
+    use reqwest::ResponseBuilderExt;
+    use std::collections::VecDeque;
+
+    pub struct Reply {
+        pub url: String,
+        pub status: u16,
+        pub content_type: &'static str,
+        pub body: Vec<u8>,
+        pub cancel: Option<(Channel, u64)>,
+    }
+    struct State {
+        replies: VecDeque<Reply>,
+        consumed: usize,
+        misses: usize,
+    }
+    static STATE: StdMutex<Option<State>> = StdMutex::new(None);
+    pub struct Scope;
+    impl Scope {
+        pub fn start(replies: Vec<Reply>) -> Self {
+            assert!(replies.len() <= 32);
+            assert!(replies.iter().all(|r| r.body.len() <= MAX_IMAGE_BYTES + 1));
+            let mut state = STATE.lock().unwrap();
+            assert!(
+                state.is_none(),
+                "acquisition fixtures require a separate test process"
+            );
+            *state = Some(State {
+                replies: replies.into(),
+                consumed: 0,
+                misses: 0,
+            });
+            Self
+        }
+        pub fn counts(&self) -> (usize, usize, usize) {
+            active_counts()
+        }
+    }
+    pub fn active_counts() -> (usize, usize, usize) {
+        let state = STATE.lock().unwrap();
+        let state = state.as_ref().expect("active acquisition fixture scope");
+        (state.consumed, state.misses, state.replies.len())
+    }
+    impl Drop for Scope {
+        fn drop(&mut self) {
+            *STATE.lock().unwrap_or_else(|p| p.into_inner()) = None;
+        }
+    }
+    pub async fn post_probe(
+        service: &Service,
+        url: &str,
+        ticket: u64,
+    ) -> Result<reqwest::Response, String> {
+        send_with(
+            &web_client()?,
+            service,
+            &Url::parse(url).unwrap(),
+            "text/html",
+            Some("fixture=1"),
+            Channel::Search,
+            ticket,
+        )
+        .await
+    }
+    pub(super) fn response(
+        request: &reqwest::RequestBuilder,
+    ) -> Option<Result<reqwest::Response, String>> {
+        let mut state = STATE.lock().unwrap();
+        let state = state.as_mut()?;
+        // Build the real request after its production URL/header/auth setup.
+        let request = request
+            .try_clone()
+            .expect("fixture request must be cloneable")
+            .build()
+            .expect("fixture request must build");
+        let Some(position) = state.replies.iter().position(|r| {
+            request.method() == reqwest::Method::GET && request.url().as_str() == r.url
+        }) else {
+            state.misses += 1;
+            return Some(Err(
+                "Unexpected acquisition fixture request; network fallback refused".into(),
+            ));
+        };
+        let reply = state.replies.remove(position).unwrap();
+        state.consumed += 1;
+        if let Some((channel, ticket)) = reply.cancel {
+            claim(channel, ticket);
+        }
+        Some(Ok(tauri::http::Response::builder()
+            .status(reply.status)
+            .header(header::CONTENT_TYPE, reply.content_type)
+            .url(request.url().clone())
+            .body(reply.body)
+            .unwrap()
+            .into()))
+    }
+}
+
 /// Independent request streams; a newer ticket on a channel cancels older work on it.
 #[derive(Clone, Copy, Debug)]
 pub enum Channel {
@@ -276,6 +379,11 @@ async fn send_with(
             }
         }
         _ => {}
+    }
+    #[cfg(test)]
+    if let Some(result) = fixture::response(&request) {
+        *last = Some(Instant::now());
+        return result;
     }
     let result = request.send().await;
     *last = Some(Instant::now());
@@ -630,7 +738,7 @@ pub async fn web_page(
         .filter(web_allowed)
         .ok_or_else(|| format!("{name} produced an address TagGroove cannot open: {url}"))?;
     let client = web_client()?;
-    let response = {
+    let response = async {
         let mut last = WEB.0.lock().await;
         if stale(channel, ticket) {
             return Err(CANCELLED.into());
@@ -638,6 +746,11 @@ pub async fn web_page(
         let mut request = client.get(url.clone());
         if let Some(agent) = user_agent {
             request = request.header(header::USER_AGENT, agent);
+        }
+        #[cfg(test)]
+        if let Some(result) = fixture::response(&request) {
+            *last = Some(Instant::now());
+            return result;
         }
         let result = request.send().await;
         *last = Some(Instant::now());
@@ -647,8 +760,9 @@ pub async fn web_page(
             } else {
                 network_message(name, &error)
             }
-        })?
-    };
+        })
+    }
+    .await?;
     let status = response.status();
     if !status.is_success() {
         return Err(format!(

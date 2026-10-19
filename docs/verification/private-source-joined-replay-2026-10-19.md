@@ -1,5 +1,10 @@
 # Private parser to reviewed physical save — 2026-10-19
 
+This records the earlier internal-writer checkpoint. The later
+[public-acquisition replay](private-source-public-acquisition-2026-10-19.md)
+adds logical search/index, response ingress, artwork and public apply coverage;
+the original checkpoint and its limitations below remain historical evidence.
+
 PR64 extends the [generic joined replay](source-workflow-replay-2026-10-18.md)
 to the actual private Traxsource and SoundCloud album parsers. The source inputs
 remain the independently invented saved pages from their separate

@@ -888,7 +888,12 @@ async fn prepare(
     app: &tauri::AppHandle,
     id: &str,
 ) -> Result<(PathBuf, SourceFile, BTreeMap<String, String>), String> {
-    let folder = folder(app)?;
+    prepare_in(folder(app)?, id).await
+}
+
+type PreparedSource = (PathBuf, SourceFile, BTreeMap<String, String>);
+
+async fn prepare_in(folder: PathBuf, id: &str) -> Result<PreparedSource, String> {
     let id = id.to_owned();
     blocking(move || {
         let _guard = installer::LOCK.lock().map_err(|e| e.to_string())?;
@@ -946,8 +951,17 @@ pub async fn web_source_search(
     values: Vec<String>,
     ticket: u64,
 ) -> Result<WebSearchPage, WebSourceError> {
+    search_with_preparation(source.clone(), values, ticket, prepare(&app, &source)).await
+}
+
+async fn search_with_preparation(
+    source: String,
+    values: Vec<String>,
+    ticket: u64,
+    preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+) -> Result<WebSearchPage, WebSourceError> {
     http::claim(Channel::Search, ticket);
-    let (folder, file, vars) = prepare(&app, &source).await?;
+    let (folder, file, vars) = preparation.await?;
     if file.direct() {
         let raw = file.direct_url(&values);
         let url = Url::parse(&raw)
@@ -1029,12 +1043,21 @@ pub async fn web_source_release(
     url: String,
     ticket: u64,
 ) -> Result<SourceRelease, WebSourceError> {
+    release_with_preparation(source.clone(), url, ticket, prepare(&app, &source)).await
+}
+
+async fn release_with_preparation(
+    source: String,
+    url: String,
+    ticket: u64,
+    preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+) -> Result<SourceRelease, WebSourceError> {
     http::claim(Channel::Release, ticket);
     let address = Url::parse(&url)
         .ok()
         .filter(http::web_registered)
         .ok_or("This address did not come from the tag source's search. Search again.")?;
-    let (folder, file, vars) = prepare(&app, &source).await?;
+    let (folder, file, vars) = preparation.await?;
     let page = http::web_page(
         &file.name,
         address.as_str(),
