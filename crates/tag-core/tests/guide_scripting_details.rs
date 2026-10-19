@@ -82,11 +82,15 @@ fn published_optional_metadata_examples_use_the_written_present_or_missing_field
 }
 
 #[test]
-fn published_caps_examples_show_custom_separators_and_retained_whitespace_boundaries() {
+fn published_caps_examples_cover_replacement_ascii_folding_and_distinct_sentence_case() {
     for page in forms(TEXT) {
-        for marker in ["caps-separator-examples", "caps2-separator-examples"] {
+        for (marker, count) in [
+            ("caps-separator-examples", 6),
+            ("caps2-separator-examples", 6),
+            ("caps3-trigger-examples", 4),
+        ] {
             let cases = rows(&page, marker);
-            assert_eq!(cases.len(), 2);
+            assert_eq!(cases.len(), count);
             for case in cases {
                 assert_eq!(case.len(), 3);
                 let expression = literal(case[0]);

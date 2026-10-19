@@ -954,17 +954,19 @@ fn slice(text: &str, start: usize, length: usize) -> String {
 }
 
 fn title_case(text: &str, separators: Option<&str>, preserve: bool) -> String {
+    let separators = separators.unwrap_or(" ");
     let mut start = true;
     let mut output = String::new();
     for c in text.chars() {
-        if start {
+        let separator = separators.chars().any(|s| s.eq_ignore_ascii_case(&c));
+        if start && !separator {
             output.extend(c.to_uppercase());
-        } else if preserve {
+        } else if preserve || (start && separator) {
             output.push(c);
         } else {
             output.extend(c.to_lowercase());
         }
-        start = c.is_whitespace() || separators.is_some_and(|s| s.contains(c));
+        start = separator;
     }
     output
 }
@@ -1415,17 +1417,21 @@ fn function(
         }
         "caps3" => {
             arity(name, a, 1, 2)?;
-            let mut uppercase = true;
+            let triggers = a.get(1).copied().unwrap_or_default();
+            let mut first = true;
+            let mut previous_trigger = false;
             let mut value = String::new();
             for character in a[0].chars() {
-                if uppercase {
+                let trigger = triggers.contains(character);
+                if (first || previous_trigger) && !trigger {
                     value.extend(character.to_uppercase());
+                } else if first {
+                    value.push(character);
                 } else {
                     value.extend(character.to_lowercase());
                 }
-                uppercase = a
-                    .get(1)
-                    .is_some_and(|triggers| triggers.contains(character));
+                first = false;
+                previous_trigger = trigger;
             }
             value
         }

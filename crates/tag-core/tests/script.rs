@@ -200,7 +200,7 @@ fn documented_function_families() {
         ("$cutRight(é猫🙂,1)", "é猫"),
         ("$mid(abc,2)", "b"),
         ("$mid(abc,0,2)", ""),
-        ("$caps(hELLO wORLD,-)", "Hello World"),
+        ("$caps(hELLO wORLD,-)", "Hello world"),
         ("$caps2(hELLO wORLD)", "HELLO WORLD"),
         ("$trim('--hi--',-)", "hi"),
         ("$trimLeft('--hi--',-)", "hi--"),
