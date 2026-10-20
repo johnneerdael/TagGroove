@@ -173,6 +173,90 @@
         "minimize_to_tray"
       ],
       "inverted": false
+    },
+    {
+      "native_key": "PlCreate",
+      "identifier": "b2efeb13fa6c2c44b8386c2182ac5965",
+      "object": "0x140ac2ef0",
+      "legacy_key_instruction": "140250b1c",
+      "legacy_setter_instruction": "140250b63",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "auto_create"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlExtended",
+      "identifier": "04d7ba2f4f3bfa4d8b0c1ccf2ab1c361",
+      "object": "0x140ac54c0",
+      "legacy_key_instruction": "140250bb4",
+      "legacy_setter_instruction": "140250bfe",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "extended"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlRel",
+      "identifier": "59fc84e13a7c8044b3192709f11d754d",
+      "object": "0x140ac5470",
+      "legacy_key_instruction": "140250ca9",
+      "legacy_setter_instruction": "140250cf3",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "relative"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlShowDlg",
+      "identifier": "f25e55356aa23840bb4e104ab58ce1f3",
+      "object": "0x140ac2ea0",
+      "legacy_key_instruction": "140250cf8",
+      "legacy_setter_instruction": "140250d42",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "confirm_filename"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlNoFolders",
+      "identifier": "b0b41d103f16944cb184a331ae6136a9",
+      "object": "0x140ac2fe0",
+      "legacy_key_instruction": "140250ded",
+      "legacy_setter_instruction": "140250e37",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "dont_create_directories"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "ExpShowDlg",
+      "identifier": "97a81ca5caca824ab21be214338c735e",
+      "object": "0x140ac2540",
+      "legacy_key_instruction": "14024fc1c",
+      "legacy_setter_instruction": "14024fc66",
+      "component": "settings",
+      "path": [
+        "pages",
+        "export",
+        "show_dialog"
+      ],
+      "inverted": false
     }
   ]
 }

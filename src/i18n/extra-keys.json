@@ -91,5 +91,7 @@
  "history has an interrupted or unsaved operation",
  "side-file undo snapshots could not be retained",
  "undo directory identities could not be retained: {error}",
- "{unknown} unmapped binary setting records are not imported; their source file is unchanged."
+ "{unknown} unmapped binary setting records are not imported; their source file is unchanged.",
+ "Don't create directories for playlists",
+ "Show export selection dialog"
 ]

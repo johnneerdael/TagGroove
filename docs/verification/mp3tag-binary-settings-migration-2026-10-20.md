@@ -35,6 +35,23 @@ The legacy-key bindings and object addresses are recorded in the
 | HideFilterBar | `86fd6bff815ed0488b445b271955c35c` | Show filter, inverted |
 | TrayIconShow | `07a26324a1f7d84782538bb89e2a57e8` | Notification icon |
 | TrayIconMinimize | `d5c6e9f135cd614aa8f3d9f513f774f1` | Minimize to icon |
+| PlCreate | `b2efeb13fa6c2c44b8386c2182ac5965` | Automatic playlist creation |
+| PlExtended | `04d7ba2f4f3bfa4d8b0c1ccf2ab1c361` | Extended playlist information |
+| PlRel | `59fc84e13a7c8044b3192709f11d754d` | Relative playlist entries |
+| PlShowDlg | `f25e55356aa23840bb4e104ab58ce1f3` | Confirm playlist filename |
+| PlNoFolders | `b0b41d103f16944cb184a331ae6136a9` | Do not create playlist directories |
+| ExpShowDlg | `97a81ca5caca824ab21be214338c735e` | Show export selection dialog |
+
+The five playlist flag values are loaded by
+`CMTOptPlaylistDlg::Init` (`0x1401f3b90`, shipped debug string at
+`0x14095df28`). `CMTMainFrame::CreatePlaylist` (`0x1401898c0`)
+and `CMTMainFrame::GeneratePlaylistsThread` (`0x1401280d4`) read the
+relative/extended flags. `CMTMainFrame::OnKonTTF` tests the automatic flag
+at `0x14017f118` before entering the playlist command. The selected-only
+scope flag is separate and remains unmapped. `CMTMainFrame::OnFileExport`
+tests `ExpShowDlg` at `0x140176d64` before its selection-dialog route at
+`0x140176d99`. These flags do not carry their companion filename, template,
+or last-used configuration, and the guide calls out reviewing those values.
 
 ### Extended Tags save mode
 
@@ -67,7 +84,7 @@ unpublished setup stage. Existing settings are deserialized and validated
 before modification. Panel values and browser filter visibility participate
 in the existing durable setup publication and Restore mechanism.
 
-`binary_settings_migration` passed five focused Rust cases: all 12 mappings
+`binary_settings_migration` initially passed five focused Rust cases: all 12 initial mappings
 with raw values 0, 1 and 255; truncated/oversized records; unknown and duplicate
 records with extension bytes; refusal of invalid current settings; and real
 preview/apply/Restore filesystem transactions preserving unrelated values and
@@ -78,6 +95,12 @@ The profile transaction regression cohort passed 29 tests, with one subprocess
 worker intentionally ignored; 52 focused profile-host and translation checks
 passed. TypeScript, scoped Clippy, formatting and the strict user-guide build
 also passed. These cohorts overlap and are not additive feature counts.
+
+The expanded importer passed six focused `binary_settings` tests, including
+all 18 boolean mappings at 0, 1 and 255 and the Extended Tags u32 mode case.
+The additional six output flags also passed scoped Clippy, catalog validation,
+formatting and the strict guide build; a read-only review found no concrete
+issues with the mappings or documented dependencies.
 
 The mapping fixture is independently authored from static identifiers and
 codec evidence. It is not an exported private profile, a Windows runtime

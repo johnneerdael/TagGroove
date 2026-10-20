@@ -29,7 +29,7 @@ now has a separately verified working-branch implementation for legacy panel
 values and `usrfieldvalues.ini`. General global/binary settings remain open;
 the full L57b identity has not been closed by this slice. A further working-branch
 [binary settings slice](../verification/mp3tag-binary-settings-migration-2026-10-20.md)
-imports 12 confirmed boolean options and the Extended Tags save mode;
+imports 18 confirmed boolean options and the Extended Tags save mode;
 remaining mappings still need investigation.
 
 The 48 intake rows primarily comprise **12 missing-capability scopes**,

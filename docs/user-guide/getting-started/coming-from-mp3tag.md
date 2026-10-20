@@ -79,6 +79,16 @@ dialog. It is independent of saving on ordinary file-list selection.
 Notification-area behavior depends on the desktop
 platform. These are preferences, not a transfer of the original window layout.
 
+Playlist preferences also include automatic creation after saving/renaming,
+extended information, relative entries, confirming the filename and whether
+directories may be created. The export selection-dialog preference transfers
+separately. If you import automatic playlist creation, review **Options →
+Playlist** before saving tags: an unlisted playlist filename or extended-info
+format keeps its current TagGroove value. The original selected-only automatic
+playlist scope is not transferred. For exports, an imported **Show export
+selection dialog: Off** uses the active TagGroove export configuration; it does
+not import or select an original last-used export configuration by itself.
+
 For example, if the preview says **Show filter: Off**, importing it hides the
 filter after setup reload. Check that value before proceeding if you use the
 filter every day. The previous value remains available through **Restore setup**.

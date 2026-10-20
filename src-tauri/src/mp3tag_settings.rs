@@ -19,6 +19,12 @@ enum OptionKey {
     HideFilter,
     TrayIcon,
     MinimizeTray,
+    PlaylistAutomatic,
+    PlaylistExtended,
+    PlaylistRelative,
+    PlaylistConfirm,
+    PlaylistNoFolders,
+    ExportDialog,
 }
 struct Spec {
     identifier: [u8; 16],
@@ -115,6 +121,42 @@ const SPECS: &[Spec] = &[
         identifier: identifier(b"d5c6e9f135cd614aa8f3d9f513f774f1"),
         key: OptionKey::MinimizeTray,
         label: "Minimize to notification area",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"b2efeb13fa6c2c44b8386c2182ac5965"),
+        key: OptionKey::PlaylistAutomatic,
+        label: "Create playlist automatically after saving tags or renaming files",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"04d7ba2f4f3bfa4d8b0c1ccf2ab1c361"),
+        key: OptionKey::PlaylistExtended,
+        label: "Write extended info",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"59fc84e13a7c8044b3192709f11d754d"),
+        key: OptionKey::PlaylistRelative,
+        label: "Entries relative to working directory (if possible)",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"f25e55356aa23840bb4e104ab58ce1f3"),
+        key: OptionKey::PlaylistConfirm,
+        label: "Show confirm filename dialog",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"b0b41d103f16944cb184a331ae6136a9"),
+        key: OptionKey::PlaylistNoFolders,
+        label: "Don't create directories for playlists",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"97a81ca5caca824ab21be214338c735e"),
+        key: OptionKey::ExportDialog,
+        label: "Show export selection dialog",
         inverted: false,
     },
 ];
@@ -338,6 +380,42 @@ impl Patch {
                     "minimize_to_tray",
                     *value,
                 )?,
+                OptionKey::PlaylistAutomatic => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "auto_create",
+                    *value,
+                )?,
+                OptionKey::PlaylistExtended => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "extended",
+                    *value,
+                )?,
+                OptionKey::PlaylistRelative => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "relative",
+                    *value,
+                )?,
+                OptionKey::PlaylistConfirm => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "confirm_filename",
+                    *value,
+                )?,
+                OptionKey::PlaylistNoFolders => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "dont_create_directories",
+                    *value,
+                )?,
+                OptionKey::ExportDialog => page(
+                    settings(&mut options, directory)?,
+                    "export",
+                    "show_dialog",
+                    *value,
+                )?,
             }
         }
         if let Some(mode) = self.extended_mode {
@@ -377,7 +455,7 @@ mod tests {
         ))
         .unwrap();
         let options = fixture["options"].as_array().unwrap();
-        assert_eq!(options.len(), 12);
+        assert_eq!(options.len(), 18);
         for raw in [0, 1, 255] {
             let bytes = options
                 .iter()
