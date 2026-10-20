@@ -194,6 +194,20 @@ jobs:
       - name: Prepare AppImage shared license material and inspector
         if: runner.os == 'Linux'
         run: python scripts/appimage-licenses.py --stage --prepare-inspector
+      - name: Prepare pinned Linux packaging inputs
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          architecture="$(dpkg --print-architecture)"
+          case "$architecture" in
+            amd64) inspector_arch=x86_64 ;;
+            arm64) inspector_arch=aarch64 ;;
+            *) exit 1 ;;
+          esac
+          inspector_version="$(python -c 'import json; print(json.load(open("src/licenses/appimage-common/SOURCES.json"))["inspector"]["version"])')"
+          python scripts/linux-build-tools.py --architecture "$architecture" --inspector "target/appimage-inspector-$inspector_version-$inspector_arch/7zz"
+          echo "XDG_CACHE_HOME=$GITHUB_WORKSPACE/target/linux-source-tools/xdg-cache" >> "$GITHUB_ENV"
+          echo "LDAI_RUNTIME_FILE=$GITHUB_WORKSPACE/target/linux-source-tools/$architecture/runtime" >> "$GITHUB_ENV"
       # No releaseId or tagName: this action builds only. Nothing is published
       # until the single final job validates every required platform artifact.
       - name: Build desktop packages
@@ -206,6 +220,21 @@ jobs:
       - name: Verify AppImage copyright license references
         if: runner.os == 'Linux'
         run: python scripts/appimage-licenses.py --verify-built '${{ matrix.target }}'
+      - name: Capture authenticated Linux package and source bindings
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          architecture="$(dpkg --print-architecture)"
+          case "$architecture" in
+            amd64) inspector_arch=x86_64 ;;
+            arm64) inspector_arch=aarch64 ;;
+            *) exit 1 ;;
+          esac
+          inspector_version="$(python -c 'import json; print(json.load(open("src/licenses/appimage-common/SOURCES.json"))["inspector"]["version"])')"
+          image="$(python -c 'from pathlib import Path; files=list(Path("target/${{ matrix.target }}/release/bundle/appimage").glob("*.AppImage")); assert len(files)==1, "Expected one built AppImage"; print(files[0].resolve())')"
+          python scripts/linux-distribution-capture.py --platform "$RELEASE_PLATFORM" --source-commit "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --image "$image" --inspector "target/appimage-inspector-$inspector_version-$inspector_arch/7zz" --strip "target/linux-source-tools/$architecture/strip" --patchelf "target/linux-source-tools/$architecture/patchelf" --output linux-source-evidence
+          mkdir -p release-assets
+          cp "linux-source-evidence/linux-source-$RELEASE_PLATFORM.json" release-assets/
       - name: Verify Windows installer helper notice bindings
         if: runner.os == 'Windows'
         run: python scripts/component-notices.py --check --built-platform windows
@@ -232,6 +261,13 @@ jobs:
         run: |
           python scripts/audio-source-bundle.py --collect-native '${{ matrix.target }}' --native-evidence "$OPENTAG_AUDIO_BUILD_ROOT" --source-sha "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --output "release-assets/native-$RELEASE_PLATFORM.json"
           node scripts/release.mjs collect-desktop
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: linux-source-${{ matrix.platform }}
+          path: linux-source-evidence/
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: native-source-${{ matrix.platform }}
@@ -439,11 +475,16 @@ jobs:
           pattern: native-source-*
           path: native-evidence
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: linux-source-*
+          path: linux-evidence
+          merge-multiple: true
       - name: Package and independently verify complete source
         run: |
           mkdir -p release-assets
-          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --output "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
-          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --verify "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
+          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --linux-evidence linux-evidence --output "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
+          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --linux-evidence linux-evidence --verify "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
       - uses: actions/upload-artifact@v4
         with:
           name: release-corresponding-source

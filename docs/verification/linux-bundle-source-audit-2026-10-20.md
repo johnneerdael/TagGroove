@@ -136,3 +136,43 @@ input identities and limits:
 These checks read archive data and metadata. No downloaded application, runtime,
 launcher or Linux inspection executable was run, and no local app build or UI
 replay was performed.
+
+## Working-branch capture and release integration
+
+The working branch adds `scripts/linux-distribution-capture.py`. On each existing
+Linux builder it inventories installed package ownership, selects authenticated
+exact binary/source records and reads the selected original members. Every
+packaged file needs an explicit distribution, repository, application-build,
+generated-template, runtime/launcher or named generated-cache provenance route.
+Unknown and ambiguous mappings refuse. Changed ELF bytes require complete replay
+with pinned strip/patchelf tools and recipe-derived arguments; the packaged file
+cannot choose its own RPATH. The capture retains the selected distribution
+sources, patches, packaging instructions and repository proofs.
+
+Both target manifests and digest-addressed objects enter the corresponding-source
+archive. Offline verification reauthenticates repository/source selections,
+checks every retained object and compares captured configuration, recipes and
+repository assets against the archive's proven Git source. Member extraction,
+installed-file comparisons and full-byte replay remain trusted builder
+observations, rather than an independently repeated offline extraction or build.
+The four named generated caches retain complete deployed input sets and their
+authenticated generator source provenance; cache regeneration is not claimed.
+
+The release workflow prepares pinned inputs before its existing application
+build, captures afterward and passes both captures to source assembly. The final
+publisher requires the external sidecars to equal those inside the source
+archive, matches each AppImage hash/size and admits only the expected two Linux
+sidecars. It keeps the existing 16 public release assets; source material and
+sidecars live inside the source archive. No second application build or native
+UI test is added by source capture.
+
+Focused integration uses a real Git tree, two synthetic target captures and
+actual GnuPG-authenticated fixture metadata. The complete source archive and
+release assembler accept the positive fixture and refuse changed sidecars,
+tampered summaries, unreferenced rehashed objects, mismatched release/image
+identities and unexpected sidecars. The fixture substitutes only its test signer;
+production retains the fixed Ubuntu signer. This proves the new data/gate paths,
+not successful capture of a new native release. Actual package/source capture,
+postmerge native integration and publication remain required. The separate
+[runtime source receipt](linux-runtime-material-2026-10-20.md) retains producer
+and reproducibility qualifications.

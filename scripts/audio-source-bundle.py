@@ -361,7 +361,7 @@ def verify_upstream_closure(archive, directory, expected, patched_sources=None):
     require(found == set(expected), "Compiler source closure file missing from pinned upstream archive")
 
 
-def verify_contents(files, manifest, commit, version, native_evidence=None):
+def verify_contents(files, manifest, commit, version, native_evidence=None, linux_evidence=None):
     identity(commit, version)
     require(manifest.get("schema") == 1 and manifest.get("version") == version
             and manifest.get("source_commit") == commit, "Source package source/version mismatch")
@@ -448,6 +448,9 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
     runtime_path = 'app/scripts/notices/linux-runtime-material.json'
     if runtime_path in files:
         expected_files.update(runtime_material_helper().verify_files(files, load(files[runtime_path])))
+    linux_files, linux_targets = verify_linux_distribution(files, commit, version, linux_evidence)
+    expected_files.update(linux_files)
+    require(manifest.get('linux_distribution', {}) == linux_targets, 'Linux distribution summary differs')
     vendor = {name.removeprefix("app/vendor/"): data for name, data in files.items() if name.startswith("app/vendor/")}
     expected_files.update(name for name in files if name.startswith(("app/vendor/", "app/dist/")))
     require(set(files) == expected_files, "Untracked or unexpected source archive file")
@@ -465,8 +468,58 @@ def runtime_material_helper():
     return module
 
 
+def distribution_helper():
+    spec = importlib.util.spec_from_file_location('linux_distribution_capture', Path(__file__).with_name('linux-distribution-capture.py'))
+    module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+
+def verify_linux_git_inputs(files, capture, objects):
+    """Bind already-verified builder observations to the archive's proven Git tree."""
+    def equal(source, record):
+        safe(source)
+        raw = objects[record['sha256']]
+        require(files.get('app/'+source) == raw, 'Linux builder input differs from Git-bound source: '+source)
+    for source, record in capture['builder_inputs'].items():equal(source, record)
+    recipes = load(files['app/scripts/notices/linux-packager-recipes.json'])['sources']
+    require(len({record['id'] for record in recipes}) == len(recipes)
+            and {record['id'] for record in recipes} == set(capture['builder_recipes']),
+            'Linux builder recipe source set differs')
+    for record in recipes:equal(record['source_file'], capture['builder_recipes'][record['id']])
+    for record in capture['files'].values():
+        if record['kind'] == 'repository-bytes':equal(record['source_file'], record)
+
+
+def verify_linux_distribution(files, commit, version, evidence=None):
+    if 'app/scripts/notices/linux-packager-recipes.json' not in files:
+        require(not any(name.startswith('linux-distribution/') for name in files),
+                'Linux distribution input has no Git-bound recipe')
+        if evidence is not None:
+            require(not list(Path(evidence).glob('linux-source-*.json')), 'Unbound external Linux distribution evidence')
+        return set(), {}
+    require('app/scripts/notices/linux-runtime-material.json' in files, 'Linux distribution requires a runtime descriptor')
+    helper = distribution_helper()
+    objects = {name.removeprefix('linux-distribution/objects/'): raw for name, raw in files.items()
+               if name.startswith('linux-distribution/objects/')}
+    required, targets = set(), {}
+    runtime = load(files['app/scripts/notices/linux-runtime-material.json'])
+    for platform in ('linux-x64', 'linux-arm64'):
+        path = 'linux-distribution/targets/'+platform+'.json'
+        require(path in files, 'Missing Linux distribution evidence: '+platform)
+        raw = files[path];capture = load(raw)
+        selected = helper.verify_materials(capture, objects, runtime, commit, version, platform)
+        verify_linux_git_inputs(files, capture, objects)
+        required.add(path);required.update('linux-distribution/objects/'+digest for digest in selected)
+        if evidence is not None:
+            require((Path(evidence)/('linux-source-'+platform+'.json')).read_bytes() == raw,
+                    'Linux distribution evidence differs from built packages')
+        targets[platform] = {'target': capture['target'], 'manifest_sha256': sha(raw),
+                             'appimage_sha256': capture['appimage_sha256'], 'appimage_size': capture['appimage_size']}
+    return required, targets
+
+
 def build_bundle(root, commit, version, output, native_evidence=None, source_dir=None, vendor_dir=None, dist_dir=None,
-                 linux_runtime_sources=None):
+                 linux_runtime_sources=None, linux_evidence=None):
     root, output = Path(root), Path(output)
     identity(commit, version)
     native_evidence = Path(native_evidence or output.parent)
@@ -512,9 +565,18 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
         files.update(runtime_material_helper().source_files(root, linux_runtime_sources))
     else:
         require(linux_runtime_sources is None, 'Runtime source input supplied without a tracked runtime descriptor')
+    if 'app/scripts/notices/linux-packager-recipes.json' in files:
+        require(linux_evidence is not None, 'Missing Linux distribution evidence directory')
+        require('app/scripts/notices/linux-runtime-material.json' in files, 'Linux distribution requires a runtime descriptor')
+        files.update(distribution_helper().source_files(Path(linux_evidence), commit, version,
+                     load(files['app/scripts/notices/linux-runtime-material.json'])))
+    else:
+        require(linux_evidence is None, 'Linux distribution input supplied without a tracked recipe')
+    _linux_files, linux_targets = verify_linux_distribution(files, commit, version, linux_evidence)
     manifest = {"schema": 1, "version": version, "source_commit": commit, "targets": targets,
                 "files": {name: {"size": len(data), "sha256": sha(data), "mode": modes.get(name, 0o644)} for name, data in sorted(files.items())}}
-    verify_contents(files, manifest, commit, version, native_evidence)
+    if linux_targets:manifest['linux_distribution'] = linux_targets
+    verify_contents(files, manifest, commit, version, native_evidence, linux_evidence)
     prefix = "TagGroove-v" + version + "-sources/"
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
@@ -525,14 +587,14 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
                 info.size = len(data)
                 info.mode = modes.get(name, 0o644)
                 archive.addfile(info, io.BytesIO(data))
-        verify_bundle(temporary, commit, version, native_evidence)
+        verify_bundle(temporary, commit, version, native_evidence, linux_evidence)
         temporary.replace(output)
     finally:
         temporary.unlink(missing_ok=True)
     return manifest
 
 
-def verify_bundle(path, commit, version, native_evidence=None):
+def verify_bundle(path, commit, version, native_evidence=None, linux_evidence=None):
     identity(commit, version)
     prefix = "TagGroove-v" + version + "-sources/"
     files, modes, total = {}, {}, 0
@@ -551,7 +613,7 @@ def verify_bundle(path, commit, version, native_evidence=None):
     require(set(manifest.get("files", {})) == set(files), "Source archive file inventory differs")
     for name, data in files.items():
         require(manifest["files"][name] == {"size": len(data), "sha256": sha(data), "mode": modes[name]}, f"Source archive file hash differs: {name}")
-    return verify_contents(files, manifest, commit, version, native_evidence)
+    return verify_contents(files, manifest, commit, version, native_evidence, linux_evidence)
 
 
 def main():
@@ -566,10 +628,12 @@ def main():
     parser.add_argument("--cargo-vendor", type=Path)
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--linux-runtime-sources", type=Path, help="Exact local pinned AppImage runtime/launcher source archives; otherwise fetched by checksum")
+    parser.add_argument('--linux-evidence', type=Path, help='Both Linux builder source manifests and, when building, captured objects')
     args = parser.parse_args()
     if args.verify:
-        result = verify_bundle(args.verify, args.source_sha, args.version, args.native_evidence)
-        print(json.dumps({key: result[key] for key in ("schema", "version", "source_commit", "targets")}))
+        result = verify_bundle(args.verify, args.source_sha, args.version, args.native_evidence, args.linux_evidence)
+        print(json.dumps({**{key: result[key] for key in ("schema", "version", "source_commit", "targets")},
+                          'linux_distribution': result.get('linux_distribution', {})}))
     elif args.verify_native:
         wrapper = load(args.verify_native.read_bytes())
         native_manifest(wrapper, args.source_sha, args.version)
@@ -581,7 +645,7 @@ def main():
         require(args.output is not None, "Building requires --output")
         build_bundle(Path(__file__).resolve().parents[1], args.source_sha, args.version, args.output,
                      args.native_evidence, vendor_dir=args.cargo_vendor, dist_dir=args.dist,
-                     linux_runtime_sources=args.linux_runtime_sources)
+                     linux_runtime_sources=args.linux_runtime_sources, linux_evidence=args.linux_evidence)
 
 
 if __name__ == "__main__":

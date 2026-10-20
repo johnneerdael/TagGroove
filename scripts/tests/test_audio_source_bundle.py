@@ -6,6 +6,7 @@ import importlib.util
 import io
 import inspect
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -53,7 +54,8 @@ def cargo_vendor_fixture():
     return lock, vendor
 
 
-def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice_material=False, runtime_material=None):
+def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice_material=False, runtime_material=None,
+            extra_files=None):
     """Make a real Git source binding, four local upstream archives and seven fake builds."""
     root = Path(root)
     app, archives, evidence = [root / name for name in ("app", "archives", "evidence")]
@@ -77,6 +79,7 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice
     }
     if cargo_config is not None:
         files[".cargo/config.toml"] = cargo_config
+    files.update(extra_files or {})
     if runtime_material is not None:
         runtime_spec, runtime_files = runtime_material
         files['scripts/notices/linux-runtime-material.json'] = json.dumps(runtime_spec)+'\n'
@@ -206,7 +209,115 @@ def rewrite_bundle(path, change, rehash=False):
             archive.addfile(info, io.BytesIO(data) if data is not None else None)
 
 
+def linux_distribution_fixture(root, builder):
+    path = Path(__file__).with_name('test_linux_distribution_capture.py')
+    spec = importlib.util.spec_from_file_location('distribution_fixture', path)
+    helpers = importlib.util.module_from_spec(spec);spec.loader.exec_module(helpers)
+    cases = helpers.LinuxDistributionCapture();capture = cases.module()
+    x64, xobjects, xspec, signer = cases.fixture(capture)
+    arm64, aobjects, aspec, _ = cases.fixture(capture, 'arm64')
+    runtime_path = Path(__file__).with_name('test_linux_runtime_material.py')
+    spec = importlib.util.spec_from_file_location('runtime_fixture', runtime_path)
+    runtime_helpers = importlib.util.module_from_spec(spec);spec.loader.exec_module(runtime_helpers)
+    runtime_spec, runtime_files = runtime_helpers.LinuxRuntimeMaterial().fixture()
+    runtime_spec['asset_pins'] = {**xspec['asset_pins'], **aspec['asset_pins']}
+    source_root = SCRIPT.parents[1]
+    config = json.loads((source_root/'src-tauri/tauri.conf.json').read_bytes());config['version'] = '0.1.0'
+    extra = {'src-tauri/tauri.conf.json': json.dumps(config)+'\n',
+             'scripts/notices/linux-packager-recipes.json': json.dumps(capture.RECIPES)+'\n'}
+    extra.update({row['source_file']: (source_root/row['source_file']).read_text() for row in capture.RECIPES['sources']})
+    f = fixture(root, runtime_material=(runtime_spec, runtime_files), extra_files=extra)
+    evidence = f['root']/'linux-evidence'
+    config_raw = builder.stamped('src-tauri/tauri.conf.json', (f['app']/'src-tauri/tauri.conf.json').read_bytes(), '0.1.0')
+    with patch.object(capture.material, 'UBUNTU_ARCHIVE_SIGNER', signer), \
+         patch.object(builder, 'distribution_helper', return_value=capture):
+        for record, objects in [(x64, xobjects), (arm64, aobjects)]:
+            record['source_commit'] = f['commit'];record['version'] = '0.1.0'
+            image = f"fixture {record['platform']} .AppImage".encode()
+            record['appimage_sha256'] = digest(image);record['appimage_size'] = len(image)
+            record['files']['usr/bin/taggroove']['source_commit'] = f['commit']
+            record['builder_inputs']['src-tauri/tauri.conf.json'] = capture.reference(config_raw, objects)
+            recipes = {name: objects[row['sha256']] for name, row in record['builder_recipes'].items()}
+            for name, raw in capture.generated_files(config, recipes).items():
+                record['files'][name] = {'kind': 'generated-builder', **capture.reference(raw, objects)}
+            required = capture.verify_materials(record, objects, runtime_spec, f['commit'], '0.1.0', record['platform'])
+            capture.export_capture(evidence, record, {key: objects[key] for key in required})
+        output = f['root']/'complete.tar.xz'
+        result = builder.build_bundle(f['app'], f['commit'], '0.1.0', output,
+            f['evidence'], f['archives'], f['vendor'], f['dist'],
+            linux_runtime_sources=f['runtime_archives'], linux_evidence=evidence)
+    return f, capture, signer, output
+
+
 class SourceBundleTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('gpgv'), 'GnuPG signature verifier required')
+    def test_two_target_distribution_bundle_binds_sidecars_summary_and_exact_object_set(self):
+        f, capture, signer, output = linux_distribution_fixture(self.f['root']/'two-linux-targets', self.builder)
+        evidence = f['root']/'linux-evidence'
+        with patch.object(capture.material, 'UBUNTU_ARCHIVE_SIGNER', signer), \
+             patch.object(self.builder, 'distribution_helper', return_value=capture):
+            result = self.builder.verify_bundle(output, f['commit'], '0.1.0', f['evidence'], evidence)
+            self.assertEqual(set(result['linux_distribution']), {'linux-x64', 'linux-arm64'})
+            self.builder.verify_bundle(output, f['commit'], '0.1.0', f['evidence'], evidence)
+            sidecar = evidence/'linux-source-linux-x64.json';original = sidecar.read_bytes();sidecar.write_bytes(original+b'\n')
+            with self.assertRaisesRegex(ValueError, 'differs from built packages'):
+                self.builder.verify_bundle(output, f['commit'], '0.1.0', linux_evidence=evidence)
+            sidecar.write_bytes(original)
+            altered = f['root']/'summary.tar.xz';shutil.copyfile(output, altered)
+            def change_summary(name, data):
+                if not name.endswith('/source-manifest.json'):return data
+                manifest = json.loads(data);manifest['linux_distribution']['linux-x64']['appimage_sha256'] = '0'*64
+                return json.dumps(manifest).encode()
+            rewrite_bundle(altered, change_summary)
+            with self.assertRaisesRegex(ValueError, 'summary differs'):
+                self.builder.verify_bundle(altered, f['commit'], '0.1.0')
+            # Rehash the outer file inventory after adding an unreferenced object;
+            # internal source/member requirements must still reject that object.
+            extra_path = f['root']/'extra-object.tar.xz'
+            with tarfile.open(output, 'r:xz') as source:
+                rows = [(item, source.extractfile(item).read()) for item in source]
+            manifest_info, manifest_raw = next(row for row in rows if row[0].name.endswith('/source-manifest.json'))
+            prefix = manifest_info.name.removesuffix('source-manifest.json');raw = b'unreferenced object'
+            name = 'linux-distribution/objects/'+digest(raw);manifest = json.loads(manifest_raw)
+            manifest['files'][name] = {'size': len(raw), 'sha256': digest(raw), 'mode': 0o644}
+            info = tarfile.TarInfo(prefix+name);info.mode = 0o644;rows.append((info, raw))
+            with tarfile.open(extra_path, 'w:xz') as target:
+                for info, raw in rows:
+                    if info is manifest_info:raw = json.dumps(manifest).encode()
+                    info.size = len(raw);target.addfile(info, io.BytesIO(raw))
+            with self.assertRaisesRegex(ValueError, 'Untracked or unexpected'):
+                self.builder.verify_bundle(extra_path, f['commit'], '0.1.0')
+
+    def test_distribution_sources_are_mandatory_when_the_git_bound_recipe_is_present(self):
+        self.assertIn('linux_evidence', inspect.signature(self.builder.build_bundle).parameters,
+                      'Source publication has no Linux builder evidence input')
+        path = Path(__file__).with_name('test_linux_runtime_material.py')
+        spec = importlib.util.spec_from_file_location('runtime_source_fixture', path)
+        helpers = importlib.util.module_from_spec(spec);spec.loader.exec_module(helpers)
+        complete = fixture(self.f['root']/'distribution-source', runtime_material=helpers.LinuxRuntimeMaterial().fixture(),
+                           extra_files={'scripts/notices/linux-packager-recipes.json': '{}\n'})
+        with self.assertRaisesRegex(ValueError, 'Linux distribution evidence'):
+            build(complete)
+
+    def test_builder_observed_config_recipes_and_assets_must_equal_git_bound_bytes(self):
+        self.assertTrue(callable(getattr(self.builder, 'verify_linux_git_inputs', None)),
+                        'Linux observations are not bound to the Git-proven source tree')
+        paths = {'src-tauri/tauri.conf.json': b'stamped config', 'recipe.sh': b'pinned recipe',
+                 'src-tauri/icons/icon.png': b'original icon'}
+        objects = {digest(raw): raw for raw in paths.values()}
+        ref = lambda path: {'sha256': digest(paths[path]), 'size': len(paths[path])}
+        capture = {'builder_inputs': {'src-tauri/tauri.conf.json': ref('src-tauri/tauri.conf.json')},
+                   'builder_recipes': {'recipe': ref('recipe.sh')},
+                   'files': {'TagGroove.png': {'kind': 'repository-bytes',
+                       'source_file': 'src-tauri/icons/icon.png', **ref('src-tauri/icons/icon.png')}}}
+        files = {'app/'+name: raw for name, raw in paths.items()}
+        files['app/scripts/notices/linux-packager-recipes.json'] = json.dumps({'sources': [
+            {'id': 'recipe', 'source_file': 'recipe.sh'}]}).encode()
+        self.builder.verify_linux_git_inputs(files, capture, objects)
+        for path in paths:
+            with self.subTest(path=path),self.assertRaises(ValueError):
+                self.builder.verify_linux_git_inputs({**files, 'app/'+path: b'changed source'}, capture, objects)
+
     def test_runtime_sources_are_required_and_cannot_be_detached_by_rehashing_the_bundle(self):
         self.assertIn('linux_runtime_sources', inspect.signature(self.builder.build_bundle).parameters,
                       'Source publication has no runtime material input')
@@ -499,7 +610,25 @@ class SourceBundleTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == "--release-fixture":
+    if len(sys.argv) == 3 and sys.argv[1] == '--release-linux-fixture':
+        f, capture, signer, path = linux_distribution_fixture(Path(sys.argv[2]), load_builder())
+        verifier = f['root']/'fixture-python'
+        # Run the production verifier with only the trusted signer substituted
+        # for this generated test repository. Never install this into CI or app code.
+        verifier.write_text(f'#!{sys.executable}\n'+f'''import importlib.util, sys
+spec=importlib.util.spec_from_file_location('source_builder',{str(SCRIPT)!r})
+builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+capture=builder.distribution_helper()
+capture.material.UBUNTU_ARCHIVE_SIGNER={signer!r}
+builder.distribution_helper=lambda:capture
+sys.argv=sys.argv[1:]
+try:builder.main()
+except (OSError,ValueError,KeyError) as error:sys.exit(str(error))
+''')
+        verifier.chmod(0o755)
+        print(json.dumps({'commit': f['commit'], 'bundle': str(path), 'evidence': str(f['evidence']),
+                          'linux_evidence': str(f['root']/'linux-evidence'), 'python': str(verifier)}))
+    elif len(sys.argv) == 3 and sys.argv[1] == "--release-fixture":
         f = fixture(sys.argv[2])
         path = build(f)
         print(json.dumps({"commit": f["commit"], "bundle": str(path), "evidence": str(f["evidence"])}))

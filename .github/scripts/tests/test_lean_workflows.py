@@ -15,6 +15,37 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
+    def test_linux_packager_inputs_are_pinned_before_the_single_application_build(self):
+        block = job((WORKFLOWS / 'reviewed-release.yml').read_text(), 'desktop')
+        title = 'Prepare pinned Linux packaging inputs'
+        self.assertIn('name: '+title, block)
+        step = block.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: runner.os == 'Linux'", step)
+        self.assertIn('python scripts/linux-build-tools.py', step)
+        self.assertIn('XDG_CACHE_HOME=', step)
+        self.assertIn('LDAI_RUNTIME_FILE=', step)
+        self.assertLess(block.index('name: Prepare AppImage shared license material and inspector'), block.index('name: '+title))
+        self.assertLess(block.index('name: '+title), block.index('name: Build desktop packages'))
+        self.assertEqual(block.count('uses: tauri-apps/tauri-action@'), 1)
+
+    def test_linux_capture_follows_build_and_sources_receive_both_builder_artifacts(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        desktop = job(source, 'desktop')
+        title = 'Capture authenticated Linux package and source bindings'
+        self.assertIn('name: '+title, desktop)
+        step = desktop.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: runner.os == 'Linux'", step)
+        self.assertIn('python scripts/linux-distribution-capture.py', step)
+        self.assertIn('--source-commit "$RELEASE_COMMIT"', step)
+        self.assertIn('--output linux-source-evidence', step)
+        self.assertLess(desktop.index('name: Build desktop packages'), desktop.index('name: '+title))
+        self.assertLess(desktop.index('name: '+title), desktop.index('node scripts/release.mjs collect-desktop'))
+        self.assertIn('name: linux-source-${{ matrix.platform }}', desktop)
+        sources = job(source, 'corresponding-source')
+        self.assertIn('pattern: linux-source-*', sources)
+        self.assertIn('path: linux-evidence', sources)
+        self.assertEqual(sources.count('--linux-evidence linux-evidence'), 2)
+
     def test_appimage_license_material_is_staged_before_build_and_verified_before_collection(self):
         block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "desktop")
         for title, command in [

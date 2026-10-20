@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "id": "tauri-linuxdeploy",
+      "source_file": "src/licenses/linux-packager/recipes/linuxdeploy.rs",
+      "sha256": "28a4d64fdca6c891bd235a8a2f65e062bf510bd3687b18c726950a94cb96f22f",
+      "size": 9048,
+      "git_blob_sha1": "a3bc634818613c666714453e2efe58335ff2c009",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/tauri/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle/linux/appimage/linuxdeploy.rs",
+      "commit": "5b23c82ea5ba6b9aec420dd71f60493edc486aa9",
+      "upstream_path": "crates/tauri-bundler/src/bundle/linux/appimage/linuxdeploy.rs"
+    },
+    {
+      "id": "tauri-gtk-plugin",
+      "source_file": "src/licenses/linux-packager/recipes/linuxdeploy-plugin-gtk.sh",
+      "sha256": "ef6b9a980417243bc62e0241b51dc49876032afd1bab9b4762389f961b406d9b",
+      "size": 14640,
+      "git_blob_sha1": "cbc460bcdc3931b00ef39d6612aa9de0099e6974",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/tauri/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle/linux/appimage/linuxdeploy-plugin-gtk.sh",
+      "commit": "5b23c82ea5ba6b9aec420dd71f60493edc486aa9",
+      "upstream_path": "crates/tauri-bundler/src/bundle/linux/appimage/linuxdeploy-plugin-gtk.sh"
+    },
+    {
+      "id": "tauri-debian",
+      "source_file": "src/licenses/linux-packager/recipes/debian.rs",
+      "sha256": "51bd2c590e5aad5838e2b8269eadb3040047df2c9ab89fdae5b75c0fcac4e9d9",
+      "size": 14279,
+      "git_blob_sha1": "4200ff4a7856e400ea95b48e9dbdc79fbec4b1ed",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/tauri/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle/linux/debian.rs",
+      "commit": "5b23c82ea5ba6b9aec420dd71f60493edc486aa9",
+      "upstream_path": "crates/tauri-bundler/src/bundle/linux/debian.rs"
+    },
+    {
+      "id": "tauri-freedesktop",
+      "source_file": "src/licenses/linux-packager/recipes/freedesktop-mod.rs",
+      "sha256": "52f7e66f3b62ad07104c3eb5a1f939e237f18de5c618bf11789cfe8e666d6a57",
+      "size": 5653,
+      "git_blob_sha1": "24ec54ca1cd6c974fdd83c559cc1411a14918ce1",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/tauri/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle/linux/freedesktop/mod.rs",
+      "commit": "5b23c82ea5ba6b9aec420dd71f60493edc486aa9",
+      "upstream_path": "crates/tauri-bundler/src/bundle/linux/freedesktop/mod.rs"
+    },
+    {
+      "id": "tauri-desktop-template",
+      "source_file": "src/licenses/linux-packager/recipes/freedesktop-main.desktop",
+      "sha256": "e00911fe5d73f873414c08e6c14649c656ed3aacf63061c1ed3e2ca6f8dab5df",
+      "size": 233,
+      "git_blob_sha1": "b99875009220de0aac27fc26fdaddd23479efbbb",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/tauri/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle/linux/freedesktop/main.desktop",
+      "commit": "5b23c82ea5ba6b9aec420dd71f60493edc486aa9",
+      "upstream_path": "crates/tauri-bundler/src/bundle/linux/freedesktop/main.desktop"
+    },
+    {
+      "id": "linuxdeploy-root-setup",
+      "source_file": "src/licenses/linux-packager/recipes/appdir_root_setup.cpp",
+      "sha256": "fa0d3ab953548386baa022161ba4dfdafd84e23b5a67ce9d2c1549a830528552",
+      "size": 19906,
+      "git_blob_sha1": "5a0587737afb9cff5c95390f4a930b9e80a4f42d",
+      "source_url": "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy/07333c6e942c7d71782b66be924c5d867f9dfdfc/src/core/appdir_root_setup.cpp",
+      "commit": "07333c6e942c7d71782b66be924c5d867f9dfdfc",
+      "upstream_path": "src/core/appdir_root_setup.cpp"
+    },
+    {
+      "id": "linuxdeploy-appdir",
+      "source_file": "src/licenses/linux-packager/recipes/appdir.cpp",
+      "sha256": "423012147296494d9817ac79c8ca9923d6aa1e1bc06cf2325bd29b44c1252b0a",
+      "size": 45990,
+      "git_blob_sha1": "8f31102db24bd55e7dd8fa29f27d873124d2afa2",
+      "source_url": "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy/07333c6e942c7d71782b66be924c5d867f9dfdfc/src/core/appdir.cpp",
+      "commit": "07333c6e942c7d71782b66be924c5d867f9dfdfc",
+      "upstream_path": "src/core/appdir.cpp"
+    }
+  ]
+}

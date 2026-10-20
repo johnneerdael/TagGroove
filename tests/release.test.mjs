@@ -5,6 +5,7 @@ import {mkdtempSync, rmSync} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode, shipsChanges, NON_SHIPPING_PATHS } from '../scripts/release.mjs';
 
 const sourceFixtureRoot = mkdtempSync(join(tmpdir(), 'taggroove-release-source-'));
@@ -100,6 +101,66 @@ async function completeAssets(t) {
   await copyFile(sourceFixture.bundle, join(outputDir, 'TagGroove-v0.1.0-sources.tar.xz'));
   return { root, outputDir };
 }
+
+test('Linux package collection binds source evidence to the actual image and release identity', async (t) => {
+  const root = await fixture(t);const platform = 'linux-x64';
+  const sourcePaths = await Promise.all(['.deb', '.rpm', '.AppImage'].map(async suffix => {
+    const path = join(root, 'fixture'+suffix);await writeFile(path, 'packaged '+suffix);return path;
+  }));
+  const image = await readFile(sourcePaths[2]);
+  const capture = {schema: 1, platform, target: 'x86_64-unknown-linux-gnu', source_commit: sha, version: '0.1.0',
+    appimage_sha256: createHash('sha256').update(image).digest('hex'), appimage_size: image.length};
+  const linuxManifest = join(root, 'linux-source.json');
+  await writeFile(linuxManifest, JSON.stringify(capture));
+  const args = {plan: plan(), platform, sourcePaths, outputDir: join(root, 'assets'), linuxManifest,
+    nativeManifest: join(sourceFixture.evidence, 'native-linux-x64.json')};
+  const manifest = await collectAssets(args);
+  assert.equal(manifest.linux_source.appimage_sha256, capture.appimage_sha256);
+  assert.equal(manifest.linux_source.name, 'linux-source-linux-x64.json');
+  assert.equal(manifest.linux_source.target, capture.target);
+  for (const changed of [{source_commit: 'b'.repeat(40)}, {version: '0.2.0'}, {platform: 'linux-arm64'},
+    {target: 'aarch64-unknown-linux-gnu'}, {appimage_sha256: '0'.repeat(64)}, {appimage_size: image.length+1}]) {
+    await writeFile(linuxManifest, JSON.stringify({...capture, ...changed}));
+    await assert.rejects(collectAssets(args), /Linux.*(source|image|target|binding)/i);
+  }
+});
+
+test('modern release assembly requires the two source-bound Linux sidecars', {skip: process.platform === 'win32'}, async (t) => {
+  const root = await fixture(t);
+  const python = process.env.PYTHON || 'python3';
+  const captured = JSON.parse(execFileSync(python,
+    ['scripts/tests/test_audio_source_bundle.py', '--release-linux-fixture', join(root, 'source')], {encoding: 'utf8'}));
+  const previousPython = process.env.PYTHON;process.env.PYTHON = captured.python;
+  t.after(() => {if (previousPython === undefined) delete process.env.PYTHON;else process.env.PYTHON = previousPython;});
+  const releasePlan = {...plan(), commit: captured.commit};const directory = join(root, 'assets');
+  const suffixes = { 'windows-x64': ['.exe'], 'macos-arm64': ['.dmg', '.app.tar.gz'], 'macos-x64': ['.dmg', '.app.tar.gz'],
+    'linux-x64': ['.deb', '.rpm', '.AppImage'], 'linux-arm64': ['.deb', '.rpm', '.AppImage'],
+    'android-arm64': ['.apk'], 'ios-arm64-simulator-preview': ['.app.zip']};
+  for (const platform of PLATFORMS) {
+    const sourcePaths = [];
+    for (const suffix of suffixes[platform]) {
+      const path = join(root, platform+suffix);await writeFile(path, `fixture ${platform} ${suffix}`);sourcePaths.push(path);
+    }
+    await collectAssets({plan: releasePlan, platform, sourcePaths, outputDir: directory,
+      nativeManifest: join(captured.evidence, `native-${platform}.json`),
+      ...(platform.startsWith('linux-') ? {linuxManifest: join(captured.linux_evidence, `linux-source-${platform}.json`)} : {})});
+  }
+  await copyFile(captured.bundle, join(directory, 'TagGroove-v0.1.0-sources.tar.xz'));
+  const assembled = await assembleRelease({plan: releasePlan, directory});
+  assert.equal(assembled.assets.length, 16);
+  const published = JSON.parse(await readFile(join(directory, 'release-manifest.json'), 'utf8'));
+  assert.deepEqual(Object.keys(published.linux_distribution).sort(), ['linux-arm64', 'linux-x64']);
+  const sidecar = join(directory, 'linux-source-linux-x64.json');const original = await readFile(sidecar);
+  await writeFile(sidecar, Buffer.concat([original, Buffer.from('\n')]));
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /differs from built packages/);
+  await writeFile(sidecar, original);
+  const manifestPath = join(directory, 'manifest-linux-x64.json');const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  await writeFile(manifestPath, JSON.stringify({...manifest, linux_source: {...manifest.linux_source, sha256: '0'.repeat(64)}}));
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /Linux source evidence hash/);
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await writeFile(join(directory, 'linux-source-extra.json'), original);
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /Unexpected files/);
+});
 
 test('assembly requires all seven matching platform manifests and checks every hash', async (t) => {
   const { outputDir } = await completeAssets(t);

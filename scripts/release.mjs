@@ -219,6 +219,18 @@ async function nativeEvidence(plan, platform, path) {
   return {...description, target: NATIVE_TARGETS[platform]};
 }
 
+async function linuxEvidence(plan, platform, path, assets) {
+  const wrapper = JSON.parse(await readFile(path, 'utf8'));
+  if (!['linux-x64', 'linux-arm64'].includes(platform) || wrapper.schema !== 1 || wrapper.platform !== platform
+      || wrapper.target !== NATIVE_TARGETS[platform] || wrapper.source_commit !== plan.commit || wrapper.version !== plan.version)
+    throw new Error(`Mixed Linux source/version/target for ${platform}`);
+  const image = assets.find(asset => asset.name === `TagGroove-${plan.tag}-${platform}.AppImage`);
+  if (!image || wrapper.appimage_sha256 !== image.sha256 || wrapper.appimage_size !== image.size)
+    throw new Error(`Linux source/image binding differs for ${platform}`);
+  const {path: _path, ...description} = await describe(path);
+  return {...description, target: wrapper.target, appimage_sha256: image.sha256, appimage_size: image.size};
+}
+
 export function assetName(tag, platform, source) {
   checkedTag(tag);
   if (!PLATFORMS.includes(platform)) throw new Error('Unsupported release platform');
@@ -239,7 +251,7 @@ async function describe(path) {
   return { name: basename(path), size: info.size, sha256: hash.digest('hex'), path };
 }
 
-export async function collectAssets({ plan, platform, sourcePaths, outputDir, nativeManifest }) {
+export async function collectAssets({ plan, platform, sourcePaths, outputDir, nativeManifest, linuxManifest }) {
   const expected = FORMATS[platform];
   if (!expected || !Array.isArray(sourcePaths)) throw new Error('Invalid platform artifacts');
   await mkdir(outputDir, { recursive: true });
@@ -270,6 +282,11 @@ export async function collectAssets({ plan, platform, sourcePaths, outputDir, na
   if (nativeManifest && resolve(nativeManifest) !== resolve(nativePath)) await copyFile(nativeManifest, nativePath);
   const native = await nativeEvidence(plan, platform, nativePath);
   const manifest = { schema: 1, tag: plan.tag, version: plan.version, commit: plan.commit, platform, assets, native };
+  if (linuxManifest !== undefined) {
+    const linuxPath = join(outputDir, `linux-source-${platform}.json`);
+    if (resolve(linuxManifest) !== resolve(linuxPath)) await copyFile(linuxManifest, linuxPath);
+    manifest.linux_source = await linuxEvidence(plan, platform, linuxPath, assets);
+  }
   await writeFile(join(outputDir, `manifest-${platform}.json`), `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;
 }
@@ -281,10 +298,12 @@ export async function assembleRelease({ plan, directory }) {
   const manifestNames = PLATFORMS.map(platform => `manifest-${platform}.json`);
   const nativeNames = PLATFORMS.map(platform => `native-${platform}.json`);
   const nativeBuilds = {};
+  const platformManifests = {};
   for (const [index, manifestName] of manifestNames.entries()) {
     if (!files.includes(manifestName)) throw new Error(`Missing required platform manifest: ${manifestName}`);
     const manifest = JSON.parse(await readFile(join(directory, manifestName), 'utf8'));
     const platform = PLATFORMS[index];
+    platformManifests[platform] = manifest;
     if (manifest.schema !== 1 || manifest.platform !== platform || manifest.commit !== plan.commit || manifest.tag !== plan.tag || manifest.version !== plan.version) throw new Error(`Mixed source/version in ${manifestName}`);
     const native = await nativeEvidence(plan, platform, join(directory, nativeNames[index]));
     if (!manifest.native || Object.keys(manifest.native).length !== Object.keys(native).length
@@ -303,14 +322,32 @@ export async function assembleRelease({ plan, directory }) {
   }
   const sourceName = sourceAssetName(plan.tag);
   if (!files.includes(sourceName)) throw new Error(`Missing required corresponding-source asset: ${sourceName}`);
-  verifySource(plan, ['--verify', join(directory, sourceName), '--native-evidence', directory]);
+  const source = JSON.parse(verifySource(plan, ['--verify', join(directory, sourceName), '--native-evidence', directory,
+    '--linux-evidence', directory]));
+  const linuxBuilds = {}, linuxNames = [];
+  const targets = source.linux_distribution || {};
+  if (Object.keys(targets).length && (Object.keys(targets).length !== 2
+      || !['linux-x64', 'linux-arm64'].every(platform => Object.hasOwn(targets, platform))))
+    throw new Error('Incomplete Linux distribution source coverage');
+  for (const [platform, target] of Object.entries(targets)) {
+    const name = `linux-source-${platform}.json`;
+    const actual = await linuxEvidence(plan, platform, join(directory, name), assets);
+    const expected = platformManifests[platform].linux_source;
+    if (!expected || Object.keys(expected).length !== Object.keys(actual).length
+        || Object.entries(actual).some(([key, value]) => expected[key] !== value)
+        || target.manifest_sha256 !== actual.sha256 || target.target !== actual.target
+        || target.appimage_sha256 !== actual.appimage_sha256 || target.appimage_size !== actual.appimage_size)
+      throw new Error(`Linux source evidence hash/target/image mismatch: ${platform}`);
+    linuxBuilds[platform] = actual;linuxNames.push(name);
+  }
   assets.push(await describe(join(directory, sourceName)));
   names.add(sourceName);
-  const allowed = new Set([...manifestNames, ...nativeNames, ...names, 'SHA256SUMS', 'release-manifest.json']);
+  const allowed = new Set([...manifestNames, ...nativeNames, ...linuxNames, ...names, 'SHA256SUMS', 'release-manifest.json']);
   if (files.some(file => !allowed.has(file))) throw new Error('Unexpected files in downloaded release artifacts');
   assets.sort((a, b) => a.name.localeCompare(b.name, 'en'));
   const manifestPath = join(directory, 'release-manifest.json');
   await writeFile(manifestPath, `${JSON.stringify({ schema: 1, ...plan, platforms: PLATFORMS, native_builds: nativeBuilds,
+    ...(linuxNames.length ? {linux_distribution: linuxBuilds} : {}),
     corresponding_source: sourceName, assets: assets.map(({ path: _path, ...item }) => item) }, null, 2)}\n`);
   assets.push(await describe(manifestPath));
   const sumsPath = join(directory, 'SHA256SUMS');
@@ -521,7 +558,9 @@ async function main(command) {
   const outputDir = resolve(process.env.RELEASE_ASSETS || 'release-assets');
   if (command === 'collect-desktop') {
     const sources = JSON.parse(process.env.TAURI_ARTIFACT_PATHS || '[]');
-    await collectAssets({ plan, platform: process.env.RELEASE_PLATFORM, sourcePaths: sources, outputDir });
+    const platform = process.env.RELEASE_PLATFORM;
+    await collectAssets({ plan, platform, sourcePaths: sources, outputDir,
+      ...(['linux-x64', 'linux-arm64'].includes(platform) ? {linuxManifest: join(outputDir, `linux-source-${platform}.json`)} : {}) });
   } else if (command === 'restore-android-key') {
     for (const key of ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']) if (!process.env[key]) throw new Error(`Required signing secret is missing: ${key}`);
     const bytes = Buffer.from(process.env.ANDROID_KEYSTORE_BASE64, 'base64');
