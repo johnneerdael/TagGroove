@@ -19,7 +19,8 @@ and notices** for the component/version index and its referenced license text.
 including notices supplied with bundled parser libraries. Both lists are
 available offline.
 **Native runtime and installer notices** includes additional audio-codec,
-Android C++ runtime and Windows installer notices. These lists preserve the
+Android C++ runtime, Windows installer and Linux AppImage runtime/launcher
+notices, including their retained supplier-library notices. These lists preserve the
 supplier's copyright and license wording.
 Linux AppImages also carry distribution copyright files under
 `usr/share/doc/` and the standard texts they reference under

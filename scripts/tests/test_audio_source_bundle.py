@@ -4,6 +4,7 @@ import difflib
 import base64
 import importlib.util
 import io
+import inspect
 import json
 from pathlib import Path
 import subprocess
@@ -52,7 +53,7 @@ def cargo_vendor_fixture():
     return lock, vendor
 
 
-def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice_material=False):
+def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice_material=False, runtime_material=None):
     """Make a real Git source binding, four local upstream archives and seven fake builds."""
     root = Path(root)
     app, archives, evidence = [root / name for name in ("app", "archives", "evidence")]
@@ -76,6 +77,16 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice
     }
     if cargo_config is not None:
         files[".cargo/config.toml"] = cargo_config
+    if runtime_material is not None:
+        runtime_spec, runtime_files = runtime_material
+        files['scripts/notices/linux-runtime-material.json'] = json.dumps(runtime_spec)+'\n'
+        for name, raw in runtime_files.items():
+            if name.startswith('app/'):
+                files[name.removeprefix('app/')] = raw.decode('utf-8')
+        runtime_archives = root/'runtime-archives';runtime_archives.mkdir()
+        for name, raw in runtime_files.items():
+            if name.startswith('linux-runtime/archives/'):
+                (runtime_archives/Path(name).name).write_bytes(raw)
     components = {}
     for name in ("chromaprint", "ffmpeg", "zlib", "bzip2"):
         archive = archives / f"{name}-1.tar.gz"
@@ -162,14 +173,17 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice
     vendor.mkdir()
     dist.mkdir()
     (dist / "index.html").write_text("<html>stamped frontend fixture</html>\n")
-    return {"root": root, "app": app, "archives": archives, "evidence": evidence,
-            "vendor": vendor, "dist": dist, "commit": commit}
+    result = {"root": root, "app": app, "archives": archives, "evidence": evidence,
+              "vendor": vendor, "dist": dist, "commit": commit}
+    if runtime_material is not None:result['runtime_archives'] = runtime_archives
+    return result
 
 
 def build(f, output=None, version="0.1.0"):
     output = output or f["root"] / f"TagGroove-v{version}-sources.tar.xz"
     load_builder().build_bundle(f["app"], f["commit"], version, output,
-                               f["evidence"], f["archives"], f["vendor"], f["dist"])
+                               f["evidence"], f["archives"], f["vendor"], f["dist"],
+                               **({'linux_runtime_sources': f['runtime_archives']} if 'runtime_archives' in f else {}))
     return output
 
 
@@ -193,6 +207,25 @@ def rewrite_bundle(path, change, rehash=False):
 
 
 class SourceBundleTests(unittest.TestCase):
+    def test_runtime_sources_are_required_and_cannot_be_detached_by_rehashing_the_bundle(self):
+        self.assertIn('linux_runtime_sources', inspect.signature(self.builder.build_bundle).parameters,
+                      'Source publication has no runtime material input')
+        path = Path(__file__).with_name('test_linux_runtime_material.py')
+        spec = importlib.util.spec_from_file_location('runtime_source_fixture', path)
+        helpers = importlib.util.module_from_spec(spec);spec.loader.exec_module(helpers)
+        runtime = helpers.LinuxRuntimeMaterial().fixture()
+        complete = fixture(self.f['root']/'runtime-source', runtime_material=runtime)
+        output = build(complete)
+        self.builder.verify_bundle(output, complete['commit'], '0.1.0', complete['evidence'])
+        with tarfile.open(output, 'r:xz') as archive:
+            self.assertTrue(any(name.endswith('/linux-runtime/archives/dep.tar.gz') for name in archive.getnames()))
+        selected = complete['runtime_archives']/'dep.tar.gz'
+        selected.unlink()
+        with self.assertRaises(ValueError):build(complete, complete['root']/'missing-source.tar.xz')
+        rewrite_bundle(output, lambda name, data: data+b'changed' if name.endswith('/linux-runtime/archives/dep.tar.gz') else data,
+                       rehash=True)
+        with self.assertRaises(ValueError):self.builder.verify_bundle(output, complete['commit'], '0.1.0')
+
     def test_source_publication_requires_bound_compiler_supplier_notices(self):
         complete = fixture(self.f['root'] / 'notice-complete', notice_material=True)
         path = build(complete)

@@ -22,7 +22,8 @@ test('About embeds the complete Android payload and retains shaded parser notice
   const {audioLicenses}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
   const payload=read('THIRD_PARTY_ANDROID.md');
   assert.equal(audioLicenses.find(x=>x.title==='Android/JVM licenses and notices')?.text,payload);
-  assert.equal(audioLicenses.find(x=>x.title==='Native runtime and installer notices')?.text,read('THIRD_PARTY_NATIVE.md'));
+  assert.equal(audioLicenses.find(x=>x.title==='Native runtime and installer notices')?.text,
+    read('THIRD_PARTY_NATIVE.md')+'\n\n'+read('THIRD_PARTY_LINUX.md'));
   const inventory=JSON.parse(read('src/licenses/android-inventory.json'));
   const core=inventory.components.find(x=>x.coordinate==='com.fasterxml.jackson.core:jackson-core:2.15.3');
   for(const path of ['META-INF/NOTICE','META-INF/FastDoubleParser-LICENSE','META-INF/FastDoubleParser-NOTICE','META-INF/bigint-LICENSE'])

@@ -21,6 +21,8 @@ scripts/notices/*.gradle text eol=lf
 THIRD_PARTY_NATIVE.md text eol=lf linguist-generated whitespace=-blank-at-eol
 src/licenses/native/** -text linguist-vendored whitespace=-blank-at-eol,-blank-at-eof
 src/licenses/appimage-common/** -text linguist-vendored whitespace=-blank-at-eol,-blank-at-eof
+src/licenses/linux-runtime/** -text linguist-vendored whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+THIRD_PARTY_LINUX.md text eol=lf linguist-generated whitespace=-blank-at-eol
 scripts/tests/fixtures/linux-source/*.gpg -text
 scripts/tests/fixtures/linux-source/*.xz -text
 scripts/tests/fixtures/linux-source/*.asc -text

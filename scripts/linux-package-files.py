@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read authenticated Debian package members without installation or target execution."""
 import importlib.util
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -123,3 +124,63 @@ def package_members(raw, selected, requested):
         final_index, bodies = scan_payload(tool, package, set(resolved.values()))
         require(final_index == index, 'Binary package member set changed between scans')
     return {name: {'path': path, 'bytes': bodies[path]} for name, path in resolved.items()}
+
+
+def run_packaging_tool(tool, arguments):
+    """Run a pinned host tool, never the inspected payload; bound diagnostic reads."""
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+        result = subprocess.run([str(tool), *map(str, arguments)], stdout=output, stderr=errors,
+                                env={**os.environ, 'LC_ALL': 'C'}, timeout=60)
+        output.seek(0);errors.seek(0)
+        stdout, stderr = output.read(65537), errors.read(65537)
+    require(len(stdout) <= 65536 and len(stderr) <= 65536, 'Packaging tool diagnostic exceeds bounds')
+    return result.returncode, stdout, stderr
+
+
+def replay_packaging(original, packaged, tools, pins, *, expected_rpath=None, webkit_relative_usr=False):
+    """Accept unchanged bytes or reproduce linuxdeploy's strip/RPATH operations.
+
+    This does not normalize away code, symbols, sections or arbitrary metadata.
+    The complete reproduced file must equal the packaged file.
+    """
+    result = {'sha256': sha(packaged), 'size': len(packaged), 'steps': []}
+    if original == packaged:
+        return result
+    require(original.startswith(b'\x7fELF') and packaged.startswith(b'\x7fELF'),
+            'Changed non-ELF distribution file cannot be reproduced')
+    require(isinstance(expected_rpath, str) and '\x00' not in expected_rpath,
+            'Changed ELF requires a recipe-derived expected RPATH')
+    require(set(tools) == set(pins) == {'strip', 'patchelf'}, 'Incomplete packaging tool selection')
+    for name, path in tools.items():
+        require(path.is_file() and not path.is_symlink() and path.stat().st_size == pins[name]['size']
+                and sha(path.read_bytes()) == pins[name]['sha256'], 'Pinned packaging tool bytes differ: '+name)
+    with tempfile.TemporaryDirectory(prefix='taggroove-elf-replay-') as folder:
+        source, target = Path(folder)/'original', Path(folder)/'packaged'
+        source.write_bytes(original);target.write_bytes(packaged)
+        status, stdout, _stderr = run_packaging_tool(tools['patchelf'], ['--print-rpath', target])
+        require(status == 0 and stdout.decode('utf-8').strip() == expected_rpath,
+                'Packaged RPATH differs from recipe-derived destination')
+        status, stdout, _stderr = run_packaging_tool(tools['patchelf'], ['--print-rpath', source])
+        original_rpath = stdout.decode('utf-8').strip() if status == 0 else ''
+        # Match linuxdeploy 07333c6: avoid stripping existing relative-RPATH
+        # binaries, strip other inputs first, then set their final RPATH.
+        if not original_rpath.startswith('$'):
+            status, _stdout, stderr = run_packaging_tool(tools['strip'], [source])
+            require(status == 0 or b'Not enough room for program headers' in stderr,
+                    'Unable to reproduce distribution stripping')
+            result['steps'].append('strip')
+        def final_bytes():
+            raw = source.read_bytes()
+            # The pinned Tauri GTK plugin applies this literal, length-preserving
+            # sed replacement only to libwebkit* files. The caller binds that
+            # path and recipe; no arbitrary byte normalization is accepted.
+            return raw.replace(b'/usr', b'././') if webkit_relative_usr else raw
+        if final_bytes() == packaged:
+            if webkit_relative_usr:result['steps'].append('webkit-relative-usr')
+            return result
+        status, _stdout, _stderr = run_packaging_tool(tools['patchelf'], ['--set-rpath', expected_rpath, source])
+        require(status == 0 and final_bytes() == packaged,
+                'Packaged distribution bytes differ from exact strip/RPATH replay')
+        result['steps'].append('set-rpath')
+        if webkit_relative_usr:result['steps'].append('webkit-relative-usr')
+    return result

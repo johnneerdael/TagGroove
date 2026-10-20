@@ -111,6 +111,7 @@ Every release includes `TagGroove-v<version>-sources.tar.xz` with:
 
 - The tracked application source stamped to the release version, `Cargo.lock`, the built frontend, and vendored Cargo dependencies with a separate offline Cargo configuration. Existing project settings, including target linkers, remain unchanged.
 - The original, hash-pinned Chromaprint, FFmpeg, zlib and bzip2 source archives and their original license files, plus the tracked recipes and patches.
+- The eight pinned Linux runtime/launcher source archives selected by `scripts/notices/linux-runtime-material.json`, with retained recipes, patches and complete notice members. This working-branch archive requirement does not itself establish Linux distribution-library source mapping or new-package publication; see the [runtime material receipt](verification/linux-runtime-material-2026-10-20.md).
 - Exact native build manifests and non-library prefix evidence for all seven targets: installed headers, configuration, notices, patch output and FFmpeg upstream/generated source-closure metadata. The original archives supply the complete upstream source, including files outside that compiled closure.
 - The original Git commit object, reconstructed tree/blob identities, original pre-stamp files and an actual version-stamp diff. The extracted tree needs no `.git` directory to build.
 
@@ -253,7 +254,7 @@ python3 scripts/audio-source-bundle.py --collect-native RUST_TARGET --native-evi
 python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --native-evidence native-evidence --output TagGroove-vRELEASE_VERSION-sources.tar.xz
 ```
 
-The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.
+The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. `--linux-runtime-sources DIRECTORY` supplies exactly the eight selected original runtime archives without downloading replacements; omission downloads and verifies the pinned inputs. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.
 
 ### Native evidence roots for mobile builds
 

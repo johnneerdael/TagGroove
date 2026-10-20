@@ -445,6 +445,9 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
         require(notice_data["bindings"]["ffmpeg"] == ffmpeg, "Native notice source pins differ")
         notices.verify_ffmpeg_coverage(notice_data, files["native/archives/" + ffmpeg["archive"]],
                                        ffmpeg["directory"], closure_sources, lambda name: files["app/" + safe(name)])
+    runtime_path = 'app/scripts/notices/linux-runtime-material.json'
+    if runtime_path in files:
+        expected_files.update(runtime_material_helper().verify_files(files, load(files[runtime_path])))
     vendor = {name.removeprefix("app/vendor/"): data for name, data in files.items() if name.startswith("app/vendor/")}
     expected_files.update(name for name in files if name.startswith(("app/vendor/", "app/dist/")))
     require(set(files) == expected_files, "Untracked or unexpected source archive file")
@@ -454,7 +457,16 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
     return manifest
 
 
-def build_bundle(root, commit, version, output, native_evidence=None, source_dir=None, vendor_dir=None, dist_dir=None):
+def runtime_material_helper():
+    # Use checked-out trusted verifier code, never Python from a source asset.
+    spec = importlib.util.spec_from_file_location('linux_runtime_material', Path(__file__).with_name('linux-runtime-material.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def build_bundle(root, commit, version, output, native_evidence=None, source_dir=None, vendor_dir=None, dist_dir=None,
+                 linux_runtime_sources=None):
     root, output = Path(root), Path(output)
     identity(commit, version)
     native_evidence = Path(native_evidence or output.parent)
@@ -496,6 +508,10 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
     require(OFFLINE_CARGO_CONFIG.removeprefix("app/") not in entries, "Reserved offline Cargo configuration already exists")
     files[OFFLINE_CARGO_CONFIG] = OFFLINE_CARGO_BYTES
     add_directory(files, dist_dir or root / "dist", "app/dist", modes)
+    if 'app/scripts/notices/linux-runtime-material.json' in files:
+        files.update(runtime_material_helper().source_files(root, linux_runtime_sources))
+    else:
+        require(linux_runtime_sources is None, 'Runtime source input supplied without a tracked runtime descriptor')
     manifest = {"schema": 1, "version": version, "source_commit": commit, "targets": targets,
                 "files": {name: {"size": len(data), "sha256": sha(data), "mode": modes.get(name, 0o644)} for name, data in sorted(files.items())}}
     verify_contents(files, manifest, commit, version, native_evidence)
@@ -549,6 +565,7 @@ def main():
     parser.add_argument("--verify-native", type=Path)
     parser.add_argument("--cargo-vendor", type=Path)
     parser.add_argument("--dist", type=Path)
+    parser.add_argument("--linux-runtime-sources", type=Path, help="Exact local pinned AppImage runtime/launcher source archives; otherwise fetched by checksum")
     args = parser.parse_args()
     if args.verify:
         result = verify_bundle(args.verify, args.source_sha, args.version, args.native_evidence)
@@ -563,7 +580,8 @@ def main():
     else:
         require(args.output is not None, "Building requires --output")
         build_bundle(Path(__file__).resolve().parents[1], args.source_sha, args.version, args.output,
-                     args.native_evidence, vendor_dir=args.cargo_vendor, dist_dir=args.dist)
+                     args.native_evidence, vendor_dir=args.cargo_vendor, dist_dir=args.dist,
+                     linux_runtime_sources=args.linux_runtime_sources)
 
 
 if __name__ == "__main__":
