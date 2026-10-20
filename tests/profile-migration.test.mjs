@@ -76,10 +76,11 @@ test('binary settings preview shows confirmed values before any settings are app
     const original=p.host.invoke;
     p.host.invoke=async(command,args)=>command==='profile_migration_preview'?{token:'preview',source_hash:'fixture-hash',items:[{
       file:'mp3tag.cfg',kind:'settings',name:'settings',warnings:['Unmapped binary records are not imported.'],collision:true,supported:true,
-      settings:[{label:'Auto-completion at selection boxes',enabled:false},{label:'Save tags when using arrow keys or a single mouse click',enabled:true},{label:'Save mode at extended tag dialog',value:'Save changes'}],
+      settings:[{label:'Auto-completion at selection boxes',enabled:false},{label:'Save tags when using arrow keys or a single mouse click',enabled:true},{label:'Save mode at extended tag dialog',value:'Save changes'},{label:'Filename of playlist',value:'Ask',verbatim:true},{label:'Extended info format string',value:'<b>%artist%</b>',verbatim:true}],
     }]}:original(command,args);
     const running=new ProfileMigrationUI(p.host).open();await settle();p.window.document.querySelector('[data-folder]').click();await settle();
     const dialog=p.window.document.querySelector('dialog');assert.match(dialog.textContent,/Auto-completion at selection boxes/);assert.match(dialog.textContent,/Off/);assert.match(dialog.textContent,/On/);assert.match(dialog.textContent,/Save mode at extended tag dialog: Save changes/);
+    assert.deepEqual([...dialog.querySelectorAll('li span[translate="no"]')].map(span=>span.textContent),['Ask','<b>%artist%</b>']);assert.equal(dialog.querySelector('b'),null);
     assert.equal(dialog.querySelector('[data-apply]').disabled,true);assert.ok(!p.calls.some(([name])=>name==='profile_migration_apply'));
     dialog.querySelector('[data-cancel]').click();await running;assert.ok(!p.calls.some(([name])=>name==='pause'));
   }finally{p.close();}

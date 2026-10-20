@@ -2023,6 +2023,19 @@ mod tests {
             bytes.extend(1u32.to_le_bytes());
             bytes.push(value);
         }
+        for (identifier, value) in [
+            (
+                "7eaf6b64ce85a54196043a3c8cfb1d2e",
+                "%artist% - Björk 🎵.m3u8",
+            ),
+            ("aa0ec86bea2e7a40a7350a520bcf4a46", " %artist% | %title% "),
+        ] {
+            for index in (0..identifier.len()).step_by(2) {
+                bytes.push(u8::from_str_radix(&identifier[index..index + 2], 16).unwrap());
+            }
+            bytes.extend((value.len() as u32).to_le_bytes());
+            bytes.extend(value.as_bytes());
+        }
         let unmapped = b"unmapped-private-payload-stays";
         bytes.extend([0x99; 16]);
         bytes.extend((unmapped.len() as u32).to_le_bytes());
@@ -2036,7 +2049,7 @@ mod tests {
             preview.items[0].warnings
         );
         let wire = serde_json::to_value(&preview).unwrap();
-        assert_eq!(wire["items"][0]["settings"].as_array().unwrap().len(), 4);
+        assert_eq!(wire["items"][0]["settings"].as_array().unwrap().len(), 6);
         assert_eq!(
             native(dir.path()).unwrap(),
             before,
@@ -2053,6 +2066,14 @@ mod tests {
         let settings = crate::settings::load(&dir.path().join("settings.json")).0;
         assert_eq!(settings.pages["tags"]["save_on_move"], true);
         assert_eq!(settings.pages["general"]["autocomplete"], false);
+        assert_eq!(
+            settings.pages["playlist"]["filename"],
+            "%artist% - Björk 🎵.m3u8"
+        );
+        assert_eq!(
+            settings.pages["playlist"]["extinf_format"],
+            " %artist% | %title% "
+        );
         let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
         assert!(panel.field_values.only_user_genres);
         assert_eq!(panel.field_values.lists["GENRE"], ["Before genre"]);

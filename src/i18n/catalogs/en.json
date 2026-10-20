@@ -56,6 +56,8 @@
  "A new cover needs an image": "A new cover needs an image",
  "A planned file is also another destination's parent directory": "A planned file is also another destination's parent directory",
  "A playlist cannot replace an input audio file": "A playlist cannot replace an input audio file",
+ "A portable binary text setting exceeds 4 MB.": "A portable binary text setting exceeds 4 MB.",
+ "A portable binary text setting is not valid UTF-8.": "A portable binary text setting is not valid UTF-8.",
  "A previous fingerprint is still stopping. Try again shortly.": "A previous fingerprint is still stopping. Try again shortly.",
  "A recovery snapshot changed while it was exported": "A recovery snapshot changed while it was exported",
  "A recovery snapshot was replaced or modified": "A recovery snapshot was replaced or modified",

@@ -50,8 +50,42 @@ relative/extended flags. `CMTMainFrame::OnKonTTF` tests the automatic flag
 at `0x14017f118` before entering the playlist command. The selected-only
 scope flag is separate and remains unmapped. `CMTMainFrame::OnFileExport`
 tests `ExpShowDlg` at `0x140176d64` before its selection-dialog route at
-`0x140176d99`. These flags do not carry their companion filename, template,
-or last-used configuration, and the guide calls out reviewing those values.
+`0x140176d99`. The playlist filename/format mappings below supplement these
+flags. Other companion templates and the last-used export configuration are
+not inferred, and the guide calls out reviewing those values.
+
+### Playlist text values
+
+| Native key | Raw identifier | Serialized object / value | Destination |
+| --- | --- | --- | --- |
+| PlName | `7eaf6b64ce85a54196043a3c8cfb1d2e` | `0x140ae8370` / `0x140ae83b0` | Playlist filename |
+| PlExtendedFormat | `aa0ec86bea2e7a40a7350a520bcf4a46` | `0x140ae83e0` / `0x140ae8420` | Extended-info format |
+
+The static initializers at `0x140003934` and `0x140003ab8` pass
+identifier bytes from `0x14091fc30` and `0x14091fbd0` to constructor
+`0x140072f70`. That constructor registers both serializer interfaces and
+stores the identifiers at `+8` and `+0x28`; the string value is at `+0x40`.
+The legacy `PlName` and `PlExtendedFormat` key references at `0x140250d5c`
+and `0x140250c18` reach these same objects. Defaults are `mp3tag.m3u`
+and `%artist% - %title%`.
+
+Reader `0x1403037a8` reads record-bounded bytes through `0x1402bb514`
+and its string setter stops at the first NUL. Writer `0x140303748` obtains
+the byte pointer and length from `0x140025f0c` and `0x140025f14`, omitting
+the terminator. Legacy UTF-16 conversion uses `0x14028ac00` to count UTF-8
+bytes, including surrogate pairs, and `0x14028a930` emits the UTF-8 leading
+and continuation bytes. A bounded disassembly window through its final return
+at `0x14028aacd` was used because the unwind table splits its prologue.
+These identifiers and codec facts are in the
+[authored text fixture](../../tests/fixtures/mp3tag-settings-text.json).
+
+The importer preserves exact supported text, including whitespace and Unicode,
+without evaluating expressions. It bounds decoded values to 4 MB, refuses
+invalid UTF-8, and applies only the last occurrence. The preview marks authored
+text as verbatim to prevent translation or HTML interpretation. Empty filenames
+are skipped; drive-prefixed or backslash-containing filenames are also skipped
+off Windows with a warning, keeping the current filename while allowing other
+supported settings. The importer does not guess cross-platform path conversion.
 
 ### Extended Tags save mode
 
@@ -101,6 +135,15 @@ all 18 boolean mappings at 0, 1 and 255 and the Extended Tags u32 mode case.
 The additional six output flags also passed scoped Clippy, catalog validation,
 formatting and the strict guide build; a read-only review found no concrete
 issues with the mappings or documented dependencies.
+
+With playlist text support, the immutable focused cohort passed nine tests,
+including exact Unicode/space preservation, first-NUL/duplicate behavior,
+malformed/oversized text refusal and foreign/empty filename handling. The
+real profile filesystem case now carries both strings through apply and exact
+Restore. The 29 profile regression tests, 52 profile-host/catalog tests,
+TypeScript, scoped Clippy, formatting and strict guide build passed. A read-only
+review found no concrete issues, including the default-skipped verbatim flag's
+backward-compatible journal serialization.
 
 The mapping fixture is independently authored from static identifiers and
 codec evidence. It is not an exported private profile, a Windows runtime

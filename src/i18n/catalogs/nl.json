@@ -3523,5 +3523,7 @@
  "{unknown} unmapped binary setting records are not imported; their source file is unchanged.": "{unknown} niet-toegewezen binaire instellingenrecords worden niet geïmporteerd; het bronbestand blijft ongewijzigd.",
  "Binary extended-tag save mode is incomplete": "Binaire opslagmodus voor uitgebreide tags is onvolledig",
  "Don't create directories for playlists": "Geen mappen maken voor afspeellijsten",
- "Show export selection dialog": "Exportselectiedialoog tonen"
+ "Show export selection dialog": "Exportselectiedialoog tonen",
+ "A portable binary text setting exceeds 4 MB.": "Een overdraagbare binaire tekstinstelling is groter dan 4 MB.",
+ "A portable binary text setting is not valid UTF-8.": "Een overdraagbare binaire tekstinstelling is geen geldige UTF-8."
 }

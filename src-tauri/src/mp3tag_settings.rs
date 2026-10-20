@@ -161,6 +161,32 @@ const SPECS: &[Spec] = &[
     },
 ];
 const EXTENDED_MODE: [u8; 16] = identifier(b"16ba6ee64495f544a1f46ad5ed57b876");
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum TextKey {
+    PlaylistFilename,
+    PlaylistInfo,
+}
+struct TextSpec {
+    identifier: [u8; 16],
+    key: TextKey,
+    label: &'static str,
+}
+const TEXT_SPECS: &[TextSpec] = &[
+    TextSpec {
+        identifier: identifier(b"7eaf6b64ce85a54196043a3c8cfb1d2e"),
+        key: TextKey::PlaylistFilename,
+        label: "Filename of playlist",
+    },
+    TextSpec {
+        identifier: identifier(b"aa0ec86bea2e7a40a7350a520bcf4a46"),
+        key: TextKey::PlaylistInfo,
+        label: "Extended info format string",
+    },
+];
+const TEXT_LIMIT: usize = 4 * 1024 * 1024;
+fn is_false(value: &bool) -> bool {
+    !value
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Setting {
@@ -169,11 +195,14 @@ pub struct Setting {
     pub enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub verbatim: bool,
 }
 #[derive(Clone)]
 pub struct Patch {
     booleans: BTreeMap<OptionKey, bool>,
     extended_mode: Option<&'static str>,
+    text: BTreeMap<TextKey, String>,
 }
 pub struct Import {
     pub patch: Patch,
@@ -184,6 +213,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut position = 0usize;
     let mut values = BTreeMap::new();
     let mut extended_mode = None;
+    let mut text = BTreeMap::new();
     let mut unknown = 0usize;
     while position < bytes.len() {
         let header_end = position
@@ -222,12 +252,45 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 2 => "ignore",
                 _ => "ask",
             });
+        } else if let Some(spec) = TEXT_SPECS
+            .iter()
+            .find(|spec| header[..16] == spec.identifier)
+        {
+            // The native writer emits raw UTF-8 bytes without a terminator;
+            // its reader's string setter stops at the first NUL.
+            let value = payload.split(|byte| *byte == 0).next().unwrap();
+            if value.len() > TEXT_LIMIT {
+                return Err("A portable binary text setting exceeds 4 MB.".into());
+            }
+            let value = std::str::from_utf8(value)
+                .map_err(|_| "A portable binary text setting is not valid UTF-8.")?;
+            text.insert(spec.key, value.to_owned());
         } else {
             unknown += 1;
         }
         position = end;
     }
-    if values.is_empty() && extended_mode.is_none() {
+    let mut warnings = Vec::new();
+    if let Some(filename) = text.get(&TextKey::PlaylistFilename) {
+        let bytes = filename.as_bytes();
+        let windows_drive =
+            bytes.first().is_some_and(u8::is_ascii_alphabetic) && bytes.get(1) == Some(&b':');
+        let reason = if filename.trim().is_empty() {
+            Some("The empty playlist filename is not imported; the current filename is kept.")
+        } else if !cfg!(windows) && (windows_drive || filename.contains('\\')) {
+            Some("The Windows-specific playlist filename is not imported on this platform; review Options → Playlist. The current filename is kept.")
+        } else {
+            None
+        };
+        if let Some(reason) = reason {
+            warnings.push(reason.into());
+            text.remove(&TextKey::PlaylistFilename);
+        }
+    }
+    if values.is_empty() && extended_mode.is_none() && text.is_empty() {
+        if !warnings.is_empty() {
+            return Err(warnings.join(" "));
+        }
         return Err("The file contains no supported portable binary settings.".into());
     }
     let mut settings: Vec<Setting> = values
@@ -241,6 +304,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 .into(),
             enabled: Some(*enabled),
             value: None,
+            verbatim: false,
         })
         .collect();
     if let Some(mode) = extended_mode {
@@ -255,19 +319,33 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 }
                 .into(),
             ),
+            verbatim: false,
         });
+    }
+    for (key, value) in &text {
+        settings.push(Setting {
+            label: TEXT_SPECS
+                .iter()
+                .find(|spec| spec.key == *key)
+                .unwrap()
+                .label
+                .into(),
+            enabled: None,
+            value: Some(value.clone()),
+            verbatim: true,
+        });
+    }
+    if unknown > 0 {
+        warnings.push(format!("{unknown} unmapped binary setting records are not imported; their source file is unchanged."));
     }
     Ok(Import {
         patch: Patch {
             booleans: values,
             extended_mode,
+            text,
         },
         settings,
-        warnings: if unknown == 0 {
-            Vec::new()
-        } else {
-            vec![format!("{unknown} unmapped binary setting records are not imported; their source file is unchanged.")]
-        },
+        warnings,
     })
 }
 
@@ -426,6 +504,18 @@ impl Patch {
                 mode,
             )?;
         }
+        for (key, value) in &self.text {
+            let name = match key {
+                TextKey::PlaylistFilename => "filename",
+                TextKey::PlaylistInfo => "extinf_format",
+            };
+            page(
+                settings(&mut options, directory)?,
+                "playlist",
+                name,
+                value.as_str(),
+            )?;
+        }
         if let Some(options) = options {
             crate::settings::save(&directory.join("settings.json"), &options)?;
         }
@@ -561,5 +651,116 @@ mod tests {
                 .pages["tags"]["extended_save_mode"],
             "ignore"
         );
+    }
+    #[test]
+    fn binary_settings_text_keeps_unicode_and_authored_templates_verbatim() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/mp3tag-settings-text.json"
+        ))
+        .unwrap();
+        let filename = "  %artist% - Björk 🎵.m3u8  ";
+        let format = " %artist% | $if(%title%,%title%,Ask) ";
+        let options = fixture["options"].as_array().unwrap();
+        let bytes = options
+            .iter()
+            .zip([filename, format])
+            .flat_map(|(option, value)| {
+                record(
+                    &native_id(option["identifier"].as_str().unwrap()),
+                    value.as_bytes(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let parsed = parse(&bytes).unwrap();
+        let wire = serde_json::to_value(&parsed.settings).unwrap();
+        assert_eq!(wire[0]["value"], filename);
+        assert_eq!(wire[1]["value"], format);
+        assert_eq!(wire[0]["verbatim"], true);
+        assert_eq!(wire[1]["verbatim"], true);
+        let temp = tempfile::tempdir().unwrap();
+        let mut settings = crate::settings::Settings::default();
+        settings.pages.insert(
+            "playlist".into(),
+            json!({"filename":"before.m3u8", "relative":false, "generator_partition":"%album%"}),
+        );
+        crate::settings::save(&temp.path().join("settings.json"), &settings).unwrap();
+        assert!(parsed.patch.apply(temp.path()).unwrap().is_empty());
+        let actual = crate::settings::load(&temp.path().join("settings.json")).0;
+        assert_eq!(actual.pages["playlist"]["filename"], filename);
+        assert_eq!(actual.pages["playlist"]["extinf_format"], format);
+        assert_eq!(actual.pages["playlist"]["relative"], false);
+        assert_eq!(actual.pages["playlist"]["generator_partition"], "%album%");
+    }
+    #[test]
+    fn binary_settings_text_obeys_native_nul_and_last_record_rules_with_bounded_decoding() {
+        let id = native_id("aa0ec86bea2e7a40a7350a520bcf4a46");
+        let parsed = parse(
+            &[
+                record(&id, b"old"),
+                record(&id, b"Ask\0\xffnot part of the value"),
+            ]
+            .concat(),
+        )
+        .unwrap();
+        assert_eq!(parsed.settings.len(), 1);
+        let temp = tempfile::tempdir().unwrap();
+        parsed.patch.apply(temp.path()).unwrap();
+        assert_eq!(
+            crate::settings::load(&temp.path().join("settings.json"))
+                .0
+                .pages["playlist"]["extinf_format"],
+            "Ask"
+        );
+        assert!(parse(&record(&id, b"\xff")).is_err());
+        assert!(parse(&record(&id, &vec![b'a'; 4 * 1024 * 1024 + 1])).is_err());
+        let parsed = parse(&record(&id, b"")).unwrap();
+        assert_eq!(parsed.settings[0].value.as_deref(), Some(""));
+        let mut cut = record(&id, b"value");
+        cut.pop();
+        assert!(parse(&cut).is_err());
+    }
+    #[test]
+    fn binary_settings_text_skips_unusable_filenames_without_losing_other_settings() {
+        let id = native_id("7eaf6b64ce85a54196043a3c8cfb1d2e");
+        let flag = native_id("8840da8e2956d74da1853b63f6df9037");
+        let mut values = vec!["", "   "];
+        if !cfg!(windows) {
+            values.extend([
+                "C:\\Playlists\\all.m3u8",
+                "C:/Playlists/all.m3u8",
+                "\\\\server\\share\\all.m3u8",
+            ]);
+        }
+        for value in values {
+            // A later unusable value must not resurrect an earlier filename.
+            let parsed = parse(
+                &[
+                    record(&id, b"earlier.m3u8"),
+                    record(&flag, &[1]),
+                    record(&id, value.as_bytes()),
+                ]
+                .concat(),
+            )
+            .unwrap();
+            assert_eq!(parsed.settings.len(), 1);
+            assert_eq!(parsed.warnings.len(), 1);
+            let temp = tempfile::tempdir().unwrap();
+            let mut settings = crate::settings::Settings::default();
+            settings
+                .pages
+                .insert("playlist".into(), json!({"filename":"keep.m3u8"}));
+            crate::settings::save(&temp.path().join("settings.json"), &settings).unwrap();
+            parsed.patch.apply(temp.path()).unwrap();
+            let actual = crate::settings::load(&temp.path().join("settings.json")).0;
+            assert_eq!(actual.pages["playlist"]["filename"], "keep.m3u8");
+            assert_eq!(actual.pages["tags"]["save_on_move"], true);
+        }
+        if cfg!(windows) {
+            assert!(parse(&record(&id, b"C:\\Playlists\\all.m3u8")).is_ok());
+        } else {
+            assert!(
+                matches!(parse(&record(&id,b"C:\\Playlists\\all.m3u8")),Err(reason) if reason.contains("Windows-specific"))
+            );
+        }
     }
 }

@@ -81,10 +81,20 @@ platform. These are preferences, not a transfer of the original window layout.
 
 Playlist preferences also include automatic creation after saving/renaming,
 extended information, relative entries, confirming the filename and whether
-directories may be created. The export selection-dialog preference transfers
-separately. If you import automatic playlist creation, review **Options →
-Playlist** before saving tags: an unlisted playlist filename or extended-info
-format keeps its current TagGroove value. The original selected-only automatic
+directories may be created. A supported playlist filename and extended-info
+format also transfer, preserving their text, Unicode and spaces. These values
+are shown literally in the preview; import does not evaluate their expressions
+or create a playlist. Each imported text value is limited to 4 MB. Malformed
+UTF-8 refuses that binary file; the source stays unchanged.
+
+The export selection-dialog preference transfers separately. If you import
+automatic playlist creation, review **Options → Playlist** before saving tags:
+an absent or unsupported filename/format keeps its current TagGroove value.
+An empty playlist filename is skipped. On macOS/Linux, filenames containing
+backslashes or a Windows drive prefix are skipped with a warning; edit the
+filename in **Options → Playlist** for the new machine. The importer does not
+guess how to rewrite a Windows path inside an expression.
+The original selected-only automatic
 playlist scope is not transferred. For exports, an imported **Show export
 selection dialog: Off** uses the active TagGroove export configuration; it does
 not import or select an original last-used export configuration by itself.

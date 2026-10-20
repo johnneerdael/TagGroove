@@ -1,0 +1,38 @@
+{
+  "subject_sha256": "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911",
+  "authority": "Authored from shipped static identifiers and codec; not an exported private profile or original runtime capture.",
+  "codec": {
+    "encoding": "UTF-8",
+    "payload": "raw bytes, no writer terminator; reader stops at first NUL",
+    "reader": "0x1403037a8",
+    "writer": "0x140303748",
+    "constructor": "0x140072f70",
+    "utf16_to_utf8_emitter": "0x14028a930"
+  },
+  "options": [
+    {
+      "key": "PlName",
+      "object": "0x140ae8370",
+      "value": "0x140ae83b0",
+      "initializer": "0x140003934",
+      "identifier_address": "0x14091fc30",
+      "identifier": "7eaf6b64ce85a54196043a3c8cfb1d2e",
+      "default": "mp3tag.m3u",
+      "legacy_key_instruction": "0x140250d5c",
+      "legacy_object_instruction": "0x140250dd3",
+      "destination": "settings.pages.playlist.filename"
+    },
+    {
+      "key": "PlExtendedFormat",
+      "object": "0x140ae83e0",
+      "value": "0x140ae8420",
+      "initializer": "0x140003ab8",
+      "identifier_address": "0x14091fbd0",
+      "identifier": "aa0ec86bea2e7a40a7350a520bcf4a46",
+      "default": "%artist% - %title%",
+      "legacy_key_instruction": "0x140250c18",
+      "legacy_object_instruction": "0x140250c8f",
+      "destination": "settings.pages.playlist.extinf_format"
+    }
+  ]
+}
