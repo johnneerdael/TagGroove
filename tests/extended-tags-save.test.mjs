@@ -108,3 +108,26 @@ test('the production Extended Tags selection adapter does not invoke general sav
   new Function(...Object.keys(env),js)(...Object.values(env))('/two.flac');
   assert.deepEqual([...selected],['/two.flac']);assert.deepEqual(calls,[],'Extended Tags owns its ask/ignore/save/pending decision');
 });
+
+test('production partial selection refresh shows pending edits from the file left in Extended Tags',async()=>{
+  const source=await readFile(new URL('../src/main.ts',import.meta.url),'utf8'),parsed=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true);
+  const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&['refreshSelection','refreshDraftCount'].includes(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
+  const window=new Window(),document=window.document;
+  document.body.innerHTML='<div class="fields"></div><span class="panel-count"></span><div class="filterbar"><span class="count"></span></div><div class="selection-info"></div><footer><span class="status-message">Ready</span></footer>';
+  const drafts=new Map([['/one.flac',{TITLE:['Pending Via Extended']}]]),selected=new Set(['/two.flac']);
+  const entries=new Map(['/one.flac','/two.flac'].map(path=>[path,{path}])),noop=()=>{};
+  const env={document,drafts,selected,entries,HTMLInputElement:window.HTMLInputElement,HTMLTextAreaElement:window.HTMLTextAreaElement,
+    applyAutoDefaults:()=>false,runtimePlatform:{document_access_supported:false},compactScreen:()=>false,selectedProvider:()=>false,
+    reviewedConverterContextChanged:undefined,visible:()=>[...entries.values()],paths:()=>[...selected],
+    updateVirtualRows:noop,cellEditor:{reattach:noop},tagPanel:{fieldsHTML:()=>'',bind:noop},bindFields:noop,
+    panelCount:()=> '1 file selected',countText:()=> '2 files',selectionInfoMarkup:()=>'',refreshCommandStates:noop,
+    refreshCoverPanel:noop,hydrateActiveCover:noop,timing:noop,render:()=>assert.fail('Exercise the partial refresh'),
+    invoke:()=>assert.fail('Selection refresh must not write audio')};
+  try{
+    const js=ts.transpileModule(`${functions}\nreturn refreshSelection;`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+    const refresh=new Function(...Object.keys(env),js)(...Object.values(env));refresh();
+    assert.equal(document.querySelector('.dirty-count')?.textContent,'1 unsaved file');
+    assert.deepEqual(drafts.get('/one.flac'),{TITLE:['Pending Via Extended']});assert.deepEqual([...selected],['/two.flac']);
+    drafts.clear();refresh();assert.equal(document.querySelector('.dirty-count'),null);
+  }finally{window.happyDOM.abort();}
+});

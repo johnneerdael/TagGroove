@@ -310,7 +310,8 @@
         edit(dlg, 'Pending Via Extended'); dlg.querySelector('[data-nav="1"]').click();
         await waitFor(() => /sine-b\.mp3/.test(dlg.querySelector('header').textContent), 5000, 'pending navigation');
         await idle();
-        if (await titleOf('sine-a.mp3') !== beforeA || !document.querySelector('.dirty-count')) throw new Error('main-list auto-save overrode pending Extended Tags navigation');
+        if (await titleOf('sine-a.mp3') !== beforeA) throw new Error('pending Extended Tags navigation wrote the file being left');
+        if (!document.querySelector('.dirty-count')) throw new Error('pending Extended Tags draft is missing from the unsaved-file counter');
         edit(dlg, 'Saved Via Extended'); dlg.querySelector('#save-extended').click();
         await waitFor(() => !dlg.open, 8000, 'explicit Extended Tags save'); await idle();
         if (await titleOf('sine-b.mp3') !== 'Saved Via Extended' || await titleOf('sine-a.mp3') !== beforeA) throw new Error('explicit save wrote the wrong files');

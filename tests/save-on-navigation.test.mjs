@@ -8,10 +8,11 @@ import {loadProductionModule} from './helpers/load-production-module.mjs';
 const behaviour=await loadProductionModule('list-behaviour.ts');
 const columns=await loadProductionModule('columns.ts');
 const commands=await loadProductionModule('list-commands.ts');
+const {SavedConfigurationWrites}=await loadProductionModule('configuration-transfer.ts');
 const {reconcileDrafts}=await loadProductionModule('document-state.ts');
 const source=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const parsed=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true);
-const names=new Set(['select','saveOnMove','saveDrafts','run','applyColumns','shuffleFiles','listOperation','operateImpl']);
+const names=new Set(['select','saveOnMove','saveDrafts','run','persistColumns','applyColumns','shuffleFiles','listOperation','operateImpl']);
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 let rowClick;
 function locateRowClick(node){
@@ -32,11 +33,16 @@ function fixture(state={}){
   document.body.innerHTML='<main id="app"></main>';
   const render=()=>{document.querySelector('#app').innerHTML='<div class="fields"><input data-field="TITLE"></div><div class="table-wrap"><table><tbody>'+[...entries.keys()].map(path=>`<tr tabindex="0" data-path="${path}"><td><input type="checkbox" class="row-select" ${selected.has(path)?'checked':''}>${path}</td></tr>`).join('')+'</tbody></table></div>';};
   render();
-  const dependencies={state,window,document,entries,selected,drafts,pendingCovers,calls,render,reconcileDrafts,...behaviour,...columns,...commands,
+  const configurationWrites=new SavedConfigurationWrites();
+  const dependencies={state,window,document,entries,selected,drafts,pendingCovers,calls,render,reconcileDrafts,configurationWrites,...behaviour,...columns,...commands,
     HTMLElement:window.HTMLElement,HTMLTableRowElement:window.HTMLTableRowElement,MouseEvent:window.MouseEvent,CSS:window.CSS,
     invoke:async(command,args)=>{
       calls.push([command,structuredClone(args),[...selected]]);
-      if(command==='save_columns')return;
+      if(command==='save_columns'){
+        if(state.columnGate)await state.columnGate.promise;
+        if(state.columnFailures){state.columnFailures--;throw new Error('Column save refused');}
+        return;
+      }
       assert.equal(command,'save_fields_batch');
       if(state.gate)await state.gate.promise;
       if(state.fail)throw new Error('Save refused');
@@ -46,7 +52,7 @@ function fixture(state={}){
   const js=transpile(`
     const desktop=state.desktop??true,crypto=window.crypto;
     let busy=state.busy??false,selectionChangePending=false,anchor=[...selected][0],coverIndex=0,coverError,activeCover;
-    let status='',errors=[],progressJob,orderCacheKey='',filterCacheKey='',listOrder='manual',columnLayout=defaultLayout();
+    let status='',errors=[],progressJob,orderCacheKey='',filterCacheKey='',listOrder='manual',columnLayout=defaultLayout(),columnSaveQueue=Promise.resolve();
     const copyOverrides=new Map(),workingReadErrors=new Map(),queuedNotices=[];let autoPlaylistPending=false;
     const optionsUI={page:()=>({save_on_move:state.enabled??true})},enabled=()=>true;
     const providerEntry=entry=>state.providers?.includes(entry.path)??false;
@@ -61,15 +67,16 @@ function fixture(state={}){
     return{
       select:(path,event={})=>select(path,event),command:listOperation,
       orderMode:operateImpl,
-      sort:()=>applyColumns({...columnLayout,sort:[{id:'filename',ascending:false}]},false,true),shuffle:shuffleFiles,
+      sort:(ascending=false)=>applyColumns({...columnLayout,sort:[{id:'filename',ascending}]},false,true),shuffle:shuffleFiles,
       applyVerified:layout=>applyColumns(layout,true),
       bindRowClicks:()=>document.querySelector('.table-wrap').addEventListener('click',${rowClick}),
       selectOutside:targets=>{selected.clear();targets.forEach(path=>selected.add(path));},
       snapshot:()=>({selected:[...selected],dirty:[...drafts.keys()],covers:[...pendingCovers.keys()],order:[...entries.keys()],sort:structuredClone(columnLayout.sort),mode:listOrder,busy,anchor,errors}),
     };
   `);
+  dependencies.invokeUntracked=dependencies.invoke;
   const runtime=new Function(...Object.keys(dependencies),js)(...Object.values(dependencies));
-  return{...runtime,state,calls,window,document,close:()=>window.happyDOM.abort()};
+  return{...runtime,state,calls,window,document,writes:configurationWrites,close:()=>window.happyDOM.abort()};
 }
 
 test('selection waits for its save; a second click cannot skip the pending save',async()=>{
@@ -120,6 +127,40 @@ test('same-selection sort and shuffle save first and refuse incomplete saves wit
       else{assert.deepEqual(p.snapshot().dirty,[]);assert.equal(p.snapshot().mode,operation==='sort'?'columns':'manual');}
     }finally{gate.resolve();await tick();p.close();}
   }
+});
+
+test('a displayed sort can reverse while preferences save, with persistence kept in order',async()=>{
+  const columnGate=deferred(),p=fixture({dirty:[],columnGate});let first,second;
+  try{
+    first=p.sort(true);await tick();assert.equal(p.snapshot().sort[0].ascending,true);
+    second=p.sort(false).then(()=>null,error=>error);await tick();
+    assert.equal(p.snapshot().sort[0].ascending,false);
+    assert.equal(p.calls.filter(([command])=>command==='save_columns').length,1);
+    columnGate.resolve();await first;assert.equal(await second,null);
+    assert.deepEqual(p.calls.filter(([command])=>command==='save_columns').map(([,args])=>args.layout.sort[0].ascending),[true,false]);
+    assert.equal(p.calls.some(([command])=>command==='save_fields_batch'),false);
+  }finally{columnGate.resolve();await Promise.allSettled([first,second]);p.close();}
+});
+
+test('a failed preference write does not block the next displayed sort or its persistence',async()=>{
+  const columnGate=deferred(),p=fixture({dirty:[],columnGate,columnFailures:1});let first,second;
+  try{
+    first=p.sort(true).then(()=>null,error=>error);await tick();
+    second=p.sort(false).then(()=>null,error=>error);await tick();
+    columnGate.resolve();assert.match(String(await first),/Column save refused/);assert.equal(await second,null);
+    assert.equal(p.snapshot().sort[0].ascending,false);
+    assert.deepEqual(p.calls.filter(([command])=>command==='save_columns').map(([,args])=>args.layout.sort[0].ascending),[true,false]);
+  }finally{columnGate.resolve();await Promise.allSettled([first,second]);p.close();}
+});
+
+test('configuration flushing waits for queued column preferences as well as the active write',async()=>{
+  const columnGate=deferred(),p=fixture({dirty:[],columnGate});let first,second,flushing;
+  try{
+    first=p.sort(true);await tick();second=p.sort(false);await tick();
+    let flushed=false;flushing=p.writes.flush().then(()=>flushed=true);await tick();assert.equal(flushed,false);
+    columnGate.resolve();await Promise.all([first,second,flushing]);assert.equal(flushed,true);
+    assert.deepEqual(p.calls.filter(([command])=>command==='save_columns').map(([,args])=>args.layout.sort[0].ascending),[true,false]);
+  }finally{columnGate.resolve();await Promise.allSettled([first,second,flushing]);p.close();}
 });
 
 test('busy navigation stays put; disabled autosave and provider documents do not write',async()=>{

@@ -144,6 +144,10 @@ is enabled. **Save tags** in this dialog writes the displayed file or
 selection; drafts kept while visiting earlier files remain pending until
 you select and save those files.
 
+The main window's **unsaved files** counter includes those earlier files,
+even while the dialog shows another file. Moving to the next file does not
+clear the counter or save its pending edits.
+
 Closing the dialog does not undo edits already kept by an earlier navigation
 or written by a save mode. To discard unsaved work, inspect the main window's
 pending changes. To reverse a recorded disk operation, inspect its **Undo**

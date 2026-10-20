@@ -83,3 +83,26 @@ The guide now explains writing on sort/shuffle, failure/partial-save behavior,
 drag cancellation and the explicit exclusions. Windows-original outcomes,
 physical keyboard/pointer/focus acceptance and other desktop qualification
 remain separate under L78/L79 and the platform handover.
+
+## Postmerge keyboard-ui repairs
+
+Release 39490733539 Linux native job 118863253925 reached keyboard-ui and
+passed 18 of 20 checks. A second sort click could arrive after its first order
+was displayed but while save_columns still held the navigation guard. Column
+preferences now persist in order without retaining that guard after the visible
+change. Queued writes register immediately with configuration tracking, so a
+backup flush waits for both active and queued preference saves. Failed writes
+still report errors and do not block later sorts. Audio save-before-navigation
+and verified column-dialog refusal remain intact.
+
+The Extended Tags check also detected a missing unsaved counter after pending
+navigation. Its selection adapter still bypasses main-list auto-save; the
+partial selection refresh now synchronizes the global draft counter. The guide
+explains that earlier files remain counted, and the native fixture distinguishes
+an actual disk write from an absent counter in future diagnostics.
+
+Two sort regressions and the counter regression failed before their fixes.
+All 77 focused save/Extended Tags/playlist checks and 55 completion checks pass
+headlessly, including queued-write flushing. TypeScript checking passes. No
+local app build or native UI replay was used; hosted native verification on
+the final repair source remains required.

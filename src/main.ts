@@ -773,20 +773,30 @@ const findUI=new FindUI({
   select:(targets,focus)=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus,false);status=`${targets.length} file${targets.length===1?'':'s'} selected from Find results`;document.querySelector('.status-message')!.textContent=status;},
   listed:path=>visible().some(entry=>entry.path===path),
 });
+let columnSaveQueue=Promise.resolve();
+function persistColumns(layout:ColumnLayout){
+  // Register queued saves immediately so setup backups wait for every write.
+  const previous=columnSaveQueue;
+  const saving=configurationWrites.run(()=>previous.then(()=>invokeUntracked<void>('save_columns',{layout})));
+  columnSaveQueue=saving.catch(()=>undefined);
+  return saving;
+}
 /** Apply a column layout. Verified layouts (the Customize dialog) are saved first; quick header changes apply immediately. */
 async function applyColumns(layout:ColumnLayout,verified=false,sorting=false){
   const next=normalizeLayout(layout),sortOnly=JSON.stringify(next.columns)===JSON.stringify(columnLayout.columns);
   const ordering=sorting||JSON.stringify(next.sort)!==JSON.stringify(columnLayout.sort)||(verified&&listOrder!=='columns');
+  let saving:Promise<void>|undefined;
   const change=async()=>{
-    if(verified&&desktop)await invoke('save_columns',{layout:next});
+    if(verified&&desktop)await persistColumns(next);
     if(verified||sorting||ordering)listOrder='columns';
     if(sorting)document.querySelector('.table-wrap')!.scrollTop=0;
     columnLayout=next;if(sortOnly)refreshList();else render();
-    if(!verified&&desktop)await invoke('save_columns',{layout:next});
+    if(!verified&&desktop)saving=persistColumns(next);
   };
   if(ordering){
     if(!await saveOnMove(paths(),new Set(selected),change,true))throw new Error('Column layout was not applied. Finish saving or resolve pending edits, then try again.');
   }else await change();
+  if(saving)await saving;
 }
 function revealRow(path:string,focus=true){
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap'),index=visible().findIndex(entry=>entry.path===path);if(!wrap||index<0)return null;
@@ -1233,6 +1243,7 @@ function refreshSelection(){
   document.querySelector('.filterbar .count')!.textContent=countText(list);
   document.querySelector('.selection-info')!.innerHTML=selectionInfoMarkup(paths().map(path=>entries.get(path)!),list);
   refreshCommandStates();
+  refreshDraftCount();
   refreshCoverPanel();hydrateActiveCover();
   timing('selection refresh',started,{selected:selected.size});
 }
@@ -1290,16 +1301,19 @@ function updateDraft(path: string, key: string, values: string[]) {
   if (Object.keys(draft).length||pendingCovers.has(path)) drafts.set(path,draft); else drafts.delete(path);
   changedData();
 }
+function refreshDraftCount(){
+  const oldCount=document.querySelector('.dirty-count');
+  if(oldCount)oldCount.textContent=`${drafts.size} unsaved file${drafts.size===1?'':'s'}`;
+  else if(drafts.size)document.querySelector('.status-message')!.insertAdjacentHTML('afterend',`<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>`);
+  if(!drafts.size)oldCount?.remove();
+}
 function draftField(key: string, value: string, exactValues?:readonly string[]) {
   const values = exactValues===undefined?(value ? value.split('\\\\').map(v => v.trim()) : []):[...exactValues];
   paths().forEach(path => {const entry=entries.get(path)!;updateDraft(path,panelKey({format:entry.format,fields:merged(entry)},key),values);});
   status = `Pending changes for ${selected.size} file${selected.size===1?'':'s'}. ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
   document.querySelector('.status-message')!.textContent = status;
   document.querySelectorAll<HTMLButtonElement>('button[data-op]').forEach(el => {el.disabled = !enabled(el.dataset.op as Operation);el.title=operationReason(el.dataset.op as Operation)||el.textContent||'';});
-  const oldCount = document.querySelector('.dirty-count');
-  if(oldCount) oldCount.textContent = `${drafts.size} unsaved file${drafts.size===1?'':'s'}`;
-  else if(drafts.size) document.querySelector('.status-message')!.insertAdjacentHTML('afterend',`<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>`);
-  if(!drafts.size) oldCount?.remove();
+  refreshDraftCount();
   updateVirtualRows(true);
   document.querySelector('.filterbar .count')!.textContent=countText(visible());
   return values;

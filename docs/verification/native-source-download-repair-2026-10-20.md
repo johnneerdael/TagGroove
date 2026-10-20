@@ -62,3 +62,22 @@ lease and `CI-Repair-Run: 39348564990`. The source fix does not wait for the
 remaining failed-run matrix. Release authorization still requires the referenced
 main run to become a completed failure; publication and native-integration gates
 remain enforced.
+
+## Later Linux download-route repair
+
+Release 39490733539 failed Linux x64 job 118863118597 before compilation
+completed: the native source builder refused zlib archive bytes with SHA-256
+`c43af8eb958334eb741ae6fb37145a3dc6804856851ce3c4c00758a40b640388`.
+The pinned digest remains
+`bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`.
+The CI response's underlying cause is unproven; no mismatched bytes were used.
+
+The maintainer's [official GitHub v1.3.2 release asset](https://github.com/madler/zlib/releases/tag/v1.3.2)
+reports that same pinned SHA-256 and 1,502,830-byte size. A fresh local download
+from that asset independently matches both, as do fresh local downloads from
+the primary and fossils zlib.net URLs. The GitHub release asset is now primary
+and both zlib.net URLs remain declared fallbacks. The source version, archive
+bytes/hash, three-attempt bound, cache/offline refusal and all license/source
+checks remain unchanged. This also routes corresponding-source collection
+through the independently hosted official asset. No app or native UI was
+built locally for this repair.
