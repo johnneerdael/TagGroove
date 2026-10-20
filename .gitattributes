@@ -21,6 +21,11 @@ scripts/notices/*.gradle text eol=lf
 THIRD_PARTY_NATIVE.md text eol=lf linguist-generated whitespace=-blank-at-eol
 src/licenses/native/** -text linguist-vendored whitespace=-blank-at-eol,-blank-at-eof
 src/licenses/appimage-common/** -text linguist-vendored whitespace=-blank-at-eol,-blank-at-eof
+scripts/tests/fixtures/linux-source/*.gpg -text
+scripts/tests/fixtures/linux-source/*.xz -text
+scripts/tests/fixtures/linux-source/*.asc -text
+scripts/tests/fixtures/linux-source/*.dsc -text
+scripts/tests/fixtures/linux-source/*.fixture -text
 
 # Native recipe and imported-source byte hashes must survive Windows checkout.
 scripts/audio-deps/** text eol=lf

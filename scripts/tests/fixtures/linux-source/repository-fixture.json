@@ -1,0 +1,4 @@
+{
+  "signer": "17CA307427CE69C0536F34EC3AD983D4BB7D7AB7",
+  "scope": "Synthetic signed transport fixtures for both architectures and cross-component source lookup. No private key retained; binary payload is not a Debian archive."
+}

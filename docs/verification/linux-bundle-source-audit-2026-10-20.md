@@ -62,14 +62,26 @@ distribution source archives/patches and AppImage runtime/launcher source and
 notices, bound to both Linux builds, without duplicate application builds or UI
 runs. Implementation is in progress; this section does not close L76.
 
-The [source-material core](../../scripts/linux-source-material.py) binds index
-bytes to an already authenticated Release payload, selects one exact source
-package/version, and checks every source archive, patch and `.dsc` byte against
-the index. It also requires the `.dsc` identity and complete declared file set
-to agree. Changed or missing patches, ambiguous versions, duplicate metadata
-fields and detached source descriptions refuse. It does not yet perform GnuPG
-authentication, builder capture or publication integration. Its seven focused
-regressions are included through the existing premerge headless test discovery.
+The [source-material collector](../../scripts/linux-source-material.py) authenticates
+Release signatures using GnuPG in an isolated temporary directory and a fixed
+Ubuntu archive signer. Supplying another public key does not extend that trust
+policy. It checks compressed index hashes, selects exact binary/source versions,
+and verifies every source archive, patch and `.dsc` byte. The `.dsc` identity and
+complete declared file set must agree with the authenticated source index.
+
+Index downloads use the signed SHA-256 `by-hash` address, so a repository update
+between requests cannot silently substitute a new index. Binary and source
+components are resolved independently: Ubuntu can publish a binary in `universe`
+whose exact source is in `main`. Conflicting source selections refuse. Only
+source material and repository proofs enter the retained material set; verified
+binary packages remain capture inputs for the later packaged-file comparison.
+
+Changed or missing patches, ambiguous versions, duplicate metadata fields,
+detached descriptions, incorrect signatures and valid signatures from other
+keys refuse. Ten focused tests include real GnuPG authentication and signed
+transport fixtures for amd64 and arm64. They run through the existing premerge
+headless discovery. Packaged-file mapping and publication integration remain
+unfinished; this collector is not a completed new-release source delivery.
 
 The [structured controls](linux-source-controls-2026-10-20.json) retain exact
 input identities and limits:
@@ -83,6 +95,12 @@ input identities and limits:
   with patches/packaging, and a `.dsc`. All three downloaded files pass the new
   production material verifier. The control does not establish that this is
   the only historical binary package with equivalent code.
+- An actual signed, digest-addressed capture resolves `libarchive-tools`
+  `3.7.2-2ubuntu0.9` from the `universe` binary index to its exact `main` source
+  record. The collector verifies all source/patch material and the 72,478-byte
+  binary package, retaining 11 source/repository proof files. This exercises
+  cross-component selection on supplier data, not just synthetic fixtures; it
+  does not establish that this binary is bundled in the app.
 - The actual packaged GTK has a different full hash from that package's
   original library. Its 6,885 dynamic symbol records, 26 other section records
   and original dynamic strings agree after resolving metadata references; the

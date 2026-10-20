@@ -263,5 +263,97 @@
     "source_qualification": "Mirror points at moving AppImageKit continuous release; not an immutable producer-source identity."
   },
   "production_core_control": "Current linux-source-material.py verifies authenticated Release-index hash binding, exact GTK source record and complete original/patch/dsc bytes. Signature authentication/capture and pipeline wiring are not implemented in this core slice.",
-  "production_core_sha256": "38e100f480c2e0332e666518bbaa611856bb82a3df51858810aba5cb6915b26a"
+  "initial_source_material_core_sha256": "38e100f480c2e0332e666518bbaa611856bb82a3df51858810aba5cb6915b26a",
+  "initial_source_material_core_commit": "b1de2f2f19f2579b77b50fd542a25283f068fea2",
+  "authenticated_repository_capture_control": {
+    "schema": 1,
+    "scope": "Actual Ubuntu cross-component transport/source control; not AppImage file mapping or new release proof",
+    "selection": {
+      "suite": "noble-updates",
+      "architecture": "amd64",
+      "component": "universe",
+      "source_component": "main",
+      "binary": {
+        "package": "libarchive-tools",
+        "version": "3.7.2-2ubuntu0.9",
+        "architecture": "amd64",
+        "filename": "pool/universe/liba/libarchive/libarchive-tools_3.7.2-2ubuntu0.9_amd64.deb",
+        "sha256": "fdf82db06032e81bda08a6723dbfeea4fe3cb05a6efb3ac1469c1aa9264fbd15",
+        "size": 72478,
+        "source_package": "libarchive",
+        "source_version": "3.7.2-2ubuntu0.9"
+      },
+      "source": {
+        "package": "libarchive",
+        "version": "3.7.2-2ubuntu0.9",
+        "directory": "pool/main/liba/libarchive",
+        "files": {
+          "libarchive_3.7.2.orig.tar.xz": {
+            "sha256": "04357661e6717b6941682cde02ad741ae4819c67a260593dfb2431861b251acb",
+            "size": 5237056
+          },
+          "libarchive_3.7.2.orig.tar.xz.asc": {
+            "sha256": "2c2b98622c2f3e59608118fae3e412c900100ec1bf9f825775930b3a8b4f5635",
+            "size": 659
+          },
+          "libarchive_3.7.2-2ubuntu0.9.debian.tar.xz": {
+            "sha256": "dabc35fd6ce57dae5f81b777bed3d6aca1b22fab0408f5cc48defb445c35b30f",
+            "size": 42636
+          },
+          "libarchive_3.7.2-2ubuntu0.9.dsc": {
+            "sha256": "91bd97e68f57422043afa3107cd4003fcad17666897bbae36c836d2c03a6bf30",
+            "size": 2688
+          }
+        }
+      }
+    },
+    "binary_bytes": 72478,
+    "retained_materials": {
+      "repositories/amd64/noble-updates/InRelease": {
+        "sha256": "4fd8f772d483cb011bf899a9e1a20c38c7dec90fbc21bf5083d4ada6b7d9120b",
+        "size": 126125
+      },
+      "repositories/ubuntu-keyring.gpg": {
+        "sha256": "80a36b0a6de2f69f49d2df75ef473ccde121e9e190b9ea01d20a4f63778d5c31",
+        "size": 3607
+      },
+      "repositories/amd64/noble-updates/universe/binary-amd64/Packages.xz": {
+        "sha256": "6a5ec927d6ee153e83a9212662338e5c42276abb2c01ec7345cec47893c0b40c",
+        "size": 1703660
+      },
+      "repositories/amd64/noble-updates/main/source/Sources.xz": {
+        "sha256": "56956fdc9dbdf980e52b8c02fb211cced4bf01ffc3cd4773779d2dd2b27783e2",
+        "size": 568824
+      },
+      "repositories/amd64/noble-updates/multiverse/source/Sources.xz": {
+        "sha256": "d6de1eebbc2c7863ed5cad8f6e300d341912a7f6f72380788288bbdf1c624bfc",
+        "size": 34292
+      },
+      "repositories/amd64/noble-updates/restricted/source/Sources.xz": {
+        "sha256": "134d65d14930d5b2b3c34c1757dfac14621b79fd25b5f2d4979af9438a33f3b7",
+        "size": 81828
+      },
+      "repositories/amd64/noble-updates/universe/source/Sources.xz": {
+        "sha256": "f981d0403557efffb3b6ae30ca449115eab7ad8d6ca4cf1f06ed8cb73c78d56e",
+        "size": 530152
+      },
+      "distribution/pool/main/liba/libarchive/libarchive_3.7.2.orig.tar.xz": {
+        "sha256": "04357661e6717b6941682cde02ad741ae4819c67a260593dfb2431861b251acb",
+        "size": 5237056
+      },
+      "distribution/pool/main/liba/libarchive/libarchive_3.7.2.orig.tar.xz.asc": {
+        "sha256": "2c2b98622c2f3e59608118fae3e412c900100ec1bf9f825775930b3a8b4f5635",
+        "size": 659
+      },
+      "distribution/pool/main/liba/libarchive/libarchive_3.7.2-2ubuntu0.9.debian.tar.xz": {
+        "sha256": "dabc35fd6ce57dae5f81b777bed3d6aca1b22fab0408f5cc48defb445c35b30f",
+        "size": 42636
+      },
+      "distribution/pool/main/liba/libarchive/libarchive_3.7.2-2ubuntu0.9.dsc": {
+        "sha256": "91bd97e68f57422043afa3107cd4003fcad17666897bbae36c836d2c03a6bf30",
+        "size": 2688
+      }
+    },
+    "verifier_sha256": "7300c6637f085392dd799c0465e9bb339c0c74c894b1a09f4938d4f49cdb8974"
+  }
 }

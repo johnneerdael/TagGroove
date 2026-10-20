@@ -2,8 +2,12 @@
 import copy
 import hashlib
 import importlib.util
+import lzma
+import json
 from pathlib import Path
+import shutil
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'linux-source-material.py'
@@ -41,6 +45,25 @@ class LinuxSourceMaterial(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.binary_source({**explicit, 'Source': 'example (bad version) extra'})
 
+    @unittest.skipUnless(shutil.which('gpgv'), 'GnuPG signature verifier required')
+    def test_signature_authentication_checks_real_bytes_and_the_pinned_archive_signer(self):
+        m = self.module()
+        self.assertTrue(callable(getattr(m, 'authenticated_release', None)), 'Missing repository signature authentication')
+        root = SCRIPT.parent/'tests/fixtures/linux-source'
+        signed = lzma.decompress((root/'ubuntu-noble-updates-InRelease.xz').read_bytes())
+        keys = (root/'ubuntu-archive-keyring.gpg').read_bytes()
+        payload = m.authenticated_release(signed, keys)
+        self.assertEqual(m.paragraphs(payload)[0]['suite'], 'noble-updates')
+        with self.assertRaises(ValueError):
+            m.authenticated_release(signed.replace(b'Suite: noble-updates', b'Suite: noble-altered'), keys)
+        with self.assertRaises(ValueError):
+            m.authenticated_release(signed, b'Not an OpenPGP keyring')
+        # This fixture has a valid signature under its own supplied keyring,
+        # but the signer is outside the fixed Ubuntu archive trust policy.
+        with self.assertRaisesRegex(ValueError, 'signer'):
+            m.authenticated_release((root/'untrusted-InRelease.asc').read_bytes(),
+                                    (root/'untrusted-keyring.gpg').read_bytes())
+
     def test_exact_selection_and_dsc_require_all_source_archives_and_patches(self):
         m = self.module()
         index, files = self.fixture()
@@ -56,6 +79,91 @@ class LinuxSourceMaterial(unittest.TestCase):
         with self.assertRaises(ValueError):m.verify_sources(selected, {**files, 'outside': b'untracked'})
         with self.assertRaises(ValueError):m.select_source(index + index, 'example', '1.2-3ubuntu1')
         with self.assertRaises(ValueError):m.select_source(index, 'example', '9.9')
+
+    def test_binary_selection_binds_exact_architecture_bytes_and_source_version(self):
+        m = self.module()
+        self.assertTrue(callable(getattr(m, 'select_binary', None)), 'Missing exact binary package selection')
+        record = (b'Package: libexample1\nVersion: 1.2-3+b1\nArchitecture: amd64\n'
+                  b'Source: example (1.2-3)\nFilename: pool/main/e/example/libexample1_1.2-3+b1_amd64.deb\n'
+                  b'Size: 3\nSHA256: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\n\n')
+        arm = record.replace(b'amd64', b'arm64')
+        selected = m.select_binary(arm + record, 'libexample1', '1.2-3+b1', 'amd64')
+        self.assertEqual(selected['source_package'], 'example')
+        self.assertEqual(selected['source_version'], '1.2-3')
+        self.assertEqual(selected['size'], 3)
+        self.assertEqual(selected['sha256'], 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+        with self.assertRaises(ValueError):m.select_binary(record, 'libexample1', '1.2-3+b1', 'arm64')
+        with self.assertRaises(ValueError):m.select_binary(record, 'libexample1', '1.2-2', 'amd64')
+        with self.assertRaises(ValueError):m.select_binary(record + record, 'libexample1', '1.2-3+b1', 'amd64')
+        with self.assertRaises(ValueError):
+            m.select_binary(record.replace(b'pool/main/', b'../../outside/'), 'libexample1', '1.2-3+b1', 'amd64')
+
+    @unittest.skipUnless(shutil.which('gpgv'), 'GnuPG signature verifier required')
+    def test_repository_collection_authenticates_selection_and_preserves_complete_source_material(self):
+        m = self.module()
+        self.assertTrue(callable(getattr(m, 'RepositorySnapshot', None)), 'Missing authenticated repository collector')
+        root = SCRIPT.parent/'tests/fixtures/linux-source'
+        origin = 'https://archive.ubuntu.com/ubuntu/'
+        files = {
+            'dists/noble-updates/InRelease': (root/'repository-InRelease.asc').read_bytes(),
+            'dists/noble-updates/main/source/Sources.xz': (root/'repository-Sources.xz').read_bytes(),
+            'dists/noble-updates/main/binary-amd64/Packages.xz': (root/'repository-Packages-amd64.xz').read_bytes(),
+            'dists/noble-updates/universe/binary-amd64/Packages.xz': (root/'repository-Packages-amd64.xz').read_bytes(),
+            'dists/noble-updates/universe/source/Sources.xz': (root/'repository-Sources-universe.xz').read_bytes(),
+            'pool/main/e/example/libexample1_1.2-3+b1_amd64.deb': (root/'libexample1_1.2-3+b1_amd64.deb.fixture').read_bytes(),
+        }
+        for name in ['example_1.2.orig.tar.xz', 'example_1.2-3.debian.tar.xz', 'example_1.2-3.dsc']:
+            files['pool/main/e/example/'+name] = (root/name).read_bytes()
+        def hash_paths(values):
+            return {name.rsplit('/', 1)[0]+'/by-hash/SHA256/'+digest(raw): name
+                    for name, raw in values.items() if name.startswith('dists/') and name.endswith('.xz')}
+        addresses = hash_paths(files)
+        def fetch(url, limit):
+            self.assertTrue(url.startswith(origin), 'Collector changed trusted archive origin')
+            path = url.removeprefix(origin)
+            if path.startswith('dists/') and not path.endswith('/InRelease'):
+                self.assertIn('/by-hash/SHA256/', path, 'Mutable index URL can race signed Release metadata')
+                path = addresses[path]
+            return files[path]
+        signer = json.loads((root/'repository-fixture.json').read_text())['signer']
+        keys = (root/'repository-keyring.gpg').read_bytes()
+        # Exercise real GnuPG with a fixture-only trust root; production's fixed
+        # Ubuntu policy is separately covered by the real archive-signature test.
+        with patch.object(m, 'UBUNTU_ARCHIVE_SIGNER', signer):
+            snapshot = m.RepositorySnapshot('amd64', 'noble-updates', keys, fetch=fetch)
+            selected = snapshot.collect('libexample1', '1.2-3+b1', 'main')
+            self.assertEqual(selected['source']['version'], '1.2-3')
+            self.assertEqual(len(selected['source']['files']), 3)
+            self.assertEqual(snapshot.binary_bytes(selected), files[selected['binary']['filename']])
+            self.assertTrue(any(name.endswith('example_1.2-3.debian.tar.xz') for name in snapshot.materials))
+            cross_component = snapshot.collect('libexample1', '1.2-3+b1', 'universe')
+            self.assertEqual(cross_component['component'], 'universe')
+            self.assertEqual(cross_component['source_component'], 'main')
+            ports = 'https://ports.ubuntu.com/ubuntu-ports/'
+            arm_files = {**files,
+                         'dists/noble-updates/main/binary-arm64/Packages.xz': (root/'repository-Packages-arm64.xz').read_bytes(),
+                         'pool/main/e/example/libexample1_1.2-3+b1_arm64.deb': files['pool/main/e/example/libexample1_1.2-3+b1_amd64.deb']}
+            arm_addresses = hash_paths(arm_files)
+            def arm_fetch(url, limit):
+                self.assertTrue(url.startswith(ports), 'Arm64 collector changed Ubuntu ports origin')
+                path = url.removeprefix(ports)
+                if path.startswith('dists/') and not path.endswith('/InRelease'):
+                    self.assertIn('/by-hash/SHA256/', path)
+                    path = arm_addresses[path]
+                return arm_files[path]
+            arm_snapshot = m.RepositorySnapshot('arm64', 'noble-updates', keys, fetch=arm_fetch)
+            arm_selected = arm_snapshot.collect('libexample1', '1.2-3+b1', 'main')
+            self.assertEqual(arm_selected['binary']['architecture'], 'arm64')
+            self.assertEqual(arm_snapshot.binary_bytes(arm_selected), arm_files[arm_selected['binary']['filename']])
+            with self.assertRaisesRegex(ValueError, 'suite/architecture'):
+                m.RepositorySnapshot('amd64', 'noble', keys,
+                                     fetch=lambda _url, _limit: files['dists/noble-updates/InRelease'])
+            files['pool/main/e/example/example_1.2-3.debian.tar.xz'] = b'changed patches'
+            fresh = m.RepositorySnapshot('amd64', 'noble-updates', keys, fetch=fetch)
+            with self.assertRaises(ValueError):fresh.collect('libexample1', '1.2-3+b1', 'main')
+            files['dists/noble-updates/main/binary-amd64/Packages.xz'] = b'changed index'
+            fresh = m.RepositorySnapshot('amd64', 'noble-updates', keys, fetch=fetch)
+            with self.assertRaises(ValueError):fresh.collect('libexample1', '1.2-3+b1', 'main')
 
     def test_dsc_identity_and_declared_file_set_cannot_be_detached_from_index(self):
         m = self.module()
