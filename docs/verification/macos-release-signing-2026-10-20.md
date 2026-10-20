@@ -25,6 +25,19 @@ The normal source configuration retains its ad-hoc signing identity for local
 development/native tests. Signing secrets are scoped to Mac release steps;
 non-Mac builders and premerge validation receive none of these credentials.
 
+Certificate import is performed by the pinned CLI itself. Its
+[bundler keychain entry point](https://github.com/tauri-apps/tauri/blob/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle/macos/sign.rs#L18-L35)
+reads `APPLE_CERTIFICATE` and `APPLE_CERTIFICATE_PASSWORD` and selects the
+certificate-backed keychain path. The
+[signing library implementation](https://github.com/tauri-apps/tauri/blob/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-macos-sign/src/keychain.rs#L52-L177)
+creates and unlocks a temporary keychain, imports the certificate/private
+identity, configures tool access and selects its signing identity. Its drop
+handler removes that keychain. The direct Mac CLI build step supplies both
+certificate variables; the preparation helper stages the separate notary key
+and configuration. An action-specific import step is not a prerequisite for
+this locked CLI path. Registry metadata for CLI2.12.2 identifies the same Git
+commit and matches the integrity value in `package-lock.json`.
+
 ## Verification and package binding
 
 The locked Tauri CLI2.12.2 source at commit
