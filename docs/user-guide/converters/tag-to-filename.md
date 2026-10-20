@@ -68,7 +68,7 @@ are sanitized. See [filename-mode rules](../reference/format-strings.md#file-and
 
 ## Associated lyrics and karaoke files
 
-Enable **Options → Files → Move matching .lrc and .cdg files with audio** to
+Enable **Options → Files → Move or copy matching .lrc and .cdg files with audio** to
 rename matching companions alongside the audio. Their paths appear below the
 audio destination in **Preview**. The policy defaults to off. Review every path;
 a changed companion or collision requires another preview. See

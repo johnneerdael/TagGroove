@@ -28,6 +28,17 @@ pub(crate) struct Fingerprint {
     digest: [u8; 32],
 }
 impl Fingerprint {
+    pub(crate) fn from_stamp(stamp: MetadataStamp, digest: [u8; 32]) -> Self {
+        Self {
+            len: stamp.len,
+            modified: stamp.modified,
+            identity: stamp.identity,
+            digest,
+        }
+    }
+    pub(crate) fn has_digest(&self, digest: &[u8; 32]) -> bool {
+        self.digest == *digest
+    }
     pub(crate) fn same_content(&self, other: &Self) -> bool {
         self.len == other.len && self.digest == other.digest
     }

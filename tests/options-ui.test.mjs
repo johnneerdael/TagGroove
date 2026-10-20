@@ -98,7 +98,8 @@ test('associated files has a saved opt-in policy with an unchecked default',()=>
   const markup=value=>page.controls.map(control=>ui.controlMarkup(control,value)).join('');
   assert.match(markup(draft()),/data-option="pages\.files\.associated_files"\s*>/);
   assert.match(markup(draft(value=>{value.pages.files={associated_files:true};})),/data-option="pages\.files\.associated_files" checked/);
-  assert.match(markup(draft()),/Copy, other converters and action-driven renames do not use this option/);
+  assert.match(markup(draft()),/Applies to Tag → Filename, Move files to and Copy files to/);
+  assert.match(markup(draft()),/Copy keeps originals and has no transfer Undo/);
 });
 
 test('actual Options dialog retains saved MPEG APE opt-in until explicit page reset',async()=>{

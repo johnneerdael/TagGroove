@@ -1,18 +1,20 @@
-# Move lyrics and karaoke files with audio
+# Move or copy lyrics and karaoke files with audio
 
 A separate lyrics or karaoke file can follow an audio file when it has exactly
 the same basename. This support is optional and applies to local desktop files.
 
 1. Open **File → Options… → Files**.
-2. Enable **Move matching .lrc and .cdg files with audio** and save the options.
+2. Enable **Move or copy matching .lrc and .cdg files with audio** and save the options.
    The default is off, including for existing profiles.
 3. Select the audio files. Save intended pending tag edits first.
 4. Use **Convert → Tag → Filename…** and choose **Preview**, or use
-   **Edit → Move files to…** and choose the existing destination folder.
+   **Edit → Move files to…** or **Edit → Copy files to…** and choose the existing
+   destination folder.
 5. Read the companion source and destination paths in the rename preview or
-   Move confirmation. Cancel if any path is unexpected.
+   transfer confirmation. Cancel if any path is unexpected.
 6. Apply, then inspect the result and any reported errors. Use **Edit → Undo**
-   to reverse a recorded move during this session.
+   to reverse a recorded move during this session. Copying has no transfer Undo;
+   the original audio and companions stay at their original paths.
 
 For example, renaming `03 - Paper Boats.flac` to `Juniper Vale - Paper Boats.flac`
 also renames `03 - Paper Boats.lrc` to `Juniper Vale - Paper Boats.lrc`. A matching
@@ -29,7 +31,7 @@ rejected. Two audio files sharing one companion, such as `Song.mp3` and
 `Song.flac`, are ambiguous and reject the reviewed plan.
 
 Companions do not become editable audio rows. The option currently affects
-**Tag → Filename** and **Move files to**. **Copy files to**, **Filename → Filename**,
+**Tag → Filename**, **Move files to** and **Copy files to**. **Filename → Filename**,
 inline filename editing, Tag → Tag and action-driven renames keep their existing
 behavior. Move those companions separately when using one of those commands.
 
@@ -48,6 +50,14 @@ A new occupant or an externally edited companion can prevent that rollback;
 the error reports **rollback incomplete** and the affected paths. Earlier
 successful groups can remain moved. Inspect both locations before retrying.
 This is not a single transaction across the collection.
+
+Copy uses its own reviewed plan; a Move preview cannot authorize a Copy. It
+checks companion and audio bytes plus the identity of the existing destination
+folder. Companions copy first and audio last. If a member fails, unchanged
+outputs created for that audio group are removed. A copied file that was edited,
+replaced or became unavailable is retained with a **copy cleanup incomplete**
+report. Earlier successful audio groups can remain copied. Originals are never
+moved or removed by this cleanup. Inspect the named paths before retrying.
 
 Undo and redo record the physical companion paths as well as the audio paths,
 including changes to letter case. Files changed elsewhere are reported and

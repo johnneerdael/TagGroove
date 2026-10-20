@@ -1,4 +1,4 @@
-//! Opt-in, reviewed same-basename lyrics/karaoke moves. No vendor runtime claim.
+//! Opt-in, reviewed same-basename lyrics/karaoke transfers. No vendor runtime claim.
 use serde::Serialize;
 
 use sha2::{Digest, Sha256};
@@ -79,8 +79,17 @@ impl Item {
         })
     }
     fn validate(&self) -> Result<(), String> {
-        if Snapshot::read(Path::new(&self.source), self.snapshot.digest.is_some())? != self.snapshot
-        {
+        self.validate_source(self.snapshot.digest.is_some())
+    }
+    fn validate_metadata(&self) -> Result<(), String> {
+        self.validate_source(false)
+    }
+    fn validate_source(&self, content: bool) -> Result<(), String> {
+        let mut expected = self.snapshot.clone();
+        if !content {
+            expected.digest = None;
+        }
+        if Snapshot::read(Path::new(&self.source), content)? != expected {
             return Err(format!(
                 "{} changed after preview; preview again",
                 self.source
@@ -94,6 +103,7 @@ pub struct Group {
     pub audio: Item,
     pub associated: Vec<Item>,
     enabled: bool,
+    destination: Option<tag_core::file_copy::DirectoryIdentity>,
 }
 #[derive(Clone, Debug)]
 pub struct Plan {
@@ -170,6 +180,13 @@ fn target_free(source: &Path, target: &Path) -> Result<(), String> {
 }
 impl Plan {
     pub fn new(audio: Vec<(String, PathBuf)>, enabled: bool) -> Result<Self, String> {
+        Self::build(audio, enabled, false)
+    }
+    /// Copy receipts also bind full audio bytes and the existing target folder.
+    pub fn for_copy(audio: Vec<(String, PathBuf)>, enabled: bool) -> Result<Self, String> {
+        Self::build(audio, enabled, true)
+    }
+    fn build(audio: Vec<(String, PathBuf)>, enabled: bool, copy: bool) -> Result<Self, String> {
         let mut groups = Vec::new();
         let mut sources = HashSet::new();
         let mut targets = HashSet::new();
@@ -187,7 +204,16 @@ impl Plan {
                     )?);
                 }
             }
-            let audio = Item::new(source, target, false)?;
+            let destination = if copy {
+                Some(tag_core::file_copy::DirectoryIdentity::read(
+                    target
+                        .parent()
+                        .ok_or("The copy destination has no folder")?,
+                )?)
+            } else {
+                None
+            };
+            let audio = Item::new(source, target, copy)?;
             for item in std::iter::once(&audio).chain(&associated) {
                 if !sources.insert(key(Path::new(&item.source))) {
                     return Err(format!(
@@ -201,12 +227,17 @@ impl Plan {
                         item.target.display()
                     ));
                 }
-                item.validate()?;
+                if copy {
+                    item.validate_metadata()?;
+                } else {
+                    item.validate()?;
+                }
             }
             groups.push(Group {
                 audio,
                 associated,
                 enabled,
+                destination,
             });
         }
         Ok(Self { groups })
@@ -229,7 +260,24 @@ impl Plan {
     }
 }
 impl Group {
+    fn validate_destination(&self) -> Result<(), String> {
+        if let Some(expected) = &self.destination {
+            let parent = self
+                .audio
+                .target
+                .parent()
+                .ok_or("The copy destination has no folder")?;
+            if tag_core::file_copy::DirectoryIdentity::read(parent)? != *expected {
+                return Err("The reviewed destination folder changed; preview again".into());
+            }
+        }
+        Ok(())
+    }
     fn validate(&self) -> Result<(), String> {
+        self.validate_members(true)
+    }
+    fn validate_members(&self, content: bool) -> Result<(), String> {
+        self.validate_destination()?;
         if self.enabled
             && companions(Path::new(&self.audio.source))?
                 .iter()
@@ -242,7 +290,61 @@ impl Group {
             ));
         }
         for item in std::iter::once(&self.audio).chain(&self.associated) {
-            item.validate()?;
+            if content {
+                item.validate()?;
+            } else {
+                item.validate_metadata()?;
+            }
+        }
+        Ok(())
+    }
+    /// Copy companions first and audio last; rollback removes only unchanged
+    /// outputs owned by the exclusive copy receipts. Never touch an origin.
+    pub fn copy(
+        &self,
+        operation: &mut dyn FnMut(&Path, &Path) -> Result<tag_core::file_copy::CopyReceipt, String>,
+    ) -> Result<(), String> {
+        // The receipt owner has already checked full-plan content before any
+        // mutation. Streamed copies verify each member's frozen digest again;
+        // metadata/membership checks here avoid repeatedly hashing large audio.
+        self.validate_members(false)?;
+        let mut completed: Vec<tag_core::file_copy::CopyReceipt> = Vec::new();
+        for item in self.associated.iter().chain(std::iter::once(&self.audio)) {
+            let result = self
+                .validate_destination()
+                .and_then(|()| item.validate_metadata())
+                .and_then(|()| operation(Path::new(&item.source), &item.target))
+                .and_then(|receipt| {
+                    let matches = item
+                        .snapshot
+                        .digest
+                        .as_ref()
+                        .is_some_and(|digest| receipt.matches_digest(digest));
+                    completed.push(receipt);
+                    if matches {
+                        Ok(())
+                    } else {
+                        Err("Copied bytes differ from the reviewed source".into())
+                    }
+                });
+            if let Err(error) = result {
+                let cleanup: Vec<_> = completed
+                    .into_iter()
+                    .rev()
+                    .filter_map(|receipt| {
+                        receipt
+                            .rollback()
+                            .err()
+                            .map(|error| format!("{}: {error}", receipt.destination().display()))
+                    })
+                    .collect();
+                return Err(if cleanup.is_empty() {
+                    format!("{error}; completed group copies were removed")
+                } else {
+                    let cleanup = cleanup.join("; ");
+                    format!("{error}; copy cleanup incomplete: {cleanup}")
+                });
+            }
         }
         Ok(())
     }
@@ -309,6 +411,64 @@ mod tests {
             source.to_string_lossy().into_owned(),
             root.join(format!("{name}-new.wav")),
         )
+    }
+    #[test]
+    fn copied_group_failure_cleans_destinations_and_never_moves_origins() {
+        for changed in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let audio = pair(root.path(), "Song");
+            let destination = root.path().join("copies");
+            std::fs::create_dir(&destination).unwrap();
+            let lyric = root.path().join("Song.lrc");
+            std::fs::write(&lyric, b"lyrics").unwrap();
+            let target = destination.join("Song.wav");
+            let plan = Plan::for_copy(vec![(audio.0.clone(), target.clone())], true).unwrap();
+            let mut copy = |source: &Path, target: &Path| {
+                if source
+                    .extension()
+                    .is_some_and(|extension| extension == "wav")
+                {
+                    return Err("injected late audio copy failure".into());
+                }
+                let receipt = tag_core::file_copy::copy_with_receipt(source, target)?;
+                if changed {
+                    std::fs::rename(target, destination.join("original-created-lyric")).unwrap();
+                    std::fs::write(target, b"lyrics").unwrap();
+                }
+                Ok(receipt)
+            };
+            let error = plan.groups[0].copy(&mut copy).unwrap_err();
+            assert!(error.contains("late audio copy failure"));
+            if changed {
+                assert!(error.contains("cleanup incomplete"));
+                assert_eq!(
+                    std::fs::read(destination.join("Song.lrc")).unwrap(),
+                    b"lyrics"
+                );
+            } else {
+                assert!(std::fs::read_dir(&destination).unwrap().next().is_none());
+            }
+            assert_eq!(std::fs::read(&lyric).unwrap(), b"lyrics");
+            assert_eq!(std::fs::read(&audio.0).unwrap(), b"audio");
+            assert!(!target.exists());
+        }
+    }
+    #[test]
+    fn copy_refuses_bytes_that_differ_from_the_frozen_audio_source() {
+        let root = tempfile::tempdir().unwrap();
+        let audio = pair(root.path(), "Song");
+        let destination = root.path().join("copies");
+        std::fs::create_dir(&destination).unwrap();
+        let other = root.path().join("other");
+        std::fs::write(&other, b"wrong bytes").unwrap();
+        let target = destination.join("Song.wav");
+        let plan = Plan::for_copy(vec![(audio.0.clone(), target.clone())], true).unwrap();
+        let error = plan.groups[0]
+            .copy(&mut |_, target| tag_core::file_copy::copy_with_receipt(&other, target))
+            .unwrap_err();
+        assert!(error.contains("differ from the reviewed source"));
+        assert!(!target.exists());
+        assert_eq!(std::fs::read(audio.0).unwrap(), b"audio");
     }
     #[test]
     fn opt_in_collects_only_exact_basename_supported_companions() {

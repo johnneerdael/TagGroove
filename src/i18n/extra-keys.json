@@ -137,5 +137,9 @@
  "Numbering: Next disc on change of field",
  "Numbering: Reset disc counter on change of field",
  "Numbering: Next-disc field",
- "Numbering: Reset-disc field"
+ "Numbering: Reset-disc field",
+ "{error}; completed group copies were removed",
+ "{error}; incomplete copy was removed",
+ "{error}; copy cleanup incomplete: {cleanup}",
+ "Copy could not be verified"
 ]

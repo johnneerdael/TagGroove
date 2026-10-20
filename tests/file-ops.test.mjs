@@ -402,7 +402,7 @@ test('opted-in moves retain destination memory while reviewing companions and ap
   host.picks.push(['/dest']);
   await ui.operate('file-move');
   assert.deepEqual(host.pickerCalls[0], {title: 'Move files to', multiple: false, defaultPath: '/move-before'});
-  assert.deepEqual(calls[0], ['preview_transfer', {paths: ['/m/a.mp3', '/m/b.mp3'], destination: '/dest'}]);
+  assert.deepEqual(calls[0], ['preview_transfer', {paths: ['/m/a.mp3', '/m/b.mp3'], destination: '/dest',mode:'move'}]);
   assert.match(host.confirmed.parts.join(host.confirmed.separator), /a\.lrc.*a\.lrc/s);
   assert.deepEqual(calls[1], ['transfer_files', {paths: ['/m/a.mp3', '/m/b.mp3'], destination: '/dest', mode: 'move', planToken: 'frozen'}]);
   const saved=calls.findLast(([command])=>command==='save_directory_state')[1].state;
@@ -416,7 +416,10 @@ test('opted-in moves retain destination memory while reviewing companions and ap
   host.picks.push(['/dest']);
   await ui.operate('file-copy');
   assert.equal(host.pickerCalls.at(-1).defaultPath,'/copy-before');
-  assert.equal(calls.filter(([command]) => command === 'preview_transfer').length, 2, 'copy never silently adopts the move policy');
+  assert.equal(calls.filter(([command]) => command === 'preview_transfer').length, 3, 'copy receives its own mode-bound review');
+  assert.deepEqual(calls.findLast(([command])=>command==='preview_transfer')[1],{paths:['/m/a.mp3','/m/b.mp3'],destination:'/dest',mode:'copy'});
+  assert.equal(calls.findLast(([command])=>command==='transfer_files')[1].planToken,'frozen');
+  assert.match(host.confirmed.parts.join(host.confirmed.separator),/a\.lrc.*a\.lrc/s);
 });
 
 test('ordinary workspace restore follows explicit launch priority and precedes directory fallback',async()=>{
@@ -425,4 +428,19 @@ test('ordinary workspace restore follows explicit launch priority and precedes d
  assert.equal(restored,initial?0:1);assert.deepEqual(host.loads.map(([paths])=>paths),initial?[['/explicit']]:[]);
  }
  const {ui,host}=harness();let restored=0;await ui.initialize({restoreWorkspace:async()=>{restored++;host.launches=[{directories:['/queued'],files:[],add:false}];return true;}});assert.equal(restored,1);assert.deepEqual(host.loads.map(([paths])=>paths),[['/queued']]);
+});
+
+
+test('cancelled or failed companion Copy preview does not apply or remember its destination',async()=>{
+ for(const fail of [false,true]){
+  const {ui,host,calls}=harness({prefs:{subfolders:true,startup:'empty',associatedFiles:true},directoryState:{copy_destination:'/before'}});
+  await ui.initialize();calls.length=0;host.picks.push(['/after']);host.answers.push(false);
+  const original=host.invoke;host.invoke=async(command,args)=>{
+   if(command==='preview_transfer'){calls.push([command,args]);if(fail)throw new Error('stale companion');return{plan_token:'copy-only',associated:[{from:'/m/a.lrc',to:'/after/a.lrc'}]};}
+   return original(command,args);
+  };
+  if(fail)await assert.rejects(ui.operate('file-copy'),/stale companion/);else await ui.operate('file-copy');
+  assert.equal(calls.some(([command])=>command==='transfer_files'||command==='save_directory_state'),false);
+  assert.equal(ui.state.copy_destination,'/before');assert.equal(calls[0][1].mode,'copy');
+ }
 });
