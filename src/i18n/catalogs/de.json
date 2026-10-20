@@ -604,7 +604,7 @@
  "EBML header size": "Größe des EBML-Headers",
  "EXPORT COVERS OF TYPE": "COVER DIESES TYPS EXPORTIEREN",
  "Each search and album lookup of a web source (.src) writes the downloaded page and a step-by-step trace of its parser script to the debug folder inside the sources folder (Tag Sources → Open sources folder).": "Jede Suche und Albumabfrage einer Webquelle (.src) schreibt die heruntergeladene Seite und eine schrittweise Ablaufverfolgung ihres Parser-Skripts in den Ordner „debug“ im Quellenordner (Tag-Quellen → Quellenordner öffnen).",
- "Each value can contain multiple lines. Remove all values to remove a field. << and >> move to the previous or next file and keep this file's changes pending.": "Jeder Wert kann mehrere Zeilen enthalten. Entfernen Sie alle Werte, um ein Feld zu entfernen. << und >> wechseln zur vorherigen oder nächsten Datei; die Änderungen an dieser Datei bleiben dabei ausstehend.",
+ "Each value can contain multiple lines. Remove all values to remove a field. << and >> follow the save mode in Options → Tags.": "Jeder Wert kann mehrere Zeilen enthalten. Entfernen Sie alle Werte, um ein Feld zu entfernen. << und >> verwenden den Speichermodus unter Optionen → Tags.",
  "Edit": "Bearbeiten",
  "Edit action": "Aktion bearbeiten",
  "Edit actions…": "Aktionen bearbeiten…",
@@ -1870,6 +1870,9 @@
  "Source has no parent": "Quelle hat kein übergeordnetes Verzeichnis",
  "Source line {sourceLine} → selected file {selectionIndex}": "Quellzeile {sourceLine} → ausgewählte Datei {selectionIndex}",
  "Source location unavailable": "Quellort nicht verfügbar",
+ "Source preparation is no longer available": "Die Vorbereitung der Quelle ist nicht mehr verfügbar",
+ "Source tracking is unavailable for this captured file; reopen it": "Die geladene Datei kann nicht mehr verfolgt werden; öffnen Sie sie erneut",
+ "Source tracking session changed": "Die Sitzung zur Dateiverfolgung wurde geändert",
  "Source read-only": "Quelle schreibgeschützt",
  "Source size overflow": "Überlauf der Quellgröße",
  "Source writable": "Quelle beschreibbar",
@@ -3508,5 +3511,7 @@
  "history could not retain its side-file intent: {error}": "der Verlauf konnte den geplanten Vorgang für Begleitdateien nicht aufbewahren: {error}",
  "history has an interrupted or unsaved operation": "der Verlauf enthält einen unterbrochenen oder nicht gespeicherten Vorgang",
  "side-file undo snapshots could not be retained": "Kopien von Begleitdateien für Rückgängig konnten nicht aufbewahrt werden",
- "undo directory identities could not be retained: {error}": "Ordneridentitäten für Rückgängig konnten nicht aufbewahrt werden: {error}"
+ "undo directory identities could not be retained: {error}": "Ordneridentitäten für Rückgängig konnten nicht aufbewahrt werden: {error}",
+ "The moved source name cannot be represented by this workspace": "Der neue Quellname kann in diesem Arbeitsbereich nicht dargestellt werden",
+ "{value}: Cannot follow an external rename: {error}": "{value}: Eine externe Umbenennung kann nicht verfolgt werden: {error}"
 }

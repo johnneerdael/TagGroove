@@ -33,6 +33,7 @@ mod profile_migration;
 mod progress;
 mod rename_plan;
 mod settings;
+mod source_tracking;
 mod sources;
 mod tag_panel;
 mod tray;
@@ -1772,6 +1773,10 @@ pub fn run() {
             history::ipc::convert_tag_to_tag_with_diagnostics,
             export_csv,
             playlists::classify_source_paths,
+            source_tracking::begin_source_tracking,
+            source_tracking::prepare_source_roots,
+            source_tracking::release_source_roots,
+            source_tracking::resolve_source_roots,
             playlists::ipc::read_playlist_with_diagnostics,
             playlists::plan_playlists,
             playlists::create_playlists,

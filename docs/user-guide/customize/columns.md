@@ -115,6 +115,11 @@ The picker can also import a user-supplied Mp3tag `columns.ini`. Review the
 reported imported/skipped items and the resulting expressions; unsupported
 settings are not a promise of identical appearance or behavior.
 
+Native Mp3tag layouts use **Numeric** for both numeric sorting and right
+alignment. Imported numeric columns therefore start right-aligned when the
+file has no separate alignment entry. An explicit `align` or `alignment`
+entry is kept. You can adjust either setting in the column editor afterward.
+
 A column-layout file contains the layout and sort configuration. It is
 separate from backing up audio tags or saving the whole application
 configuration through the [File menu](../reference/menus/file.md).

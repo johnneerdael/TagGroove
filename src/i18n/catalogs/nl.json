@@ -591,7 +591,7 @@
  "EBML header size": "grootte van de EBML-header",
  "EXPORT COVERS OF TYPE": "COVERS EXPORTEREN VAN TYPE",
  "Each search and album lookup of a web source (.src) writes the downloaded page and a step-by-step trace of its parser script to the debug folder inside the sources folder (Tag Sources → Open sources folder).": "Elke zoekopdracht en albumopvraging van een webbron (.src) schrijft de gedownloade pagina en een stapsgewijze trace van het parserscript naar de debugmap in de bronnenmap (Tagbronnen → Bronnenmap openen).",
- "Each value can contain multiple lines. Remove all values to remove a field. << and >> move to the previous or next file and keep this file's changes pending.": "Elke waarde kan meerdere regels bevatten. Verwijder alle waarden om een veld te verwijderen. << en >> gaan naar het vorige of volgende bestand en houden de wijzigingen van dit bestand openstaand.",
+ "Each value can contain multiple lines. Remove all values to remove a field. << and >> follow the save mode in Options → Tags.": "Elke waarde kan meerdere regels bevatten. Verwijder alle waarden om een veld te verwijderen. << en >> volgen de opslagmodus bij Opties → Tags.",
  "Edit": "Bewerken",
  "Edit action": "Actie bewerken",
  "Edit actions…": "Acties bewerken…",
@@ -1857,6 +1857,9 @@
  "Source has no parent": "Bron heeft geen bovenliggende map",
  "Source line {sourceLine} → selected file {selectionIndex}": "Bronregel {sourceLine} → geselecteerd bestand {selectionIndex}",
  "Source location unavailable": "Bronlocatie niet beschikbaar",
+ "Source preparation is no longer available": "De voorbereiding van de bron is niet meer beschikbaar",
+ "Source tracking is unavailable for this captured file; reopen it": "Dit geladen bestand kan niet meer worden gevolgd; open het opnieuw",
+ "Source tracking session changed": "De sessie voor het volgen van bestanden is gewijzigd",
  "Source read-only": "Bron alleen-lezen",
  "Source size overflow": "Overloop van brongrootte",
  "Source writable": "Bron beschrijfbaar",
@@ -3495,5 +3498,7 @@
  "history could not retain its side-file intent: {error}": "de geschiedenis kon de voorgenomen bewerking voor bijbestanden niet bewaren: {error}",
  "history has an interrupted or unsaved operation": "de geschiedenis bevat een onderbroken of niet-opgeslagen bewerking",
  "side-file undo snapshots could not be retained": "kopieën van bijbestanden voor Ongedaan maken konden niet worden bewaard",
- "undo directory identities could not be retained: {error}": "mapidentiteiten voor Ongedaan maken konden niet worden bewaard: {error}"
+ "undo directory identities could not be retained: {error}": "mapidentiteiten voor Ongedaan maken konden niet worden bewaard: {error}",
+ "The moved source name cannot be represented by this workspace": "De nieuwe bronnaam kan niet in deze werkruimte worden weergegeven",
+ "{value}: Cannot follow an external rename: {error}": "{value}: Kan een externe naamswijziging niet volgen: {error}"
 }

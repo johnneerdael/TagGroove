@@ -22,7 +22,12 @@ This controls changed fields when **<<** or **>>** moves between files in **Exte
 | **Ignore changes** | Discard the dialog's changes for the file being left. |
 | **Save changes** | Write changes when moving to the other file. A save failure must be resolved rather than treated as a successful move. |
 
-**Keep changes** in the editor stages the changes; pending mode does not mean the file has already been saved. Review the selection and pending state before writing. TagGroove's explicit pending mode is an addition to Mp3tag's documented ask/ignore/save choices.
+**Save tags** in the editor writes the displayed selection and closes after
+success. **Keep changes** stages edits for a later save. The mode above
+controls **<<**/**>>** navigation independently of the main file list's
+save-on-selection setting. Pending mode does not mean the file has already
+been saved. TagGroove's explicit pending mode is an addition to Mp3tag's
+documented ask/ignore/save choices.
 
 ## Folder images in the tag panel
 

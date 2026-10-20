@@ -133,6 +133,35 @@ path you opened for Refresh and checks its current resolved location for
 folder membership and relative tool paths. This does not grant access to an
 unreadable target or turn a local link into a document-provider permission.
 
+## Refresh after changing files elsewhere
+
+Choose **View → Refresh** (++f5++) to read the loaded sources again. Folder
+sources discover their current contents; playlist sources read their current
+references. For a file added individually on desktop, TagGroove also keeps a
+session-only reference to the actual file. If you rename or move that file in
+your file manager, Refresh can follow it to its verified new location without
+loading the other files in its parent folder.
+
+For example, add `Practice/01 - Intro.flac`, rename it to
+`Practice/01 - Opening.flac` in the file manager, then press ++f5++. The row
+and its explicit source follow the renamed file. Saving tags and using
+Undo/Redo keep that source reference attached to the resulting file.
+
+Save pending edits first. Refresh asks before discarding pending tag/artwork
+changes when the corresponding message is enabled; it does not save them.
+Canceling a Refresh or changing the workspace while it runs prevents the old
+result from replacing the current list.
+
+File tracking lasts for the current app session. Saved workspaces and
+configuration backups contain paths, so reopen a moved file if it was moved
+while TagGroove was closed. If another file occupies the old name, a symbolic
+link was redirected, or multiple hard-link names make the move ambiguous,
+Refresh reports that it cannot verify the intended file. Reopen that file
+explicitly. TagGroove does not guess from similar names or search a parent
+folder for a substitute. An external editor that atomically replaces a file
+at its existing name can be read again at that name once the previous file
+object has been unlinked.
+
 ## Understand platform access
 
 Desktop folder loading describes local filesystem paths. In a document-provider

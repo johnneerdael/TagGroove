@@ -124,6 +124,9 @@ fn begin_capture(label: &str, group: Option<&str>, paths: &[String]) -> Option<(
 
 /// Path changes reported by a command, used to find each file afterwards.
 pub trait Changes {
+    fn completed(&self) -> Vec<String> {
+        Vec::new()
+    }
     fn renamed(&self) -> Vec<(String, String)> {
         Vec::new()
     }
@@ -131,8 +134,36 @@ pub trait Changes {
         Vec::new()
     }
 }
-impl Changes for ScanResult {}
+fn completed_paths<'a>(
+    paths: impl Iterator<Item = &'a str>,
+    errors: &[tag_core::FileError],
+) -> Vec<String> {
+    fn file(path: &str) -> &str {
+        tag_core::subsong_parts(path).map_or(path, |(file, _)| file)
+    }
+    let failed: std::collections::HashSet<_> =
+        errors.iter().map(|error| file(&error.path)).collect();
+    paths
+        .map(file)
+        .filter(|path| !failed.contains(path))
+        .map(str::to_owned)
+        .collect()
+}
+fn completed_scan(result: &ScanResult) -> Vec<String> {
+    completed_paths(
+        result.entries.iter().map(|entry| entry.path.as_str()),
+        &result.errors,
+    )
+}
+impl Changes for ScanResult {
+    fn completed(&self) -> Vec<String> {
+        completed_scan(self)
+    }
+}
 impl Changes for crate::file_ops::TransferResult {
+    fn completed(&self) -> Vec<String> {
+        completed_scan(&self.result)
+    }
     fn renamed(&self) -> Vec<(String, String)> {
         self.renamed
             .iter()
@@ -142,6 +173,9 @@ impl Changes for crate::file_ops::TransferResult {
     }
 }
 impl<T: Changes> Changes for tag_core::batch_errors::Detailed<T> {
+    fn completed(&self) -> Vec<String> {
+        self.result.completed()
+    }
     fn renamed(&self) -> Vec<(String, String)> {
         self.result.renamed()
     }
@@ -150,8 +184,15 @@ impl<T: Changes> Changes for tag_core::batch_errors::Detailed<T> {
     }
 }
 
-impl Changes for super::FilenameImport {}
+impl Changes for super::FilenameImport {
+    fn completed(&self) -> Vec<String> {
+        completed_scan(&self.result)
+    }
+}
 impl Changes for super::RenameResult {
+    fn completed(&self) -> Vec<String> {
+        completed_scan(&self.result)
+    }
     fn renamed(&self) -> Vec<(String, String)> {
         self.renamed
             .iter()
@@ -161,6 +202,9 @@ impl Changes for super::RenameResult {
     }
 }
 impl Changes for crate::converters::FilenameResult {
+    fn completed(&self) -> Vec<String> {
+        completed_scan(&self.result)
+    }
     fn renamed(&self) -> Vec<(String, String)> {
         self.renamed
             .iter()
@@ -169,6 +213,9 @@ impl Changes for crate::converters::FilenameResult {
     }
 }
 impl Changes for ActionResult {
+    fn completed(&self) -> Vec<String> {
+        completed_scan(&self.result)
+    }
     fn renamed(&self) -> Vec<(String, String)> {
         self.renamed
             .iter()
@@ -253,7 +300,20 @@ pub fn record_with_side_file_epochs_diagnostic<T: Changes>(
     paths: &[String],
     work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>) -> Result<T, String>,
 ) -> Result<T, String> {
-    let result = journal_work_diagnostic(label, group, paths, work);
+    let result = journal_work_diagnostic(label, group, paths, |capture| {
+        // Capturing history can add a hard link to the live file. Observe its
+        // identity/link count after that capture, immediately before the write.
+        let source_epoch = super::source_tracking::before_change(Some(paths));
+        let result = work(capture);
+        let (renamed, directories, completed) = result
+            .as_ref()
+            .map(|r| (r.renamed(), r.directories(), r.completed()))
+            .unwrap_or_default();
+        // A grouped commit can remove a redundant before-snapshot. Rebind
+        // successful writes before that cleanup changes the old link count.
+        super::source_tracking::changed(paths, &renamed, &directories, &source_epoch, &completed);
+        result
+    });
     // The library reads written, renamed and moved files again.
     let (renamed, directories) = result
         .as_ref()
@@ -360,6 +420,7 @@ fn replay_diagnostic(
     backward: bool,
 ) -> Result<tag_core::batch_errors::Detailed<HistoryResult>, String> {
     let _operation = OPERATIONS.lock().unwrap_or_else(|error| error.into_inner());
+    let source_epoch = super::source_tracking::before_change(None);
     let report = with_journal(|journal| {
         journal.set_tag_options(super::settings::tag_options());
         if backward {
@@ -370,6 +431,14 @@ fn replay_diagnostic(
     })??;
     let replay = report.result;
     super::library::changed(&replay.paths, &replay.renamed, &replay.directories);
+    let completed = completed_paths(replay.paths.iter().map(String::as_str), &replay.errors);
+    super::source_tracking::replayed(
+        &replay.paths,
+        &replay.renamed,
+        &replay.directories,
+        &source_epoch,
+        &completed,
+    );
     let audio_paths: Vec<_> = replay
         .paths
         .iter()
@@ -564,6 +633,104 @@ mod tests {
                 .lock()
                 .unwrap_or_else(|error| error.into_inner()) = self.journal_root.take();
         }
+    }
+
+    #[test]
+    fn source_tracking_follows_grouped_saves_with_a_retained_hard_link() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let temp = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(temp.path()).unwrap();
+        let _history = IsolatedHistory::new(&root);
+        let path = root.join("grouped.wav");
+        let later = root.join("later.wav");
+        wav(&path, "Before");
+        let session = run(crate::source_tracking::begin_source_tracking());
+        let prepared = run(crate::source_tracking::prepare_source_roots(
+            session.clone(),
+            vec![path.to_str().unwrap().into()],
+        ));
+        let prepared = serde_json::to_value(prepared).unwrap();
+        for title_value in ["First", "Second"] {
+            let result = run(crate::save_fields(
+                vec![path.to_str().unwrap().into()],
+                Fields::from([("TITLE".into(), vec![title_value.into()])]),
+                Some("source-tracking-group".into()),
+            ));
+            assert!(result.errors.is_empty());
+            if title_value == "First" {
+                std::fs::hard_link(&path, root.join("retained.wav")).unwrap();
+            }
+        }
+        std::fs::rename(&path, &later).unwrap();
+        let resolved = run(crate::source_tracking::resolve_source_roots(
+            session.clone(),
+            serde_json::from_value(prepared["sources"].clone()).unwrap(),
+        ));
+        assert_eq!(
+            serde_json::to_value(resolved).unwrap()["paths"],
+            serde_json::json!([later.to_str().unwrap()])
+        );
+        assert_eq!(title(&later), vec!["Second"]);
+        assert_eq!(title(&root.join("retained.wav")), vec!["First"]);
+        run(crate::source_tracking::release_source_roots(
+            session,
+            serde_json::from_value(prepared["acquired"].clone()).unwrap(),
+        ));
+    }
+
+    #[test]
+    fn source_tracking_rebinds_real_save_undo_and_redo_after_external_refresh() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let temp = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(temp.path()).unwrap();
+        let _history = IsolatedHistory::new(&root);
+        let old = root.join("before.wav");
+        let followed = root.join("followed.wav");
+        let later = root.join("later.wav");
+        wav(&old, "Before");
+        let original = std::fs::read(&old).unwrap();
+        let session = run(crate::source_tracking::begin_source_tracking());
+        let prepared = run(crate::source_tracking::prepare_source_roots(
+            session.clone(),
+            vec![old.to_str().unwrap().into()],
+        ));
+        let prepared = serde_json::to_value(prepared).unwrap();
+        let sources = serde_json::from_value(prepared["sources"].clone()).unwrap();
+        std::fs::rename(&old, &followed).unwrap();
+        let refreshed = run(crate::source_tracking::resolve_source_roots(
+            session.clone(),
+            sources,
+        ));
+        let refreshed = serde_json::to_value(refreshed).unwrap();
+        let paths: Vec<String> = serde_json::from_value(refreshed["paths"].clone()).unwrap();
+        assert_eq!(paths, vec![followed.to_str().unwrap()]);
+        let result = run(crate::save_fields(
+            paths,
+            Fields::from([("TITLE".into(), vec!["After".into()])]),
+            None,
+        ));
+        assert!(result.errors.is_empty());
+        assert_eq!(title(&followed), vec!["After"]);
+        let saved = std::fs::read(&followed).unwrap();
+        assert!(run(undo_last()).result.errors.is_empty());
+        assert_eq!(std::fs::read(&followed).unwrap(), original);
+        assert!(run(redo_last()).result.errors.is_empty());
+        assert_eq!(std::fs::read(&followed).unwrap(), saved);
+        std::fs::rename(&followed, &later).unwrap();
+        let sources = serde_json::from_value(refreshed["sources"].clone()).unwrap();
+        let found = run(crate::source_tracking::resolve_source_roots(
+            session.clone(),
+            sources,
+        ));
+        assert_eq!(
+            serde_json::to_value(found).unwrap()["paths"],
+            serde_json::json!([later.to_str().unwrap()])
+        );
+        assert_eq!(std::fs::read(later).unwrap(), saved);
+        run(crate::source_tracking::release_source_roots(
+            session,
+            serde_json::from_value(prepared["acquired"].clone()).unwrap(),
+        ));
     }
 
     fn riff_chunk(path: &Path, wanted: &[u8; 4]) -> Vec<u8> {

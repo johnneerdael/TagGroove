@@ -299,6 +299,30 @@
       return 'save, ignore, ask';
     });
 
+    await step('Extended Tags explicit Save writes, while pending navigation ignores main-list auto-save', async () => {
+      const titleOf = async name => (await inv('scan_files', { paths: [row(name).dataset.path], recursive: false, refresh: true })).entries[0].fields.TITLE?.[0];
+      const edit = (dlg, text) => { const field = [...dlg.querySelectorAll('.extended-row')].find(r => r.querySelector('input').value === 'TITLE'); input(field.querySelector('textarea'), text); };
+      const beforeA = await titleOf('sine-a.mp3'), beforeB = await titleOf('sine-b.mp3');
+      await setOptions('tags', [['pages.tags.save_on_move', true], ['pages.tags.extended_save_mode', 'pending']]);
+      try {
+        await clickRow('sine-a.mp3'); press(document.body, 't', { code: 'KeyT', altKey: true });
+        const dlg = await waitFor(() => document.querySelector('dialog.extended-dialog[open]'), 3000, 'extended');
+        edit(dlg, 'Pending Via Extended'); dlg.querySelector('[data-nav="1"]').click();
+        await waitFor(() => /sine-b\.mp3/.test(dlg.querySelector('header').textContent), 5000, 'pending navigation');
+        await idle();
+        if (await titleOf('sine-a.mp3') !== beforeA || !document.querySelector('.dirty-count')) throw new Error('main-list auto-save overrode pending Extended Tags navigation');
+        edit(dlg, 'Saved Via Extended'); dlg.querySelector('#save-extended').click();
+        await waitFor(() => !dlg.open, 8000, 'explicit Extended Tags save'); await idle();
+        if (await titleOf('sine-b.mp3') !== 'Saved Via Extended' || await titleOf('sine-a.mp3') !== beforeA) throw new Error('explicit save wrote the wrong files');
+        op('undo').click(); await idle();
+        if (await titleOf('sine-b.mp3') !== beforeB) throw new Error('explicit save was not restored by Undo');
+        return 'pending first file retained; displayed file saved and undone';
+      } finally {
+        await closeDialogs(); await discardAll();
+        await setOptions('tags', [['pages.tags.save_on_move', false]]);
+      }
+    });
+
     await step('Extended Tags field list: Cut, Copy and Paste fields from the context menu', async () => {
       await clickRow('sine-a.mp3'); press(document.body, 't', { code: 'KeyT', altKey: true });
       const dlg = await waitFor(() => document.querySelector('dialog.extended-dialog[open]'), 3000, 'extended');

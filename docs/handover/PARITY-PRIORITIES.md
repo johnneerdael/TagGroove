@@ -1,6 +1,6 @@
 # Remaining parity: user impact and priority
 
-Planning snapshot refreshed 2026-10-20, after merged PR67 and the earlier native
+Planning snapshot refreshed 2026-10-20, after merged PR68 and the earlier native
 source-download repair. L67 is represented by [C62](../research/remaining-gaps.md#c62).
 C63 represents L54, and C64 now represents literal inline destinations. This table covers all **48 current intake
 IDs**, assigned to later PRs. It is not a feature count, parity percentage,
@@ -13,6 +13,16 @@ C63 represents L54 and C64 represents inline destinations; their original Window
 The current [intake](../PARITY.md), [scope/evidence companion](../research/remaining-gaps.md)
 and [OS handover](PARITY-OTHER-MACHINES.md) remain authoritative. Implemented work
 must not be rebuilt because an original/native qualification is still open.
+
+The intake currently contains **11 P1**, **23 P2** and **14 P3** scopes, using
+the highest listed priority for mixed rows. P1 and P2 therefore cover **34**
+important open scopes. These include compatibility research and audits as well
+as implementation work. The 14 qualification identities below are separate.
+
+Unmerged P1 batch work is recorded separately from these main-based counts:
+[L47a/L73 implementation and focused checks](../verification/file-tracking-and-extended-save-2026-10-20.md)
+and the [L07 native column schema/mapping audit](../verification/mp3tag-column-schema-2026-10-20.md).
+Their intake identities remain here until the batch has a covering PR.
 
 The 48 intake rows primarily comprise **12 missing-capability scopes**,
 **19 limitations in existing behavior**, **15 unresolved compatibility questions**

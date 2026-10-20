@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { observeLocale } from './locale-refresh';
+import { SourceRootTracker } from './source-tracking';
 import { savedWorkspace, WorkspaceRows } from './workspace-session';
 import { audioLicenses } from './audio-licenses';
 import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core';
@@ -202,6 +203,7 @@ const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
 let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],listRootKinds:Record<string,SourceRootKind>={},listRootResolved:Record<string,string>={},slowEditTimer=0;
+const sourceTracker=new SourceRootTracker({invoke});
 // Source rank and display mode belong to this workspace, not saved columns.
 let listOrder:ListOrderMode='columns',sourceOrder:string[]|undefined,sourceGeneration=0;
 let filter = '', anchor: string | undefined, busy = false, status: string|ColumnImportStatus = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
@@ -330,14 +332,15 @@ const extendedTags=new ExtendedTags({
   fields:path=>merged(entries.get(path)!),
   describe:path=>{const entry=entries.get(path);return{name:entry?.filename||displayName(path),tag:entry?.technical?._TAG?.[0]};},
   stage:changes=>changes.forEach(({path,updates})=>Object.entries(updates).forEach(([key,values])=>updateDraft(path,key,values))),
-  select:path=>{const previous=paths();selected.clear();selected.add(path);anchor=path;coverIndex=0;coverError=undefined;if(activeCover?.path!==path)activeCover=undefined;refreshSelection();revealRow(path,false);saveOnMove(previous);},
+  select:path=>{selected.clear();selected.add(path);anchor=path;coverIndex=0;coverError=undefined;if(activeCover?.path!==path)activeCover=undefined;refreshSelection();revealRow(path,false);},
   completions:cellCompletions,autocomplete:()=>generalPrefs().autocomplete&&!busy?completeInput:undefined,
   coverMarkup:()=>coverMarkup(`<button type="button" data-cover="add">Add cover…</button><button type="button" data-cover="remove" ${coverUI.canRemove()?'':'disabled'}>Remove cover</button><button type="button" data-cover="extract" ${coverUI.state().state==='same'&&coversFor(active()).length?'':'disabled'}>Extract cover…</button>`),
   bindCover:root=>{coverUI.bind(root);coverUI.paint();},
   modal:(title,content,buttons)=>modal(title,content,buttons),modalError:(dialog,error)=>modalError(dialog,error),
   done:staged=>{const pending=staged.filter(path=>drafts.has(path)).length;if(pending)status=`Extended tag changes for ${pending} file${pending===1?'':'s'} are pending. Save tags to write them.`;render();},
   saveMode:()=>tagsPagePrefs(optionsUI.page('tags')).extended_save_mode,
-  save:async path=>{if(!drafts.has(path))return;await saveDrafts([path]);if(drafts.has(path))throw new BatchFailure(errors,'The file could not be saved.',{name:displayName,plain:publicMessage});},
+  saveReason:()=>sourcePolicy().mutationReason,
+  save:async targets=>{if(!targets.some(path=>drafts.has(path)))return;await saveDrafts(targets);if(targets.some(path=>drafts.has(path)))throw new BatchFailure(errors,'The file could not be saved.',{name:displayName,plain:publicMessage});},
   copyText:text=>{void navigator.clipboard?.writeText(text).catch(()=>{/* The field clipboard works without system clipboard access. */});},
 });
 const fileOps=new FileOpsUI({
@@ -609,6 +612,8 @@ async function readConfigurationWorkspace(workspace:ProfileWorkspace){
 }
 async function restoreConfigurationWorkspace(workspace:ProfileWorkspace){
   status='Restoring setup workspace…';render();
+  let prepared:string|undefined=await sourceTracker.prepare(workspace.roots);
+  try{
   const {available,unavailable}=await readConfigurationWorkspace(workspace);
   if(unavailable.length)throw new Error(`Workspace restoration is incomplete: ${unavailable.length} unavailable rows. ${unavailable.join('\n')}`);
   const restored=workspace.paths.map(path=>available.get(path)!);
@@ -618,9 +623,10 @@ async function restoreConfigurationWorkspace(workspace:ProfileWorkspace){
   if('version'in workspace){await invoke('set_working_directory',{path:workspace.working_directory});fileOps.history.current=workspace.working_directory??undefined;}
   clearWorkspace();accept({entries:restored,errors:[]},'Restored setup workspace',false);
   entries.clear();restored.forEach(entry=>entries.set(entry.path,entry));
-  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,rootKinds[index]]));listRootResolved=Object.fromEntries(listRoots.flatMap((root,index)=>rootInfo[index].resolved?[[root,rootInfo[index].resolved!]]:[]));location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist&&rootKinds[sourcePaths.indexOf(workspace.playlist)]==='file'&&isPlaylistPath(workspace.playlist)?workspace.playlist:undefined;
+  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];sourceTracker.sync(listRoots,prepared);prepared=undefined;listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,rootKinds[index]]));listRootResolved=Object.fromEntries(listRoots.flatMap((root,index)=>rootInfo[index].resolved?[[root,rootInfo[index].resolved!]]:[]));location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist&&rootKinds[sourcePaths.indexOf(workspace.playlist)]==='file'&&isPlaylistPath(workspace.playlist)?workspace.playlist:undefined;
   if('version'in workspace){sourceOrder=workspace.source_order??undefined;listOrder=workspace.list_order;}
-  changedData();render();return true;
+  changedData();render();await sourceTracker.ready();return true;
+  }finally{if(prepared)sourceTracker.discard(prepared);}
 }
 const profileMigrationUI=new ProfileMigrationUI({
   invoke,
@@ -1540,7 +1546,7 @@ function spliceRows(order:string[],next:string[]){
     if(anchor===path)anchor=replacements[0];
   }
 }
-function applyRenamed(batch:Batch){
+function applyRenamed(batch:Batch,retainSourceMembers=false){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
   const sourceRoots=new Set(listRoots);
   const caseOnlyRoots=rebaseSourceRoots(roots=>rebaseCaseOnly(roots,batch.moved_directories||[]));
@@ -1567,7 +1573,7 @@ function applyRenamed(batch:Batch){
   // Renamed files keep their place in the (possibly hand-arranged) list order.
   if(order.length){const listed=order.flatMap(path=>{const entry=entries.get(path);return entry?[[path,entry] as const]:[];});entries.clear();listed.forEach(([path,entry])=>entries.set(path,entry));}
   // Options → General → Keep moved files: without it, files moved out of the listed folders leave the list (unless they have pending edits).
-  if(!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));gone.forEach(path=>movedOut.add(path));if(gone.length)removeEntries(gone);}
+  if(!retainSourceMembers&&!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));gone.forEach(path=>movedOut.add(path));if(gone.length)removeEntries(gone);}
 }
 /** Rebase paths and their filesystem kinds together, including case-only moves. */
 function rebaseSourceRoots(rebase:(roots:string[])=>string[]){
@@ -1581,13 +1587,16 @@ function rebaseSourceRoots(rebase:(roots:string[])=>string[]){
     if(listRootResolved[root])addresses[target]=resolved[index];
     return target;
   });
-  listRoots=mergeSourceOrder([],next,true);listRootKinds=kinds;listRootResolved=addresses;
+  listRoots=mergeSourceOrder([],next,true);listRootKinds=kinds;listRootResolved=addresses;sourceTracker.rebase(previous,next);
   return new Map(previous.map((root,index)=>[root,next[index]]));
 }
 // Replacing the list (Change directory) happens only after the new scan succeeds.
 async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];rootKinds?:SourceRootKind[];rootResolved?:(string|null)[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {
   const generation=options.generation??++sourceGeneration,context=options.context??sourceReadContext(),roots=options.roots??newPaths;
   return !!await run('Reading audio files…',async job=>{
+    let prepared:string|undefined=await sourceTracker.prepare(roots);
+    try{
+    if(generation!==sourceGeneration||context!==sourceReadContext()||progressJob?.cancelling)return false;
     const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
     if(!result)return false;
     if(progressJob?.cancelling){status='Reading cancelled. The list is unchanged.';return false;}
@@ -1597,7 +1606,7 @@ async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boo
     folderImages.clear();accept(result,'Loaded',false);
     sourceOrder=sourceOrder?mergeSourceOrder(sourceOrder,result.entries.map(entry=>entry.path),false):empty?mergeSourceOrder([],result.entries.map(entry=>entry.path),true):undefined;
     if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}
-    listRoots=mergeSourceOrder(listRoots,roots,!!options.replace);
+    listRoots=mergeSourceOrder(listRoots,roots,!!options.replace);sourceTracker.sync(listRoots,prepared);prepared=undefined;
     const incomingKinds=Object.fromEntries(roots.map((root,index)=>[root,options.rootKinds?.[index]??'unknown']));
     listRootKinds=Object.fromEntries(listRoots.map(root=>[root,incomingKinds[root]??listRootKinds[root]??'unknown']));
     const incomingResolved=options.rootResolved?Object.fromEntries(roots.map((root,index)=>[root,options.rootResolved![index]])):{};
@@ -1606,7 +1615,8 @@ async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boo
     if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}
     if(!keepPlaylist&&(empty||!options.location)){location=options.location??(roots.length===1?roots[0]:`${roots.length} added locations`);locationIsData=options.location?options.locationIsData!==false:roots.length===1;}
     if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}
-    return true;
+    await sourceTracker.ready();return true;
+    }finally{if(prepared)sourceTracker.discard(prepared);}
   },{progress:true});
 }
 // Playlists and cue sheets among the paths load their entries in playlist order (https://docs.mp3tag.de/playlists/).
@@ -1625,7 +1635,7 @@ function removeEntries(removed:string[]){
   removed.forEach(path=>{invalidateCovers(path);entries.delete(path);drafts.delete(path);pendingCovers.delete(path);copyOverrides.delete(path);workingReadErrors.delete(path);selected.delete(path);if(anchor===path)anchor=undefined;});
   columnValues.retain(path=>entries.has(path));changedData();
 }
-function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];listRootKinds={};listRootResolved={};coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
+function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];listRootKinds={};listRootResolved={};sourceTracker.sync(listRoots);coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
 // Immediate mutations may change retained bytes even when publication fails.
 // Keep those local contents separate from source success and pending field intent.
 async function reconcileWorkingEntries(targets:string[]){
@@ -2159,7 +2169,7 @@ async function listOperation(op:Operation){
     if(pending&&!await messages.confirm('unsaved_changes',`${pending} file${pending===1?' has':'s have'} pending tag changes. Remove ${targets.length===1?'it':'them'} from the list and discard the changes? Files on disk are not changed.`,op==='clear-list'?'Clear list':'Remove from list'))return;
     const removed=new Set(targets),next=list.slice(Math.max(0,...list.map((path,index)=>removed.has(path)?index:-1))).find(path=>!removed.has(path))||[...list].reverse().find(path=>!removed.has(path));
     cellEditor.cancel();removeEntries(targets);
-    if(op==='clear-list'||!entries.size){listRoots=[];listRootKinds={};listRootResolved={};loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
+    if(op==='clear-list'||!entries.size){listRoots=[];listRootKinds={};listRootResolved={};sourceTracker.sync(listRoots);loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
     status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
     choose(next?[next]:[],next,true);return;
   }
@@ -2169,7 +2179,11 @@ async function listOperation(op:Operation){
     if(generation!==sourceGeneration||context!==sourceReadContext())return;
     cellEditor.cancel();
     await run('Refreshing file list…',async job=>{
-      const expanded=await playlistUI.expand(listRoots).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+      const tracked=await sourceTracker.resolve(listRoots).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
+      if(!tracked)return;
+      try{
+      if(generation!==sourceGeneration||context!==sourceReadContext())return;
+      const expanded=await playlistUI.expand(tracked.paths).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
       if(!expanded||generation!==sourceGeneration||context!==sourceReadContext())return;
       const playlistKind=loadedPlaylist?(listRoots.includes(loadedPlaylist)?expanded.rootKinds[listRoots.indexOf(loadedPlaylist)]:(await invoke<SourceRootInfo[]>('classify_source_paths',{paths:[loadedPlaylist]}))[0].kind):undefined;
       if(generation!==sourceGeneration||context!==sourceReadContext())return;
@@ -2179,18 +2193,25 @@ async function listOperation(op:Operation){
       const found=new Set(batch.entries.map(entry=>entry.path));
       if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
       if(generation!==sourceGeneration||context!==sourceReadContext()){status='Files or pending changes changed while refreshing. The list is unchanged.';return;}
+      if(tracked.renamed.length){
+        const renamed=tracked.renamed.flatMap(change=>{const canonical=listRootResolved[change.from];return canonical&&canonical!==change.from?[change,{from:canonical,to:change.to}]:[change];});
+        applyRenamed({entries:[],errors:[],renamed},true);
+      }
       removeEntries([...entries.keys()].filter(path=>!found.has(path)));
       const retainedOrder=[...entries.keys()];
       drafts.clear();pendingCovers.clear();copyOverrides.clear();workingReadErrors.clear();folderImages.clear();
       accept(batch,'Refreshed');
       sourceOrder=mergeSourceOrder([],batch.entries.map(entry=>entry.path),true);
-      listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,expanded.rootKinds[index]]));
-      listRootResolved=Object.fromEntries(listRoots.flatMap((root,index)=>expanded.rootResolved[index]?[[root,expanded.rootResolved[index]!]]:[]));
+      listRootKinds=Object.fromEntries(listRoots.map(root=>[root,expanded.rootKinds[tracked.paths.indexOf(root)]]));
+      listRootResolved=Object.fromEntries(listRoots.flatMap(root=>{const resolved=expanded.rootResolved[tracked.paths.indexOf(root)];return resolved?[[root,resolved]]:[];}));
+      sourceTracker.sync(listRoots,tracked.prepared);tracked.prepared=undefined;
       if(loadedPlaylist&&playlistKind!=='file')loadedPlaylist=undefined;
       const refreshed=mergeSourceOrder(retainedOrder,[...sourceOrder,...entries.keys()],false).map(path=>entries.get(path)!);entries.clear();refreshed.forEach(entry=>entries.set(entry.path,entry));orderCacheKey='';filterCacheKey='';
       if(expanded.errors.length){errors=[...expanded.errors,...errors];status+=`, ${expanded.errors.length} playlist entr${expanded.errors.length===1?'y':'ies'} not loaded`;}
       if(!anchor||!selected.has(anchor))anchor=paths()[0];
       if(!selected.size&&batch.entries.length){const first=ordered()[0].path;selected.add(first);anchor=first;}
+      await sourceTracker.ready();
+      }finally{if(tracked.prepared)sourceTracker.discard(tracked.prepared);}
     },{progress:true});
   }
 }
