@@ -1420,6 +1420,30 @@ test('web-source full-cover action stays separate from thumbnail, index preview 
     assert.deepEqual(calls.filter(([command])=>command==='web_source_release').map(([,args])=>args.url),[url]);
   }finally{p.close();}
 });
+test('album preview uses the loaded browser URL while Next retains the parser URL',async()=>{
+  for(const direct of [false,true])for(const selectedPreview of [null,'https://source.example/chosen-preview']){
+    const p=page();try{
+      const calls=[],url='https://source.example/parser/7',albumPreview='https://source.example/album-preview';
+      const ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async()=>{throw new Error('preview must not apply tags');},invoke:async(command,args)=>{
+        calls.push([command,args]);
+        if(command==='web_source_search')return{direct,columns:['Title'],results:[{url,preview:selectedPreview,values:['Release']}]};
+        if(command==='web_source_release')return{provider:'web',id:url,url,preview_url:albumPreview,artist:'Artist',title:'Release',fields:{},tracks:[],covers:[],more_covers:false};
+        if(command==='tag_source_open_page')return;
+        throw new Error(command);
+      }});
+      await ui.open('web',{web:{id:'fixture.src',name:'Fixture',search_by:[]}});
+      const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await p.window.happyDOM.waitUntilComplete();
+      if(!direct){dialog.querySelector('#ts-next').click();await p.window.happyDOM.waitUntilComplete();}
+      const loads=calls.filter(([command])=>command==='web_source_release');
+      assert.equal(loads.length,1);assert.equal(loads[0][1].url,url);
+      assert.equal(loads[0][1].previewUrl,selectedPreview,'selected index/direct preview reaches album parser');
+      assert.equal(calls.filter(([command])=>command==='tag_source_open_page').length,0,'review does not open a browser');
+      assert.equal(dialog.querySelector('.ts-preview').dataset.url,albumPreview);
+      dialog.querySelector('.ts-preview').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(calls.filter(([command])=>command==='tag_source_open_page').map(([,args])=>args.url),[albumPreview]);
+    }finally{p.close();}
+  }
+});
 test('web-source missing or invalid full-cover addresses leave the action hidden',async()=>{
   for(const full_cover of [undefined,null,'','javascript:alert(1)','https://user:password@source.example/full.jpg','file:///tmp/full.jpg']){
     const p=page();try{

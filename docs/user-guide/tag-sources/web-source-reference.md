@@ -155,6 +155,42 @@ These output-buffer rules do not guarantee automatic file-order suggestions.
 Check titles/positions and review the mapping manually where needed; parser
 output, release conversion and matching are separate stages.
 
+### Choosing the album's browser preview
+
+A source can download a data page while **Preview** opens a readable release
+page. For an index source, `%_url%` chooses the page to parse and `%_preview%`
+chooses the initial browser preview. Without an index, `[PreviewUrl]` supplies
+that preview. If neither supplies one, the selected album address is used.
+
+The album script can read that initial address from `CurrentPreview`, using
+`SayOutput`, a `%CurrentPreview%` parameter or a formatting expression. To
+replace it with an address found in the album data, use `Set`:
+
+```text
+Set "CurrentPreview" "https://shop.example/releases/7"
+```
+
+To build a replacement from input, clear the buffer before appending:
+
+```text
+Set "CurrentPreview" ""
+OutputTo "CurrentPreview"
+Say "https://shop.example/releases/"
+Say "7"
+```
+
+`OutputTo` alone preserves existing text; `Say` appends to it. Appending a
+complete URL to the initial URL would therefore produce the wrong address.
+Buffer names ignore case. `CurrentPreview` is a control value: it never becomes
+an album tag, a track tag or a pipe-separated track list.
+
+The final nonempty address becomes the review's **Preview** destination.
+Relative addresses resolve against the downloaded album page. Empty output,
+unsupported schemes and addresses containing a username or password leave the
+initial preview in place. Previewing opens the browser only when requested;
+it does not change the page being parsed or apply tags. The separate
+**Full cover** action still opens the result's full-size artwork.
+
 ### Includes and settings
 
 Include resolution happens after reading this file's own keys. Included keys

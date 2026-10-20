@@ -260,6 +260,7 @@ pub fn parse_release(body: &Value, size: CoverSize) -> Result<SourceRelease, Str
         .into_iter()
         .collect();
     Ok(SourceRelease {
+        preview_url: None,
         provider: Provider::Itunes,
         url: text(album, "collectionViewUrl"),
         id,

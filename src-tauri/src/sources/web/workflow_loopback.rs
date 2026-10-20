@@ -691,6 +691,7 @@ fn joined_loopback_http_review_apply_and_journaled_audio_workflow() {
     assert!(tauri::async_runtime::block_on(release_with_preparation(
         "Loopback.src".into(),
         requested.clone(),
+        None,
         1,
         async { panic!("unregistered preparation") }
     ))
@@ -733,6 +734,7 @@ fn joined_loopback_http_review_apply_and_journaled_audio_workflow() {
         })
         .collect();
     let release = SourceRelease {
+        preview_url: None,
         provider: Provider::Web,
         id: requested.clone(),
         url: final_url,
@@ -801,7 +803,10 @@ fn joined_loopback_http_review_apply_and_journaled_audio_workflow() {
         file.index_script.as_ref().unwrap(),
         "index",
         &index_page,
-        variables.clone(),
+        engine::Environment {
+            vars: variables.clone(),
+            ..Default::default()
+        },
         false,
     )
     .unwrap();
@@ -822,7 +827,10 @@ fn joined_loopback_http_review_apply_and_journaled_audio_workflow() {
         file.album_script.as_ref().unwrap(),
         "album",
         &album_page,
-        variables,
+        engine::Environment {
+            vars: variables,
+            ..Default::default()
+        },
         false,
     )
     .unwrap();

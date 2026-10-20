@@ -426,6 +426,7 @@ pub fn parse_release(body: &Value) -> Result<SourceRelease, String> {
         .collect();
     let uri = text(body, "uri");
     Ok(SourceRelease {
+        preview_url: None,
         provider: Provider::Discogs,
         more_covers: false,
         url: if uri.starts_with("https://") {

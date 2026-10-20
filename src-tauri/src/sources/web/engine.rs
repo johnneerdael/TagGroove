@@ -326,6 +326,8 @@ pub struct Environment<'a> {
     pub vars: BTreeMap<String, String>,
     /// The address of the downloaded page (`CurrentUrl`).
     pub current_url: &'a str,
+    /// Initial album browser preview (`CurrentPreview`), absent for index scripts.
+    pub current_preview: Option<&'a str>,
     /// Trace every command to this debug file name (Options → Tag Sources).
     pub trace: Option<String>,
 }
@@ -579,15 +581,18 @@ fn format_value(
 
 impl<'a> Machine<'a> {
     fn new(input: &'a str, env: &'a Environment<'a>) -> Self {
+        let outputs = env.current_preview.map_or_else(BTreeMap::new, |preview| {
+            BTreeMap::from([("CURRENTPREVIEW".into(), preview.to_owned())])
+        });
         Machine {
             env,
             original: input,
             lines: split_lines(input),
             line: 0,
             pos: 0,
-            outputs: BTreeMap::new(),
+            outputs,
             current: DEFAULT_OUTPUT.into(),
-            size: 0,
+            size: env.current_preview.map_or(0, str::len),
             joined_bytes: 0,
             trim: true,
             json: None,
@@ -1439,6 +1444,19 @@ fn excerpt_tail(text: &str) -> String {
 
 /// Run `script` over `input`.
 pub fn run(script: &Script, input: &str, env: &Environment<'_>) -> Outcome {
+    if env
+        .current_preview
+        .is_some_and(|value| value.len() > OUTPUT_LIMIT)
+    {
+        return Outcome {
+            result: Err(ScriptError {
+                line: 0,
+                command: "CurrentPreview".into(),
+                message: "the output is larger than 16 MB".into(),
+            }),
+            files: Vec::new(),
+        };
+    }
     let mut machine = Machine::new(input, env);
     let mut index = 0;
     let mut steps = 0;
@@ -1862,6 +1880,44 @@ mod tests {
             &env,
         );
         assert_eq!(o[DEFAULT_OUTPUT], "de+!");
+    }
+
+    #[test]
+    fn album_preview_seed_is_readable_appendable_and_replaceable() {
+        let env = Environment {
+            current_preview: Some("https://source.example/preview"),
+            ..Default::default()
+        };
+        let read = outputs_with(
+            "SayOutput \"CurrentPreview\"\nSay \";%currentpreview%\"\nSayFormat \";%CURRENTPREVIEW%\"",
+            "",
+            &env,
+        );
+        assert_eq!(read[DEFAULT_OUTPUT], "https://source.example/preview;https://source.example/preview;https://source.example/preview");
+        assert_eq!(
+            outputs_with("OutputTo \"currentpreview\"\nSay \"/more\"", "", &env)["CURRENTPREVIEW"],
+            "https://source.example/preview/more"
+        );
+        assert_eq!(
+            outputs_with("Set \"CurrentPreview\" \"/replacement\"", "", &env)["CURRENTPREVIEW"],
+            "/replacement"
+        );
+        assert_eq!(
+            outputs_with("Set \"CurrentPreview\" \"\"", "", &env)["CURRENTPREVIEW"],
+            ""
+        );
+        assert!(!outputs("Say \"index\"", "").contains_key("CURRENTPREVIEW"));
+    }
+
+    #[test]
+    fn album_preview_seed_counts_toward_output_limit_without_script_commands() {
+        let seed = "x".repeat(OUTPUT_LIMIT + 1);
+        let env = Environment {
+            current_preview: Some(&seed),
+            ..Default::default()
+        };
+        let error = run(&script(""), "", &env).result.unwrap_err();
+        assert!(error.message.contains("16 MB"));
     }
 
     #[test]

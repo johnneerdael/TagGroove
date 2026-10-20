@@ -465,13 +465,13 @@ fn validate_scripts(file: &SourceFile) -> Result<(), String> {
 }
 
 /// Run one parser script over a downloaded page.
-fn execute(
+fn execute<'a>(
     folder: &Path,
     id: &str,
     block: &Block,
     section: &str,
-    page: &http::Page,
-    vars: BTreeMap<String, String>,
+    page: &'a http::Page,
+    mut env: engine::Environment<'a>,
     debug: bool,
 ) -> Result<BTreeMap<String, String>, WebSourceError> {
     let key = if section == "index" {
@@ -482,11 +482,8 @@ fn execute(
     let script =
         engine::Script::compile(&block.lines).map_err(|e| script_failure(block, key, e, None))?;
     let name = stem(id);
-    let env = engine::Environment {
-        vars,
-        current_url: page.url.as_str(),
-        trace: debug.then(|| format!("{name}-{section}.out")),
-    };
+    env.current_url = page.url.as_str();
+    env.trace = debug.then(|| format!("{name}-{section}.out"));
     let mut outcome = engine::run(&script, &page.text, &env);
     if debug {
         outcome.files.insert(
@@ -809,6 +806,7 @@ fn leading_number(text: &str) -> Option<u32> {
 /// not written.
 fn release_from(outputs: BTreeMap<String, String>, page: &Url, id: &str) -> SourceRelease {
     let mut album = Fields::new();
+    let mut preview_url = None;
     let mut per_track: Vec<(String, Vec<String>)> = Vec::new();
     let mut covers: Vec<String> = Vec::new();
     let mut lengths: Vec<String> = Vec::new();
@@ -819,6 +817,14 @@ fn release_from(outputs: BTreeMap<String, String>, page: &Url, id: &str) -> Sour
     };
     for (name, value) in outputs {
         let value = value.replace("\r\n", "\n");
+        if name.eq_ignore_ascii_case("CurrentPreview") {
+            preview_url = page
+                .join(value.trim())
+                .ok()
+                .filter(|url| !value.trim().is_empty() && http::web_allowed(url))
+                .map(String::from);
+            continue;
+        }
         if name.is_empty() || name == engine::DEFAULT_OUTPUT || name == "CURRENTURL" {
             continue;
         }
@@ -892,6 +898,7 @@ fn release_from(outputs: BTreeMap<String, String>, page: &Url, id: &str) -> Sour
         provider: Provider::Web,
         id: id.to_owned(),
         url: page.to_string(),
+        preview_url,
         // ALBUM may be given per track (`Album|Album|`).
         title: first(&album, "ALBUM")
             .or_else(|| tracks.first().and_then(|t| first(&t.fields, "ALBUM")))
@@ -1050,7 +1057,18 @@ async fn search_with_preparation(
             .index_script
             .as_ref()
             .ok_or("This source has no index script")?;
-        let outputs = execute(&folder, &source, block, "index", &page, vars, debug)?;
+        let outputs = execute(
+            &folder,
+            &source,
+            block,
+            "index",
+            &page,
+            engine::Environment {
+                vars,
+                ..Default::default()
+            },
+            debug,
+        )?;
         index_results(
             &file,
             outputs
@@ -1085,22 +1103,38 @@ pub async fn web_source_release(
     app: tauri::AppHandle,
     source: String,
     url: String,
+    preview_url: Option<String>,
     ticket: u64,
 ) -> Result<SourceRelease, WebSourceError> {
-    release_with_preparation(source.clone(), url, ticket, prepare(&app, &source)).await
+    release_with_preparation(
+        source.clone(),
+        url,
+        preview_url,
+        ticket,
+        prepare(&app, &source),
+    )
+    .await
 }
 
 async fn release_with_preparation(
     source: String,
     url: String,
+    preview_url: Option<String>,
     ticket: u64,
     preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
 ) -> Result<SourceRelease, WebSourceError> {
     http::claim(Channel::Release, ticket);
     let address = Url::parse(&url)
         .ok()
-        .filter(http::web_registered)
+        .filter(|url| http::web_allowed(url) && http::web_registered(url))
         .ok_or("This address did not come from the tag source's search. Search again.")?;
+    let initial_preview = match preview_url.filter(|value| !value.is_empty()) {
+        Some(value) => Url::parse(&value)
+            .ok()
+            .filter(|url| http::web_allowed(url) && http::web_registered(url))
+            .ok_or("This address did not come from the tag source's search. Search again.")?,
+        None => address.clone(),
+    };
     let (folder, file, vars) = preparation.await?;
     let page = http::web_page(
         &file.name,
@@ -1116,11 +1150,30 @@ async fn release_with_preparation(
             .album_script
             .as_ref()
             .ok_or("This source has no album script")?;
-        let outputs = execute(&folder, &source, block, "album", &page, vars, debug)?;
-        Ok(release_from(outputs, &page.url, address.as_str()))
+        let outputs = execute(
+            &folder,
+            &source,
+            block,
+            "album",
+            &page,
+            engine::Environment {
+                vars,
+                current_preview: Some(initial_preview.as_str()),
+                ..Default::default()
+            },
+            debug,
+        )?;
+        let mut release = release_from(outputs, &page.url, address.as_str());
+        if release.preview_url.is_none() {
+            release.preview_url = Some(initial_preview.into());
+        }
+        Ok(release)
     })
     .await?;
-    for address in std::iter::once(&release.url).chain(release.covers.iter().map(|c| &c.url)) {
+    for address in std::iter::once(&release.url)
+        .chain(release.preview_url.iter())
+        .chain(release.covers.iter().map(|c| &c.url))
+    {
         if let Ok(url) = Url::parse(address) {
             http::register_web_url(&url);
         }
@@ -1609,6 +1662,158 @@ mod tests {
     }
 
     #[test]
+    fn album_preview_is_a_browser_control_and_never_an_audio_tag() {
+        let page = Url::parse("https://shop.example/api/album/12").unwrap();
+        let address = "../../../release/12?parts=a|b";
+        for key in ["CurrentPreview", "CURRENTPREVIEW", "currentpreview"] {
+            let outputs = BTreeMap::from([
+                ("ALBUM".into(), "Example album".into()),
+                ("TITLE".into(), "First|Second|".into()),
+                (key.into(), address.into()),
+            ]);
+            let release = release_from(outputs, &page, "selected-parser-url");
+            assert_eq!(release.tracks.len(), 2);
+            assert!(!release
+                .fields
+                .keys()
+                .any(|name| name.eq_ignore_ascii_case("CurrentPreview")));
+            assert!(release.tracks.iter().all(|track| !track
+                .fields
+                .keys()
+                .any(|name| name.eq_ignore_ascii_case("CurrentPreview"))));
+            assert_eq!(
+                serde_json::to_value(&release).unwrap()["preview_url"],
+                page.join(address).unwrap().as_str()
+            );
+            assert_eq!(
+                release.url,
+                page.as_str(),
+                "browser preview must not change parser identity"
+            );
+            assert_eq!(release.id, "selected-parser-url");
+        }
+    }
+
+    #[test]
+    #[ignore = "isolated acquisition fixture; run alone with --ignored --test-threads=1"]
+    fn album_preview_session_seed_override_and_url_admission() {
+        // The fixture scope refuses every unexpected request; no provider or
+        // loopback socket is contacted. Keep its global transport out of the
+        // ordinary parallel test process.
+        for direct in [false, true] {
+            for has_preview in [false, true] {
+                for (suffix, expected_suffix) in [
+                    ("", ""),
+                    ("Set \"CurrentPreview\" \"\"", ""),
+                    (
+                        "Set \"CurrentPreview\" \"../../../browser?part=a|b\"",
+                        "relative",
+                    ),
+                    ("OutputTo \"currentpreview\"\nSay \"/more\"", "/more"),
+                    ("Set \"CurrentPreview\" \"javascript:alert(1)\"", ""),
+                    (
+                        "Set \"CurrentPreview\" \"https://user:secret@preview.invalid/\"",
+                        "",
+                    ),
+                ] {
+                    let dir = tempfile::tempdir().unwrap();
+                    let parser_url = "https://preview-fixture.invalid/api/album/7";
+                    let selected_preview = "https://preview-fixture.invalid/chosen";
+                    let initial = if has_preview {
+                        selected_preview
+                    } else {
+                        parser_url
+                    };
+                    let mut text = format!("[Name]=Preview fixture\n[AlbumUrl]={parser_url}\n");
+                    if direct {
+                        if has_preview {
+                            text.push_str(&format!("[PreviewUrl]={selected_preview}\n"));
+                        }
+                    } else {
+                        text.push_str("[IndexUrl]=https://preview-fixture.invalid/search\n[IndexFormat]=%_url%|%Album%|%_preview%\n[ParserScriptIndex]=...\nSayRest\n");
+                    }
+                    text.push_str(&format!("[ParserScriptAlbum]=...\nOutputTo \"COMMENT\"\nSayOutput \"CurrentPreview\"\nOutputTo \"ALBUM\"\nSay \"Fixture album\"\n{suffix}\n"));
+                    let file = source::load("Preview.src", &|_| Ok(text.clone())).unwrap();
+                    let reply = |url: &str, body: String| http::fixture::Reply {
+                        url: url.into(),
+                        status: 200,
+                        content_type: "text/plain; charset=utf-8",
+                        body: body.into_bytes(),
+                        cancel: None,
+                    };
+                    let mut replies = vec![reply(parser_url, "album input".into())];
+                    if !direct {
+                        replies.push(reply(
+                            "https://preview-fixture.invalid/search",
+                            format!(
+                                "{parser_url}|Fixture album|{}",
+                                if has_preview { selected_preview } else { "" }
+                            ),
+                        ));
+                    }
+                    let scope = http::fixture::Scope::start(replies);
+                    let prepared =
+                        || async { Ok((dir.path().to_owned(), file.clone(), BTreeMap::new())) };
+                    let found = tauri::async_runtime::block_on(search_with_preparation(
+                        "Preview.src".into(),
+                        vec![],
+                        u64::MAX,
+                        prepared(),
+                    ))
+                    .unwrap();
+                    assert_eq!(found.direct, direct);
+                    let row = &found.results[0];
+                    assert_eq!(row.url, parser_url);
+                    assert_eq!(
+                        row.preview.as_deref(),
+                        has_preview.then_some(selected_preview)
+                    );
+                    let before = scope.counts();
+                    for denied in [
+                        "https://unregistered-preview.invalid/",
+                        "javascript:alert(1)",
+                        "https://user:secret@preview-fixture.invalid/",
+                    ] {
+                        assert!(tauri::async_runtime::block_on(release_with_preparation(
+                            "Preview.src".into(),
+                            row.url.clone(),
+                            Some(denied.into()),
+                            u64::MAX,
+                            async { panic!("untrusted preview reached preparation") },
+                        ))
+                        .is_err());
+                    }
+                    assert_eq!(scope.counts(), before);
+                    let release = tauri::async_runtime::block_on(release_with_preparation(
+                        "Preview.src".into(),
+                        row.url.clone(),
+                        row.preview.clone(),
+                        u64::MAX,
+                        prepared(),
+                    ))
+                    .unwrap();
+                    let expected = if expected_suffix == "relative" {
+                        "https://preview-fixture.invalid/browser?part=a|b".to_owned()
+                    } else {
+                        format!("{initial}{expected_suffix}")
+                    };
+                    assert_eq!(
+                        release.preview_url.as_deref(),
+                        Some(expected.as_str()),
+                        "{direct}/{has_preview}/{suffix}"
+                    );
+                    assert_eq!(release.url, parser_url);
+                    assert_eq!(release.id, parser_url);
+                    assert_eq!(release.fields["COMMENT"], [initial]);
+                    assert!(!release.fields.contains_key("CURRENTPREVIEW"));
+                    assert!(release.tracks.is_empty());
+                    assert!(http::web_registered(&Url::parse(&expected).unwrap()));
+                    assert_eq!(scope.counts(), (if direct { 1 } else { 2 }, 0, 0));
+                }
+            }
+        }
+    }
+    #[test]
     fn album_outputs_become_a_release() {
         let page = Url::parse("https://shop.example/album/12").unwrap();
         let comment = format!("a{}b", engine::VERTICAL_BAR);
@@ -1932,7 +2137,10 @@ mod tests {
                     &block,
                     section,
                     &page,
-                    BTreeMap::new(),
+                    engine::Environment {
+                        vars: BTreeMap::new(),
+                        ..Default::default()
+                    },
                     true,
                 )
                 .unwrap_err();
@@ -2070,7 +2278,10 @@ json_foreach_end
             file.index_script.as_ref().unwrap(),
             "index",
             &page,
-            BTreeMap::new(),
+            engine::Environment {
+                vars: BTreeMap::new(),
+                ..Default::default()
+            },
             false,
         )
         .unwrap();
@@ -2092,7 +2303,10 @@ json_foreach_end
             file.album_script.as_ref().unwrap(),
             "album",
             &page,
-            BTreeMap::new(),
+            engine::Environment {
+                vars: BTreeMap::new(),
+                ..Default::default()
+            },
             true,
         )
         .unwrap();
@@ -2146,7 +2360,10 @@ json_foreach_end
             &broken,
             "album",
             &page,
-            BTreeMap::new(),
+            engine::Environment {
+                vars: BTreeMap::new(),
+                ..Default::default()
+            },
             true,
         )
         .unwrap_err()

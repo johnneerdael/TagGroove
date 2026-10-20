@@ -7,7 +7,7 @@ export type SearchResult = {id:string;title:string;artist:string;year:string;cou
 export type SearchPage = {results:SearchResult[];total:number|null};
 export type SourceTrack = {position:string;disc:number;number:number;title:string;artist:string;length:number|null;fields:Fields};
 export type SourceCover = {url:string;thumb:string|null;kind:string;width:number|null;height:number|null};
-export type SourceRelease = {provider:Provider;id:string;url:string;title:string;artist:string;fields:Fields;tracks:SourceTrack[];covers:SourceCover[];more_covers:boolean};
+export type SourceRelease = {provider:Provider;id:string;url:string;preview_url?:string|null;title:string;artist:string;fields:Fields;tracks:SourceTrack[];covers:SourceCover[];more_covers:boolean};
 /** Selected file values as shown in the file list (native field casing already resolved). */
 export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number};
 export type ApplyItem = {path:string;updates:Fields;raw_lyrics?:boolean};
@@ -912,7 +912,7 @@ export class TagSourcesUI {
       try {
         const page = await this.host.invoke<WebSearchPage>('web_source_search',{source:web!.id,values,ticket});
         if (ticket !== searchTicket || !dialog.open) return;
-        if (page.direct) { await loadRelease(page.results[0].url); return; }
+        if (page.direct) { await loadRelease(page.results[0].url,page.results[0].preview); return; }
         webColumns = page.columns; webRows = page.results; chosen = -1; total = page.results.length;
         results = page.results.map(r => ({id:r.url,title:r.values.filter(Boolean).join(' – ') || r.url,artist:'',year:'',country:'',label:'',catalog_number:'',format:'',track_count:null,score:null,barcode:'',thumb:r.cover,url:r.preview || r.url}));
         $('.ts-result-area').innerHTML = resultMarkup();
@@ -975,13 +975,13 @@ export class TagSourcesUI {
         working = false; status('Search failed.'); error(e); syncSearch();
       }
     };
-    const loadRelease = async (input:string) => {
+    const loadRelease = async (input:string, previewUrl:string|null = null) => {
       if (!input.trim()) { error('Enter a {name} release ID or address.',true); return; }
       clearError();
       const ticket = releaseTicket = nextTicket();
       working = true; syncSearch(); status('Loading release…');
       try {
-        const loaded = web ? await this.host.invoke<SourceRelease>('web_source_release',{source:web.id,url:input,ticket}) : await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket,...(provider === 'lrclib' ? {files:fileSignatures(files)} : {})});
+        const loaded = web ? await this.host.invoke<SourceRelease>('web_source_release',{source:web.id,url:input,previewUrl,ticket}) : await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket,...(provider === 'lrclib' ? {files:fileSignatures(files)} : {})});
         if (ticket !== releaseTicket || !dialog.open) return;
         working = false;
         if (provider === 'acoustid') fingerprints = await this.host.invoke<Record<string,FileRecording[]>>('acoustid_file_matches').catch(() => null);
@@ -1025,14 +1025,14 @@ export class TagSourcesUI {
         if ((event.target as Element).closest('#ts-more')) { void search(true); return; }
         const row = (event.target as Element).closest<HTMLTableRowElement>('tr[data-index]'); if (row) choose(Number(row.dataset.index));
       });
-      $('.ts-result-area').addEventListener('dblclick',event => { const row = (event.target as Element).closest<HTMLTableRowElement>('tr[data-index]'); if (row && !working) void loadRelease(results[Number(row.dataset.index)].id); });
+      $('.ts-result-area').addEventListener('dblclick',event => { const row = (event.target as Element).closest<HTMLTableRowElement>('tr[data-index]'); if (row && !working) void loadRelease(results[Number(row.dataset.index)].id,webRows[Number(row.dataset.index)]?.preview || null); });
       $('.ts-result-area').addEventListener('keydown',event => {
         const key = (event as KeyboardEvent).key;
         if (!(event.target as Element).closest('tr[data-index]')) return;
         if (key === 'ArrowDown' || key === 'ArrowUp') { event.preventDefault(); choose(Math.max(0,Math.min(results.length-1,chosen+(key === 'ArrowDown' ? 1 : -1))),true); }
-        if (key === 'Enter' && chosen >= 0 && !working) { event.preventDefault(); void loadRelease(results[chosen].id); }
+        if (key === 'Enter' && chosen >= 0 && !working) { event.preventDefault(); void loadRelease(results[chosen].id,webRows[chosen]?.preview || null); }
       });
-      $('#ts-next').addEventListener('click',() => { if (chosen >= 0) void loadRelease(results[chosen].id); });
+      $('#ts-next').addEventListener('click',() => { if (chosen >= 0) void loadRelease(results[chosen].id,webRows[chosen]?.preview || null); });
       syncSearch();
       if (chosen >= 0) choose(chosen);
     };
@@ -1156,12 +1156,13 @@ export class TagSourcesUI {
       trackField = trackFields().includes('TITLE') ? 'TITLE' : trackFields()[0];
       const disabled = new Set<string>(JSON.parse(storage.get(disabledKey) || '[]'));
       enabled = coversOnly ? new Set() : new Set(fieldRows(loaded).map(row => row.name).filter(field => !disabled.has(field)));
+      const previewAddress = loaded.preview_url || loaded.url;
       const fieldSection = `<section class="ts-field-section" aria-label="Fields"><div class="ts-tools"><strong>Fields</strong><button id="ts-all" title="Enable all fields (Ctrl+E)">All</button><button id="ts-none" title="Disable all fields (Ctrl+D)">None</button></div><div class="ts-field-list">${fieldMarkup()}</div><p class="ts-hint">Values can be changed before saving; separate multiple values with \\\\.</p></section>`;
       const matchSection = `<section class="ts-match-section" aria-label="Track and file matching"><div class="ts-tools"><strong>Tracks and files</strong><label class="ts-track-field">Track column <select id="ts-track-field">${trackFields().map(field => `<option translate="no" ${field === trackField ? 'selected' : ''}>${html(field)}</option>`).join('')}</select></label><button id="ts-rematch">Auto-match</button><button id="ts-order">Selection order</button></div><div class="ts-tools ts-suggest"><strong>Suggest sorting</strong><label class="action-check" title="Pair files with the closest track title; remembered for the next import"><input type="checkbox" id="ts-suggest-title" data-suggest="title" ${suggest === 'title' ? 'checked' : ''}> Title</label><label class="action-check" title="Pair files with the track of the closest length; remembered for the next import"><input type="checkbox" id="ts-suggest-length" data-suggest="length" ${suggest === 'length' ? 'checked' : ''}> Length</label></div><div class="ts-match-area"></div><p class="ts-hint">Drag a file to another track, or use the arrows (Alt+↑/↓, Alt+Page Up/Down).</p></section>`;
       dialog.innerHTML = `<header>${nameMarkup}: <span translate="no">${html(loaded.artist)} – ${html(loaded.title)}</span></header><div class="dialog-content">
         <div class="ts-review ${coversOnly ? 'ts-cover-only' : ''}">${coversOnly ? '' : fieldSection}<section class="ts-cover" aria-label="Artwork"></section></div>
         ${coversOnly ? '' : matchSection}
-        ${loaded.url ? `<p class="ts-url"><span translate="no">${html(loaded.url)}</span> ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
+        ${previewAddress ? `<p class="ts-url"><span translate="no">${html(previewAddress)}</span> ${preview(previewAddress)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
         <div class="dialog-footer"><button id="ts-back">Back</button><button data-close>Cancel</button><button class="primary" id="ts-apply"></button></div>`;
       $('[data-close]').addEventListener('click',() => dialog.close());
       $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? freedbStart : modes.some(([mode]) => mode === 'release_id') ? 'release_id' : undefined); });

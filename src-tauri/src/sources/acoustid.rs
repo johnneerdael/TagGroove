@@ -431,6 +431,7 @@ mod tests {
         let mut fields = tag_core::Fields::new();
         put_one(&mut fields, "MUSICBRAINZ_TRACKID", "rec-annotate");
         let mut release = SourceRelease {
+            preview_url: None,
             provider: Provider::Acoustid,
             id: RELEASE.into(),
             url: String::new(),
@@ -549,6 +550,7 @@ mod tests {
             }
         };
         let mut release = SourceRelease {
+            preview_url: None,
             provider: Provider::Acoustid,
             id: RELEASE.into(),
             url: String::new(),

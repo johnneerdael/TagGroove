@@ -108,8 +108,19 @@ fn community_script() {
         println!("INDEX URL {address}");
         let index = page(&file, env("OPENTAG_SRC_INDEX_PAGE"), &address);
         let block = file.index_script.as_ref().expect("index script");
-        let outputs = execute(&folder, &id, block, "index", &index, vars.clone(), debug)
-            .unwrap_or_else(|e| panic!("index script: {e}"));
+        let outputs = execute(
+            &folder,
+            &id,
+            block,
+            "index",
+            &index,
+            engine::Environment {
+                vars: vars.clone(),
+                ..Default::default()
+            },
+            debug,
+        )
+        .unwrap_or_else(|e| panic!("index script: {e}"));
         let found = index_results(
             &file,
             outputs
@@ -145,8 +156,19 @@ fn community_script() {
     println!("ALBUM URL {album_address}");
     let album = page(&file, env("OPENTAG_SRC_ALBUM_PAGE"), &album_address);
     let block = file.album_script.as_ref().expect("album script");
-    let outputs = execute(&folder, &id, block, "album", &album, vars, debug)
-        .unwrap_or_else(|e| panic!("album script: {e}"));
+    let outputs = execute(
+        &folder,
+        &id,
+        block,
+        "album",
+        &album,
+        engine::Environment {
+            vars,
+            ..Default::default()
+        },
+        debug,
+    )
+    .unwrap_or_else(|e| panic!("album script: {e}"));
     let release = release_from(outputs, &album.url, &album_address);
     println!("RELEASE {:?} by {:?}", release.title, release.artist);
     for (name, values) in &release.fields {
