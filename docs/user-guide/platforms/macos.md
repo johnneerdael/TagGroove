@@ -47,8 +47,14 @@ Change the filename for the package you actually chose. Compare the whole
 hash, not just its beginning. A matching checksum detects a mismatched or
 damaged download; it does not identify a trusted publisher by itself.
 
-v0.2.13 is **ad-hoc signed and not Apple notarized**. If macOS blocks a
-trusted, verified download as an unidentified/non-notarized app, Apple's
+The updated release pipeline requires Developer ID signatures and Apple
+notarization for both the app and DMG, with signing evidence recorded in that
+release's manifest. Check the specific release's notes; the pipeline change
+does not retroactively sign older downloads or establish a new package's
+runtime acceptance.
+
+The inspected v0.2.13 baseline is **ad-hoc signed and not Apple notarized**.
+For an older trusted, verified download blocked as an unidentified/non-notarized app, Apple's
 [app-specific opening instructions](https://support.apple.com/en-us/102445)
 explain the **System Settings → Privacy & Security → Open Anyway** route
 after an opening attempt. Managed Macs can restrict that choice. Treat a

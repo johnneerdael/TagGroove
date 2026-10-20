@@ -158,7 +158,7 @@ fn quick_action_shape(name: &str, saved: &Value) -> bool {
 }
 
 /// Validate stored values without running a template, action, tool or provider.
-fn validate_preferences(values: &BTreeMap<String, String>) -> Result<(), String> {
+pub(crate) fn validate_preferences(values: &BTreeMap<String, String>) -> Result<(), String> {
     for (key, text) in values {
         if !engine::PREFERENCE_KEYS.contains(&key.as_str())
             || text.len() > engine::WINDOW_LIMIT

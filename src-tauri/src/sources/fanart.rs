@@ -153,6 +153,7 @@ pub fn parse_album(body: &Value, id: &str) -> Result<SourceRelease, String> {
         return Err("fanart.tv has no album covers for this album.".into());
     }
     Ok(SourceRelease {
+        preview_url: None,
         provider: Provider::Fanart,
         id: id.to_owned(),
         url: format!("https://fanart.tv/artist/{}/", text(body, "mbid_id")),

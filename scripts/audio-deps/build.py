@@ -6,6 +6,7 @@ All downloads and outputs live in the explicitly selected owned build directory.
 """
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -21,6 +22,9 @@ import urllib.error
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
+_policy_spec = importlib.util.spec_from_file_location('ffmpeg_policy', HERE / 'ffmpeg_policy.py')
+policy = importlib.util.module_from_spec(_policy_spec)
+_policy_spec.loader.exec_module(policy)
 SOURCES = HERE / "sources.json"
 TARGETS = {
     "aarch64-apple-darwin", "x86_64-apple-darwin",
@@ -153,7 +157,9 @@ def acquire(spec, downloads, sources):
 
 def recipe_inputs(spec):
     inputs = {"sources.json": digest(SOURCES), "build.py": digest(Path(__file__)),
+              "ffmpeg_policy.py": digest(HERE / "ffmpeg_policy.py"),
               "bzip2/CMakeLists.txt": digest(HERE / "bzip2/CMakeLists.txt")}
+    policy.validate_patches(spec.get("patches", []))
     for patch in spec.get("patches", []):
         path = HERE / patch["file"]
         verify_archive(path, patch["sha256"])
@@ -162,18 +168,13 @@ def recipe_inputs(spec):
 
 
 def apply_patches(spec, native):
+    policy.validate_patches(spec.get("patches", []))
+    outputs = []
     for patch in spec.get("patches", []):
         path = native[patch["component"]] / patch["target"]
-        verify_archive(path, patch["original_sha256"])
-        old = path.read_text(encoding="utf-8")
-        # This exact, reviewed policy opt-in leaves every upstream license
-        # check intact. Match the complete original line, not a loose regex.
-        needle = 'enabled gpl && enable lgpl_gpl # Files that are marked as LGPL but some developers prefer only building them with --enable-gpl'
-        if old.count(needle) != 1:
-            raise ValueError("Pinned FFmpeg policy patch no longer matches its source")
-        new = old.replace(needle, needle + '\n# OpenTag opts in to these explicitly LGPL-marked audio components only.\n# GPL/nonfree/version3 remain disabled; the compiled object closure is audited.\nenable lgpl_gpl')
-        path.write_bytes(new.encode("utf-8"))
-        verify_archive(path, patch["patched_sha256"])
+        outputs.append((path, policy.apply_patch(patch, path.read_bytes(), (HERE / patch["file"]).read_bytes())))
+    for path, raw in outputs:
+        path.write_bytes(raw)
 
 
 def validate_prefix(prefix, spec, recipe, inputs, target):
@@ -420,6 +421,7 @@ def build(target, output, jobs):
     # Bind compiled objects to their actual original/modified source and header
     # closure. System SDK/compiler headers are intentionally outside this set.
     closure, generated = source_closure(ffmpeg_build, native["ffmpeg"], msvc=target.endswith("windows-msvc"))
+    policy.verify_no_gpl_sources({name for entries in closure.values() for name in entries})
     (prefix / "ffmpeg-source-closure.json").write_text(json.dumps(closure, indent=2) + "\n")
     for name, expected in generated.items():
         output = prefix / "ffmpeg-generated" / name
@@ -427,8 +429,11 @@ def build(target, output, jobs):
         shutil.copyfile(ffmpeg_build / name, output)
         verify_archive(output, expected)
     (prefix / "ffmpeg-generated-closure.json").write_text(json.dumps(generated, indent=2) + "\n")
-    shutil.copyfile(native["ffmpeg"] / "configure", prefix / "ffmpeg-patched-configure")
     for patch in spec.get("patches", []):
+        destination = prefix / policy.patched_path(patch["target"])
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(native["ffmpeg"] / patch["target"], destination)
+        verify_archive(destination, patch["patched_sha256"])
         shutil.copyfile(HERE / patch["file"], notice_dir / Path(patch["file"]).name)
     libraries = {p.relative_to(prefix).as_posix(): digest(p) for p in sorted((prefix / "lib").iterdir())
                  if p.suffix in {".a", ".lib"}}

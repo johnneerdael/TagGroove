@@ -11,7 +11,7 @@ pub const KEEP: &str = "< keep >";
 pub const DIRECTORY: &str = "_DIRECTORY";
 pub const SEPARATOR: &str = "_SEPARATOR";
 pub const MAX_FIELDS: usize = 100;
-const MAX_VALUES: usize = 5000;
+pub(crate) const MAX_VALUES: usize = 5000;
 const MAX_TEXT: usize = 1000;
 const LAYOUT_FORMAT: &str = "opentag-tag-panel";
 
@@ -109,6 +109,9 @@ pub struct FieldValues {
     pub lists: BTreeMap<String, Vec<String>>,
     pub only_user_genres: bool,
     pub prefer_tag_values: bool,
+    /// Per-field native preference; absent entries retain the global fallback.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub prefer_tag_fields: BTreeMap<String, bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -194,6 +197,9 @@ pub fn validate(settings: &Settings) -> Result<(), String> {
         return Err("Unsupported tag panel configuration version".into());
     }
     validate_layout(&settings.panel)?;
+    for key in settings.field_values.prefer_tag_fields.keys() {
+        field_id(key, false)?;
+    }
     for (key, values) in &settings.field_values.lists {
         field_id(key, false)?;
         if values.len() > MAX_VALUES {
@@ -203,8 +209,10 @@ pub fn validate(settings: &Settings) -> Result<(), String> {
         }
         let mut seen = HashSet::new();
         for value in values {
-            if value.trim().is_empty() || value.trim() != value {
-                return Err(format!("{key}: custom values must be nonempty and trimmed"));
+            if value.is_empty() {
+                return Err(format!(
+                    "{key}: custom values must be nonempty single lines"
+                ));
             }
             text(value, "Custom value", false)?;
             if !seen.insert(value.as_str()) {
@@ -335,6 +343,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn field_value_migration_preferences_survive_native_settings_round_trip() {
+        let mut input = serde_json::to_value(Settings::default()).unwrap();
+        input["field_values"]["prefer_tag_fields"] =
+            serde_json::json!({"GENRE": true, "COMPOSER": false});
+        let settings: Settings = serde_json::from_value(input).unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("panel.json");
+        save(&path, &settings).unwrap();
+        assert_eq!(
+            serde_json::to_value(load(&path).unwrap()).unwrap()["field_values"]
+                ["prefer_tag_fields"],
+            serde_json::json!({"GENRE": true, "COMPOSER": false})
+        );
+    }
+
+    #[test]
     fn missing_file_loads_mp3tag_style_defaults_and_round_trips() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("tag-panel.json");
@@ -458,6 +482,19 @@ mod tests {
             .field_values
             .lists
             .insert("GENRE".into(), vec![" padded".into()]);
+        assert!(
+            validate(&settings).is_ok(),
+            "native values keep literal spaces"
+        );
+        settings
+            .field_values
+            .lists
+            .insert("GENRE".into(), vec![String::new()]);
+        assert!(validate(&settings).is_err());
+        settings
+            .field_values
+            .lists
+            .insert("GENRE".into(), vec!["bad\tvalue".into()]);
         assert!(validate(&settings).is_err());
         let mut settings = Settings::default();
         settings

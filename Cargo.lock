@@ -2977,6 +2977,7 @@ dependencies = [
  "gdk",
  "image",
  "keyring",
+ "libc",
  "libloading",
  "md-5",
  "objc2-app-kit",

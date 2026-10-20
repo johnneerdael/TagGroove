@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
+mod action_companions;
 mod action_host;
 mod associated_files;
 mod columns;
@@ -27,12 +28,15 @@ mod locale_format;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod mp3tag_columns;
+mod mp3tag_field_values;
+mod mp3tag_settings;
 mod mp3tag_tag_panel;
 mod playlists;
 mod profile_migration;
 mod progress;
 mod rename_plan;
 mod settings;
+mod source_tracking;
 mod sources;
 mod tag_panel;
 mod tray;
@@ -115,6 +119,7 @@ async fn run_export(
                 name: format!("Export {}", configuration.name),
                 enabled: true,
                 actions: vec![tag_core::actions::ActionSpec::Export {
+                    mta_source: None,
                     template: configuration.template.clone(),
                     filename_template: filename,
                     append: library.preferences.append,
@@ -165,12 +170,14 @@ async fn import_action_group(
 async fn import_action_group_with_diagnostics(
     path: String,
     legacy_encoding: Option<String>,
+    dialect: Option<tag_core::actions::MtaDialect>,
 ) -> Result<tag_core::actions::MtaImportReport, import_diagnostics::ImportFailure> {
     io(move || {
         let input = auxiliary_input(&path)?;
-        Ok(action_host::import_group_diagnostic(
+        Ok(action_host::import_group_diagnostic_with_dialect(
             &input,
             legacy_encoding.as_deref(),
+            dialect.unwrap_or_default(),
         ))
     })
     .await
@@ -221,6 +228,7 @@ async fn import_action_groups(
 async fn import_action_groups_with_diagnostics(
     paths: Vec<String>,
     legacy_encoding: Option<String>,
+    dialect: Option<tag_core::actions::MtaDialect>,
 ) -> Result<Vec<action_host::GroupFileImportReport>, String> {
     io(move || {
         let mut results = Vec::with_capacity(paths.len());
@@ -228,8 +236,11 @@ async fn import_action_groups_with_diagnostics(
         for path in paths {
             match auxiliary_group_input(&path) {
                 Ok((input, name)) => {
-                    let mut imported =
-                        action_host::import_groups_diagnostic(&[input], legacy_encoding.as_deref());
+                    let mut imported = action_host::import_groups_diagnostic_with_dialect(
+                        &[input],
+                        legacy_encoding.as_deref(),
+                        dialect.unwrap_or_default(),
+                    );
                     if path.starts_with("content://") {
                         for result in &mut imported {
                             result.result.path = path.clone();
@@ -284,14 +295,23 @@ async fn execute_action_groups_diagnostic(
             [group] => format!("Action {}", group.name),
             ref enabled => format!("Actions ({} groups)", enabled.len()),
         };
-        history::record_with_side_file_epochs_diagnostic(&label, None, &paths, |before_replace| {
-            Ok(action_host::execute_with_side_file_epochs_diagnostic(
-                &paths,
-                &groups,
-                settings,
-                before_replace,
-            ))
-        })
+        let companions =
+            action_companions::Prepared::prepare(&paths, &groups, associated_files::enabled())?;
+        let captured = companions.history_sources(&paths);
+        history::record_with_side_file_epochs_diagnostic(
+            &label,
+            None,
+            &captured,
+            |before_replace| {
+                Ok(action_host::execute_prepared(
+                    &paths,
+                    &groups,
+                    settings,
+                    companions,
+                    before_replace,
+                ))
+            },
+        )
     })
     .await
 }
@@ -1094,15 +1114,20 @@ async fn apply_action_diagnostic(
     };
     io(move || {
         reject_provider_operation(&paths, "Actions")?;
+        let groups = [group];
+        let companions =
+            action_companions::Prepared::prepare(&paths, &groups, associated_files::enabled())?;
+        let captured = companions.history_sources(&paths);
         history::record_with_side_file_epochs_diagnostic(
             "Quick action",
             None,
-            &paths,
+            &captured,
             |before_replace| {
-                Ok(action_host::execute_with_side_file_epochs_diagnostic(
+                Ok(action_host::execute_prepared(
                     &paths,
-                    &[group],
+                    &groups,
                     settings,
+                    companions,
                     before_replace,
                 ))
             },
@@ -1772,6 +1797,10 @@ pub fn run() {
             history::ipc::convert_tag_to_tag_with_diagnostics,
             export_csv,
             playlists::classify_source_paths,
+            source_tracking::begin_source_tracking,
+            source_tracking::prepare_source_roots,
+            source_tracking::release_source_roots,
+            source_tracking::resolve_source_roots,
             playlists::ipc::read_playlist_with_diagnostics,
             playlists::plan_playlists,
             playlists::create_playlists,
@@ -1873,6 +1902,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn action_import_commands_keep_selected_origin_for_single_and_folder_inputs() {
+        use tag_core::actions::{ActionSpec, CaseMode, MtaDialect};
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("Origin.mta");
+        std::fs::write(&file, b"[#0]\nT=1\nF=TITLE\n1=2\n2= \n").unwrap();
+        for (dialect, mode) in [
+            (None, None),
+            (Some(MtaDialect::Mp3tag), Some(CaseMode::Upper)),
+            (Some(MtaDialect::LegacyTaggroove), Some(CaseMode::Sentence)),
+        ] {
+            let single = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
+                file.to_string_lossy().into_owned(),
+                None,
+                dialect,
+            ))
+            .unwrap();
+            let bulk = tauri::async_runtime::block_on(import_action_groups_with_diagnostics(
+                vec![dir.path().to_string_lossy().into_owned()],
+                None,
+                dialect,
+            ))
+            .unwrap();
+            assert_eq!(bulk.len(), 1);
+            let group = &single.result.group;
+            assert_eq!(bulk[0].result.imported.as_ref().unwrap().group, *group);
+            match mode {
+                Some(expected) => {
+                    assert!(single.result.issues.is_empty());
+                    assert!(
+                        matches!(group.actions[0], ActionSpec::CaseConversion { mode, .. } if mode == expected)
+                    );
+                }
+                None => {
+                    assert!(!group.enabled);
+                    assert_eq!(single.result.issues.len(), 1);
+                    assert!(matches!(group.actions[0], ActionSpec::UnresolvedMta { .. }));
+                }
+            }
+        }
+    }
+
+    #[test]
     fn import_single_and_bulk_companions_keep_per_file_context_and_foreign_causes() {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../../tests/fixtures/import-diagnostics.json"))
@@ -1891,6 +1962,7 @@ mod tests {
         let one = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
             first.to_string_lossy().into_owned(),
             None,
+            None,
         ))
         .unwrap();
         assert_eq!(one.issue_diagnostics.len(), 3);
@@ -1905,6 +1977,7 @@ mod tests {
         ];
         let rows = tauri::async_runtime::block_on(import_action_groups_with_diagnostics(
             paths.clone(),
+            None,
             None,
         ))
         .unwrap();
@@ -1933,6 +2006,7 @@ mod tests {
         }
         let failure = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
             missing.to_string_lossy().into_owned(),
+            None,
             None,
         ))
         .unwrap_err();

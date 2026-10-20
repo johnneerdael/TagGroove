@@ -21,8 +21,8 @@ On a narrow screen, scroll this package table sideways to read its limitations.
 | System | Package naming pattern | What to expect |
 | --- | --- | --- |
 | Windows x64 | `TagGroove-vVERSION-windows-x64-setup.exe` | Desktop installer; no Authenticode publisher signature |
-| macOS Apple silicon | `TagGroove-vVERSION-macos-arm64.dmg` or `.app.tar.gz` | Desktop application; ad-hoc signed, not notarized |
-| macOS Intel | `TagGroove-vVERSION-macos-x64.dmg` or `.app.tar.gz` | Same signing limits; choose the Intel build |
+| macOS Apple silicon | `TagGroove-vVERSION-macos-arm64.dmg` or `.app.tar.gz` | Desktop application; check that release's signing notes and manifest |
+| macOS Intel | `TagGroove-vVERSION-macos-x64.dmg` or `.app.tar.gz` | Same release-specific signing checks; choose the Intel build |
 | Linux x64 or arm64 | Matching `.AppImage`, `.deb` or `.rpm` | Unsigned desktop packages, built on Ubuntu 24.04; older-distribution compatibility is not established |
 | Android arm64 | `TagGroove-vVERSION-android-arm64-signed.apk` | Signed preview; document editing and save-back remain in progress |
 | iOS ARM64 simulator | `TagGroove-vVERSION-ios-arm64-simulator-preview-debug.app.zip` | Unsigned simulator preview; not an iPhone/iPad installer |
@@ -84,9 +84,12 @@ also try to read the other packages you have not downloaded.
     1. Open the matching `.dmg`, then copy **TagGroove.app** to your Applications
        folder. With `.app.tar.gz`, extract the archive to obtain **TagGroove.app**
        and copy that application instead.
-    2. Open the copied application. v0.2.12 has no Apple notarization, so macOS
-       may refuse to open it under its normal policy.
-    3. If you have verified and trust this download, follow Apple's
+    2. Open the copied application. The updated release pipeline requires
+       Developer ID signatures and Apple notarization for both the app and DMG;
+       check the chosen release's own notes and `release-manifest.json`.
+       Older releases, including the inspected v0.2.13 and v0.2.56 baselines, have
+       no Apple notarization and may be refused under macOS's normal policy.
+    3. For an older non-notarized release that you have verified and trust, follow Apple's
        [app-specific opening procedure](https://support.apple.com/en-us/102445):
        after the opening attempt, use **System Settings → Privacy & Security →
        Open Anyway**, when offered, and confirm **Open**.

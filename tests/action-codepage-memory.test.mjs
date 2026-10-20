@@ -22,13 +22,32 @@ function page(storage=memory(),actions=[]){
   const host={storage,load:async()=>structuredClone(library),save:async value=>saved.push(structuredClone(value)),execute:async groups=>executed.push(structuredClone(groups)),confirm:async()=>true,canExecute:()=>true,selectedCount:()=>1,changed:()=>{}};
   const ui=()=>new ActionUI(host);
   const closeDialogs=()=>{for(const dialog of [...window.document.querySelectorAll('dialog')].reverse())dialog.close();};
-  return{window,storage,executed,saved,ui,closeDialogs,async groupEditor(instance=ui()){
+  return{window,storage,executed,saved,host,ui,closeDialogs,async groupEditor(instance=ui()){
     await instance.groupsDialog();
     const groups=window.document.querySelector('.action-groups-dialog');
     groups.querySelector('[data-command="edit"]').click();
     return window.document.querySelector('.group-editor-dialog');
   },async close(){closeDialogs();await window.happyDOM.abort();for(const[name,descriptor]of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}};
 }
+
+for(const dialect of ['unknown','mp3tag','legacy_taggroove'])test(`action import sends explicit ${dialect} origin separately from byte encoding`,async()=>{
+  const p=page(),calls=[];try{
+    p.host.pickFile=async()=>'/Music/Workflow.mta';
+    p.host.import=async(...args)=>{calls.push(args);return{group:{name:'Imported',enabled:false,actions:[]},issues:[]};};
+    await p.ui().groupsDialog();
+    p.window.document.querySelector('[data-command="import"]').click();await settle();
+    const child=p.window.document.querySelector('dialog:has([data-import])');
+    const choice=child.querySelector('[data-key="dialect"]');
+    assert.ok(choice,'import requires a visible format-origin choice');
+    assert.equal(choice.value,'unknown','unmarked input must not default to a guessed origin');
+    choice.value=dialect;
+    child.querySelector('[data-key="encoding"]').value='windows-1251';
+    child.querySelector('[data-import]').click();await settle();
+    assert.deepEqual(calls,[['/Music/Workflow.mta','windows-1251',dialect]]);
+    assert.equal(child.isConnected,false);
+    assert.deepEqual(p.saved,[],'import only stages the group');assert.deepEqual(p.executed,[]);
+  }finally{await p.close();}
+});
 // Happy DOM can retain an earlier default option while parsing selected markup.
 // Normalize that initial selection; production change/click handlers remain real.
 function initialSelections(root){for(const select of root.querySelectorAll('select')){const selected=select.querySelector('option[selected]');if(selected)select.value=selected.value;}return root;}
@@ -104,7 +123,7 @@ test('group codepage and complete Quick settings survive writes in both directio
 
 for(const importedCodepage of ['932','windows-1252'])test(`existing imported codepage ${importedCodepage} and unresolved action remain intact when group memory differs`,async()=>{
   const storage=memory();storage.setItem(key,JSON.stringify({actions:{},groupCodepage:'850'}));
-  const imported={type:'convert_codepage',field:'ARTIST',codepage:importedCodepage};
+  const imported={type:'convert_codepage',field:'ARTIST',codepage:importedCodepage,mta_source:{properties:{T:'11',F:'ARTIST','1':importedCodepage==='932'?'1041':'1033'}}};
   const unresolved={type:'unresolved_mta',type_id:'9999',properties:{T:'9999','1':'retained'},reason:'Unknown action'};
   const p=page(storage,[imported,unresolved]);try{
     const group=await p.groupEditor();group.querySelector('[data-command="edit"]').click();

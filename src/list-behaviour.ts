@@ -118,7 +118,10 @@ export type RowDragHost={
   headerHeight:number;
   selected:()=>ReadonlySet<string>;
   /** Select one row before dragging it (the pressed row was not selected). */
-  select:(path:string)=>void;
+  select:(path:string)=>void|boolean|Promise<void|boolean>;
+  /** The list may be replaced while selection waits for a save. */
+  currentWrap?:()=>HTMLElement|null;
+  canDrag?:()=>boolean;
   drop:(moving:string[],before:string|null)=>void;
 };
 /**
@@ -128,40 +131,55 @@ export type RowDragHost={
 export function bindRowDrag(wrap:HTMLElement,host:RowDragHost){
   wrap.addEventListener('pointerdown',event=>{
     if(event.button!==0||!event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+    if(host.canDrag?.()===false)return;
     const row=(event.target as Element).closest<HTMLTableRowElement>('tr[data-path]');if(!row)return;
     event.preventDefault();
-    const path=row.dataset.path!,startY=event.clientY;
-    let dragging=false,moving:string[]=[],before:string|null=null;
-    const marker=document.createElement('div');marker.className='row-drop-marker';marker.setAttribute('aria-hidden','true');
+    const path=row.dataset.path!,startY=event.clientY,owner=wrap.ownerDocument;
+    let activeWrap=wrap;
+    let dragging=false,preparing=false,ended=false,refused=false,lastY=startY,moving:string[]=[],before:string|null=null;
+    const marker=owner.createElement('div');marker.className='row-drop-marker';marker.setAttribute('aria-hidden','true');
     const place=(clientY:number)=>{
-      const box=wrap.getBoundingClientRect(),list=host.rows(),height=host.rowHeight();
-      if(clientY<box.top+host.headerHeight+height/2)wrap.scrollTop-=height;else if(clientY>box.bottom-height/2)wrap.scrollTop+=height;
-      const index=dropIndex(clientY-box.top-host.headerHeight+wrap.scrollTop,height,list.length);
+      const box=activeWrap.getBoundingClientRect(),list=host.rows(),height=host.rowHeight();
+      if(clientY<box.top+host.headerHeight+height/2)activeWrap.scrollTop-=height;else if(clientY>box.bottom-height/2)activeWrap.scrollTop+=height;
+      const index=dropIndex(clientY-box.top-host.headerHeight+activeWrap.scrollTop,height,list.length);
       before=list[index]??null;marker.style.top=`${host.headerHeight+index*height-1}px`;
     };
-    const move=(e:PointerEvent)=>{
+    const move=async(e:PointerEvent)=>{
+      lastY=e.clientY;
+      if(preparing||ended||refused)return;
       if(!dragging&&Math.abs(e.clientY-startY)<4)return;
       if(!dragging){
-        dragging=true;wrap.classList.add('row-dragging');
-        try{wrap.setPointerCapture(e.pointerId);}catch{/* Capture is optional; moves over the list still arrive. */}
-        if(!host.selected().has(path))host.select(path);
+        preparing=true;
+        try{
+          if(!host.selected().has(path)){
+            const accepted=await host.select(path);
+            if(accepted===false||!host.selected().has(path)){refused=true;return;}
+          }
+        }catch{refused=true;return;}
+        finally{preparing=false;}
+        if(ended)return;
+        activeWrap=host.currentWrap?.()??wrap;
+        if(!activeWrap.isConnected||host.canDrag?.()===false){refused=true;return;}
+        dragging=true;activeWrap.classList.add('row-dragging');
+        try{activeWrap.setPointerCapture(e.pointerId);}catch{/* The document listeners also observe uncaptured moves. */}
         const chosen=host.selected();moving=host.rows().filter(item=>chosen.has(item));
-        marker.style.width=`${wrap.scrollWidth}px`;wrap.append(marker);
+        marker.style.width=`${activeWrap.scrollWidth}px`;activeWrap.append(marker);
       }
-      place(e.clientY);
+      place(lastY);
     };
     const end=(e:PointerEvent)=>{
-      wrap.removeEventListener('pointermove',move);wrap.removeEventListener('pointerup',end);wrap.removeEventListener('pointercancel',end);
-      marker.remove();wrap.classList.remove('row-dragging');
+      ended=true;
+      owner.removeEventListener('pointermove',move);owner.removeEventListener('pointerup',end);owner.removeEventListener('pointercancel',end);
+      marker.remove();activeWrap.classList.remove('row-dragging');
       if(!dragging)return;
       // The click that follows the drag (dispatched right after pointerup) must not change the selection.
       const suppress=(click:Event)=>{click.stopPropagation();click.preventDefault();};
-      wrap.addEventListener('click',suppress,{capture:true,once:true});
-      setTimeout(()=>wrap.removeEventListener('click',suppress,{capture:true}),0);
-      if(e.type==='pointerup'&&moving.length)host.drop(moving,before);
+      activeWrap.addEventListener('click',suppress,{capture:true,once:true});
+      setTimeout(()=>activeWrap.removeEventListener('click',suppress,{capture:true}),0);
+      if(e.type==='pointerup'&&moving.length&&activeWrap.isConnected&&host.canDrag?.()!==false)host.drop(moving,before);
     };
-    wrap.addEventListener('pointermove',move);
-    wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);
+    owner.addEventListener('pointermove',move);
+    owner.addEventListener('pointerup',end);owner.addEventListener('pointercancel',end);
   });
 }
 

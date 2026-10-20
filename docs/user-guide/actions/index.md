@@ -148,10 +148,18 @@ label before using ++cmd+y++ / ++ctrl+y++.
 
 ## Import and export an action group
 
-Choose **Import .mta…** and select an action-group file. UTF-8 and BOM-marked
-UTF-16 are accepted; for an older file, enter its original encoding when
-asked, such as `Windows-1252`. An imported name already in use receives a
-numbered suffix.
+Choose **Import .mta…** and select an action-group file. In **Action file
+created by**, choose **Mp3tag or current TagGroove** for an original Mp3tag
+file or a file exported with the corrected exchange format. Choose **Older
+TagGroove** for a file exported before the interchange repair. Keep **Unknown**
+when unsure: ambiguous actions stay preserved and disabled, rather than
+silently receiving a different meaning. Re-import with the correct origin
+after checking the source. A case-conversion mode or export-partition setting
+can have exactly the same stored text in both formats and mean different things.
+
+The origin choice is separate from text encoding. UTF-8 and BOM-marked UTF-16
+are accepted; for an older file, enter its original encoding when asked, such
+as `Windows-1252`. An imported name already in use receives a numbered suffix.
 
 Inspect every imported action. An **Unresolved imported action** keeps the
 uninterpreted settings visible and prevents checked groups from running.
@@ -167,8 +175,10 @@ that refusal preserves an existing destination file.
 Unresolved imported actions can be exported for preservation: their decoded
 settings survive export and re-import, including encoded line breaks next to
 literal backslashes. Literal backslash sequences remain literal text. The
-action stays unresolved and its group stays disabled on re-import; export does
-not assign a supported meaning to unknown settings.
+action stays unresolved and its group stays disabled when re-imported with the
+same origin choice; export does not assign a supported meaning to unknown
+settings. Choosing a different origin deliberately changes how ambiguous
+records are interpreted, so inspect them again before enabling the group.
 
 This preserves setting values, not the original file's exact bytes: section
 numbers, property order, encoding and escape spellings can change. Keep the
@@ -185,15 +195,30 @@ and keep/clear sentinels differ.
 Some TagGroove options need the older app-only representation: JPEG quality
 below 20, older size targets outside 10–10000, older square/crop sizing rules,
 and literal descriptions that could be read as native numeric sentinels.
+Convert Codepage actions created with a raw codepage use app-only type 1004:
+Mp3tag's type 11 stores a locale identifier, which is a different number.
+A retained imported locale can still export as type 11 when its encoding is
+unchanged; changing that encoding uses the app-only representation. An explicit
+empty export-partition value from saved settings uses app-only type 1005 to
+preserve its distinction from Mp3tag's enabled-empty folder partition.
 The group dialog reports only actions that the exporter actually writes as
 app-only extensions. These actions cannot transfer to Mp3tag. Names in the
 notice follow the current language; group names and paths stay as entered.
 
 Recognized native source options are retained while editing their actions,
-including a known inactive cover-properties option. An edit that requires an
+including inactive cover filters and export partitions, as well as a known
+inactive cover-properties option. An edit that requires an
 older schema can conflict with that retained option. Export then reports an
 error and preserves the destination, rather than losing the option or changing
 its meaning. Unknown settings still remain unresolved.
+
+For example, an export partition stored as disabled with `%album%` remembered
+stays disabled when you edit only the output filename. Enabling a native
+partition with an empty expression uses `%_folderpath%`; embedded `|` characters
+inside the expression remain part of that expression. Imported locale-based
+codepage conversion uses a pinned portable table of default ANSI encodings;
+system/custom locales and locales without such an encoding stay unresolved.
+Windows-specific locale overrides are not reproduced by that table.
 
 Native schema support is locally tested against decoded record contracts;
 original Mp3tag import/edit/re-export and platform acceptance remain untested.
@@ -229,3 +254,18 @@ field value.
 - [Replace](replace.md)
 - [Replace with Regular Expression](replace-regexp.md)
 - [Move guest artists to titles](../cookbook/feat-artists-to-title.md)
+
+## Keep lyrics and karaoke beside renamed audio
+
+With **Options → Files → Move or copy matching .lrc and .cdg files with audio**
+enabled, action-driven filename changes carry exact-basename companions. This
+also covers case conversion, replacement, regex replacement and Guess Values
+when they produce a filename change. Companions retain their extension spelling.
+Repeated file/directory changes share the command's frozen membership and the
+recorded action history.
+
+Actions run immediately; they do not show the converters' reviewed companion
+destination list. Membership/content or destination conflicts refuse the
+affected rename and report a warning. Earlier metadata changes and successful
+actions can remain. See [associated files](../guides/associated-files.md#actions-and-tag-tag)
+for rollback, uncertain-path refusal and Undo/Redo behavior.

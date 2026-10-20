@@ -193,9 +193,10 @@ export class FileOpsUI {
       const mode=op==='file-copy'?'copy':'move',key=mode==='copy'?'copy_destination':'move_destination';
       const [destination]=await this.host.pickDirectories(mode==='copy'?'Copy files to':'Move files to',false,this.state[key]||undefined);
       if(!destination)return;
-      const reviewed=mode==='move'&&this.host.preferences?.().associatedFiles
-        ?await this.host.run('Checking associated files…',()=>this.host.invoke<{plan_token:string;associated:PathChange[]}>('preview_transfer',{paths,destination})):undefined;
-      if(mode==='move'&&this.host.preferences?.().associatedFiles&&!reviewed)return;
+      const associatedFiles=!!this.host.preferences?.().associatedFiles;
+      const reviewed=associatedFiles
+        ?await this.host.run('Checking associated files…',()=>this.host.invoke<{plan_token:string;associated:PathChange[]}>('preview_transfer',{paths,destination,mode})):undefined;
+      if(associatedFiles&&!reviewed)return;
       const confirmation=`${mode==='copy'?'Copy':'Move'} ${plural(paths.length)} to ${destination}?\n\n${names}\n\nExisting files are never replaced. If any name is already taken, nothing is ${mode==='copy'?'copied':'moved'}.`;
       const reviewMessage=reviewed?{parts:[confirmation,reviewed.associated.length?`Associated .lrc/.cdg files: ${reviewed.associated.length}`:'Associated .lrc/.cdg files: none found.',...reviewed.associated.map(item=>`Associated file: ${item.from} → ${item.to}`)],separator:'\n\n'}:confirmation;
       if(!await this.host.confirm(reviewMessage,mode==='copy'?'Copy files':'Move files'))return;

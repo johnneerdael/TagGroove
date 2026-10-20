@@ -1,6 +1,6 @@
 /** `file` names the `.mte` in the export folder for configurations found there (e.g. copied from Mp3tag). */
 export type ExportConfiguration={id:string;name:string;template:string;file?:string};
-export type ExportPreferences={configuration:string|null;filename:string;append:boolean;partition:string|null;write_bom:boolean;create_directories:boolean};
+export type ExportPreferences={configuration:string|null;filename:string;append:boolean;partition:string|null;partition_memory?:string|null;write_bom:boolean;create_directories:boolean};
 /** `observed_files` is the backend's removal baseline; preserve it across edits and saves. */
 export type ExportLibrary={version:number;configurations:ExportConfiguration[];preferences:ExportPreferences;observed_files?:string[]};
 function uniqueName(library:ExportLibrary,base:string):string {
@@ -89,7 +89,7 @@ export class ExportUI {
     const error=(error:unknown)=>{let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(p);}p.textContent=String(error);};
     const capture=()=>{
       const current=active();if(current)current.template=value('export-template');
-      Object.assign(library.preferences,{filename:value('export-filename'),append:checked('export-append'),partition:checked('export-partition-enabled')?value('export-partition'):null});
+      Object.assign(library.preferences,{filename:value('export-filename'),append:checked('export-append'),partition:checked('export-partition-enabled')?value('export-partition'):null,partition_memory:value('export-partition')||null});
     };
     const sync=()=>{
       dialog.querySelectorAll<HTMLInputElement|HTMLButtonElement|HTMLSelectElement|HTMLTextAreaElement>('input,button,select,textarea').forEach(control=>control.disabled=working);
@@ -130,7 +130,7 @@ export class ExportUI {
       <p>Relative output names use the first selected file’s folder. Leave the name empty to use the template’s default filename.</p>
       <label class="action-check"><input type="checkbox" id="export-append" ${preferences.append?'checked':''}> Append data</label>
       <label class="action-check"><input type="checkbox" id="export-partition-enabled" ${preferences.partition!==null?'checked':''}> Create one output file per</label>
-      <label class="field"><span>Partition format</span><input id="export-partition" value="${html(preferences.partition||'')}" placeholder="%album%" data-helper="format"></label>
+      <label class="field"><span>Partition format</span><input id="export-partition" value="${html(preferences.partition??preferences.partition_memory??'')}" placeholder="%album%" data-helper="format"></label>
       <p>Byte order marks and directory creation are set in Options → Export.</p>
       <p id="export-reason"></p><p id="export-status" role="status">Save configurations to remember templates and options. Export also saves them.</p></div>
       <div class="dialog-footer"><button id="export-cancel">Cancel</button><button id="export-save">Save configurations</button><button class="primary" id="export-run">Export</button></div>`;

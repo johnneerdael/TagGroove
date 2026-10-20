@@ -118,3 +118,15 @@ test('the notification area is set up again when its menu labels change language
   assert.notEqual(general.notificationAreaKey(prefs,{show:'TagGroove tonen',quit:'TagGroove afsluiten'}),general.notificationAreaKey(prefs,{show:'TagGroove weergeven',quit:'TagGroove afsluiten'}));
   assert.notEqual(general.notificationAreaKey(prefs,english),general.notificationAreaKey({...prefs,minimize_to_tray:true},english));
 });
+
+
+test('imported native UI percentages remain selected when Options opens',()=>{
+  const page=options.pageTree().find(({page})=>page.id==='appearance').page;
+  const control=page.controls.find(control=>control.path==='pages.appearance.ui_scale');
+  for(const percent of [100,110,120,125,130,140,150,160,170,175,180,190,200]){
+    const draft={...options.defaultSettings(),appearance:'system',pages:{appearance:{ui_scale:String(percent)}}};
+    const markup=options.controlMarkup(control,draft);
+    assert.match(markup,new RegExp(`<option value="${percent}" selected>`));
+    assert.equal(general.appearanceOptions(draft.pages.appearance).uiScale,percent/100);
+  }
+});

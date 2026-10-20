@@ -1,4 +1,5 @@
 """Execution-contract checks for the reviewed validation/release split."""
+import json
 import re
 import unittest
 from pathlib import Path
@@ -14,6 +15,123 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
+    def test_macos_signing_is_scoped_and_verified_before_collection(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        desktop = job(source, 'desktop')
+        def step(title):
+            self.assertIn('      - name: '+title+'\n', desktop)
+            return desktop.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        prepare = step('Prepare private macOS signing inputs')
+        build = step('Build signed and notarized macOS packages')
+        verify = step('Verify notarized macOS packages and bind their bytes')
+        cleanup = step('Remove private macOS signing inputs')
+        for item in [prepare, build, verify]:
+            self.assertIn("if: runner.os == 'macOS'", item)
+        self.assertIn("if: always() && runner.os == 'macOS'", cleanup)
+        self.assertIn('macos-release.py cleanup --directory "$RUNNER_TEMP/taggroove-macos-notary"', cleanup)
+        self.assertNotIn('secrets.', cleanup)
+        for name in ['APPLE_CERTIFICATE', 'APPLE_CERTIFICATE_PASSWORD', 'APPLE_NOTARY_ISSUER_ID',
+                     'APPLE_NOTARY_KEY_ID', 'APPLE_NOTARY_PRIVATE_KEY']:
+            self.assertIn('secrets.'+name, prepare)
+        self.assertNotIn('PRIVATE_KEY', build)
+        self.assertNotIn('APPLE_CERTIFICATE', verify)
+        self.assertNotIn('PRIVATE_KEY', verify)
+        self.assertIn('APPLE_API_KEY_PATH: ${{ runner.temp }}/taggroove-macos-notary/AuthKey.p8', build)
+        self.assertIn('npm run tauri -- build --target ${{ matrix.target }} --bundles app,dmg --config "$RUNNER_TEMP/taggroove-macos-notary/tauri-release.json" --ci', build)
+        self.assertIn('--github-output "$GITHUB_OUTPUT"', verify)
+        self.assertIn('--source-commit "$RELEASE_COMMIT"', verify)
+        self.assertIn("if: runner.os != 'macOS'", step('Build desktop packages'))
+        self.assertEqual(desktop.count('npm run tauri -- build '), 1)
+        self.assertLess(desktop.index('name: Prepare private macOS signing inputs'), desktop.index('name: Build signed and notarized macOS packages'))
+        self.assertLess(desktop.index('name: Build signed and notarized macOS packages'), desktop.index('name: Verify notarized macOS packages and bind their bytes'))
+        self.assertLess(desktop.index('name: Verify notarized macOS packages and bind their bytes'), desktop.index('node scripts/release.mjs collect-desktop'))
+        self.assertIn('steps.macos.outputs.artifact_paths', step('Name and hash desktop artifacts'))
+        self.assertIn('name: macos-signing-${{ matrix.platform }}', desktop)
+        self.assertIn('path: release-assets/macos-signing-${{ matrix.platform }}.json', desktop)
+        sources = job(source, 'corresponding-source')
+        self.assertIn('pattern: macos-signing-*', sources)
+        self.assertIn('path: macos-evidence', sources)
+        self.assertEqual(sources.count('--macos-evidence macos-evidence'), 2)
+        for name in ['android', 'ios', 'corresponding-source', 'publish']:
+            self.assertNotIn('secrets.APPLE_', job(source, name))
+
+    def test_linux_packager_inputs_are_pinned_before_the_single_application_build(self):
+        block = job((WORKFLOWS / 'reviewed-release.yml').read_text(), 'desktop')
+        title = 'Prepare pinned Linux packaging inputs'
+        self.assertIn('name: '+title, block)
+        step = block.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: runner.os == 'Linux'", step)
+        self.assertIn('python scripts/linux-build-tools.py', step)
+        self.assertIn('XDG_CACHE_HOME=', step)
+        self.assertIn('LDAI_RUNTIME_FILE=', step)
+        self.assertLess(block.index('name: Prepare AppImage shared license material and inspector'), block.index('name: '+title))
+        self.assertLess(block.index('name: '+title), block.index('name: Build desktop packages'))
+        self.assertEqual(block.count('uses: tauri-apps/tauri-action@'), 1)
+
+    def test_linux_capture_follows_build_and_sources_receive_both_builder_artifacts(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        desktop = job(source, 'desktop')
+        title = 'Capture authenticated Linux package and source bindings'
+        self.assertIn('name: '+title, desktop)
+        step = desktop.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: runner.os == 'Linux'", step)
+        self.assertIn('python scripts/linux-distribution-capture.py', step)
+        self.assertIn('--source-commit "$RELEASE_COMMIT"', step)
+        self.assertIn('--output linux-source-evidence', step)
+        self.assertLess(desktop.index('name: Build desktop packages'), desktop.index('name: '+title))
+        self.assertLess(desktop.index('name: '+title), desktop.index('node scripts/release.mjs collect-desktop'))
+        self.assertIn('name: linux-source-${{ matrix.platform }}', desktop)
+        sources = job(source, 'corresponding-source')
+        self.assertIn('pattern: linux-source-*', sources)
+        self.assertIn('path: linux-evidence', sources)
+        self.assertEqual(sources.count('--linux-evidence linux-evidence'), 2)
+
+    def test_appimage_license_material_is_staged_before_build_and_verified_before_collection(self):
+        block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "desktop")
+        for title, command in [
+            ('Prepare AppImage shared license material and inspector', 'python scripts/appimage-licenses.py --stage --prepare-inspector'),
+            ('Verify AppImage copyright license references', "python scripts/appimage-licenses.py --verify-built '${{ matrix.target }}'"),
+        ]:
+            step = block.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+            self.assertIn("if: runner.os == 'Linux'", step)
+            self.assertIn(command, step)
+        stage = block.index('name: Prepare AppImage shared license material and inspector')
+        build = block.index('name: Build desktop packages')
+        verify = block.index('name: Verify AppImage copyright license references')
+        collect = block.index('node scripts/release.mjs collect-desktop')
+        self.assertLess(stage, build)
+        self.assertLess(build, verify)
+        self.assertLess(verify, collect)
+        config = json.loads((WORKFLOWS.parents[1] / 'src-tauri/tauri.conf.json').read_text())
+        self.assertEqual(config['bundle']['linux']['appimage']['files']['/usr/share/common-licenses'],
+                         '../target/appimage-common-licenses/')
+        tooling = job((WORKFLOWS / '_reviewed-build.yml').read_text(), 'tooling')
+        self.assertIn("python3 -m unittest discover -s scripts/tests -p 'test_*notices.py' -v", tooling)
+        self.assertIn("python3 -m unittest discover -s scripts/tests -p 'test_appimage_licenses.py' -v", tooling)
+
+    def test_android_notices_match_actual_runtime_archives_before_package_collection(self):
+        block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "android")
+        build = block.index("npm run tauri -- android build --target aarch64 --apk --ci")
+        capture = block.index('python scripts/android-notices.py --capture "$RUNNER_TEMP/taggroove-android-runtime.json"')
+        verify = block.index('python scripts/android-notices.py --check --metadata "$RUNNER_TEMP/taggroove-android-runtime.json" --verify-material')
+        collect = block.index("node scripts/release.mjs collect-android")
+        self.assertLess(build, capture)
+        self.assertLess(capture, verify)
+        self.assertLess(verify, collect)
+        self.assertNotIn('release-assets/android-runtime', block)
+        self.assertIn('name: android-runtime-notice-evidence', block)
+        runtime = block.index('python scripts/component-notices.py --check --built-platform android --ndk "$NDK_HOME"')
+        self.assertLess(verify, runtime)
+        self.assertLess(runtime, collect)
+
+    def test_windows_helper_notices_are_checked_after_build_before_collection(self):
+        block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "desktop")
+        step = block.split('      - name: Verify Windows installer helper notice bindings\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: runner.os == 'Windows'", step)
+        self.assertIn('python scripts/component-notices.py --check --built-platform windows', step)
+        self.assertLess(block.index('name: Build desktop packages'), block.index('name: Verify Windows installer helper notice bindings'))
+        self.assertLess(block.index('name: Verify Windows installer helper notice bindings'), block.index('node scripts/release.mjs collect-desktop'))
+
     def test_premerge_runs_checks_on_one_linux_worker_without_app_builds(self):
         source = (WORKFLOWS / "_reviewed-build.yml").read_text()
         self.assertEqual(set(re.findall(r"^  ([a-z0-9_-]+):$", source, re.M)), {"workflow_call", "authorize", "tooling"})

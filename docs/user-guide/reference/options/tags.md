@@ -11,6 +11,27 @@ Open **File → Options… → Tags** to choose when edits are saved and which i
 
 With it off, selection changes do not provide this automatic write. Review pending changes and choose **Save tags** deliberately. [Messages → at unsaved changes](messages.md) controls prompts when other commands would discard edits; disabling that message is not a way to enable saving.
 
+With it on, **Invert selection**, the two **Select similar files** commands,
+sorting, shuffle, **Unsorted** and **Playlist order** can also save pending
+changes in the current selection. Sorting can therefore write tags even when
+the selected files stay the same. Selecting the same row without changing
+the selection does not trigger this save.
+
+The selection or order changes only after saving finishes successfully.
+If saving fails or is canceled, the selection stays put and the requested
+order change is not applied. Some files may already show their saved tags;
+unsaved files keep their pending
+fields and artwork. Read the errors, correct the problem, and retry or
+explicitly discard the remaining edits. Further navigation requests during
+the save are ignored. **Customize columns** keeps its edited layout open
+when the save prevents applying it.
+
+Dragging an unselected row waits for its selection to be accepted before
+moving files. Releasing or canceling the drag while that save is pending
+does not reorder files. **Find**, **Select all**, directory selection and
+moving between inline cells do not gain an automatic save from this option;
+save explicitly when those routes need to write pending tags.
+
 ## Save mode at extended tag dialog
 
 This controls changed fields when **<<** or **>>** moves between files in **Extended tags…**:
@@ -22,7 +43,12 @@ This controls changed fields when **<<** or **>>** moves between files in **Exte
 | **Ignore changes** | Discard the dialog's changes for the file being left. |
 | **Save changes** | Write changes when moving to the other file. A save failure must be resolved rather than treated as a successful move. |
 
-**Keep changes** in the editor stages the changes; pending mode does not mean the file has already been saved. Review the selection and pending state before writing. TagGroove's explicit pending mode is an addition to Mp3tag's documented ask/ignore/save choices.
+**Save tags** in the editor writes the displayed selection and closes after
+success. **Keep changes** stages edits for a later save. The mode above
+controls **<<**/**>>** navigation independently of the main file list's
+save-on-selection setting. Pending mode does not mean the file has already
+been saved. TagGroove's explicit pending mode is an addition to Mp3tag's
+documented ask/ignore/save choices.
 
 ## Folder images in the tag panel
 

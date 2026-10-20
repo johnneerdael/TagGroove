@@ -1,5 +1,10 @@
 # R02 guided profile transfer: implementation and proof boundary
 
+Working-branch extension (2026-10-20): [per-field value migration](mp3tag-field-values-migration-2026-10-20.md)
+adds `usrfieldvalues.ini` and legacy panel custom-value/preference mappings to
+the same preview/publication/restore engine. The historical checkpoint below
+does not include that slice; general global/binary settings remain open.
+
 This milestone wraps the existing columns, tag-panel, MTA and MTE importers.
 It provides a native-authoritative folder/ZIP inventory, selected supported
 imports, explicit collision policy, retained partial/unsupported reports, local

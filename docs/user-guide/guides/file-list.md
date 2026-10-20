@@ -69,6 +69,13 @@ criterion, the key includes Track too, so it does not group every track
 merely because ALBUM is equal. With no active sort, filename supplies the
 comparison key.
 
+When [save on selection change](../reference/options/tags.md#save-tags-when-changing-selection)
+is enabled, mouse/arrow navigation, **Select next file**, **Invert selection**,
+the similarity commands, sorting and shuffle can save pending local-file
+edits. They wait for saving to succeed; a failed or canceled save keeps the
+current selection and does not apply the requested order change. To sort
+without writing, save or discard pending edits first, or switch the option off.
+
 Right-clicking an unselected row first selects that row alone. Right-clicking
 a selected row preserves the multi-file selection. The
 [row context menu](../reference/menus/context-menus.md) can therefore act on

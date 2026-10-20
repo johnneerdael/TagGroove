@@ -1,0 +1,965 @@
+{
+  "schema_version": 1,
+  "scope": "Pinned AppImage runtime and launcher source and notice material; qualification limits remain explicit.",
+  "archives": [
+    {
+      "id": "musl",
+      "version": "1.2.5",
+      "archive_filename": "musl-1.2.5.tar.gz",
+      "url": "https://musl.libc.org/releases/musl-1.2.5.tar.gz",
+      "sha256": "a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4",
+      "byte_length": 1080786,
+      "archive_directory": "musl-1.2.5",
+      "notice_members": [
+        {
+          "member": "musl-1.2.5/COPYRIGHT",
+          "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
+          "byte_length": 6204,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/musl/COPYRIGHT"
+        }
+      ],
+      "supplier_package_version": "1.2.5-r11",
+      "upstream_integrity": {
+        "algorithm": "sha512",
+        "expected": "7bb7f7833923cd69c7a1a9b8a5f1784bfd5289663eb6061dcd43d583e45987df8a68a1be05d75cc1c88a3f5b610653d1a70f4a9cff4d8f7fd41ae73ee058c17c",
+        "observed": "7bb7f7833923cd69c7a1a9b8a5f1784bfd5289663eb6061dcd43d583e45987df8a68a1be05d75cc1c88a3f5b610653d1a70f4a9cff4d8f7fd41ae73ee058c17c",
+        "binding": "exact aports APKBUILD sha512sums",
+        "recipe_commit": "21cafa1183cf7501d3f1744994d221c038436e45",
+        "recipe_path": "main/musl/APKBUILD",
+        "verified": true,
+        "recipe_source_file": "src/licenses/linux-runtime/recipes/aports/musl/APKBUILD"
+      },
+      "supplier_binary_metadata": {
+        "purpose": "Fresh official APK metadata binds retained source recipe commit; does not prove historical producer APK bytes",
+        "x86_64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/musl-dev-1.2.5-r11.apk",
+          "sha256": "d3b5ab01046a92b9a168b790f516606e320f015cbd4deeb584c5e115a02124ba",
+          "pkginfo_commit": "21cafa1183cf7501d3f1744994d221c038436e45",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/x86_64/musl-dev-PKGINFO"
+        },
+        "aarch64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/musl-dev-1.2.5-r11.apk",
+          "sha256": "9c4ebdc7e2a29f12de5135cee8f1b92439bfff7c74839b4fb7b422680cf18db4",
+          "pkginfo_commit": "21cafa1183cf7501d3f1744994d221c038436e45",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/aarch64/musl-dev-PKGINFO"
+        },
+        "apk_signatures_verified": false,
+        "historical_producer_byte_identity_verified": false
+      }
+    },
+    {
+      "id": "zstd",
+      "version": "1.5.6",
+      "archive_filename": "zstd-1.5.6.tar.gz",
+      "url": "https://github.com/facebook/zstd/archive/v1.5.6.tar.gz",
+      "sha256": "30f35f71c1203369dc979ecde0400ffea93c27391bfd2ac5a9715d2173d92ff7",
+      "byte_length": 2425452,
+      "archive_directory": "zstd-1.5.6",
+      "notice_members": [
+        {
+          "member": "zstd-1.5.6/LICENSE",
+          "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8",
+          "byte_length": 1549,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/zstd/LICENSE"
+        },
+        {
+          "member": "zstd-1.5.6/COPYING",
+          "sha256": "f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505",
+          "byte_length": 18091,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/zstd/COPYING"
+        }
+      ],
+      "supplier_package_version": "1.5.6-r2",
+      "upstream_integrity": {
+        "algorithm": "sha512",
+        "expected": "ca12dffd86618ca008e1ecc79056c1129cb4e61668bf13a3cd5b2fa5c93bc9c92c80f64c1870c68b9c20009d9b3a834eac70db72242d5106125a1c53cccf8de8",
+        "observed": "ca12dffd86618ca008e1ecc79056c1129cb4e61668bf13a3cd5b2fa5c93bc9c92c80f64c1870c68b9c20009d9b3a834eac70db72242d5106125a1c53cccf8de8",
+        "binding": "exact aports APKBUILD sha512sums",
+        "recipe_commit": "5c2ddf18f193dafdd25ae7391d96c7e30766eecd",
+        "recipe_path": "main/zstd/APKBUILD",
+        "verified": true,
+        "recipe_source_file": "src/licenses/linux-runtime/recipes/aports/zstd/APKBUILD"
+      },
+      "supplier_binary_metadata": {
+        "purpose": "Fresh official APK metadata binds retained source recipe commit; does not prove historical producer APK bytes",
+        "x86_64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/zstd-static-1.5.6-r2.apk",
+          "sha256": "c82da00816b8dfec70f91d0f1d979aa9558bf5c4e1a15ab354f05c6dba5e7ca1",
+          "pkginfo_commit": "5c2ddf18f193dafdd25ae7391d96c7e30766eecd",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/x86_64/zstd-static-PKGINFO"
+        },
+        "aarch64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/zstd-static-1.5.6-r2.apk",
+          "sha256": "4a3e0641141b88018f2cf3324c092bcb361f6b144a897f9e02753fcb0b367b20",
+          "pkginfo_commit": "5c2ddf18f193dafdd25ae7391d96c7e30766eecd",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/aarch64/zstd-static-PKGINFO"
+        },
+        "apk_signatures_verified": false,
+        "historical_producer_byte_identity_verified": false
+      }
+    },
+    {
+      "id": "zlib",
+      "version": "1.3.2",
+      "archive_filename": "zlib-1.3.2.tar.gz",
+      "url": "https://zlib.net/fossils/zlib-1.3.2.tar.gz",
+      "sha256": "bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16",
+      "byte_length": 1502830,
+      "archive_directory": "zlib-1.3.2",
+      "notice_members": [
+        {
+          "member": "zlib-1.3.2/LICENSE",
+          "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+          "byte_length": 1002,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/zlib/LICENSE"
+        }
+      ],
+      "supplier_package_version": "1.3.2-r1",
+      "upstream_integrity": {
+        "algorithm": "sha512",
+        "expected": "70963771ea5d763614278a69b474f09b7d237ef8f53b675a10fe31d9923aeef601504b35d7ebd1b1e7f347e9ebb048e6b3b47fffdf137e7bdc7e8d5eb4ec4692",
+        "observed": "70963771ea5d763614278a69b474f09b7d237ef8f53b675a10fe31d9923aeef601504b35d7ebd1b1e7f347e9ebb048e6b3b47fffdf137e7bdc7e8d5eb4ec4692",
+        "binding": "exact aports APKBUILD sha512sums",
+        "recipe_commit": "c973d294927355eac1d2a6e97d86e41fbab8ffda",
+        "recipe_path": "main/zlib/APKBUILD",
+        "verified": true,
+        "recipe_source_file": "src/licenses/linux-runtime/recipes/aports/zlib/APKBUILD"
+      },
+      "supplier_binary_metadata": {
+        "purpose": "Fresh official APK metadata binds retained source recipe commit; does not prove historical producer APK bytes",
+        "x86_64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/x86_64/zlib-static-1.3.2-r1.apk",
+          "sha256": "20dd85bd5b2fcdc714014ede97e4f18ea50c28468198332ad7305d369d55526c",
+          "pkginfo_commit": "c973d294927355eac1d2a6e97d86e41fbab8ffda",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/x86_64/zlib-static-PKGINFO"
+        },
+        "aarch64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/zlib-static-1.3.2-r1.apk",
+          "sha256": "aed0f09503a652956806911aeeb7adc5895d2cfc29c83b13fd88b677daaf3f25",
+          "pkginfo_commit": "c973d294927355eac1d2a6e97d86e41fbab8ffda",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/aarch64/zlib-static-PKGINFO"
+        },
+        "apk_signatures_verified": false,
+        "historical_producer_byte_identity_verified": false
+      }
+    },
+    {
+      "id": "mimalloc2",
+      "version": "2.1.7",
+      "archive_filename": "mimalloc-2.1.7.tar.gz",
+      "url": "https://github.com/microsoft/mimalloc/archive/v2.1.7/mimalloc-2.1.7.tar.gz",
+      "sha256": "0eed39319f139afde8515010ff59baf24de9e47ea316a315398e8027d198202d",
+      "byte_length": 1181422,
+      "archive_directory": "mimalloc-2.1.7",
+      "notice_members": [
+        {
+          "member": "mimalloc-2.1.7/LICENSE",
+          "sha256": "19c99805e7a44a34b297a75d1edea9985e300066dfc024d5c99d4236d4573b5d",
+          "byte_length": 1096,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/mimalloc2/LICENSE"
+        }
+      ],
+      "supplier_package_version": "2.1.7-r0",
+      "upstream_integrity": {
+        "algorithm": "sha512",
+        "expected": "4e30976758015c76a146acc1bfc8501e2e5c61b81db77d253de0d58a8edef987669243f232210667b32ef8da3a33286642acb56ba526fd24c4ba925b44403730",
+        "observed": "4e30976758015c76a146acc1bfc8501e2e5c61b81db77d253de0d58a8edef987669243f232210667b32ef8da3a33286642acb56ba526fd24c4ba925b44403730",
+        "binding": "exact aports APKBUILD sha512sums",
+        "recipe_commit": "5a1a5dc3216a69e3cd66a57ee07cb5ef01b8be39",
+        "recipe_path": "community/mimalloc2/APKBUILD",
+        "verified": true,
+        "recipe_source_file": "src/licenses/linux-runtime/recipes/aports/mimalloc2/APKBUILD"
+      },
+      "supplier_binary_metadata": {
+        "purpose": "Fresh official APK metadata binds retained source recipe commit; does not prove historical producer APK bytes",
+        "x86_64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/community/x86_64/mimalloc2-dev-2.1.7-r0.apk",
+          "sha256": "9b140b549613492ad23a8c0749c17e38d9ad737d7b22b7927e035b03f8c4ac3f",
+          "pkginfo_commit": "5a1a5dc3216a69e3cd66a57ee07cb5ef01b8be39",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/x86_64/mimalloc2-dev-PKGINFO"
+        },
+        "aarch64": {
+          "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/community/aarch64/mimalloc2-dev-2.1.7-r0.apk",
+          "sha256": "eabd68a57975453b76e5d8504aa4b0e8b15d7dc6771a41b9e860126b2d574566",
+          "pkginfo_commit": "5a1a5dc3216a69e3cd66a57ee07cb5ef01b8be39",
+          "pkginfo_evidence_path": "src/licenses/linux-runtime/evidence/aarch64/mimalloc2-dev-PKGINFO"
+        },
+        "apk_signatures_verified": false,
+        "historical_producer_byte_identity_verified": false
+      }
+    },
+    {
+      "id": "fuse",
+      "version": "3.15.0",
+      "archive_filename": "fuse-3.15.0.tar.xz",
+      "url": "https://github.com/libfuse/libfuse/releases/download/fuse-3.15.0/fuse-3.15.0.tar.xz",
+      "sha256": "70589cfd5e1cff7ccd6ac91c86c01be340b227285c5e200baa284e401eea2ca0",
+      "byte_length": 4589124,
+      "archive_directory": "fuse-3.15.0",
+      "notice_members": [
+        {
+          "member": "fuse-3.15.0/LICENSE",
+          "sha256": "b8832d9caaa075bbbd2aef24efa09f8b7ab66a832812d88c602da0c7b4397fad",
+          "byte_length": 435,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/fuse/LICENSE"
+        },
+        {
+          "member": "fuse-3.15.0/LGPL2.txt",
+          "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+          "byte_length": 26530,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/fuse/LGPL2.txt"
+        },
+        {
+          "member": "fuse-3.15.0/GPL2.txt",
+          "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+          "byte_length": 18092,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/fuse/GPL2.txt"
+        },
+        {
+          "member": "fuse-3.15.0/AUTHORS",
+          "sha256": "fafe891ac0d23452355fe41d5e5538904fe5324b44cc03f519063e83deb9b0f8",
+          "byte_length": 8284,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/fuse/AUTHORS"
+        }
+      ],
+      "upstream_integrity": {
+        "algorithm": "sha256",
+        "expected": "70589cfd5e1cff7ccd6ac91c86c01be340b227285c5e200baa284e401eea2ca0",
+        "observed": "70589cfd5e1cff7ccd6ac91c86c01be340b227285c5e200baa284e401eea2ca0",
+        "binding": "runtime dependency installation script checksum",
+        "recipe_commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+        "recipe_path": "scripts/common/install-dependencies.sh",
+        "upstream_download_filename": "fuse-3.15.0.tar.xz",
+        "verified": true,
+        "recipe_source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/common/install-dependencies.sh"
+      }
+    },
+    {
+      "id": "squashfuse",
+      "version": "0.5.2",
+      "archive_filename": "squashfuse-0.5.2.tar.gz",
+      "url": "https://github.com/vasi/squashfuse/archive/0.5.2.tar.gz",
+      "sha256": "db0238c5981dabbd80ee09ae15387f390091668ca060a7bc38047912491443d3",
+      "byte_length": 75404,
+      "archive_directory": "squashfuse-0.5.2",
+      "notice_members": [
+        {
+          "member": "squashfuse-0.5.2/LICENSE",
+          "sha256": "9e909cc8a8ba27b1a649c964cf9eda37de911f3138c2b64e6d2f01703904ac13",
+          "byte_length": 1592,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/squashfuse/LICENSE"
+        }
+      ],
+      "upstream_integrity": {
+        "algorithm": "sha256",
+        "expected": "db0238c5981dabbd80ee09ae15387f390091668ca060a7bc38047912491443d3",
+        "observed": "db0238c5981dabbd80ee09ae15387f390091668ca060a7bc38047912491443d3",
+        "binding": "runtime dependency installation script checksum",
+        "recipe_commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+        "recipe_path": "scripts/common/install-dependencies.sh",
+        "upstream_download_filename": "0.5.2.tar.gz",
+        "verified": true,
+        "recipe_source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/common/install-dependencies.sh"
+      }
+    },
+    {
+      "id": "type2-runtime",
+      "version": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+      "archive_filename": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef.tar.gz",
+      "url": "https://codeload.github.com/AppImage/type2-runtime/tar.gz/fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+      "sha256": "e27ea3c837e9c660e1a9a2993b673ae93bbb53077330efba8654031e302d4e8e",
+      "byte_length": 31128,
+      "archive_directory": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+      "notice_members": [
+        {
+          "member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/LICENSE",
+          "sha256": "aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1",
+          "byte_length": 1678,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/type2-runtime/LICENSE"
+        }
+      ],
+      "source_commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+      "upstream_integrity": {
+        "algorithm": "sha256",
+        "observed": "e27ea3c837e9c660e1a9a2993b673ae93bbb53077330efba8654031e302d4e8e",
+        "binding": "fresh hash of commit-addressed codeload archive; no independently published archive digest or archive signature verified",
+        "expected_publisher_archive_digest": null,
+        "verified_against_publisher_digest": false
+      }
+    },
+    {
+      "id": "AppImageKit",
+      "version": "5735cc5bed206497cddfbd2a75e1982c2606c35d",
+      "archive_filename": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d.tar.gz",
+      "url": "https://codeload.github.com/AppImage/AppImageKit/tar.gz/5735cc5bed206497cddfbd2a75e1982c2606c35d",
+      "sha256": "65ce93060bb5d662fcff878ab5c63b530af16f2a4c86ae1c93f3dc7bf55e4e12",
+      "byte_length": 88978,
+      "archive_directory": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d",
+      "notice_members": [
+        {
+          "member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/LICENSE",
+          "sha256": "9cb22a08334c3a108ec4da96c1d6aea7a17a732fa9f5ca3413a9b4ce651397d8",
+          "byte_length": 1491,
+          "selection": "complete archive member",
+          "source_file": "src/licenses/linux-runtime/notices/AppImageKit/LICENSE"
+        },
+        {
+          "member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/src/AppRun.c",
+          "sha256": "79c8a946886f7966f8b3a54bb7e8f81c46828625552db7b33a8d6d28a03e4268",
+          "byte_length": 8673,
+          "selection": "complete archive member; AppRun.c includes its full source notice header and source",
+          "source_file": "src/licenses/linux-runtime/notices/AppImageKit/src/AppRun.c"
+        }
+      ],
+      "source_commit": "5735cc5bed206497cddfbd2a75e1982c2606c35d",
+      "upstream_integrity": {
+        "algorithm": "sha256",
+        "observed": "65ce93060bb5d662fcff878ab5c63b530af16f2a4c86ae1c93f3dc7bf55e4e12",
+        "binding": "fresh hash of commit-addressed codeload archive; no independently published archive digest or archive signature verified",
+        "expected_publisher_archive_digest": null,
+        "verified_against_publisher_digest": false
+      }
+    }
+  ],
+  "recipes": {
+    "runtime": {
+      "repository": "AppImage/type2-runtime",
+      "commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+      "files": [
+        {
+          "path": ".github/workflows/build.yaml",
+          "sha256": "84cfcdb19b887fd244ecd375295fd6907f825b1bbe473c2661e39a71fb7a4925",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/.github/workflows/build.yaml",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/.github/workflows/build.yaml",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/.github/workflows/build.yaml"
+        },
+        {
+          "path": "BUILD.md",
+          "sha256": "d94c5dc40e550dfb1679aecef24a16830b3ae7d6880e65b042f8a3336be3174b",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/BUILD.md",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/BUILD.md",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/BUILD.md"
+        },
+        {
+          "path": "README.md",
+          "sha256": "43d2ee9a844234e69ebf6948ebb58e42c4272d816b4d666b9fc31e6d3276bc6c",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/README.md",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/README.md",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/README.md"
+        },
+        {
+          "path": "patches/libfuse/mount.c.diff",
+          "sha256": "1c7fd9e26717545a476b226b083a9f9d05676c180edbd71a04bbd8a73599dc44",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/patches/libfuse/mount.c.diff",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/patches/libfuse/mount.c.diff",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/patches/libfuse/mount.c.diff"
+        },
+        {
+          "path": "scripts/build-runtime.sh",
+          "sha256": "97d4dde12492ad62f7345961897ba1585d62e7a856fb606c0f44767a9146677d",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/build-runtime.sh",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/build-runtime.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/build-runtime.sh"
+        },
+        {
+          "path": "scripts/chroot/build.sh",
+          "sha256": "39ab68bd7a19a91680b640b0eeaa233afea0e25ae5c5ac6230fdedc34b559dd9",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/chroot/build.sh",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/chroot/build.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/chroot/build.sh"
+        },
+        {
+          "path": "scripts/chroot/chroot_build.sh",
+          "sha256": "0c4b97491a43d71fa980972311fc9d960dab8b954c70f81a9d62c06661e986ab",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/chroot/chroot_build.sh",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/chroot/chroot_build.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/chroot/chroot_build.sh"
+        },
+        {
+          "path": "scripts/chroot/ncopa.asc",
+          "sha256": "75a9a7e0cc35bfa946ce40c26133b3ed29a204fbd98a3b33331b659d927b3027",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/chroot/ncopa.asc",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/chroot/ncopa.asc",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/chroot/ncopa.asc"
+        },
+        {
+          "path": "scripts/common/install-dependencies.sh",
+          "sha256": "e666c28019cb64a2c6c69d6e2a56db7fba024a2c92eb9489bfe4a3ea20a985a5",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/common/install-dependencies.sh",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/common/install-dependencies.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/common/install-dependencies.sh"
+        },
+        {
+          "path": "scripts/docker/Dockerfile",
+          "sha256": "e0a4abe81c1918516f7b6b9cdb9fdbb768f57c6fc392767537b45142aba45f74",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/docker/Dockerfile",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/docker/Dockerfile",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/docker/Dockerfile"
+        },
+        {
+          "path": "scripts/docker/build-with-docker.sh",
+          "sha256": "0245f6583f5d1e49de02ba7354ace061b4140cbad38ed2d9a64bbb221395757c",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/docker/build-with-docker.sh",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/docker/build-with-docker.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/docker/build-with-docker.sh"
+        },
+        {
+          "path": "scripts/docker/create-build-container.sh",
+          "sha256": "b352b9ffbac5896c45f6e6caf4f786e1c5fea6d99ae20adeaaf700a697665ef9",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/docker/create-build-container.sh",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/docker/create-build-container.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/docker/create-build-container.sh"
+        },
+        {
+          "path": "scripts/sign.sh",
+          "sha256": "e2c064752ae4298c4afb536c7409b047e5690d4cb2fbaa165d92291467d29617",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/sign.sh",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/scripts/sign.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/scripts/sign.sh"
+        },
+        {
+          "path": "src/runtime/Makefile",
+          "sha256": "71fd92c0e6c7c10ef5a932f5007e4dc61403ed471330e5841782b4233131b053",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/Makefile",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/Makefile",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/src/runtime/Makefile"
+        },
+        {
+          "path": "src/runtime/data_sections.ld",
+          "sha256": "3d62a1eaa49c62569927a668d1c62d4b6ebf94a14db9b39ef99ea3d14cd79ab2",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/data_sections.ld",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/data_sections.ld",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/src/runtime/data_sections.ld"
+        },
+        {
+          "path": "src/runtime/runtime.c",
+          "sha256": "e90a7685e1e11cd422bbc9cc0032c975ef9ca998e3c3708050c1c5134286f618",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/runtime.c",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/runtime.c",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/src/runtime/runtime.c"
+        },
+        {
+          "path": "src/runtime/version",
+          "sha256": "d08f674771d2bc9714b77845b7d221cbd1767969ed754521178d56bf46a32655",
+          "source_url": "https://raw.githubusercontent.com/AppImage/type2-runtime/fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/version",
+          "archive_member": "type2-runtime-fedfad51acc2860b2916a1eef32ba4a500ff31ef/src/runtime/version",
+          "source_file": "src/licenses/linux-runtime/recipes/runtime/src/runtime/version"
+        }
+      ],
+      "archive_id": "type2-runtime"
+    },
+    "launcher": {
+      "repository": "AppImage/AppImageKit",
+      "commit": "5735cc5bed206497cddfbd2a75e1982c2606c35d",
+      "files": [
+        {
+          "path": ".github/workflows/build.yml",
+          "sha256": "bec0d3b458e85eb00d0f1ea6f788c9ae0c0c0a4968aab92dd372df5660e597ae",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/.github/workflows/build.yml",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/.github/workflows/build.yml",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/.github/workflows/build.yml"
+        },
+        {
+          "path": ".gitmodules",
+          "sha256": "5089f318f1913b8aea9171d228ab19e7d5c1d48ce20ab4e6b7cd22f75bc3843b",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/.gitmodules",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/.gitmodules",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/.gitmodules"
+        },
+        {
+          "path": "CMakeLists.txt",
+          "sha256": "1a17c558260e0fd85411dca1c0911e0410f113424097816cf2578a0d743c30c5",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/CMakeLists.txt",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/CMakeLists.txt",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/CMakeLists.txt"
+        },
+        {
+          "path": "Makefile.runtime",
+          "sha256": "f3e55351eefd8e35e6aba155657573b2d017ae686ca6df86a0c641ca91f0522b",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/Makefile.runtime",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/Makefile.runtime",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/Makefile.runtime"
+        },
+        {
+          "path": "README.md",
+          "sha256": "f422f001fee1c0a1deab06b04d1b972608f8fe45b77ecea8bb20f62c36a19451",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/README.md",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/README.md",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/README.md"
+        },
+        {
+          "path": "build-tool-osx.sh",
+          "sha256": "4249fb1f1a02b9afa5a0aa43fb728061e644f45e169a92791a4a0b2da719ebbf",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/build-tool-osx.sh",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/build-tool-osx.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/build-tool-osx.sh"
+        },
+        {
+          "path": "ci/build-appdir.sh",
+          "sha256": "9b94dea58f05ba48db169f6ef5e3fd4646de06e9c295492f2a9229335ea20495",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/build-appdir.sh",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/build-appdir.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/ci/build-appdir.sh"
+        },
+        {
+          "path": "ci/build-binaries-and-appimage.sh",
+          "sha256": "4c54f8a3cfc415af0ad3379a04d4f3ef5360fb5061a6af5bbd733b1f2f2b21ad",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/build-binaries-and-appimage.sh",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/build-binaries-and-appimage.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/ci/build-binaries-and-appimage.sh"
+        },
+        {
+          "path": "ci/build.sh",
+          "sha256": "170138c909487d161397f31541e2c8a961ce282154eb3e8bba8619ccd0c64393",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/build.sh",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/build.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/ci/build.sh"
+        },
+        {
+          "path": "ci/test-appimage.sh",
+          "sha256": "7b9a9abaae9b512874d5e3a693613b71ca3bf20f2081d4ee439fa8dd32a37c97",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/test-appimage.sh",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/test-appimage.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/ci/test-appimage.sh"
+        },
+        {
+          "path": "ci/test-appimagetool.sh",
+          "sha256": "3f3c8f833664d4729a0fef502367e79ed687c559d5de558320f2f0dabdd3fd74",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/test-appimagetool.sh",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/ci/test-appimagetool.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/ci/test-appimagetool.sh"
+        },
+        {
+          "path": "cmake/cpack_debs.cmake",
+          "sha256": "b61eac33b48eac6ea6548e4e9ccb5e02e1026b9b9a7a6c854d872ea79ed8556a",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/cpack_debs.cmake",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/cpack_debs.cmake",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/cmake/cpack_debs.cmake"
+        },
+        {
+          "path": "cmake/dependencies.cmake",
+          "sha256": "428848a3536b1a838e499442a102c92471ceac7fcf81714a51b809363e9e60ef",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/dependencies.cmake",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/dependencies.cmake",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/cmake/dependencies.cmake"
+        },
+        {
+          "path": "cmake/toolchains/aarch64-linux-gnu.cmake",
+          "sha256": "4c28a91ca1d941c52058f2577d16381eb41de45b89b3aaf4b2e949c8030a9fc5",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/toolchains/aarch64-linux-gnu.cmake",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/toolchains/aarch64-linux-gnu.cmake",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/cmake/toolchains/aarch64-linux-gnu.cmake"
+        },
+        {
+          "path": "cmake/toolchains/arm-linux-gnueabihf.cmake",
+          "sha256": "813de877ebaf9e70e734f2baf5a28297e73db23e1e22151455c958dcc7a49902",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/toolchains/arm-linux-gnueabihf.cmake",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/toolchains/arm-linux-gnueabihf.cmake",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/cmake/toolchains/arm-linux-gnueabihf.cmake"
+        },
+        {
+          "path": "cmake/toolchains/i386-linux-gnu.cmake",
+          "sha256": "64698fadb502e03268f6229b7e4c4468c7f3302fbbb943413bd2cc6587669694",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/toolchains/i386-linux-gnu.cmake",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/cmake/toolchains/i386-linux-gnu.cmake",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/cmake/toolchains/i386-linux-gnu.cmake"
+        },
+        {
+          "path": "lib/CMakeLists.txt",
+          "sha256": "701dfa7737fab02024ef53596eeec2824a53a0449601db26b49418ab92baec58",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/lib/CMakeLists.txt",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/lib/CMakeLists.txt",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/lib/CMakeLists.txt"
+        },
+        {
+          "path": "squashfs_osx.patch",
+          "sha256": "9ec2e21152f59845eff2172cebc3faee80939b1cc0bbb8c249e4decab985fd5b",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/squashfs_osx.patch",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/squashfs_osx.patch",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/squashfs_osx.patch"
+        },
+        {
+          "path": "src/AppRun.c",
+          "sha256": "79c8a946886f7966f8b3a54bb7e8f81c46828625552db7b33a8d6d28a03e4268",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/src/AppRun.c",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/src/AppRun.c",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/src/AppRun.c"
+        },
+        {
+          "path": "src/CMakeLists.txt",
+          "sha256": "e7f131bdcf7afbe1e243f0de0fc9160fa181346dd5e780c2fb05543fb41ea997",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/src/CMakeLists.txt",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/src/CMakeLists.txt",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/src/CMakeLists.txt"
+        },
+        {
+          "path": "src/build-runtime.cmake",
+          "sha256": "91b12a72a6208219f60c5ae909127544ddb55edacf7d08948a7d6f4fa2dbdbea",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/src/build-runtime.cmake",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/src/build-runtime.cmake",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/src/build-runtime.cmake"
+        },
+        {
+          "path": "src/embed-magic-bytes-in-file.sh",
+          "sha256": "60f6798819fe5df4277d21438d32cfa60a5256f24a2a0e5738a185d886ff2da8",
+          "source_url": "https://raw.githubusercontent.com/AppImage/AppImageKit/5735cc5bed206497cddfbd2a75e1982c2606c35d/src/embed-magic-bytes-in-file.sh",
+          "archive_member": "AppImageKit-5735cc5bed206497cddfbd2a75e1982c2606c35d/src/embed-magic-bytes-in-file.sh",
+          "source_file": "src/licenses/linux-runtime/recipes/launcher/src/embed-magic-bytes-in-file.sh"
+        }
+      ],
+      "archive_id": "AppImageKit"
+    },
+    "aports-musl": {
+      "repository": "alpinelinux/aports",
+      "commit": "21cafa1183cf7501d3f1744994d221c038436e45",
+      "directory": "main/musl",
+      "complete_directory_capture": true,
+      "files": [
+        {
+          "path": "APKBUILD",
+          "sha256": "366ce96968b1923e4df867b24b434cac635f3013723231107feb0217d7430bb2",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/APKBUILD",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/APKBUILD"
+        },
+        {
+          "path": "CVE-2025-26519.patch",
+          "sha256": "ab382da2bb5e1cc32d8904be28fb13f8ad3ce813967bd4bf7f5b1c6baee33e17",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/CVE-2025-26519.patch",
+          "apkbuild_sha512": "7a6a9836d2de91afc1115868e68f347bd2365fa48188e65938cfa654ae9bafdbb3a56bf12d3185a96800a85198378c8dbf9c25d977ca0e318220529fa4458123",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/CVE-2025-26519.patch"
+        },
+        {
+          "path": "CVE-2026-40200.patch",
+          "sha256": "1ee29f64f9ca8e8ad7c349779d661ff6b52126a27575d3586981357a52c406fb",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/CVE-2026-40200.patch",
+          "apkbuild_sha512": "a64ab7688d1a85e560b5687783df482d2467a79a74400da5a1601382847d6b4e6a79b7529a8dc80c46ddda8dc2a812f2261557fc8ee98dc3bdf7322761bd6d9c",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/CVE-2026-40200.patch"
+        },
+        {
+          "path": "__stack_chk_fail_local.c",
+          "sha256": "299a7d75a09de3e2e11e7fb4acc3182e4a14e868093d2f30938fce9bfcff13da",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/__stack_chk_fail_local.c",
+          "apkbuild_sha512": "062bb49fa54839010acd4af113e20f7263dde1c8a2ca359b5fb2661ef9ed9d84a0f7c3bc10c25dcfa10bb3c5a4874588dff636ac43d5dbb3d748d75400756d0b",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/__stack_chk_fail_local.c"
+        },
+        {
+          "path": "getconf.c",
+          "sha256": "d87d0cbb3690ae2c5d8cc218349fd8278b93855dd625deaf7ae50e320aad247c",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/getconf.c",
+          "apkbuild_sha512": "0d80f37b34a35e3d14b012257c50862dfeb9d2c81139ea2dfa101d981d093b009b9fa450ba27a708ac59377a48626971dfc58e20a3799084a65777a0c32cbc7d",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/getconf.c"
+        },
+        {
+          "path": "getent.c",
+          "sha256": "b25f32d306d542246e9358ef65cd67c12b3e3a77656bc467853d3b0c76b5fbbd",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/getent.c",
+          "apkbuild_sha512": "27fa820dc847b1e4a89a45ab7c7ffb8b6436b6b7f1089004b12561d939b227617797d5fc81696658da3f07daab6cc71ea171eb6afb6f5082336b57e2d0ac8463",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/getent.c"
+        },
+        {
+          "path": "handle-aux-at_base.patch",
+          "sha256": "2a65e03b94217063d72fe998e5fb2e25cd01716078a3ba1b0ab574ab205111e6",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/handle-aux-at_base.patch",
+          "apkbuild_sha512": "a76f79b801497ad994746cf82bb6eaf86f9e1ae646e6819fbae8532a7f4eee53a96ac1d4e789ec8f66aea2a68027b0597f7a579b3369e01258da8accfce41370",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/handle-aux-at_base.patch"
+        },
+        {
+          "path": "iconv-gb18030-fix.patch",
+          "sha256": "1d0be2e72b9d5bd16546b923aa8af861d271322f01644716a81823bec4065c99",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/iconv-gb18030-fix.patch",
+          "apkbuild_sha512": "f7849abeab0e4eab992a80464afa07b9c8aae5cee76040523b9dbc0931435f28ea8f5792b8a4a0cd6d608ac2f37e3225e89afcb3171a0a6df44450ed57cee83b",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/iconv-gb18030-fix.patch"
+        },
+        {
+          "path": "iconv.c",
+          "sha256": "f79a2930a2e5bb0624321589edf8b889d1e9b603e01e6b7ae214616605b3fdd7",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/iconv.c",
+          "apkbuild_sha512": "9d42d66fb1facce2b85dad919be5be819ee290bd26ca2db00982b2f8e055a0196290a008711cbe2b18ec9eee8d2270e3b3a4692c5a1b807013baa5c2b70a2bbf",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/iconv.c"
+        },
+        {
+          "path": "isatty-glibc-align.patch",
+          "sha256": "1321d542b40921a4c248bb2d15dbd03fcbbf008c8725eb2043d3cab62faeba48",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/isatty-glibc-align.patch",
+          "apkbuild_sha512": "4fe4309d9e5eb12f3aaf9dac300c7bf1a9e104d9b0e7754353314f4b6507de68d8d5bf0ac45164d7e2ab4d71728b5ef8b302f8ee7a6b548f54e022218031e2cf",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/isatty-glibc-align.patch"
+        },
+        {
+          "path": "ldconfig",
+          "sha256": "b4a2c06db38742e8c42c3c9838b285a7d8cdac6c091ff3df5ff9a15f1e41b9c7",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/ldconfig",
+          "apkbuild_sha512": "8d3a2d5315fc56fee7da9abb8b89bb38c6046c33d154c10d168fb35bfde6b0cf9f13042a3bceee34daf091bc409d699223735dcf19f382eeee1f6be34154f26f",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/ldconfig"
+        },
+        {
+          "path": "ldso-fix-non-functional-fix-to-early-dynamic-PAGE_SI.patch",
+          "sha256": "7f5806124d4a89536e53a07bfe95fcd0a8f1b7a27fc0dfc89c78c724dea1c924",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/ldso-fix-non-functional-fix-to-early-dynamic-PAGE_SI.patch",
+          "apkbuild_sha512": "1b85079c706b017106ecbf4afbc65b4a2171297a673035645e4c3ddb7e2aae0549b04932df83778323b7329ae8d32160a89e0c1b2534c278708c61b1f40a1ed8",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/ldso-fix-non-functional-fix-to-early-dynamic-PAGE_SI.patch"
+        },
+        {
+          "path": "loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch",
+          "sha256": "28efacd507c01b89e1725ed33723f3f9fdfe6cb83eb78ffea1e2acb7fda8a52c",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch",
+          "apkbuild_sha512": "b4d95231944fd236827a62343bbce74b20a56739e2b8937bda69bfc7b53f2ce5bd709459ee61615bd10d2839f43311eced9344ee8185701fd38ec0de0d43c6ae",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch"
+        },
+        {
+          "path": "loongarch64-add-TLSDESC-support.patch",
+          "sha256": "1efb4604e0b28b84e10faf37d17bad448510e73f6a3db89c8be47d38b9e85138",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/loongarch64-add-TLSDESC-support.patch",
+          "apkbuild_sha512": "363d0cbfe11f024b120b6d54e909c038cd5b37f1f195048ddb29591191a1288ff50842ccd14e0cab80359e5b46c0e02d2b5af3016bd1507c1d269e590690a3fe",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/loongarch64-add-TLSDESC-support.patch"
+        },
+        {
+          "path": "loongarch64-add-bits-hwcap.h.patch",
+          "sha256": "8849080b49dff046b1f29db24e54ffe6262b5884078091994db77efdafca2505",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/loongarch64-add-bits-hwcap.h.patch",
+          "apkbuild_sha512": "70003d89e31b1c83274d1e850f86d8a54f30c1d5e22f769ae229d30d2bbdc095dbf4c262fb55079aaf8bfdf9a213f9468150b50c000b6596b051729a0d25f913",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/loongarch64-add-bits-hwcap.h.patch"
+        },
+        {
+          "path": "loongarch64-add-fpu-and-simd-context-to-signal.h.patch",
+          "sha256": "d73f85a90fe52930dd8b5d16cb7f3369a994918c0e41ae3c3dc9a25df4b45099",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/21cafa1183cf7501d3f1744994d221c038436e45/main/musl/loongarch64-add-fpu-and-simd-context-to-signal.h.patch",
+          "apkbuild_sha512": "b0f93f8868caf15d436ebe81088f4914cac3e21cc5b86cb0d5f40092edc6e29909188a14cde0c69ab86b51631aa34a4b8136a515f2a1b53c424c8b251c5ea689",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/musl/loongarch64-add-fpu-and-simd-context-to-signal.h.patch"
+        }
+      ]
+    },
+    "aports-zstd": {
+      "repository": "alpinelinux/aports",
+      "commit": "5c2ddf18f193dafdd25ae7391d96c7e30766eecd",
+      "directory": "main/zstd",
+      "complete_directory_capture": true,
+      "files": [
+        {
+          "path": "APKBUILD",
+          "sha256": "7344ccab938fb86eb3eb437f1caa11c99ceca58c475b31458d3ab04cce2e2388",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/5c2ddf18f193dafdd25ae7391d96c7e30766eecd/main/zstd/APKBUILD",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/zstd/APKBUILD"
+        }
+      ]
+    },
+    "aports-zlib": {
+      "repository": "alpinelinux/aports",
+      "commit": "c973d294927355eac1d2a6e97d86e41fbab8ffda",
+      "directory": "main/zlib",
+      "complete_directory_capture": true,
+      "files": [
+        {
+          "path": "APKBUILD",
+          "sha256": "6a3c1cfd5f3670a84b1ad522d0007be2282b4fa2441b29273a12d32a86693ec3",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/c973d294927355eac1d2a6e97d86e41fbab8ffda/main/zlib/APKBUILD",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/zlib/APKBUILD"
+        },
+        {
+          "path": "CVE-2026-85091.patch",
+          "sha256": "110ff14375733173d8aa54574473424fbd7dfe4b81f1ca34a759c6fe14b15b14",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/c973d294927355eac1d2a6e97d86e41fbab8ffda/main/zlib/CVE-2026-85091.patch",
+          "apkbuild_sha512": "878888308a51296470f05eca59a79212314d4c9a26c19bbf70c1cb1b8d25eb42e0cce5a001acbe287268aa215c854cb5a9990ff62b7aefa9de221803d172957e",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/zlib/CVE-2026-85091.patch"
+        }
+      ]
+    },
+    "aports-mimalloc2": {
+      "repository": "alpinelinux/aports",
+      "commit": "5a1a5dc3216a69e3cd66a57ee07cb5ef01b8be39",
+      "directory": "community/mimalloc2",
+      "complete_directory_capture": true,
+      "files": [
+        {
+          "path": "APKBUILD",
+          "sha256": "bb2618381e98ef508b41697d9177b7d1fef6f61bf38543aa055b9e0002c3c54b",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/5a1a5dc3216a69e3cd66a57ee07cb5ef01b8be39/community/mimalloc2/APKBUILD",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/mimalloc2/APKBUILD"
+        },
+        {
+          "path": "cmake-add-insecure-suffix.patch",
+          "sha256": "bbf09f82b9a187399f33f6cc4136bd088f475d769f385aa1f08d0850473b04ae",
+          "source_url": "https://raw.githubusercontent.com/alpinelinux/aports/5a1a5dc3216a69e3cd66a57ee07cb5ef01b8be39/community/mimalloc2/cmake-add-insecure-suffix.patch",
+          "apkbuild_sha512": "99a7777e310f4a585e482ad9dc44fce62e88b65f4f8f51545c9e6b1fd8a17583614cc853e65dade9dd083936de90c3a6f23aa52eb84697020f2a44868e6d4c93",
+          "source_file": "src/licenses/linux-runtime/recipes/aports/mimalloc2/cmake-add-insecure-suffix.patch"
+        }
+      ]
+    }
+  },
+  "asset_pins": {
+    "x86_64": {
+      "runtime": {
+        "asset_name": "runtime-x86_64",
+        "release_id": 417724209,
+        "asset_id": 657374641,
+        "url": "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64",
+        "asset_api_url": "https://api.github.com/repos/AppImage/type2-runtime/releases/assets/657374641",
+        "sha256": "617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46",
+        "byte_length": 944632,
+        "digest_basis": "retained GitHub release asset digest",
+        "source_commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+        "release_immutable": false,
+        "historical_producer_apk_digests": null,
+        "producer_job_id": 118293253809
+      },
+      "launcher": {
+        "asset_name": "AppRun-x86_64",
+        "release_id": 95000337,
+        "asset_id": 98605518,
+        "url": "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-x86_64",
+        "asset_api_url": "https://api.github.com/repos/AppImage/AppImageKit/releases/assets/98605518",
+        "sha256": "f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f",
+        "byte_length": 31552,
+        "digest_basis": "fresh hash of official publisher asset, equals retained Tauri mirror release digest",
+        "source_commit": "5735cc5bed206497cddfbd2a75e1982c2606c35d",
+        "release_immutable": false,
+        "tauri_mirror_asset_id": 274691722,
+        "tauri_mirror_url": "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64",
+        "tauri_mirror_sha256": "f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f"
+      }
+    },
+    "aarch64": {
+      "runtime": {
+        "asset_name": "runtime-aarch64",
+        "release_id": 417724209,
+        "asset_id": 657373827,
+        "url": "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-aarch64",
+        "asset_api_url": "https://api.github.com/repos/AppImage/type2-runtime/releases/assets/657373827",
+        "sha256": "9a72a744d221576c9347ec074243acc5c3c7568896b12714e0e82e9f0bf47900",
+        "byte_length": 936456,
+        "digest_basis": "retained GitHub release asset digest",
+        "source_commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+        "release_immutable": false,
+        "historical_producer_apk_digests": null,
+        "producer_job_id": 118293253926
+      },
+      "launcher": {
+        "asset_name": "AppRun-aarch64",
+        "release_id": 95000337,
+        "asset_id": 98605509,
+        "url": "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-aarch64",
+        "asset_api_url": "https://api.github.com/repos/AppImage/AppImageKit/releases/assets/98605509",
+        "sha256": "072f17c0895a85c490282fe5395c5007e5fc75da727e553b3b8fb680feb11578",
+        "byte_length": 35360,
+        "digest_basis": "fresh hash of official publisher asset, equals retained Tauri mirror release digest",
+        "source_commit": "5735cc5bed206497cddfbd2a75e1982c2606c35d",
+        "release_immutable": false,
+        "tauri_mirror_asset_id": 274691716,
+        "tauri_mirror_url": "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-aarch64",
+        "tauri_mirror_sha256": "072f17c0895a85c490282fe5395c5007e5fc75da727e553b3b8fb680feb11578"
+      }
+    }
+  },
+  "producer_binding": {
+    "runtime_run_id": 39320578745,
+    "runtime_run_url": "https://github.com/AppImage/type2-runtime/actions/runs/39320578745",
+    "source_commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+    "alpine_base_digest": "sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507",
+    "both_architectures_select_same_library_versions": true,
+    "selected_packages": {
+      "musl-dev": "1.2.5-r11",
+      "zstd-static": "1.5.6-r2",
+      "zlib-static": "1.3.2-r1",
+      "mimalloc2-dev": "2.1.7-r0"
+    },
+    "aports_binding_basis": "Fresh official HTTPS APK .PKGINFO origin/version/commit; selected versions confirmed in historical producer logs; same recipe commits observed for both architectures",
+    "generated_version_file_path": "src/runtime/version",
+    "generated_version_string_in_compile_log": "https://github.com/AppImage/type2-runtime/commit/fedfad5",
+    "historical_generated_version_file_sha256": null,
+    "launcher_source_binding_basis": "Official AppImageKit continuous release target_commitish names source commit; official asset bytes equal Tauri mirror asset digests",
+    "launcher_build_run_url": "https://github.com/AppImage/AppImageKit/actions/runs/4369243945",
+    "launcher_build_run_api_result": "404 Not Found"
+  },
+  "evidence_files": [
+    {
+      "sha256": "b7ef27950ff358619a262a8ce0afc12960d19c2351d0feae4748e2abc1dc871b",
+      "source_file": "src/licenses/linux-runtime/evidence/runtime-producer-x86_64.log"
+    },
+    {
+      "sha256": "9289e21e50d0e2a39abb8d3981786975f0de7b006fff0fa9d4cf218af34a5bdf",
+      "source_file": "src/licenses/linux-runtime/evidence/runtime-producer-aarch64.log"
+    },
+    {
+      "sha256": "1eed4365a38b97f6c9ca95d8a345442c2a3633691b141d77749ebaf121e97442",
+      "source_file": "src/licenses/linux-runtime/evidence/jobs.json"
+    },
+    {
+      "sha256": "5331eedb86a7ca07891da3c6a1ff10d57b34c5a68ce1364ff9c058f8fd1c5f2f",
+      "source_file": "src/licenses/linux-runtime/evidence/runs.json"
+    },
+    {
+      "sha256": "6c88ff3e91b57c12e56249e4617dcd0183fa5ede088f9ab5ca13e4841bec5a1d",
+      "source_file": "src/licenses/linux-runtime/evidence/appimagekit-release-continuous.json"
+    },
+    {
+      "sha256": "128b4971ed35fdff7e3ccbb7ae2f18c96d42993797a75b9717498f1644da0eed",
+      "source_file": "src/licenses/linux-runtime/evidence/apprun-release-source-commit.json"
+    },
+    {
+      "sha256": "d9bbb7c9a1fb2160ab1d3ae5837a0723effa63a463653680a559e2c1bdd8aa82",
+      "source_file": "src/licenses/linux-runtime/evidence/x86_64/musl-dev-PKGINFO"
+    },
+    {
+      "sha256": "4c0446d233e7cfe8ae332ad7625e262b331e7437b2a0b2509df6e0d7345d07b0",
+      "source_file": "src/licenses/linux-runtime/evidence/aarch64/musl-dev-PKGINFO"
+    },
+    {
+      "sha256": "ddfa170faa0bf50baef600464cd703217a7b89d7aa9c93aa9bb6dc54da7275ed",
+      "source_file": "src/licenses/linux-runtime/evidence/x86_64/zstd-static-PKGINFO"
+    },
+    {
+      "sha256": "c3d206099b87430b38210d6bc03dffe6496299daa4e5d88c4863aa63f5227e6c",
+      "source_file": "src/licenses/linux-runtime/evidence/aarch64/zstd-static-PKGINFO"
+    },
+    {
+      "sha256": "c44ae494ae702afa6231597c5af1f7abaa538e70a464c735efe1d44c9c6a6944",
+      "source_file": "src/licenses/linux-runtime/evidence/x86_64/zlib-static-PKGINFO"
+    },
+    {
+      "sha256": "2d207eb0c9f3daf965c811648ea7a7631c73bdeac609599dad122c16bc098244",
+      "source_file": "src/licenses/linux-runtime/evidence/aarch64/zlib-static-PKGINFO"
+    },
+    {
+      "sha256": "213091dfd70191064edc91b63525d96775c5877b0703aaaff295cf9a76bcc8b8",
+      "source_file": "src/licenses/linux-runtime/evidence/x86_64/mimalloc2-dev-PKGINFO"
+    },
+    {
+      "sha256": "90a39e58494e1d2f8b544a1fcc5df1959e231cd7854dde1e770e12ed5f90bc95",
+      "source_file": "src/licenses/linux-runtime/evidence/aarch64/mimalloc2-dev-PKGINFO"
+    },
+    {
+      "sha256": "f5da2f71bbb2bdd5624a14347e0575232e49099a42309871dd8e9f4169870efb",
+      "source_file": "src/licenses/linux-runtime/evidence/runtime-releases.json"
+    },
+    {
+      "sha256": "bac22a87c6223414e6a0b9c344ff31dee698064ca5e4375ad2a2958885fab201",
+      "source_file": "src/licenses/linux-runtime/evidence/tauri-apprun-old-release.json"
+    }
+  ],
+  "qualifications": {
+    "apk_signatures_verified": false,
+    "historical_producer_apk_digests_verified": false,
+    "historical_producer_apk_digests": null,
+    "source_archive_signatures_verified": false,
+    "rebuild_performed": false,
+    "bit_identical_rebuild_claim": false,
+    "compiler_crt_source_closure": null,
+    "appimagekit_submodules_retained": false,
+    "appimagekit_submodule_qualification": "codeload archive lacks gitlink contents; full AppImageKit build requires its submodules. AppRun.c includes only standard C headers; AppRun CMake target adds no project libraries. No complete upstream build/rebuild claim.",
+    "license_obligations_or_relinkability_conclusion": null,
+    "actual_published_x86_64_package_binding": "Parent separately verified runtime prefix except digest_md5 and AppRun.wrapped bytes; not independently re-extracted by this task",
+    "actual_aarch64_application_package_binding": null,
+    "notice_scope": "Selected complete license/copyright members; full source archives preserve per-file notices too. FUSE GPL2.txt retained as upstream package notice material, not a claim that all source files enter the runtime.",
+    "compiler_crt_source_qualification": "Not audited; no CRT closure or compiler/toolchain rebuild claim."
+  }
+}

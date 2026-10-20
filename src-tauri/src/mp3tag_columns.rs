@@ -57,14 +57,31 @@ pub fn decode(bytes: &[u8]) -> String {
 
 /// Sections in file order, each with its lower-case keys and raw values.
 pub(crate) fn sections(text: &str) -> Vec<(String, Vec<(String, String)>)> {
+    sections_raw(text)
+        .into_iter()
+        .map(|(section, keys)| {
+            (
+                section,
+                keys.into_iter()
+                    .map(|(key, value)| (key, value.trim().to_owned()))
+                    .collect(),
+            )
+        })
+        .collect()
+}
+
+/// Preserve values for native lists whose spaces and vertical tabs are data.
+pub(crate) fn sections_raw(text: &str) -> Vec<(String, Vec<(String, String)>)> {
     let mut result: Vec<(String, Vec<(String, String)>)> = Vec::new();
     for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with(';') || line.starts_with('#') && !line.contains('=')
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.starts_with(';')
+            || trimmed.starts_with('#') && !trimmed.contains('=')
         {
             continue;
         }
-        if let Some(name) = line
+        if let Some(name) = trimmed
             .strip_prefix('[')
             .and_then(|rest| rest.strip_suffix(']'))
         {
@@ -74,7 +91,7 @@ pub(crate) fn sections(text: &str) -> Vec<(String, Vec<(String, String)>)> {
         {
             section
                 .1
-                .push((key.trim().to_ascii_lowercase(), value.trim().to_string()));
+                .push((key.trim().to_ascii_lowercase(), value.to_string()));
         }
     }
     result
@@ -196,6 +213,9 @@ pub fn parse_diagnostic(text: &str) -> Result<ColumnImportReport, ImportFailure>
         };
         let order = lookup(&keys, &["pos", "position", "order", "index"])
             .and_then(|pos| pos.trim().parse().ok());
+        let numeric = lookup(&keys, &["num", "numeric", "isnumeric"])
+            .and_then(flag)
+            .unwrap_or(false);
         found.push((
             order,
             Column {
@@ -207,10 +227,8 @@ pub fn parse_diagnostic(text: &str) -> Result<ColumnImportReport, ImportFailure>
                 width,
                 align: lookup(&keys, &["align", "alignment"])
                     .map(align)
-                    .unwrap_or_default(),
-                numeric: lookup(&keys, &["num", "numeric", "isnumeric"])
-                    .and_then(flag)
-                    .unwrap_or(false),
+                    .unwrap_or(if numeric { Align::Right } else { Align::Left }),
+                numeric,
                 visible,
             },
         ));
@@ -296,6 +314,30 @@ mod tests {
         [#3]\r\nName=Length\r\nValue=%_length%\r\nField=%_length%\r\nWidth=50\r\nPos=3\r\n\
         [#4]\r\nName=Broken\r\nValue=$substr(%title%)\r\nPos=4\r\n\
         [General]\r\nVersion=3\r\n";
+
+    #[test]
+    fn native_numeric_setting_supplies_alignment_unless_explicitly_overridden() {
+        // Authored from the 3.36.1 reader/writer's seven keys, not a copied profile.
+        for (numeric, extra, expected) in [
+            ("1", "", Align::Right),
+            ("0", "", Align::Left),
+            ("1", "align=0\n", Align::Left),
+            ("1", "alignment=center\n", Align::Center),
+        ] {
+            let input = format!("[#0]\nname=Track\nvalue=$num(%track%,2)\nfield=%track%\nsort=%track%\nwidth=145\nnumeric={numeric}\nenabled=1\n{extra}");
+            let imported = parse(&input).unwrap();
+            let column = &imported.layout.columns[0];
+            assert_eq!(column.align, expected, "numeric={numeric}, {extra}");
+            assert_eq!(column.numeric, numeric == "1");
+            assert_eq!(column.name, "Track");
+            assert_eq!(column.value, "$num(%track%,2)");
+            assert_eq!(column.field, "%track%");
+            assert_eq!(column.sort_by, "%track%");
+            assert_eq!(column.width, 145);
+            assert!(column.visible);
+            assert!(imported.skipped.is_empty());
+        }
+    }
 
     #[test]
     fn reads_columns_in_position_order_with_their_settings() {

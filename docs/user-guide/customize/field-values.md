@@ -34,10 +34,10 @@ The list persists in saved tag-panel configuration. It is not a restriction
 on legal metadata values, a rule that automatically repairs older spellings,
 or an action applied to the whole collection.
 
-## Understand normalization and order
+## Preserve exact values and order
 
-The editor trims the edges of each line, removes empty lines and exact
-repetitions, and keeps the first occurrence order. For example, paste this
+The editor preserves each line's text, including spaces at its edges, removes
+empty lines and exact repetitions, and keeps the first occurrence order. For example, paste this
 practice list, including its blank line:
 
 <!-- field-values-normalization:start -->
@@ -54,14 +54,16 @@ The saved choices are:
 
 <!-- field-values-normalized:start -->
 ```text
-Reflective
+  Reflective
 Uplifting
+Reflective
 reflective
 ```
 <!-- field-values-normalized:end -->
 
-`Reflective` and `reflective` remain distinct. Decide on the desired spelling
-rather than expecting a case-insensitive cleanup. **Sort A–Z** sorts the
+`  Reflective`, `Reflective` and `reflective` remain distinct. Remove unwanted
+spaces deliberately rather than expecting a cleanup when another line changes.
+**Sort A–Z** sorts the
 current field's list using the application's text collator; keep your entered
 order if you prefer a hand-arranged shortlist.
 
@@ -71,7 +73,7 @@ information fields starting with `_`, such as `_PATH`, cannot receive editable
 custom lists. Do not rename a technical field to make it appear writable.
 
 Switching **Field** captures the current field's edits in this dialog's draft.
-**Fields with custom values** lets you revisit another configured list.
+**Configured fields** lets you revisit another list or field-specific preference.
 Clear a field's list and save if you want to remove its custom suggestions;
 that does not remove the field or existing values from audio files.
 
@@ -83,8 +85,13 @@ value already present in the custom list is shown once. Special choices are
 instructions: `< keep >` retains each file's own value, while `< blank >`
 stages clearing the field.
 
-**Prefer values from tags in list at tag panel** changes what that panel
-shows. With it on and at least one nonempty selection value, the dropdown
+**Prefer values from tags in list at tag panel** supplies the default for fields
+that use **Use global preference**. In **Values offered for this field**, choose
+**Prefer values from tags** or **Include custom values** to override that default
+for the displayed field. Imported preferences can therefore differ between,
+for example, ARTIST and COMPOSER.
+
+With tag values preferred and at least one nonempty selection value, the dropdown
 uses the selection's values rather than adding the full custom/standard list.
 If the field is empty across the selection, custom suggestions remain
 available. For the practice MOOD list above:
@@ -113,10 +120,31 @@ vocabulary. Use an appropriate richer format such as ID3v2 for names outside
 that vocabulary and inspect the actual saved file. Changing a dropdown does
 not extend a container's storage capabilities.
 
+## Bring your Mp3tag suggestions across
+
+Choose **File → Import Mp3tag setup…** and select your copied configuration
+folder or ZIP. Select `usrfieldvalues.ini` in the review to import its custom
+lists and per-field preferences; choose at most one such file. Lists and
+preferences for other fields remain as they were. A provided empty custom
+list clears that field's existing suggestions.
+
+Legacy values stored in `usrfields.ini` also come across when its panel is
+imported, including through **Customize tag panel… → Import Mp3tag
+configuration…**. Inspect the field-value settings summary before choosing
+OK. Canceling the preview keeps your current settings. If a setup import
+selects both a legacy panel and `usrfieldvalues.ini`, the dedicated file takes
+precedence for matching entries. The setup's **Restore setup** checkpoint
+can restore the previous configuration.
+
+This imports suggestions, not tags. Selecting a suggested value and saving
+an audio file are still separate actions. Invalid entries and other unsupported
+settings remain in the import report; retain the original configuration files.
+
 ## Import and export one field's list
 
 **Import…** reads one value per text line and merges it with the current
-field's dialog list. Exact repetitions are removed. It does not import audio
+field's dialog list. Incoming text lines have their edges trimmed and exact
+repetitions removed; previously stored literal values are preserved. It does not import audio
 tags, replace every field's list or assign the imported entries to tracks.
 Inspect the merged list, then choose the editor's **OK** to persist it.
 

@@ -1,0 +1,717 @@
+{
+  "acknowledgements": [
+    "This software is based in part on the work of the Independent JPEG Group."
+  ],
+  "android": {
+    "ndk_revision": "28.2.13676358",
+    "notice_sources": [
+      "src/licenses/native/ndk-r28c-libcxx.txt",
+      "src/licenses/native/ndk-r28c-libcxxabi.txt"
+    ],
+    "runtime_sha256": "ab4e6c71b96b851de45a8a9bd86369e7dbc2130a44b3b4520564be94847910f2"
+  },
+  "bindings": {
+    "ffmpeg": {
+      "archive": "ffmpeg-9.0.2.tar.xz",
+      "directory": "ffmpeg-9.0.2",
+      "license": "LGPL-2.1-or-later (GPL, version3 and nonfree disabled)",
+      "license_files": [
+        "COPYING.LGPLv2.1",
+        "LICENSE.md"
+      ],
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+      "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+      "version": "9.0.2"
+    },
+    "tauri_cli": {
+      "integrity": "sha512-PMSppzAnlT+BvZtRKuidxjRSm2r5t8kDpJ/czmmQUa0AtDNTwrjLE8vApK3phCWGg7isfnYL46Dl1jB4ArI0hA==",
+      "version": "2.12.2"
+    }
+  },
+  "components": [
+    {
+      "ecosystem": "native",
+      "id": "native:ffmpeg-subcomponent-notices@9.0.2",
+      "license": "Terms supplied in the original source headers",
+      "materials": [
+        "ffmpeg/libavcodec/aacsbr_fixed.c",
+        "ffmpeg/libavcodec/aarch64/fdctdsp_neon.S",
+        "ffmpeg/libavcodec/ac3dec_fixed.c",
+        "ffmpeg/libavcodec/faandct.c",
+        "ffmpeg/libavcodec/ilbcdata.h",
+        "ffmpeg/libavcodec/ilbcdec.c",
+        "ffmpeg/libavcodec/interplayacm.c",
+        "ffmpeg/libavcodec/jfdctfst.c",
+        "ffmpeg/libavcodec/jfdctint_template.c",
+        "ffmpeg/libavcodec/jrevdct.c",
+        "ffmpeg/libavcodec/nellymoser.c",
+        "ffmpeg/libavcodec/nellymoser.h",
+        "ffmpeg/libavcodec/nellymoserdec.c",
+        "ffmpeg/libavcodec/ra144dec.c",
+        "ffmpeg/libavcodec/speexdata.h",
+        "ffmpeg/libavcodec/speexdec.c",
+        "ffmpeg/libavformat/oggdec.c",
+        "ffmpeg/libavformat/oggdec.h",
+        "ffmpeg/libavformat/oggparseogm.c",
+        "ffmpeg/libavformat/oggparsespeex.c",
+        "ffmpeg/libavformat/oggparsetheora.c",
+        "ffmpeg/libavformat/oggparsevorbis.c",
+        "ffmpeg/libavutil/adler32.c",
+        "ffmpeg/libavutil/avsscanf.c",
+        "ffmpeg/libavutil/fixed_dsp.c",
+        "ffmpeg/libavutil/fixed_dsp.h",
+        "ffmpeg/libavutil/sha.c",
+        "ffmpeg/libavutil/softfloat_tables.h",
+        "ffmpeg/libavutil/uuid.c",
+        "ffmpeg/libavutil/x86/x86inc.asm",
+        "ffmpeg-inner/libavcodec/dfpwmdec.c",
+        "ffmpeg-inner/libavutil/libm.h",
+        "ffmpeg-inner/libavutil/mathematics.c"
+      ],
+      "name": "FFmpeg subcomponent notices",
+      "role": "compiled-source-union notice supplement",
+      "version": "9.0.2"
+    },
+    {
+      "ecosystem": "native",
+      "id": "native:android-libcxx-runtime@28.2.13676358",
+      "license": "Supplied LLVM Apache 2.0 exceptions and legacy license notices",
+      "materials": [
+        "ndk/libcxx",
+        "ndk/libcxxabi"
+      ],
+      "name": "Android libc++ and libc++abi runtime",
+      "role": "APK bundled runtime notice material",
+      "version": "28.2.13676358"
+    },
+    {
+      "ecosystem": "installer",
+      "id": "installer:nsis@3.11",
+      "license": "Original COPYING, compression exception and NSISdl license",
+      "materials": [
+        "nsis/COPYING",
+        "nsis/Docs/NSISdl/License.txt"
+      ],
+      "name": "NSIS supplied installer notices",
+      "role": "installer toolchain and helper notices",
+      "version": "3.11"
+    },
+    {
+      "ecosystem": "installer",
+      "id": "installer:nsis-tauri-utils@0.5.3",
+      "license": "MIT OR Apache-2.0",
+      "materials": [
+        "tauri-utils/LICENSE_APACHE-2.0",
+        "tauri-utils/LICENSE_MIT"
+      ],
+      "name": "Tauri NSIS utilities",
+      "role": "bundled installer helper",
+      "version": "0.5.3"
+    }
+  ],
+  "materials": {
+    "ffmpeg-inner/libavcodec/dfpwmdec.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 105,
+        "member": "ffmpeg-9.0.2/libavcodec/dfpwmdec.c",
+        "offset": 1090,
+        "selection": "supplier-comment",
+        "sha256": "49b60895cd14016c77c1aeb3702ec4a678e321ff6598b8afc2f51491962f1043",
+        "source_sha256": "7cff78e38cb970fc5aaf6216a8ad4ebd59e7feebb87a6569841c879c4e9eec6f"
+      },
+      "path": "libavcodec/dfpwmdec.c (inner supplier notice)",
+      "sha256": "49b60895cd14016c77c1aeb3702ec4a678e321ff6598b8afc2f51491962f1043",
+      "source_file": "src/licenses/native/ffmpeg-inner-libavcodec-dfpwmdec.c.txt"
+    },
+    "ffmpeg-inner/libavutil/libm.h": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1607,
+        "member": "ffmpeg-9.0.2/libavutil/libm.h",
+        "offset": 2428,
+        "selection": "supplier-comment",
+        "sha256": "63a8f4cb44aaa3ce67ff5a99ee4d473cae9e490e3c295e009e41f3c0befd04bb",
+        "source_sha256": "e7f4417fba09554b12fb0cdb36ce72b7d24b2d2bfb9865b2bde1056ad0f72131"
+      },
+      "path": "libavutil/libm.h (inner supplier notice)",
+      "sha256": "63a8f4cb44aaa3ce67ff5a99ee4d473cae9e490e3c295e009e41f3c0befd04bb",
+      "source_file": "src/licenses/native/ffmpeg-inner-libavutil-libm.h.txt"
+    },
+    "ffmpeg-inner/libavutil/mathematics.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1623,
+        "member": "ffmpeg-9.0.2/libavutil/mathematics.c",
+        "offset": 6350,
+        "selection": "supplier-comment",
+        "sha256": "fff0bec35528cfae34d6cd56af645a2424664fbbfedf65c34416ebf42837d613",
+        "source_sha256": "c38b36d09a886b8a0471fa1c8f0174a1a852f437011d818569ece3824b1d4b6b"
+      },
+      "path": "libavutil/mathematics.c (inner supplier notice)",
+      "sha256": "fff0bec35528cfae34d6cd56af645a2424664fbbfedf65c34416ebf42837d613",
+      "source_file": "src/licenses/native/ffmpeg-inner-libavutil-mathematics.c.txt"
+    },
+    "ffmpeg/libavcodec/aacsbr_fixed.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2775,
+        "member": "ffmpeg-9.0.2/libavcodec/aacsbr_fixed.c",
+        "offset": 0,
+        "sha256": "0932d2d41881d079eed376da7c7a651412db5aaaed8c13135bea05d0e59778f1",
+        "source_sha256": "864a8b50946e731a183c0fd0984995f4fe3622692a16e0bab0486a8c14c53b7f"
+      },
+      "path": "libavcodec/aacsbr_fixed.c",
+      "sha256": "0932d2d41881d079eed376da7c7a651412db5aaaed8c13135bea05d0e59778f1",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-aacsbr_fixed.c.txt"
+    },
+    "ffmpeg/libavcodec/aarch64/fdctdsp_neon.S": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1438,
+        "member": "ffmpeg-9.0.2/libavcodec/aarch64/fdctdsp_neon.S",
+        "offset": 0,
+        "sha256": "c9b934dcbd0328b4b9d86fc3a96c6242956e298ea0ff8493f3df37fbec2d2b71",
+        "source_sha256": "4818dda3fd1597b548cf24d63bae4dcfcf3d61fd36c8077154b008ab48a48df1"
+      },
+      "path": "libavcodec/aarch64/fdctdsp_neon.S",
+      "sha256": "c9b934dcbd0328b4b9d86fc3a96c6242956e298ea0ff8493f3df37fbec2d2b71",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-aarch64-fdctdsp_neon.S.txt"
+    },
+    "ffmpeg/libavcodec/ac3dec_fixed.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2436,
+        "member": "ffmpeg-9.0.2/libavcodec/ac3dec_fixed.c",
+        "offset": 0,
+        "sha256": "f288f037416f030ef3ca87032173fa0e5e13b9b6fece46cc07db7eafa949b073",
+        "source_sha256": "4deaefe28b59eb59ba183d1a3952b4bfd5492260a985ef2167aee1d7d68884d2"
+      },
+      "path": "libavcodec/ac3dec_fixed.c",
+      "sha256": "f288f037416f030ef3ca87032173fa0e5e13b9b6fece46cc07db7eafa949b073",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-ac3dec_fixed.c.txt"
+    },
+    "ffmpeg/libavcodec/faandct.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1055,
+        "member": "ffmpeg-9.0.2/libavcodec/faandct.c",
+        "offset": 0,
+        "sha256": "a5c555424d1538d2284dc7a1b2dcef275fa3fdb0714ad6424ac072f37f5bf89b",
+        "source_sha256": "aedfd24e24231f6d2bc13943feedfdcf604fe41d2c675876feef71c883397754"
+      },
+      "path": "libavcodec/faandct.c",
+      "sha256": "a5c555424d1538d2284dc7a1b2dcef275fa3fdb0714ad6424ac072f37f5bf89b",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-faandct.c.txt"
+    },
+    "ffmpeg/libavcodec/ilbcdata.h": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1601,
+        "member": "ffmpeg-9.0.2/libavcodec/ilbcdata.h",
+        "offset": 0,
+        "sha256": "835cddad98438509a2cd0f3ed38a4774aefc8dd3c451193e9faa2774be564ce9",
+        "source_sha256": "174d6703017ee2af7499ebbcdf87a30bc35ddaf56bc5e85226ebc0ede8bb0f81"
+      },
+      "path": "libavcodec/ilbcdata.h",
+      "sha256": "835cddad98438509a2cd0f3ed38a4774aefc8dd3c451193e9faa2774be564ce9",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-ilbcdata.h.txt"
+    },
+    "ffmpeg/libavcodec/ilbcdec.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1601,
+        "member": "ffmpeg-9.0.2/libavcodec/ilbcdec.c",
+        "offset": 0,
+        "sha256": "835cddad98438509a2cd0f3ed38a4774aefc8dd3c451193e9faa2774be564ce9",
+        "source_sha256": "31737b44eae0e49c5f797aee68305f32303d38b426d4746ac9db5f51947e3646"
+      },
+      "path": "libavcodec/ilbcdec.c",
+      "sha256": "835cddad98438509a2cd0f3ed38a4774aefc8dd3c451193e9faa2774be564ce9",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-ilbcdec.c.txt"
+    },
+    "ffmpeg/libavcodec/interplayacm.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 874,
+        "member": "ffmpeg-9.0.2/libavcodec/interplayacm.c",
+        "offset": 0,
+        "sha256": "06cdd49796d9478240bacffac450b74f014a478f622945b6efe67b8b5a9cde9d",
+        "source_sha256": "4ddd6b14f9b8d06383f1a4df8db3cad46b58877db2da93744f0b917e96dbf4bc"
+      },
+      "path": "libavcodec/interplayacm.c",
+      "sha256": "06cdd49796d9478240bacffac450b74f014a478f622945b6efe67b8b5a9cde9d",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-interplayacm.c.txt"
+    },
+    "ffmpeg/libavcodec/jfdctfst.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 3450,
+        "member": "ffmpeg-9.0.2/libavcodec/jfdctfst.c",
+        "offset": 0,
+        "sha256": "a64fb0a19dcb5b0771b8884a5a1323c1778b48e30b84b2174fa405171623b529",
+        "source_sha256": "ead72c605ae80a82034ed59f84f41c7b501968798c9f0b4b39161c31a0c01deb"
+      },
+      "path": "libavcodec/jfdctfst.c",
+      "sha256": "a64fb0a19dcb5b0771b8884a5a1323c1778b48e30b84b2174fa405171623b529",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-jfdctfst.c.txt"
+    },
+    "ffmpeg/libavcodec/jfdctint_template.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 3005,
+        "member": "ffmpeg-9.0.2/libavcodec/jfdctint_template.c",
+        "offset": 0,
+        "sha256": "ad2135942918d03a1fc5496ff0eb97f651ecfc1d01c50c0cb23eff347cd51838",
+        "source_sha256": "09920f49711889af8d0ae166c57b22b9451985e619ae887c72fae22df105bd99"
+      },
+      "path": "libavcodec/jfdctint_template.c",
+      "sha256": "ad2135942918d03a1fc5496ff0eb97f651ecfc1d01c50c0cb23eff347cd51838",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-jfdctint_template.c.txt"
+    },
+    "ffmpeg/libavcodec/jrevdct.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 3092,
+        "member": "ffmpeg-9.0.2/libavcodec/jrevdct.c",
+        "offset": 0,
+        "sha256": "9daff0c039515e2f9fac83df057c5ac655c8a33a70ca5366e3774dc969841e48",
+        "source_sha256": "7e8d6215664de8f620e94a7d6304f19675bc5174a9db4cb86611749e188c35bc"
+      },
+      "path": "libavcodec/jrevdct.c",
+      "sha256": "9daff0c039515e2f9fac83df057c5ac655c8a33a70ca5366e3774dc969841e48",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-jrevdct.c.txt"
+    },
+    "ffmpeg/libavcodec/nellymoser.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1612,
+        "member": "ffmpeg-9.0.2/libavcodec/nellymoser.c",
+        "offset": 0,
+        "sha256": "05be405ef61caff70b2184be2546a55d25f26292721e2396c3da3d5c2ab992ed",
+        "source_sha256": "04b78bf828fb05f1eb6ba26a1eb6ea528d6ffbd41c3c26470ceb81197ef92643"
+      },
+      "path": "libavcodec/nellymoser.c",
+      "sha256": "05be405ef61caff70b2184be2546a55d25f26292721e2396c3da3d5c2ab992ed",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-nellymoser.c.txt"
+    },
+    "ffmpeg/libavcodec/nellymoser.h": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1612,
+        "member": "ffmpeg-9.0.2/libavcodec/nellymoser.h",
+        "offset": 0,
+        "sha256": "05be405ef61caff70b2184be2546a55d25f26292721e2396c3da3d5c2ab992ed",
+        "source_sha256": "8527b9a35dcb034f911c9d4110d10f5ef2ef112b5917f3d63373f34ecdc9d4f3"
+      },
+      "path": "libavcodec/nellymoser.h",
+      "sha256": "05be405ef61caff70b2184be2546a55d25f26292721e2396c3da3d5c2ab992ed",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-nellymoser.h.txt"
+    },
+    "ffmpeg/libavcodec/nellymoserdec.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1586,
+        "member": "ffmpeg-9.0.2/libavcodec/nellymoserdec.c",
+        "offset": 0,
+        "sha256": "35c3574b3ddfd0c939904cfa095241cf8f6375e55b0caffd52ce63dc04335eaa",
+        "source_sha256": "c29bc4e8ae5a2d3d5c763d197e451053096d35656cf5cb46349767a1f7ab21f5"
+      },
+      "path": "libavcodec/nellymoserdec.c",
+      "sha256": "35c3574b3ddfd0c939904cfa095241cf8f6375e55b0caffd52ce63dc04335eaa",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-nellymoserdec.c.txt"
+    },
+    "ffmpeg/libavcodec/ra144dec.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 937,
+        "member": "ffmpeg-9.0.2/libavcodec/ra144dec.c",
+        "offset": 0,
+        "sha256": "7f9992ac88489b8c2bcb592ed35379bcf905dc4a99177bd31c78ec6b2991b625",
+        "source_sha256": "8939f38387c1feb42339a2a86e6cb0c497b5879c736beb4475f73cdcb459529c"
+      },
+      "path": "libavcodec/ra144dec.c",
+      "sha256": "7f9992ac88489b8c2bcb592ed35379bcf905dc4a99177bd31c78ec6b2991b625",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-ra144dec.c.txt"
+    },
+    "ffmpeg/libavcodec/speexdata.h": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2610,
+        "member": "ffmpeg-9.0.2/libavcodec/speexdata.h",
+        "offset": 0,
+        "sha256": "59de990a7ef1cd3e05c281a0dfa07679719e04dd37c7d89f3911e07ef05a19a4",
+        "source_sha256": "f24c26ddc60f062c20e0f2b5b6761316adc4c4b93518dfa4ae49a23fcfa60504"
+      },
+      "path": "libavcodec/speexdata.h",
+      "sha256": "59de990a7ef1cd3e05c281a0dfa07679719e04dd37c7d89f3911e07ef05a19a4",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-speexdata.h.txt"
+    },
+    "ffmpeg/libavcodec/speexdec.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2610,
+        "member": "ffmpeg-9.0.2/libavcodec/speexdec.c",
+        "offset": 0,
+        "sha256": "59de990a7ef1cd3e05c281a0dfa07679719e04dd37c7d89f3911e07ef05a19a4",
+        "source_sha256": "d195fc338c90f87b7940aea8ee0d39a8a3e03dc726b3ddf274d601f169d63eb0"
+      },
+      "path": "libavcodec/speexdec.c",
+      "sha256": "59de990a7ef1cd3e05c281a0dfa07679719e04dd37c7d89f3911e07ef05a19a4",
+      "source_file": "src/licenses/native/ffmpeg-libavcodec-speexdec.c.txt"
+    },
+    "ffmpeg/libavformat/oggdec.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1259,
+        "member": "ffmpeg-9.0.2/libavformat/oggdec.c",
+        "offset": 0,
+        "sha256": "46e92106860be01a18d7ca30e3a89b7ee5d9b6ea35f79ea34dcd09b812f03e20",
+        "source_sha256": "43d988cc30a355832e50a1873db80663741706ed4e7b50760cbdab8e10446c9f"
+      },
+      "path": "libavformat/oggdec.c",
+      "sha256": "46e92106860be01a18d7ca30e3a89b7ee5d9b6ea35f79ea34dcd09b812f03e20",
+      "source_file": "src/licenses/native/ffmpeg-libavformat-oggdec.c.txt"
+    },
+    "ffmpeg/libavformat/oggdec.h": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1158,
+        "member": "ffmpeg-9.0.2/libavformat/oggdec.h",
+        "offset": 0,
+        "sha256": "a042e71a75545e42a671c23142c936dca3c4dcc35436f7e3ecf486c7bbb6230b",
+        "source_sha256": "16dfa6e5ebdab3f1da352886f72debf92fbe3f3dfc2dbf240063cc7b56f3b11e"
+      },
+      "path": "libavformat/oggdec.h",
+      "sha256": "a042e71a75545e42a671c23142c936dca3c4dcc35436f7e3ecf486c7bbb6230b",
+      "source_file": "src/licenses/native/ffmpeg-libavformat-oggdec.h.txt"
+    },
+    "ffmpeg/libavformat/oggparseogm.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1158,
+        "member": "ffmpeg-9.0.2/libavformat/oggparseogm.c",
+        "offset": 0,
+        "sha256": "a042e71a75545e42a671c23142c936dca3c4dcc35436f7e3ecf486c7bbb6230b",
+        "source_sha256": "6be3f01f0427a5fed2a441274b9aee80757550122479bc4e2beaba0c4e38e2b6"
+      },
+      "path": "libavformat/oggparseogm.c",
+      "sha256": "a042e71a75545e42a671c23142c936dca3c4dcc35436f7e3ecf486c7bbb6230b",
+      "source_file": "src/licenses/native/ffmpeg-libavformat-oggparseogm.c.txt"
+    },
+    "ffmpeg/libavformat/oggparsespeex.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1178,
+        "member": "ffmpeg-9.0.2/libavformat/oggparsespeex.c",
+        "offset": 0,
+        "sha256": "54fd2c21b9fe269b6835b02d013037a0df0a4bb7c05f9a3eb49f1a6c7e7a1cde",
+        "source_sha256": "d3aa27c5ba93e98944fa300c42ac6ed875b3eabf58cd483a154bc176f57f63c8"
+      },
+      "path": "libavformat/oggparsespeex.c",
+      "sha256": "54fd2c21b9fe269b6835b02d013037a0df0a4bb7c05f9a3eb49f1a6c7e7a1cde",
+      "source_file": "src/licenses/native/ffmpeg-libavformat-oggparsespeex.c.txt"
+    },
+    "ffmpeg/libavformat/oggparsetheora.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1202,
+        "member": "ffmpeg-9.0.2/libavformat/oggparsetheora.c",
+        "offset": 0,
+        "sha256": "07c3a0b30d1aa9c6a7b244c1ac5a71f1dcd3a57dc9ac2681baed2a496a9e2ee6",
+        "source_sha256": "0c27d0bcc6efb96a85e6551fe87db07e61c71eaaf36613c7154ae51841d7a354"
+      },
+      "path": "libavformat/oggparsetheora.c",
+      "sha256": "07c3a0b30d1aa9c6a7b244c1ac5a71f1dcd3a57dc9ac2681baed2a496a9e2ee6",
+      "source_file": "src/licenses/native/ffmpeg-libavformat-oggparsetheora.c.txt"
+    },
+    "ffmpeg/libavformat/oggparsevorbis.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1155,
+        "member": "ffmpeg-9.0.2/libavformat/oggparsevorbis.c",
+        "offset": 0,
+        "sha256": "e1d94aedf6260540ae4de77b634249f61937dd3e417cea809f658d861ca62c78",
+        "source_sha256": "a11ec3562e733f21565c491ab56b7f1d4a6865fc1ddbdc372ed9cb29b13ca7fb"
+      },
+      "path": "libavformat/oggparsevorbis.c",
+      "sha256": "e1d94aedf6260540ae4de77b634249f61937dd3e417cea809f658d861ca62c78",
+      "source_file": "src/licenses/native/ffmpeg-libavformat-oggparsevorbis.c.txt"
+    },
+    "ffmpeg/libavutil/adler32.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1223,
+        "member": "ffmpeg-9.0.2/libavutil/adler32.c",
+        "offset": 0,
+        "sha256": "0d5c7834c4f1ba4eb35295b9d8d6ee58b016429ccdab267197978b8fd20f4046",
+        "source_sha256": "b951cde7a2375eebf743d93448d3eb66dd2c9a6785697513014a0f5f216570d1"
+      },
+      "path": "libavutil/adler32.c",
+      "sha256": "0d5c7834c4f1ba4eb35295b9d8d6ee58b016429ccdab267197978b8fd20f4046",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-adler32.c.txt"
+    },
+    "ffmpeg/libavutil/avsscanf.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1133,
+        "member": "ffmpeg-9.0.2/libavutil/avsscanf.c",
+        "offset": 0,
+        "sha256": "589ca254ece1b1bbf2815f0649d563bf625d58708f69543ae98f0ff7ee0a7e0c",
+        "source_sha256": "e2c4fa84451c668e85ae9656a0fa8946c6909d1b7861e4f570e9e99184477884"
+      },
+      "path": "libavutil/avsscanf.c",
+      "sha256": "589ca254ece1b1bbf2815f0649d563bf625d58708f69543ae98f0ff7ee0a7e0c",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-avsscanf.c.txt"
+    },
+    "ffmpeg/libavutil/fixed_dsp.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2394,
+        "member": "ffmpeg-9.0.2/libavutil/fixed_dsp.c",
+        "offset": 0,
+        "sha256": "837b737cd7f7c021b369dd0e99b790c07fa90c6e2319bfb42d52159156d1cbff",
+        "source_sha256": "02a80d09d91f7c6e5a5853e0c5d0773787901fb2c9c263514f338a519f7b2799"
+      },
+      "path": "libavutil/fixed_dsp.c",
+      "sha256": "837b737cd7f7c021b369dd0e99b790c07fa90c6e2319bfb42d52159156d1cbff",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-fixed_dsp.c.txt"
+    },
+    "ffmpeg/libavutil/fixed_dsp.h": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2384,
+        "member": "ffmpeg-9.0.2/libavutil/fixed_dsp.h",
+        "offset": 0,
+        "sha256": "43f660ec4661a76230479e802b6fcc3a1ae53527821043ac882623eaaffd4bbc",
+        "source_sha256": "d7769bf6ace8000b8486ada216c894712f3263849d4c8e4273a926a29d8aea76"
+      },
+      "path": "libavutil/fixed_dsp.h",
+      "sha256": "43f660ec4661a76230479e802b6fcc3a1ae53527821043ac882623eaaffd4bbc",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-fixed_dsp.h.txt"
+    },
+    "ffmpeg/libavutil/sha.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 994,
+        "member": "ffmpeg-9.0.2/libavutil/sha.c",
+        "offset": 0,
+        "sha256": "71106a681c977bf5f05c2e89875a22420f00b46ab88410a12249e4bebb525da6",
+        "source_sha256": "a1e25a92ea7902c3c6eb92ee4ada0ab6749695bae2026b7528c267f94ff11837"
+      },
+      "path": "libavutil/sha.c",
+      "sha256": "71106a681c977bf5f05c2e89875a22420f00b46ab88410a12249e4bebb525da6",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-sha.c.txt"
+    },
+    "ffmpeg/libavutil/softfloat_tables.h": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2396,
+        "member": "ffmpeg-9.0.2/libavutil/softfloat_tables.h",
+        "offset": 0,
+        "sha256": "14d11b2a9c672d2abf0dc29fb9935859faca83b30d357df981a539617e8e1772",
+        "source_sha256": "2dd8aa42e7a9025fa2f0c2dbf81fdb17628d4e05099021ef42f114aa052c2362"
+      },
+      "path": "libavutil/softfloat_tables.h",
+      "sha256": "14d11b2a9c672d2abf0dc29fb9935859faca83b30d357df981a539617e8e1772",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-softfloat_tables.h.txt"
+    },
+    "ffmpeg/libavutil/uuid.c": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 2752,
+        "member": "ffmpeg-9.0.2/libavutil/uuid.c",
+        "offset": 0,
+        "sha256": "45dd8abe1b6b685ed50e49364f2b44f7d5d83bf1f54ef997af2f08b4eb9218ac",
+        "source_sha256": "bf5e415b80f0041ee41cf2902c4d97cd00934853fb2ab15a08cb4f6ad17fa8b3"
+      },
+      "path": "libavutil/uuid.c",
+      "sha256": "45dd8abe1b6b685ed50e49364f2b44f7d5d83bf1f54ef997af2f08b4eb9218ac",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-uuid.c.txt"
+    },
+    "ffmpeg/libavutil/x86/x86inc.asm": {
+      "origin": {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "kind": "tar_slice",
+        "length": 1586,
+        "member": "ffmpeg-9.0.2/libavutil/x86/x86inc.asm",
+        "offset": 0,
+        "sha256": "81ea23af6eece2e75a268982426ffac45b569730ecdceecf3a877cb45d706f4d",
+        "source_sha256": "c0dc921fb4858ae7bc943dcb6a33b7cb480b13a8737e666533b331e36e00093d"
+      },
+      "path": "libavutil/x86/x86inc.asm",
+      "sha256": "81ea23af6eece2e75a268982426ffac45b569730ecdceecf3a877cb45d706f4d",
+      "source_file": "src/licenses/native/ffmpeg-libavutil-x86-x86inc.asm.txt"
+    },
+    "ndk/libcxx": {
+      "origin": {
+        "kind": "tracked_slice",
+        "length": 16704,
+        "offset": 31851,
+        "sha256": "3f3d1da78246d5c2ffc879f8239d6e856b19ba813b8349cbe48f85bd018ee3af",
+        "source_file": "src/licenses/native/ndk-r28c-LLVM-NOTICE.txt",
+        "source_sha256": "f96f763beb66a7ba7a667647fc64c0226ace875e590c831fdd9579ec1c1d91e1"
+      },
+      "path": "libcxx/LICENSE.TXT",
+      "sha256": "3f3d1da78246d5c2ffc879f8239d6e856b19ba813b8349cbe48f85bd018ee3af",
+      "source_file": "src/licenses/native/ndk-r28c-libcxx.txt"
+    },
+    "ndk/libcxxabi": {
+      "origin": {
+        "kind": "tracked_slice",
+        "length": 16707,
+        "offset": 48555,
+        "sha256": "b043b7c5fdaf8df24b2c3b50f7651e6acfc8bdd73cc152ec5d090b8a7e0ede33",
+        "source_file": "src/licenses/native/ndk-r28c-LLVM-NOTICE.txt",
+        "source_sha256": "f96f763beb66a7ba7a667647fc64c0226ace875e590c831fdd9579ec1c1d91e1"
+      },
+      "path": "libcxxabi/LICENSE.TXT",
+      "sha256": "b043b7c5fdaf8df24b2c3b50f7651e6acfc8bdd73cc152ec5d090b8a7e0ede33",
+      "source_file": "src/licenses/native/ndk-r28c-libcxxabi.txt"
+    },
+    "nsis/COPYING": {
+      "origin": {
+        "archive": "nsis-3.11.zip",
+        "archive_sha256": "c7d27f780ddb6cffb4730138cd1591e841f4b7edb155856901cdf5f214394fa1",
+        "kind": "zip_slice",
+        "length": 15632,
+        "member": "nsis-3.11/COPYING",
+        "offset": 0,
+        "sha256": "e7dd514003ab96cb3ddccbc028fe5c795fccf57dc41f21cfb9d4dd16ead23bf5",
+        "source_sha256": "e7dd514003ab96cb3ddccbc028fe5c795fccf57dc41f21cfb9d4dd16ead23bf5"
+      },
+      "path": "nsis-3.11/COPYING",
+      "sha256": "e7dd514003ab96cb3ddccbc028fe5c795fccf57dc41f21cfb9d4dd16ead23bf5",
+      "source_file": "src/licenses/native/nsis-3.11-nsis-3.11-COPYING.txt"
+    },
+    "nsis/Docs/NSISdl/License.txt": {
+      "origin": {
+        "archive": "nsis-3.11.zip",
+        "archive_sha256": "c7d27f780ddb6cffb4730138cd1591e841f4b7edb155856901cdf5f214394fa1",
+        "kind": "zip_slice",
+        "length": 943,
+        "member": "nsis-3.11/Docs/NSISdl/License.txt",
+        "offset": 0,
+        "sha256": "326e587f36ca58e14bd09cca153f9e69f1c5ed701189aa47d2d0627af7e16280",
+        "source_sha256": "326e587f36ca58e14bd09cca153f9e69f1c5ed701189aa47d2d0627af7e16280"
+      },
+      "path": "nsis-3.11/Docs/NSISdl/License.txt",
+      "sha256": "326e587f36ca58e14bd09cca153f9e69f1c5ed701189aa47d2d0627af7e16280",
+      "source_file": "src/licenses/native/nsis-3.11-NSISdl-License.txt.txt"
+    },
+    "tauri-utils/LICENSE_APACHE-2.0": {
+      "origin": {
+        "commit": "13d9edd27b69310e108d6fbd49f90992f8a05390",
+        "git_blob_sha1": "f433b1a53f5b830a205fd2df78e2b34974656c7b",
+        "kind": "git_blob",
+        "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/LICENSE_APACHE-2.0"
+      },
+      "path": "LICENSE_APACHE-2.0",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "source_file": "src/licenses/native/nsis-tauri-utils-0.5.3-LICENSE_APACHE-2.0.txt"
+    },
+    "tauri-utils/LICENSE_MIT": {
+      "origin": {
+        "commit": "13d9edd27b69310e108d6fbd49f90992f8a05390",
+        "git_blob_sha1": "7e54d8e4c28e943a545c1bef79f8dfdb2a2affe2",
+        "kind": "git_blob",
+        "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/LICENSE_MIT"
+      },
+      "path": "LICENSE_MIT",
+      "sha256": "1c1020fa10a6bf318717e82c911bcc54ebdfb9bb280460ae332bcb2f82f57fbe",
+      "source_file": "src/licenses/native/nsis-tauri-utils-0.5.3-LICENSE_MIT.txt"
+    }
+  },
+  "schema": 1,
+  "windows": {
+    "helpers": {
+      "$PLUGINSDIR/NSISdl.dll": {
+        "sha256": "ddf40229dd9d6b268902d8dea88c8a04aacf1af218dd29f6dcd35babc54ac08d",
+        "source_member": "nsis-3.11/Plugins/x86-unicode/NSISdl.dll"
+      },
+      "$PLUGINSDIR/StartMenu.dll": {
+        "sha256": "fe330320459637d8dd2b5d84d07925c38ec264152ffd3b1760a4d44d76536caa",
+        "source_member": "nsis-3.11/Plugins/x86-unicode/StartMenu.dll"
+      },
+      "$PLUGINSDIR/System.dll": {
+        "sha256": "8b4c47c4cf5e76ec57dd5a050d5acd832a0d532ee875d7b44f6cdaf68f90d37c",
+        "source_member": "nsis-3.11/Plugins/x86-unicode/System.dll"
+      },
+      "$PLUGINSDIR/nsDialogs.dll": {
+        "sha256": "b1350f487692057c8ffde75dcc55287a52a3272240d4d4912f24464b27551fc0",
+        "source_member": "nsis-3.11/Plugins/x86-unicode/nsDialogs.dll"
+      },
+      "$PLUGINSDIR/nsis_tauri_utils.dll": {
+        "sha256": "5ba143b5db4a87d32d6e7802e033330aae56cbceabe0d1e3ba41948385ad4709",
+        "source_member": null
+      }
+    },
+    "nsis_archive_sha256": "c7d27f780ddb6cffb4730138cd1591e841f4b7edb155856901cdf5f214394fa1",
+    "nsis_version": "3.11"
+  }
+}

@@ -137,6 +137,7 @@ fn known_utf8_repairs_and_error_cases_follow_the_actual_written_settings() {
         let field = code(settings["Field"]);
         let codepage = settings["Codepage"].split('`').nth(1).unwrap();
         let action = ActionSpec::ConvertCodepage {
+            mta_source: None,
             field: field.into(),
             codepage: codepage.into(),
         };

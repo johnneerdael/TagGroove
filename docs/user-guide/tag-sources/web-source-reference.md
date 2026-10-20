@@ -7,9 +7,12 @@ not a `$function(...)` call.
 
 Start with the [local JSON lesson](writing-web-sources.md) for a complete
 source and [installation guide](web-sources.md) for menus/settings. This page
-covers every header in the canonical source format and all 59 commands accepted
+covers every header in the canonical source format and all 67 commands accepted
 by the checked TagGroove parser. Examples inspect parser output directly; they
-do not certify a provider, track matching or an audio-file write.
+do not certify a provider, track matching or an audio-file write. Each command
+has a primary Input/Script/Output example checked with both LF and CRLF input;
+the command-name coverage is checked against the parser registry. Additional
+short snippets explain variants and practical choices.
 
 ## Description headers
 
@@ -90,8 +93,9 @@ searches continue to encode their input words normally.
 
 ### Index results
 
-Scripts start in the `OUTPUT` buffer. `OutputTo "Output"` or `OutputTo ""`
-returns to that default buffer, which supplies the index results. Finish each
+Scripts start in the `OUTPUT` buffer. `OutputTo "Output"` returns to that
+default buffer, which supplies the index results. `OutputTo ""` selects a
+separate empty-named buffer; its contents do not become index results or tags. Finish each
 result with SayNewline. Separate its values with `|` in the order defined by
 IndexFormat. The field names beginning with `_` are internal rather than
 visible result columns:
@@ -154,6 +158,42 @@ instead.
 These output-buffer rules do not guarantee automatic file-order suggestions.
 Check titles/positions and review the mapping manually where needed; parser
 output, release conversion and matching are separate stages.
+
+### Choosing the album's browser preview
+
+A source can download a data page while **Preview** opens a readable release
+page. For an index source, `%_url%` chooses the page to parse and `%_preview%`
+chooses the initial browser preview. Without an index, `[PreviewUrl]` supplies
+that preview. If neither supplies one, the selected album address is used.
+
+The album script can read that initial address from `CurrentPreview`, using
+`SayOutput`, a `%CurrentPreview%` parameter or a formatting expression. To
+replace it with an address found in the album data, use `Set`:
+
+```text
+Set "CurrentPreview" "https://shop.example/releases/7"
+```
+
+To build a replacement from input, clear the buffer before appending:
+
+```text
+Set "CurrentPreview" ""
+OutputTo "CurrentPreview"
+Say "https://shop.example/releases/"
+Say "7"
+```
+
+`OutputTo` alone preserves existing text; `Say` appends to it. Appending a
+complete URL to the initial URL would therefore produce the wrong address.
+Buffer names ignore case. `CurrentPreview` is a control value: it never becomes
+an album tag, a track tag or a pipe-separated track list.
+
+The final nonempty address becomes the review's **Preview** destination.
+Relative addresses resolve against the downloaded album page. Empty output,
+unsupported schemes and addresses containing a username or password leave the
+initial preview in place. Previewing opens the browser only when requested;
+it does not change the page being parsed or apply tags. The separate
+**Full cover** action still opens the result's full-size artwork.
 
 ### Includes and settings
 
@@ -271,6 +311,8 @@ SayRest
 Album: Harbour Lights
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:findlinenocase -->
 
 ### `FindLineNoCase`
@@ -299,6 +341,8 @@ SayRest
 ALBUM: Harbour Lights
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:findinline -->
 
 ### `FindInLine`
@@ -326,6 +370,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:gotochar -->
 
 ### `GotoChar`
@@ -352,6 +398,8 @@ SayRest
 ```text
 Lanterns
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:gotoline -->
 
@@ -381,6 +429,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:movechar -->
 
 ### `MoveChar`
@@ -408,6 +458,8 @@ SayNChars 5
 ```text
 Paper
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:moveline -->
 
@@ -438,6 +490,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 ## Read and emit text
 
 <!-- web-example:say -->
@@ -466,6 +520,8 @@ Say "Juniper Vale"
 Juniper Vale
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayuntil -->
 
 ### `SayUntil`
@@ -491,6 +547,8 @@ SayUntil "|"
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:sayuntilml -->
 
@@ -522,6 +580,8 @@ Paper
 Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayrest -->
 
 ### `SayRest`
@@ -548,6 +608,8 @@ SayRest
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:saynchars -->
 
@@ -577,6 +639,8 @@ SayNChars 2
 ␠␠
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:saynextnumber -->
 
 ### `SayNextNumber`
@@ -603,6 +667,48 @@ SayNextNumber
 -03.5
 ```
 
+<!-- web-example-end -->
+
+<!-- web-example:sayall -->
+
+### `SayAll`
+
+**Syntax:** `SayAll "characters"`
+
+Read the longest prefix at the current cursor made only from characters in
+this set. This is a character set, not a word or regex. Stop at the first
+other character and advance past the raw consumed text. Default trimming
+removes its edge whitespace from the emitted value; `Trim "off"` preserves it.
+An empty set or a nonmatching first character emits nothing and stays put.
+
+With input ` abba:tail`:
+
+**Input**
+
+```text
+ abba:tail
+```
+
+**Script**
+
+```text
+SayAll " ab"
+Say "|"
+SayRest
+```
+
+**Output buffer:** `OUTPUT`
+
+```text
+abba|:tail
+```
+
+<!-- web-example-end -->
+
+`OUTPUT` becomes `abba|:tail`. With `Trim "off"` first, the leading space is
+also emitted. This is useful for reading a run of allowed identifier characters
+without consuming the punctuation that ends it.
+
 <!-- web-example:saynextword -->
 
 ### `SayNextWord`
@@ -628,6 +734,8 @@ SayNextWord
 ```text
 Paper,
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:sayoutput -->
 
@@ -657,6 +765,8 @@ SayOutput "CurrentUrl"
 ```text
 Harbour Lights @ https://catalogue.example.invalid/release/harbour
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:saynewline -->
 
@@ -689,6 +799,8 @@ Paper
 Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:saydate -->
 
 ### `SayDate`
@@ -715,6 +827,8 @@ SayDate "ms"
 2024-01-01
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayduration -->
 
 ### `SayDuration`
@@ -740,6 +854,8 @@ SayDuration "ms" 1 1
 ```text
 0:01:02.005
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:sayregexp -->
 
@@ -769,6 +885,8 @@ SayRest
 item2, item7|item2 item7; item9
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayformat -->
 
 ### `SayFormat`
@@ -795,6 +913,8 @@ SayFormat "$upper(%_current%) — %ARTIST%"
 ```text
 PAPER BOATS — Juniper Vale
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:sayvar -->
 
@@ -823,6 +943,8 @@ SayVar "edition"
 ```text
 deluxe
 ```
+
+<!-- web-example-end -->
 
 ## Change buffers or input
 
@@ -856,13 +978,24 @@ Endif
 cleared
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:outputto -->
 
 ### `OutputTo`
 
-**Syntax:** `OutputTo "buffer"`
+**Syntax:** `OutputTo "buffer" ["initial value"]`
 
-Choose the output used by later Say commands. Text is appended there; it does not clear an earlier value. Use an empty name or "Output" to return to the default `OUTPUT` index-result buffer.
+Choose the output used by later Say commands. Without a nonempty second
+argument, its previous value is preserved and later Say commands append. A
+nonempty second argument replaces it before further appends. To clear it, use
+`Set "buffer" ""`. Use `OutputTo "Output"` to return to the default index-result
+buffer. The empty name selects a separate buffer whose contents are ignored
+when constructing index results and tags.
+
+Scripts written for older TagGroove versions that used `OutputTo ""` as a
+default-buffer shortcut must change that command to `OutputTo "Output"`. The
+empty-name distinction follows the original source language.
 
 **Input**
 
@@ -883,6 +1016,84 @@ SayRest
 ```text
 Harbour Lights
 ```
+
+<!-- web-example-end -->
+
+<!-- web-example:incoutput -->
+
+### `IncOutput`
+
+**Syntax:** `IncOutput "suffix"`
+
+Append the suffix to the current output **name**. It does not append to the
+output's value and does not increment a number. Use it to build related
+buffer names, then return with DecOutput or an explicit OutputTo.
+
+**Input**
+
+```text
+
+```
+
+**Script**
+
+```text
+OutputTo "FIELD"
+IncOutput "1"
+Say "First"
+DecOutput
+Say "Parent"
+```
+
+**Output buffer:** `FIELD1`
+
+```text
+First
+```
+
+<!-- web-example-end -->
+
+`FIELD1` contains `First`; `FIELD` contains `Parent`.
+
+<!-- web-example:decoutput -->
+
+### `DecOutput`
+
+**Syntax:** `DecOutput`
+
+Remove the last character from the current output name; existing output
+values are preserved. An empty name stays empty. Name editing uses its raw
+spelling before case-insensitive buffer lookup, so `IncOutput "ß"` followed
+by DecOutput returns to the previous name.
+
+The Windows original removes one UTF-16 code unit. TagGroove refuses a removal
+that would split a surrogate pair in an output name, because it cannot carry
+that invalid name as a tag/JSON string. Use ordinary field-name characters
+when constructing names dynamically; this refusal is not a successful rename.
+
+**Input**
+
+```text
+
+```
+
+**Script**
+
+```text
+OutputTo "FIELD"
+IncOutput "1"
+Say "First"
+DecOutput
+Say "Parent"
+```
+
+**Output buffer:** `FIELD`
+
+```text
+Parent
+```
+
+<!-- web-example-end -->
 
 <!-- web-example:skipchars -->
 
@@ -911,6 +1122,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:insert -->
 
 ### `Insert`
@@ -937,6 +1150,8 @@ SayRest
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:use -->
 
@@ -966,6 +1181,8 @@ SayRest
 Harbour Lights
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:useformat -->
 
 ### `UseFormat`
@@ -992,6 +1209,8 @@ SayRest
 ```text
 PAPER BOATS
 ```
+
+<!-- web-example-end -->
 
 ## Conditions and loops
 
@@ -1023,6 +1242,8 @@ Endif
 album found
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifnot -->
 
 ### `IfNot`
@@ -1050,6 +1271,8 @@ Endif
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:ifoutput -->
 
@@ -1080,6 +1303,8 @@ Endif
 present
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifnotoutput -->
 
 ### `IfNotOutput`
@@ -1107,6 +1332,8 @@ Endif
 ```text
 no comment
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:ifgreater -->
 
@@ -1136,6 +1363,8 @@ Endif
 large
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifless -->
 
 ### `IfLess`
@@ -1163,6 +1392,8 @@ Endif
 ```text
 small
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:ifvar -->
 
@@ -1194,6 +1425,8 @@ Endif
 extra tracks
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifnotvar -->
 
 ### `IfNotVar`
@@ -1223,6 +1456,8 @@ Endif
 ```text
 alternate edition
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:else -->
 
@@ -1254,6 +1489,8 @@ Endif
 other
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:endif -->
 
 ### `Endif`
@@ -1283,6 +1520,8 @@ Say "."
 matched.
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:do -->
 
 ### `Do`
@@ -1311,13 +1550,20 @@ While "x" 3
 xxx
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:while -->
 
 ### `While`
 
-**Syntax:** `While "prefix" [maximum]`
+**Syntax:** `While ["prefix" [maximum]]`
 
-Repeat from the matching Do while the current remainder starts with the prefix. A supplied maximum bounds body executions. Use positive limits and keep Do/While loops unnested for portability to other implementations.
+Repeat from the matching Do while the current remainder starts with a nonempty
+prefix. A supplied maximum bounds body executions in that form. Without a
+prefix, or with an empty one, repeat while the current line still has a
+character at the cursor; the optional maximum is ignored in this form. Make
+the body advance the cursor, for example with `SayNChars 1`, to avoid an endless
+loop. Keep Do/While loops unnested for portability to other implementations.
 
 **Input**
 
@@ -1338,6 +1584,93 @@ While "A" 2
 ```text
 AA
 ```
+
+<!-- web-example-end -->
+
+<!-- web-example:exit -->
+
+### `Exit`
+
+**Syntax:** `Exit`
+
+Stop the parser normally and keep its accumulated outputs. This exits the
+script, not TagGroove. Later commands are not run. Use it when a complete
+result is already available and the rest of the extraction is unnecessary.
+
+**Input**
+
+```text
+
+```
+
+**Script**
+
+```text
+OutputTo "ALBUM"
+Say "Harbour Lights"
+Exit
+Say "not reached"
+```
+
+**Output buffer:** `ALBUM`
+
+```text
+Harbour Lights
+```
+
+<!-- web-example-end -->
+
+`ALBUM` contains `Harbour Lights`.
+
+<!-- web-example:onerror -->
+
+### `OnError`
+
+**Syntax:** `OnError "handler" ["dump filename"]`
+
+Choose how a later runtime failure finishes the script. It never resumes at
+the next command. The default, exactly `<FAIL>`, reports the failure. A
+nonempty handler that does not start with `<` replaces only the active output
+with that literal text and finishes successfully; other outputs remain.
+Empty handlers and other `<...` values keep the failure. These comparisons
+are case-sensitive, so `<fail>` is not the default `<FAIL>` handler.
+
+For example, if the whole lookup can legitimately have a fallback album name:
+
+**Input**
+
+```text
+No album in this response
+```
+
+**Script**
+
+```text
+OutputTo "ALBUM"
+OnError "Album unavailable" "album-error.txt"
+FindLine "Album:"
+SayRest
+```
+
+**Output buffer:** `ALBUM`
+
+```text
+Album unavailable
+```
+
+<!-- web-example-end -->
+
+If `Album:` is missing, the parser stops and `ALBUM` becomes `Album unavailable`.
+It does not continue extracting fields after the failed Find. The optional
+file captures the previous active output before substitution, under the
+source's `debug` folder. An omitted or empty second argument preserves the
+previous dump filename. The exact default `<FAIL>` path does not write that
+dump. Compile errors cannot be recovered with OnError. To return to normal
+failure handling for later commands, use `OnError "<FAIL>"`.
+
+Do not hide an unexpected login page or malformed response with a plausible
+fallback. For a single optional Find, its documented no-error argument can
+be clearer than ending the entire script through OnError.
 
 ## Transform text and whitespace
 
@@ -1373,6 +1706,8 @@ SayRest
 Paper Boats|Other_Label
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:regexpreplace -->
 
 ### `RegexpReplace`
@@ -1399,6 +1734,8 @@ SayRest
 ```text
 Paper Boats [03]
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:joinuntil -->
 
@@ -1428,6 +1765,8 @@ SayUntil "</title>"
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:joinlines -->
 
@@ -1459,6 +1798,8 @@ SayRest
 Paper␠Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:killtag -->
 
 ### `KillTag`
@@ -1485,6 +1826,8 @@ SayRest
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:trim -->
 
@@ -1515,11 +1858,13 @@ SayRest
 ␠␠Paper␠␠
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:unspace -->
 
 ### `Unspace`
 
-**Syntax:** `Unspace`
+**Syntax:** `Unspace ["ignored"]`
 
 Remove whitespace at the beginning/end of the current input line and adjust the cursor. Internal whitespace is unchanged. This edits input, unlike changing the Trim read policy.
 
@@ -1543,6 +1888,8 @@ SayRest
 ```text
 Paper
 ```
+
+<!-- web-example-end -->
 
 ## Debugging
 
@@ -1576,6 +1923,8 @@ Debug "off"
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:debugwriteinput -->
 
 ### `DebugWriteInput`
@@ -1605,6 +1954,96 @@ SayRest
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
+
+<!-- web-example:savedata -->
+
+### `SaveData`
+
+**Syntax:** `SaveData "filename"`
+
+Capture all currently retained input lines after parser transformations,
+writing each line followed by CRLF. This is the input, not the current output
+buffer. Cursor position does not restrict the capture. An empty filename
+requests no file. For input `original` followed by a second line `second`:
+
+**Input**
+
+```text
+original
+second
+```
+
+**Script**
+
+```text
+Replace "original" "changed"
+SaveData "saved-input.txt"
+```
+
+**Output file:** `saved-input.txt`
+
+**Line endings:** `CRLF`
+
+```text
+changed
+second
+
+```
+
+<!-- web-example-end -->
+
+The file contains `changed` and `second`, each with a CRLF terminator.
+The app writes UTF-8 under the sources folder's `debug` directory. Paths are
+reduced to safe plain filenames, as for DebugWriteInput; a supplied absolute
+or parent path cannot select another destination. A pre-existing symlink in
+the sources/debug directory position is refused. The original Windows command's
+non-ASCII disk encoding has not been qualified as byte-equivalent.
+
+A run can request at most 64 SaveData/error-dump writes sharing a 16 MiB
+byte allowance, including filenames. Repeated requests for the same name
+still count. Exceeding this allowance is a parser error. A filesystem write
+failure is best effort and does not itself stop the parser: inspect the debug
+folder rather than assuming that a successful metadata lookup proves a dump
+was written.
+
+<!-- web-example:extern -->
+
+### `Extern`
+
+**Syntax:** `Extern "command" "argument"`
+
+Request a source-host callback. This is not a shell-command launcher. Like
+the inspected original web-source runners, TagGroove has no such callback
+installed: execution reports `NO EXTERN HANDLER`. The syntax is accepted so
+scripts can retain an unreachable or explicitly handled callback route, but
+it does not make external programs available.
+
+**Input**
+
+```text
+
+```
+
+**Script**
+
+```text
+OnError "Callback unavailable"
+Extern "helper" "input"
+Say "not reached"
+```
+
+**Output buffer:** `OUTPUT`
+
+```text
+Callback unavailable
+```
+
+<!-- web-example-end -->
+
+This stops through OnError and leaves `Callback unavailable` in `OUTPUT`.
+Use built-in parser commands for extraction instead of assuming a helper runs.
 
 ## JSON mode and selection
 
@@ -1637,13 +2076,15 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_foreach -->
 
 ### `json_foreach`
 
-**Syntax:** `json_foreach "array"`
+**Syntax:** `json_foreach ["collection"]`
 
-Enter each array item in its original order, or each object member in document order. The input initially contains the collection size; select the item/field before reading it. An empty/missing array skips the body. Close with json_foreach_end.
+Enter each array item in its original order, or each object member in document order. An omitted or empty collection name iterates the currently selected array/object. The input initially contains the collection size; select the item/field before reading it. An empty/missing array skips the body. Close with json_foreach_end.
 
 **Input**
 
@@ -1668,13 +2109,17 @@ json_foreach_end
 Paper Boats|Lanterns|
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_foreach_reverse -->
 
 ### `json_foreach_reverse`
 
-**Syntax:** `json_foreach_reverse "array"`
+**Syntax:** `json_foreach_reverse ["collection"]`
 
 Iterate the same array or object in reverse order. An array counter still starts at 1 for the first emitted item rather than its original index; object counters remain member names.
+
+An omitted or empty collection name iterates the current array/object.
 
 **Input**
 
@@ -1698,6 +2143,8 @@ json_foreach_end
 ```text
 Lanterns|Paper Boats|
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:json_foreach_counter -->
 
@@ -1729,6 +2176,8 @@ json_foreach_end
 01|02|
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_foreach_end -->
 
 ### `json_foreach_end`
@@ -1759,6 +2208,53 @@ json_foreach_end
 PaperBoats
 ```
 
+<!-- web-example-end -->
+
+<!-- web-example:json_foreach_continue -->
+
+### `json_foreach_continue`
+
+**Syntax:** `json_foreach_continue`
+
+Skip the remainder of the current innermost JSON loop iteration, then advance
+as json_foreach_end would. Nested outer loops stay active. At the final item,
+continue after that loop's closing json_foreach_end, not in the skipped body.
+The same rule applies to reverse loops. JSON mode must be on. Without an active
+loop, it continues normally rather than raising an outside-loop error.
+
+For input `[{"title":"one"},{"title":"two"}]`:
+
+**Input**
+
+```text
+[{"title":"one"},{"title":"two"}]
+```
+
+**Script**
+
+```text
+json "on"
+json_foreach
+json_select "title"
+SayRest
+Say "|"
+json_foreach_continue
+Say "not reached"
+json_foreach_end
+```
+
+**Output buffer:** `OUTPUT`
+
+```text
+one|two|
+```
+
+<!-- web-example-end -->
+
+`OUTPUT` becomes `one|two|`. Prefer a simple conditional when it makes the
+selection rule easier to read; Continue is useful when the remaining body
+has several extraction steps to skip together.
+
 <!-- web-example:json_select_object -->
 
 ### `json_select_object`
@@ -1787,6 +2283,8 @@ SayRest
 ```text
 Harbour Lights
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:json_unselect_object -->
 
@@ -1821,6 +2319,8 @@ SayRest
 inner/root
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_select -->
 
 ### `json_select`
@@ -1849,13 +2349,17 @@ SayRest
 Juniper Vale
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_select_array -->
 
 ### `json_select_array`
 
-**Syntax:** `json_select_array "array" index ["separator"]`
+**Syntax:** `json_select_array "array" [index ["separator"]]`
 
-Select a one-based array element, or -1 for all elements joined by the supplied separator. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. Selecting one object element also enters its context until json_unselect_object. In a dotted JSON path, array indices instead start at 0.
+Select a positive, one-based array element. Zero, any negative index, or an
+omitted/empty index selects all elements joined by the supplied separator. An
+empty array name uses the current array. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. Selecting one object element also enters its context until json_unselect_object. In a dotted JSON path, array indices instead start at 0.
 
 **Input**
 
@@ -1876,6 +2380,8 @@ SayRest
 ```text
 Paper Boats / Lanterns
 ```
+
+<!-- web-example-end -->
 
 #### Compare the two index rules
 
@@ -1934,6 +2440,8 @@ SayRest
 Juniper Vale & Mira Solberg
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_select_many_count -->
 
 ### `json_select_many_count`
@@ -1962,6 +2470,8 @@ SayRest
 3
 ```
 
+<!-- web-example-end -->
+
 ## Troubleshoot and bound the work
 
 Start with the saved input and one field. Verify a Find/Goto step, inspect its
@@ -1975,8 +2485,15 @@ DebugWriteInput captures transformed input; a forced Options trace also retains
 the downloaded input. File names are sanitized and kept under sources/debug.
 Check those files before changing an extraction pattern blindly.
 
-The checked engine stops after 2,000,000 command steps and checks appended
-output against a 16 MB cumulative byte budget. JoinLines and JoinUntil also
+The checked engine stops after 2,000,000 command steps. Output names and
+values share a 16 MiB retained-byte budget, checked before changing a buffer.
+Replacing a value with `Set` or the nonempty second argument of `OutputTo`
+releases the previous value's bytes; appending with `Say` still consumes space.
+Other buffers and retained buffer names continue to count. A refused change
+leaves the previous value and output destination intact.
+The initial `CurrentPreview` value and its buffer name count before the first
+command runs, including when the script is empty.
+SaveData/error dumps have the separate file-request/byte limits above. JoinLines and JoinUntil also
 share a 16 MiB budget for bytes appended during one run. Every copy counts,
 including repeated joins and overlapping retained lines; changing or replacing
 the input does not reset it. A join that would exceed the allowance fails

@@ -113,6 +113,9 @@ pub struct SourceRelease {
     pub provider: Provider,
     pub id: String,
     pub url: String,
+    /// Optional browser preview, separate from the fetched release identity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_url: Option<String>,
     pub title: String,
     pub artist: String,
     pub fields: Fields,

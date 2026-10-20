@@ -185,7 +185,10 @@ fn replay(scenario: &str) {
             file.index_script.as_ref().unwrap(),
             "index",
             &page,
-            variables.clone(),
+            engine::Environment {
+                vars: variables.clone(),
+                ..Default::default()
+            },
             false,
         )
         .unwrap();
@@ -210,7 +213,10 @@ fn replay(scenario: &str) {
         file.album_script.as_ref().unwrap(),
         "album",
         &page,
-        variables,
+        engine::Environment {
+            vars: variables,
+            ..Default::default()
+        },
         false,
     )
     .unwrap();
@@ -594,6 +600,8 @@ struct SearchArgs {
 struct ReleaseArgs {
     source: String,
     url: String,
+    #[serde(default, rename = "previewUrl")]
+    preview_url: Option<String>,
     ticket: u64,
 }
 #[derive(serde::Deserialize)]
@@ -859,6 +867,7 @@ fn public_review_helper(
                     let release = release_with_preparation(
                         args.source.clone(),
                         args.url,
+                        args.preview_url,
                         args.ticket,
                         prepare_in(public.installed.clone(), &args.source),
                     )
@@ -1231,6 +1240,7 @@ fn private_public_acquisition_review_apply_and_journaled_audio_workflow() {
     let denied = tauri::async_runtime::block_on(release_with_preparation(
         fixture.source.clone(),
         manifest.page_url.clone(),
+        None,
         1,
         async { panic!("unauthorized release prepared source") },
     ));
@@ -1250,6 +1260,7 @@ fn private_public_acquisition_review_apply_and_journaled_audio_workflow() {
         _ => panic!("unknown private case"),
     };
     let expected_release = SourceRelease {
+        preview_url: None,
         provider: Provider::Web,
         id: manifest.page_url.clone(),
         url: manifest.page_url.clone(),
@@ -1567,7 +1578,10 @@ fn private_saved_page_production_review_and_journaled_audio_workflow() {
             .expect("private album parser missing"),
         "album",
         &page,
-        vars(&installed, &file).unwrap(),
+        engine::Environment {
+            vars: vars(&installed, &file).unwrap(),
+            ..Default::default()
+        },
         false,
     )
     .unwrap_or_else(|_| panic!("private album parser failed; script and response omitted"));

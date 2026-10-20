@@ -464,7 +464,13 @@ pub(crate) fn write_stage(root: &Path, files: &Files) -> Result<(), String> {
 #[derive(Clone)]
 enum Candidate {
     Columns(crate::columns::Layout),
-    Panel(crate::tag_panel::Layout),
+    Panel(
+        crate::tag_panel::Layout,
+        crate::mp3tag_field_values::ImportedFieldValues,
+    ),
+    FieldValues(crate::mp3tag_field_values::ImportedFieldValues),
+    Genres(crate::mp3tag_field_values::ImportedFieldValues),
+    Settings(crate::mp3tag_settings::Patch),
     Actions(tag_core::actions::ActionGroup),
     Export(crate::exports::Configuration),
 }
@@ -476,6 +482,8 @@ pub struct Item {
     pub warnings: Vec<String>,
     pub collision: bool,
     pub supported: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<crate::mp3tag_settings::Setting>,
 }
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct SourceIdentity {
@@ -585,6 +593,7 @@ fn inspect(
             warnings: Vec::new(),
             collision: false,
             supported: false,
+            settings: Vec::new(),
         };
         let result: Result<Option<Candidate>, String> = (|| {
             if matches!(lower.rsplit('.').next(), Some("ini" | "mta" | "mte"))
@@ -621,6 +630,29 @@ fn inspect(
                     ));
                 }
                 Ok(Some(Candidate::Columns(parsed.result.layout)))
+            } else if lower.rsplit('/').next() == Some("mp3tag.cfg") {
+                item.kind = "settings".into();
+                item.collision = directory.join("settings.json").exists()
+                    || directory.join("tag-panel.json").exists();
+                let parsed = crate::mp3tag_settings::parse(bytes)?;
+                item.settings = parsed.settings;
+                item.warnings = parsed.warnings;
+                Ok(Some(Candidate::Settings(parsed.patch)))
+            } else if lower.rsplit('/').next() == Some("genres.ini") {
+                item.kind = "genres".into();
+                item.collision = directory.join("tag-panel.json").exists();
+                let parsed = crate::mp3tag_field_values::parse_genres(
+                    &crate::mp3tag_columns::decode(bytes),
+                )?;
+                item.warnings = parsed.skipped;
+                Ok(Some(Candidate::Genres(parsed.values)))
+            } else if lower.rsplit('/').next() == Some("usrfieldvalues.ini") {
+                item.kind = "field_values".into();
+                item.collision = directory.join("tag-panel.json").exists();
+                let parsed =
+                    crate::mp3tag_field_values::parse(&crate::mp3tag_columns::decode(bytes))?;
+                item.warnings = parsed.skipped;
+                Ok(Some(Candidate::FieldValues(parsed.values)))
             } else if lower.rsplit('/').next() == Some("usrfields.ini")
                 || (lower.split('/').any(|part| part == "panels") && lower.ends_with(".ini"))
             {
@@ -631,12 +663,13 @@ fn inspect(
                 )
                 .map_err(|e| e.to_string())?;
                 item.warnings = parsed.skipped;
-                Ok(Some(Candidate::Panel(parsed.panel)))
+                Ok(Some(Candidate::Panel(parsed.panel, parsed.field_values)))
             } else if lower.ends_with(".mta") {
                 item.kind = "actions".into();
-                let mut parsed = crate::action_host::import_group_diagnostic(
+                let mut parsed = crate::action_host::import_group_diagnostic_with_dialect(
                     &extracted.path().join(file),
                     legacy_encoding,
+                    tag_core::actions::MtaDialect::Mp3tag,
                 )
                 .map_err(|e| e.to_string())?;
                 item.warnings = parsed
@@ -1147,7 +1180,7 @@ fn apply(
     {
         return Err("Select supported setup items from the current preview.".into());
     }
-    for kind in ["columns", "panel"] {
+    for kind in ["columns", "panel", "genres", "field_values", "settings"] {
         if plan
             .items
             .iter()
@@ -1155,7 +1188,10 @@ fn apply(
             .count()
             > 1
         {
-            return Err("Select at most one column layout and one tag-panel layout.".into());
+            return Err(
+                "Select at most one column layout, one tag-panel layout, one genres file, one field-values file and one binary settings file."
+                    .into(),
+            );
         }
     }
     // Target keep/replace policy cannot disambiguate two incoming definitions.
@@ -1185,17 +1221,24 @@ fn apply(
     };
     let mut actions_changed = false;
     let mut exports_changed = false;
+    let mut admitted_exports = BTreeMap::new();
     for name in selected {
         match &plan.candidates[name] {
             Candidate::Columns(layout) => {
                 crate::columns::save(&stage.path().join("columns.json"), layout)?
             }
-            Candidate::Panel(layout) => {
+            Candidate::Panel(layout, values) => {
                 let path = stage.path().join("tag-panel.json");
                 let mut panel = crate::tag_panel::load(&path)?;
                 panel.panel = layout.clone();
+                values.apply(&mut panel.field_values);
                 crate::tag_panel::save(&path, &panel)?;
             }
+            // Apply the dedicated modern file after legacy panel settings,
+            // independently of checkbox/selection order.
+            Candidate::FieldValues(_) => {}
+            Candidate::Genres(_) => {}
+            Candidate::Settings(_) => {}
             Candidate::Actions(group) => {
                 if let Some(index) = actions
                     .groups
@@ -1220,13 +1263,19 @@ fn apply(
                     .position(|old| old.name.eq_ignore_ascii_case(&configuration.name))
                 {
                     if !replace_names {
+                        admitted_exports.insert(
+                            configuration.name.clone(),
+                            exports.configurations[index].id.clone(),
+                        );
                         report.kept.push(name.clone());
                         continue;
                     }
                     configuration.id = exports.configurations[index].id.clone();
                     configuration.file = exports.configurations[index].file.clone();
+                    admitted_exports.insert(configuration.name.clone(), configuration.id.clone());
                     exports.configurations[index] = configuration;
                 } else {
+                    admitted_exports.insert(configuration.name.clone(), configuration.id.clone());
                     exports.configurations.push(configuration);
                 }
                 exports_changed = true;
@@ -1237,6 +1286,39 @@ fn apply(
     if report.imported.is_empty() {
         return Err("No setup items would change; review the collision choices.".into());
     }
+    for name in selected {
+        if let Candidate::Genres(values) = &plan.candidates[name] {
+            let path = stage.path().join("tag-panel.json");
+            let mut panel = crate::tag_panel::load(&path)?;
+            values.apply(&mut panel.field_values);
+            crate::tag_panel::save(&path, &panel)?;
+        }
+    }
+    let mut after_window = window.clone();
+    for name in selected {
+        if let Candidate::Settings(settings) = &plan.candidates[name] {
+            let preferences = settings.apply(stage.path(), &after_window.preferences)?;
+            after_window.preferences.extend(preferences);
+            let before_preferences =
+                serde_json::to_value(&exports.preferences).map_err(|e| e.to_string())?;
+            let warnings = settings.apply_exports(&mut exports, &admitted_exports);
+            exports_changed |= before_preferences
+                != serde_json::to_value(&exports.preferences).map_err(|e| e.to_string())?;
+            if let Some(item) = report.items.iter_mut().find(|item| &item.file == name) {
+                item.warnings.extend(warnings);
+            }
+        }
+    }
+    // The modern per-field file wins over legacy panel/genre lists and the
+    // binary genre-specific preference, regardless of selection order.
+    for name in selected {
+        if let Candidate::FieldValues(values) = &plan.candidates[name] {
+            let path = stage.path().join("tag-panel.json");
+            let mut panel = crate::tag_panel::load(&path)?;
+            values.apply(&mut panel.field_values);
+            crate::tag_panel::save(&path, &panel)?;
+        }
+    }
     if actions_changed {
         crate::action_host::save_library(&stage.path().join("actions.json"), &actions)?;
     }
@@ -1244,7 +1326,7 @@ fn apply(
         crate::exports::save(&stage.path().join("exports.json"), &exports)?;
     }
     let after = native(stage.path())?;
-    publish_configuration(directory, before, after, window.clone(), window, report)
+    publish_configuration(directory, before, after, window, after_window, report)
 }
 
 /// One journal/replacement/receipt engine shared by profile import and portable backup.
@@ -1955,6 +2037,1306 @@ mod tests {
         let state = status(&directory, None, None, None).unwrap();
         assert!(!state.restorable);
         assert!(!directory.join(STORE).exists());
+    }
+    fn export_setting_records(records: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for (id, payload) in records {
+            bytes.extend(
+                (0..32)
+                    .step_by(2)
+                    .map(|index| u8::from_str_radix(&id[index..index + 2], 16).unwrap()),
+            );
+            bytes.extend((payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(payload);
+        }
+        bytes
+    }
+    #[test]
+    fn binary_export_settings_bind_after_collision_resolution_and_restore_exactly() {
+        let _guard = TESTS.lock().unwrap();
+        for replace in [false, true] {
+            for reverse in [false, true] {
+                let dir = tempfile::tempdir().unwrap();
+                let source = tempfile::tempdir().unwrap();
+                config(dir.path());
+                make_source(source.path());
+                let mut prior = crate::settings::Settings::default();
+                prior.pages.insert(
+                    "export".into(),
+                    serde_json::json!({"write_bom":false,"show_dialog":true}),
+                );
+                crate::settings::save(&dir.path().join("settings.json"), &prior).unwrap();
+                let bytes = export_setting_records(&[
+                    ("a91684289cba6f498fd857faeaa3749c", &[255]),
+                    ("9e917d2becf8af4793061746fdf7bad5", &[1]),
+                    ("e31f66267bd2a34baffa13f42d34fd95", b"  %album%  "),
+                    ("759de112c0072d48b5650c2fbec586a8", &256u32.to_le_bytes()),
+                    ("536d231fc389234bafa84663f0986a0c", b"Practice"),
+                    ("d1c3c5a4c95780489c008de588e2eeea", b"lists/%album%.txt"),
+                ]);
+                std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+                let before = native(dir.path()).unwrap();
+                let original = input(source.path()).unwrap();
+                let preview =
+                    make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+                let settings = preview
+                    .items
+                    .iter()
+                    .find(|item| item.file == "mp3tag.cfg")
+                    .unwrap();
+                assert!(settings.supported, "{:?}", settings.warnings);
+                assert_eq!(settings.settings.len(), 6);
+                let mut selected = vec!["mp3tag.cfg".into(), "export/Practice.mte".into()];
+                if reverse {
+                    selected.reverse();
+                }
+                let applied =
+                    apply(dir.path(), &preview.token, &selected, replace, window()).unwrap();
+                let library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+                assert_eq!(
+                    library.preferences.configuration.as_deref(),
+                    Some("before-practice")
+                );
+                assert_eq!(library.preferences.filename, "lists/%album%.txt");
+                assert!(library.preferences.append);
+                assert_eq!(library.preferences.partition.as_deref(), Some("%album%"));
+                let metadata = serde_json::to_value(&library).unwrap();
+                assert_eq!(metadata["preferences"]["partition_memory"], "%album%");
+                let options: crate::settings::Settings = serde_json::from_slice(
+                    &std::fs::read(dir.path().join("settings.json")).unwrap(),
+                )
+                .unwrap();
+                assert!(
+                    crate::exports::output_options(
+                        options.pages.get("export"),
+                        &library.preferences
+                    )
+                    .0
+                );
+                assert_eq!(options.pages["export"]["show_dialog"], true);
+                assert_eq!(
+                    library
+                        .configurations
+                        .iter()
+                        .find(|c| c.id == "before-practice")
+                        .unwrap()
+                        .template
+                        == "Before export",
+                    !replace
+                );
+                let pending = applied.pending.unwrap();
+                status(dir.path(), Some(&pending.id), None, None).unwrap();
+                status(dir.path(), None, Some(&pending.id), None).unwrap();
+                restore(dir.path(), pending.window).unwrap();
+                assert_eq!(native(dir.path()).unwrap(), before);
+                assert_eq!(input(source.path()).unwrap(), original);
+            }
+        }
+    }
+    #[test]
+    fn binary_export_partition_memory_survives_disabled_and_partial_imports() {
+        let _guard = TESTS.lock().unwrap();
+        for (multiple, expression, expected, memory) in [
+            (Some(false), Some("%artist%"), None, "%artist%"),
+            (
+                Some(true),
+                Some("  "),
+                Some("%_folderpath%"),
+                "%_folderpath%",
+            ),
+            (Some(true), None, Some("%album%"), "%album%"),
+            (None, Some("%artist%"), None, "%artist%"),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            let mut value = serde_json::to_value(&library).unwrap();
+            value["preferences"]["partition_memory"] = "%album%".into();
+            library = serde_json::from_value(value).unwrap();
+            crate::exports::save(&dir.path().join("exports.json"), &library).unwrap();
+            let flag = [u8::from(multiple.unwrap_or(false))];
+            let mut records = Vec::new();
+            if multiple.is_some() {
+                records.push(("9e917d2becf8af4793061746fdf7bad5", flag.as_slice()));
+            }
+            if let Some(text) = expression {
+                records.push(("e31f66267bd2a34baffa13f42d34fd95", text.as_bytes()));
+            }
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&records),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                window(),
+            )
+            .unwrap();
+            let value: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(dir.path().join("exports.json")).unwrap())
+                    .unwrap();
+            assert_eq!(
+                value["preferences"]["partition"],
+                serde_json::to_value(expected).unwrap()
+            );
+            assert_eq!(value["preferences"]["partition_memory"], memory);
+        }
+    }
+    #[test]
+    fn binary_export_unresolved_active_template_never_borrows_current_target() {
+        let _guard = TESTS.lock().unwrap();
+        for active in [None, Some("Missing"), Some("practice"), Some("Practice")] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            make_source(source.path());
+            let mut library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            library.preferences.filename = "before.txt".into();
+            crate::exports::save(&dir.path().join("exports.json"), &library).unwrap();
+            let mut records = vec![(
+                "d1c3c5a4c95780489c008de588e2eeea",
+                b"incoming.txt".as_slice(),
+            )];
+            if let Some(name) = active {
+                records.push(("536d231fc389234bafa84663f0986a0c", name.as_bytes()));
+            }
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&records),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            // Exact-case matching and explicit selection are both required.
+            let selected_template = if active == Some("practice") {
+                "export/Practice.mte"
+            } else {
+                "export/Other.mte"
+            };
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into(), selected_template.into()],
+                false,
+                window(),
+            )
+            .unwrap();
+            let after = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            assert_eq!(
+                after.preferences.configuration,
+                library.preferences.configuration
+            );
+            assert_eq!(after.preferences.filename, "before.txt");
+            assert!(applied
+                .report
+                .unwrap()
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap()
+                .warnings
+                .iter()
+                .any(|w| w.contains("selected export template")));
+        }
+    }
+    #[test]
+    fn binary_export_new_template_binding_and_last_record_values_survive_reload() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        make_source(source.path());
+        let bytes = export_setting_records(&[
+            ("a91684289cba6f498fd857faeaa3749c", &[1]),
+            ("a91684289cba6f498fd857faeaa3749c", &[0, 255]),
+            ("759de112c0072d48b5650c2fbec586a8", &1u32.to_le_bytes()),
+            ("759de112c0072d48b5650c2fbec586a8", &0u32.to_le_bytes()),
+            ("536d231fc389234bafa84663f0986a0c", b"Practice"),
+            ("536d231fc389234bafa84663f0986a0c", b"Other\0Practice"),
+            ("d1c3c5a4c95780489c008de588e2eeea", b"out.txt"),
+            ("d1c3c5a4c95780489c008de588e2eeea", b""),
+            ("9e917d2becf8af4793061746fdf7bad5", &[1]),
+        ]);
+        std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        apply(
+            dir.path(),
+            &preview.token,
+            &["mp3tag.cfg".into(), "export/Other.mte".into()],
+            false,
+            window(),
+        )
+        .unwrap();
+        let library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+        let other = library
+            .configurations
+            .iter()
+            .find(|c| c.name == "Other")
+            .unwrap();
+        assert_eq!(
+            library.preferences.configuration.as_deref(),
+            Some(other.id.as_str())
+        );
+        assert!(!library.preferences.append);
+        assert!(!library.preferences.write_bom);
+        assert!(library.preferences.filename.is_empty());
+        assert_eq!(
+            library.preferences.partition.as_deref(),
+            Some("%_folderpath%")
+        );
+        let options: crate::settings::Settings =
+            serde_json::from_slice(&std::fs::read(dir.path().join("settings.json")).unwrap())
+                .unwrap();
+        assert_eq!(options.pages["export"]["write_bom"], false);
+    }
+    #[test]
+    fn binary_export_invalid_incoming_formats_keep_existing_choices() {
+        let _guard = TESTS.lock().unwrap();
+        for filename in ["$if(", "C:\\private\\out.txt", "\\\\server\\share\\out.txt"] {
+            if cfg!(windows) && filename.contains('\\') {
+                continue;
+            }
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            make_source(source.path());
+            let mut library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            library.preferences.filename = "before.txt".into();
+            library.preferences.partition = Some("%title%".into());
+            crate::exports::save(&dir.path().join("exports.json"), &library).unwrap();
+            let bytes = export_setting_records(&[
+                ("a91684289cba6f498fd857faeaa3749c", &[1]),
+                ("9e917d2becf8af4793061746fdf7bad5", &[0]),
+                ("e31f66267bd2a34baffa13f42d34fd95", b"$if("),
+                ("536d231fc389234bafa84663f0986a0c", b"Practice"),
+                ("d1c3c5a4c95780489c008de588e2eeea", filename.as_bytes()),
+            ]);
+            std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported);
+            assert!(item
+                .warnings
+                .iter()
+                .any(|w| w.contains("invalid export partition")));
+            assert!(item
+                .warnings
+                .iter()
+                .any(|w| w.contains("filename is not imported")));
+            apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into(), "export/Practice.mte".into()],
+                false,
+                window(),
+            )
+            .unwrap();
+            let after = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            assert_eq!(after.preferences.filename, "before.txt");
+            assert_eq!(after.preferences.partition.as_deref(), Some("%title%"));
+            assert!(after.preferences.append);
+        }
+    }
+    #[test]
+    fn native_profile_mapping_cover_directory_and_padding_restore_exactly() {
+        let _guard = TESTS.lock().unwrap();
+        for clear in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(directory.path());
+            let mut prior = crate::settings::Settings::default();
+            prior.general.natural_sort = false;
+            prior.tags.mappings = vec![tag_core::UserFieldMapping {
+                tag_type: "APEv2".into(),
+                source: "BEFORE".into(),
+                target: "KEPT".into(),
+            }];
+            prior.pages.insert(
+                "directories".into(),
+                serde_json::json!({"cover_art":"Before","unrelated":true}),
+            );
+            crate::settings::save(&directory.path().join("settings.json"), &prior).unwrap();
+            let mut current = window();
+            current.preferences.insert(
+                "opentag.numbering".into(),
+                serde_json::json!({"track_start":9,"track_digits":4,"disc_digits":3}).to_string(),
+            );
+            let before = native(directory.path()).unwrap();
+            let rows = if clear {
+                Vec::new()
+            } else {
+                vec![
+                    ("VorbisComment", "DATE", "YEAR"),
+                    ("WMA", "MOOD", "STIMMUNG🎵"),
+                ]
+            };
+            let mut mappings = (rows.len() as u32).to_le_bytes().to_vec();
+            for (kind, from, to) in &rows {
+                for field in [kind, from, to, &"", &""] {
+                    mappings.extend((field.len() as u32).to_le_bytes());
+                    mappings.extend(field.as_bytes());
+                }
+            }
+            let cover = if clear { "" } else { "%_folderpath%Scans" };
+            let bytes = export_setting_records(&[
+                ("41a00ac0f0ccf14f924a133d5bd6e0e7", &mappings),
+                ("a7a810227a5a8d4db511e77851eb10dd", cover.as_bytes()),
+                ("81e9cd2aac92e14e9c71cf21ae4e0510", &[0]),
+                ("e4d56fdc8c9b154c99e8c0adf4f25b22", &[0]),
+            ]);
+            std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+            let original = input(source.path()).unwrap();
+            let preview = make_preview(
+                directory.path(),
+                source.path().to_str().unwrap(),
+                current.clone(),
+            )
+            .unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported, "{:?}", item.warnings);
+            assert_eq!(item.settings.len(), 4 + rows.len());
+            let applied = apply(
+                directory.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current.clone(),
+            )
+            .unwrap();
+            let options: crate::settings::Settings = serde_json::from_slice(
+                &std::fs::read(directory.path().join("settings.json")).unwrap(),
+            )
+            .unwrap();
+            let actual: Vec<_> = options
+                .tags
+                .mappings
+                .iter()
+                .map(|row| {
+                    (
+                        row.tag_type.as_str(),
+                        row.source.as_str(),
+                        row.target.as_str(),
+                    )
+                })
+                .collect();
+            assert_eq!(actual, rows);
+            assert_eq!(options.pages["directories"]["cover_art"], cover);
+            assert_eq!(options.pages["directories"]["unrelated"], true);
+            assert!(!options.general.natural_sort);
+            let pending = applied.pending.unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(
+                    &pending.window.preferences["opentag.numbering"]
+                )
+                .unwrap(),
+                serde_json::json!({"track_start":9,"track_digits":1,"disc_digits":1})
+            );
+            status(directory.path(), Some(&pending.id), None, None).unwrap();
+            status(directory.path(), None, Some(&pending.id), None).unwrap();
+            let restored = restore(directory.path(), pending.window).unwrap();
+            assert_eq!(restored.pending.unwrap().window, current);
+            assert_eq!(native(directory.path()).unwrap(), before);
+            assert_eq!(input(source.path()).unwrap(), original);
+        }
+    }
+    #[test]
+    fn native_options_bindings_apply_together_and_restore_exact_configuration_and_window() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let mut old = crate::settings::load(&dir.path().join("settings.json")).0;
+        old.pages.insert(
+            "updates".into(),
+            serde_json::json!({"last_version":"9.8.7","include_beta":false}),
+        );
+        old.pages.insert(
+            "library".into(),
+            serde_json::json!({"enabled":false,"restrict":true,"directories":["/target-only"]}),
+        );
+        old.pages.insert(
+            "tag-sources-freedb".into(),
+            serde_json::json!({"email":"target@example.org","unrelated":42}),
+        );
+        crate::settings::save(&dir.path().join("settings.json"), &old).unwrap();
+        let before = native(dir.path()).unwrap();
+        let current = window();
+        let mut servers = 2u32.to_le_bytes().to_vec();
+        for row in [
+            ["First", "first.example.org", "/one", "80"],
+            ["Second 🎵", "second.example.org", "/two", "8880"],
+        ] {
+            for field in row {
+                servers.extend((field.len() as u32).to_le_bytes());
+                servers.extend(field.as_bytes());
+            }
+        }
+        let bytes = export_setting_records(&[
+            ("345420b668107b40b253c362f84c07ae", &1u32.to_le_bytes()),
+            ("2fc8d3d38c9a594394745f4bf5373c52", &2u32.to_le_bytes()),
+            ("35de0f55b39ed3468af928dbf3a478f7", &120u32.to_le_bytes()),
+            ("7bbbf22d6046a94d849c82eb792d0910", &[1]),
+            ("65378755075c9046b6d4ac4cd6346af9", &[0]),
+            ("eada7c7f01da5f4a849392b72b37ef08", &[0]),
+            ("e60558750d35d148b3f22c2c229005dd", &[1]),
+            ("73e3c9e1559ea5449bad26fadc7ea56d", &1u32.to_le_bytes()),
+            ("f64318074ac91b4db1b909e2ce5a695c", b"%album% cover"),
+            ("a29cd34be23c764e89f5976ccaa2da25", &4u32.to_le_bytes()),
+            ("a4b6e530061c5642a1adb455bf362784", &1u32.to_le_bytes()),
+            ("192fa431f5594c4c9c17940c895f2eb9", &0u32.to_le_bytes()),
+            ("7b29e93f08c57b4abdec988fa4ab9583", &2u32.to_le_bytes()),
+            ("7c7d406cdfd18b48a914db716854fc2f", &[0]),
+            ("f0bb1392e33e1041801e42ce3b64f1b7", &[1]),
+            ("1a0bfd2a930e704dac9262461ddcd9c6", b"German"),
+            ("312fa18b404068489ebd20ea4183cc24", b""),
+            ("7eaf6b64ce85a54196043a3c8cfb1d2e", b"%album%.m3u8"),
+            ("0e3b78b6452b224789abc77122e2d677", b""),
+            ("1f60b2ade49d454cb0eeeaf43c19359e", &servers),
+            ("2345b1c1c149ad4fbaeed1d837e96668", &1u32.to_le_bytes()),
+        ]);
+        std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+        let preview =
+            make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+        let item = preview
+            .items
+            .iter()
+            .find(|item| item.file == "mp3tag.cfg")
+            .unwrap();
+        assert!(item.supported, "{:?}", item.warnings);
+        assert!(item.settings.iter().any(|setting| setting.value.as_deref()
+            == Some("Second 🎵 — http://second.example.org:8880/two")));
+        let applied = apply(
+            dir.path(),
+            &preview.token,
+            &["mp3tag.cfg".into()],
+            false,
+            current.clone(),
+        )
+        .unwrap();
+        let actual = crate::settings::load(&dir.path().join("settings.json")).0;
+        for (page, field, value) in [
+            ("appearance", "toolbar_scale", serde_json::json!("150")),
+            ("appearance", "ui_scale", serde_json::json!("120")),
+            ("library", "enabled", serde_json::json!(true)),
+            ("library", "restrict", serde_json::json!(false)),
+            (
+                "library",
+                "directories",
+                serde_json::json!(["/target-only"]),
+            ),
+            ("playlist", "write_bom", serde_json::json!(false)),
+            (
+                "playlist",
+                "generator_filename",
+                serde_json::json!("%album%.m3u8"),
+            ),
+            ("playlist", "generator_partition", serde_json::json!("")),
+            ("export", "dont_create_directories", serde_json::json!(true)),
+            (
+                "directories-startup",
+                "startup",
+                serde_json::json!("previous"),
+            ),
+            (
+                "tag-sources",
+                "cover_filename",
+                serde_json::json!("%album% cover"),
+            ),
+            (
+                "tag-sources",
+                "musicbrainz_cover_size",
+                serde_json::json!("1200"),
+            ),
+            (
+                "tag-sources-freedb",
+                "comment_disc_id",
+                serde_json::json!(true),
+            ),
+            (
+                "tag-sources-freedb",
+                "disc_id_field",
+                serde_json::json!(false),
+            ),
+            ("tag-sources-freedb", "server", serde_json::json!(1)),
+            (
+                "tag-sources-freedb",
+                "address",
+                serde_json::json!("second.example.org"),
+            ),
+            ("tag-sources-freedb", "protocol", serde_json::json!("http")),
+            ("tag-sources-freedb", "path", serde_json::json!("/two")),
+            ("tag-sources-freedb", "port", serde_json::json!("8880")),
+            (
+                "tag-sources-freedb",
+                "email",
+                serde_json::json!("target@example.org"),
+            ),
+            ("tag-sources-freedb", "unrelated", serde_json::json!(42)),
+            ("updates", "check_on_startup", serde_json::json!(true)),
+            ("updates", "include_beta", serde_json::json!(true)),
+            ("updates", "release_notes", serde_json::json!(false)),
+            ("updates", "last_version", serde_json::json!("9.8.7")),
+            (
+                "messages",
+                "import_covers_choice",
+                serde_json::json!("preserve"),
+            ),
+        ] {
+            assert_eq!(actual.pages[page][field], value, "{page}:{field}");
+        }
+        assert_eq!(
+            actual.pages["tag-sources-freedb"]["servers"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(
+            !crate::exports::load(&dir.path().join("exports.json"))
+                .unwrap()
+                .preferences
+                .create_directories
+        );
+        let pending = applied.pending.unwrap();
+        assert_eq!(pending.window.preferences["opentag.language"], "de");
+        assert_eq!(actual.pages["language"]["language"], "de");
+        assert_eq!(pending.window.preferences["opentag.appearance"], "dark");
+        assert_eq!(pending.window.workspace, current.workspace);
+        status(dir.path(), Some(&pending.id), None, None).unwrap();
+        status(dir.path(), None, Some(&pending.id), None).unwrap();
+        let restored = restore(dir.path(), pending.window).unwrap();
+        assert_eq!(restored.pending.unwrap().window, current);
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert_eq!(
+            std::fs::read(source.path().join("mp3tag.cfg")).unwrap(),
+            bytes
+        );
+    }
+    #[test]
+    fn binary_numbering_switches_overlay_present_records_and_restore_browser_memory() {
+        let _guard = TESTS.lock().unwrap();
+        let mappings = [
+            ("f4a314340ea7c044a6de766e7a2adc74", "track_total"),
+            ("aaeda90a7158644ab6371c40786599a8", "next_disc_on_directory"),
+            (
+                "e242331383e5a2448bec645e3eabdd87",
+                "reset_track_on_next_disc",
+            ),
+            ("c90c8b8c433f5f4e8c86ba63e902fb8b", "disc_enabled"),
+            ("5a98eb5f2200764a94daf6d4d9300c0b", "disc_total"),
+        ];
+        let cases = [vec![0; 5], vec![1; 5], vec![255; 5]].into_iter().chain(
+            (0..5).map(|selected| (0..5).map(|index| u8::from(index == selected)).collect()),
+        );
+        for raw in cases {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let before = native(dir.path()).unwrap();
+            let mut current = window();
+            let mut remembered = serde_json::json!({
+                "track_start":9,"track_digits":4,"disc_start":7,"disc_digits":3,"disc_total_value":5,
+                "next_disc_on_field":"ALBUMARTIST","reset_disc_on_field":"ALBUM",
+                "track_total":false,"next_disc_on_directory":false,"reset_track_on_next_disc":false,
+                "disc_enabled":false,"disc_total":false
+            });
+            current
+                .preferences
+                .insert("opentag.numbering".into(), remembered.to_string());
+            let payloads: Vec<_> = raw.iter().map(|value| [*value, 123]).collect();
+            let records: Vec<_> = mappings
+                .iter()
+                .zip(&payloads)
+                .map(|((id, _), payload)| (*id, payload.as_slice()))
+                .collect();
+            let bytes = export_setting_records(&records);
+            std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|item| item.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported, "{:?}", item.warnings);
+            assert_eq!(item.settings.len(), 5);
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current.clone(),
+            )
+            .unwrap();
+            for ((_, key), value) in mappings.iter().zip(raw) {
+                remembered[*key] = (value != 0).into();
+            }
+            let pending = applied.pending.unwrap();
+            let actual: serde_json::Value =
+                serde_json::from_str(&pending.window.preferences["opentag.numbering"]).unwrap();
+            assert_eq!(actual, remembered);
+            assert_eq!(pending.window.workspace, current.workspace);
+            assert_eq!(
+                pending.window.preferences["opentag.language"],
+                current.preferences["opentag.language"]
+            );
+            status(dir.path(), Some(&pending.id), None, None).unwrap();
+            status(dir.path(), None, Some(&pending.id), None).unwrap();
+            let restored = restore(dir.path(), pending.window).unwrap();
+            assert_eq!(restored.pending.unwrap().window, current);
+            assert_eq!(native(dir.path()).unwrap(), before);
+            assert_eq!(
+                std::fs::read(source.path().join("mp3tag.cfg")).unwrap(),
+                bytes
+            );
+        }
+    }
+    #[test]
+    fn binary_numbering_partial_import_never_invents_absent_native_defaults() {
+        let _guard = TESTS.lock().unwrap();
+        for saved in [
+            None,
+            Some(
+                r#"{"track_total":true,"track_start":3,"disc_enabled":true,"reset_track_on_next_disc":false}"#,
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut current = window();
+            if let Some(text) = saved {
+                current
+                    .preferences
+                    .insert("opentag.numbering".into(), text.into());
+            }
+            let bytes = export_setting_records(&[("f4a314340ea7c044a6de766e7a2adc74", &[0])]);
+            std::fs::write(source.path().join("mp3tag.cfg"), bytes).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current,
+            )
+            .unwrap();
+            let mut expected: serde_json::Value =
+                serde_json::from_str(saved.unwrap_or("{}")).unwrap();
+            expected["track_total"] = false.into();
+            let pending = applied.pending.unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(
+                    &pending.window.preferences["opentag.numbering"]
+                )
+                .unwrap(),
+                expected
+            );
+        }
+    }
+    #[test]
+    fn binary_numbering_field_pairs_require_explicit_enabled_state_and_usable_names() {
+        let _guard = TESTS.lock().unwrap();
+        for (
+            next_enabled,
+            next_field,
+            reset_enabled,
+            reset_field,
+            expected_next,
+            expected_reset,
+            warn,
+        ) in [
+            (
+                Some(true),
+                Some("ALBUM"),
+                Some(true),
+                Some("ÉPOQUE🎵"),
+                "ALBUM",
+                "ÉPOQUE🎵",
+                false,
+            ),
+            (
+                Some(false),
+                Some(""),
+                Some(false),
+                Some("_DIRECTORY"),
+                "",
+                "",
+                false,
+            ),
+            (Some(false), None, Some(false), None, "", "", false),
+            (
+                Some(true),
+                None,
+                Some(true),
+                None,
+                "Before next",
+                "Before reset",
+                true,
+            ),
+            (
+                None,
+                Some("ALBUM"),
+                None,
+                Some("ARTIST"),
+                "Before next",
+                "Before reset",
+                true,
+            ),
+            (
+                Some(true),
+                Some("_DIRECTORY"),
+                Some(true),
+                Some("_DIRECTORY"),
+                "Before next",
+                "Before reset",
+                true,
+            ),
+            (
+                Some(true),
+                Some(""),
+                Some(true),
+                Some("bad\nfield"),
+                "Before next",
+                "Before reset",
+                true,
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut current = window();
+            current.preferences.insert("opentag.numbering".into(),serde_json::json!({"track_start":5,"next_disc_on_field":"Before next","reset_disc_on_field":"Before reset"}).to_string());
+            let mut owned: Vec<(&str, Vec<u8>)> =
+                vec![("a17772f7656a2b4fb710657ed41cb01d", vec![0])];
+            if let Some(enabled) = next_enabled {
+                owned.push(("2da5f759503fa947932b7e5310a032fa", vec![u8::from(enabled)]));
+            }
+            if let Some(field) = next_field {
+                owned.push((
+                    "36d2f91d9589434ea5669328ab6b9486",
+                    field.as_bytes().to_vec(),
+                ));
+            }
+            if let Some(enabled) = reset_enabled {
+                owned.push(("b9f3835eafb14c4ba2ca0a1e319f33a3", vec![u8::from(enabled)]));
+            }
+            if let Some(field) = reset_field {
+                owned.push((
+                    "89d6949ac805e64b9eab9c7fa533a0db",
+                    field.as_bytes().to_vec(),
+                ));
+            }
+            let records: Vec<_> = owned
+                .iter()
+                .map(|(id, payload)| (*id, payload.as_slice()))
+                .collect();
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&records),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported);
+            assert_eq!(
+                item.warnings.iter().any(|w| w.contains("numbering field")),
+                warn,
+                "{:?}",
+                item.warnings
+            );
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current,
+            )
+            .unwrap();
+            let pending = applied.pending.unwrap();
+            let memory: serde_json::Value =
+                serde_json::from_str(&pending.window.preferences["opentag.numbering"]).unwrap();
+            assert_eq!(memory["next_disc_on_field"], expected_next);
+            assert_eq!(memory["reset_disc_on_field"], expected_reset);
+            assert_eq!(memory["track_start"], 5);
+            assert!(!item.warnings.iter().any(|w| w.contains("bad\nfield")));
+        }
+    }
+    #[test]
+    fn binary_numbering_invalid_existing_memory_refuses_before_publication() {
+        let _guard = TESTS.lock().unwrap();
+        for saved in [
+            "null",
+            "{broken",
+            r#"{"track_start":0}"#,
+            r#"{"track_total":"false"}"#,
+            r#"{"unrelated_key":true}"#,
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let before = native(dir.path()).unwrap();
+            let mut current = window();
+            current
+                .preferences
+                .insert("opentag.numbering".into(), saved.into());
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&[("f4a314340ea7c044a6de766e7a2adc74", &[1])]),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let Err(error) = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current,
+            ) else {
+                panic!("invalid numbering memory accepted");
+            };
+            assert!(error.contains("numbering"), "{error}");
+            assert_eq!(native(dir.path()).unwrap(), before);
+            assert!(!dir.path().join(STORE).exists());
+        }
+    }
+    #[test]
+    fn binary_settings_migration_previews_applies_and_restores_confirmed_flags() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let mut prior_panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        prior_panel.field_values.prefer_tag_values = true;
+        crate::tag_panel::save(&dir.path().join("tag-panel.json"), &prior_panel).unwrap();
+        let before = native(dir.path()).unwrap();
+        let mut bytes = Vec::new();
+        for (identifier, value) in [
+            ("8840da8e2956d74da1853b63f6df9037", 1u8), // Native AutoSave
+            ("a17772f7656a2b4fb710657ed41cb01d", 0),   // Native UseAutoComplete
+            ("a635489304121948aceaf4ad079f3fa1", 1),   // Native HideStandardGenres
+            ("86fd6bff815ed0488b445b271955c35c", 0),   // Native HideFilterBar
+            ("243cae0bb6d7804b932f5ea2f2d2a55d", 1),
+            ("ac740b3914557e479e4b32dbbbacaab0", 1),
+            ("e4f596ec68aba54da0bf8bff3a489238", 0),
+            ("40b8c799a9b6ac4080064606a8c10200", 0),
+            ("a8c68011b761684596bd8f68db51d329", 1),
+            ("8b86f06a405be14991918e4fc1cf13d8", 1),
+            ("a5a066496e5a1d409b6a874bb814b65b", 0),
+        ] {
+            for index in (0..identifier.len()).step_by(2) {
+                bytes.push(u8::from_str_radix(&identifier[index..index + 2], 16).unwrap());
+            }
+            bytes.extend(1u32.to_le_bytes());
+            bytes.push(value);
+        }
+        for (identifier, value) in [
+            (
+                "7eaf6b64ce85a54196043a3c8cfb1d2e",
+                "%artist% - Björk 🎵.m3u8",
+            ),
+            ("aa0ec86bea2e7a40a7350a520bcf4a46", " %artist% | %title% "),
+            ("8eec759f9a170443abf0e47af87c1079", "NLD"),
+            ("0c7f0a198af644488be02a0d19631585", "*.MP3; *.flac"),
+            ("375e4b6e9c45af49a77caac696ced2b6", ""),
+        ] {
+            for index in (0..identifier.len()).step_by(2) {
+                bytes.push(u8::from_str_radix(&identifier[index..index + 2], 16).unwrap());
+            }
+            bytes.extend((value.len() as u32).to_le_bytes());
+            bytes.extend(value.as_bytes());
+        }
+        for part in "10ad9a5de1a201419efb4f510bd262f4"
+            .as_bytes()
+            .as_chunks::<2>()
+            .0
+        {
+            bytes.push(u8::from_str_radix(std::str::from_utf8(part).unwrap(), 16).unwrap());
+        }
+        bytes.extend(4u32.to_le_bytes());
+        bytes.extend(1u32.to_le_bytes());
+        let unmapped = b"unmapped-private-payload-stays";
+        bytes.extend([0x99; 16]);
+        bytes.extend((unmapped.len() as u32).to_le_bytes());
+        bytes.extend(unmapped);
+        let input_path = source.path().join("mp3tag.cfg");
+        std::fs::write(&input_path, &bytes).unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        assert!(
+            preview.items[0].supported,
+            "{:?}",
+            preview.items[0].warnings
+        );
+        let wire = serde_json::to_value(&preview).unwrap();
+        assert_eq!(wire["items"][0]["settings"].as_array().unwrap().len(), 17);
+        assert_eq!(
+            native(dir.path()).unwrap(),
+            before,
+            "preview must not publish anything"
+        );
+        let result = apply(
+            dir.path(),
+            &preview.token,
+            &["mp3tag.cfg".into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        let settings = crate::settings::load(&dir.path().join("settings.json")).0;
+        assert_eq!(settings.pages["tags"]["save_on_move"], true);
+        assert_eq!(settings.pages["general"]["autocomplete"], false);
+        assert_eq!(
+            settings.pages["playlist"]["filename"],
+            "%artist% - Björk 🎵.m3u8"
+        );
+        assert_eq!(
+            settings.pages["playlist"]["extinf_format"],
+            " %artist% | %title% "
+        );
+        let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        assert!(
+            settings.tags.advanced.popularimeter_ratings && settings.tags.advanced.list_chapters
+        );
+        assert!(
+            !settings.tags.advanced.matroska_video_mapping
+                && !settings.tags.advanced.mp4_single_atom
+        );
+        assert!(
+            settings.tags.advanced.reuse_mp4_atoms && settings.tags.advanced.reuse_id3v2_frames
+        );
+        assert_eq!(settings.tags.advanced.id3v2_comment_language, "NLD");
+        assert_eq!(settings.files.restrict_extensions, "*.MP3; *.flac");
+        assert_eq!(settings.files.folder_separator, "");
+        assert_eq!(settings.pages["appearance"]["grid"], "alternate");
+        assert!(panel.field_values.prefer_tag_values);
+        assert!(!panel.field_values.prefer_tag_fields["GENRE"]);
+        assert!(panel.field_values.only_user_genres);
+        assert_eq!(panel.field_values.lists["GENRE"], ["Before genre"]);
+        assert_eq!(
+            result.pending.unwrap().window.preferences["opentag.filter-shown"],
+            "true"
+        );
+        assert!(
+            !String::from_utf8(std::fs::read(dir.path().join("settings.json")).unwrap())
+                .unwrap()
+                .contains("unmapped-private")
+        );
+        restore(dir.path(), window()).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert_eq!(std::fs::read(input_path).unwrap(), bytes);
+    }
+
+    #[test]
+    fn genres_migration_reads_escaped_names_and_restores_exact_previous_lists() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let mut retained = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        retained
+            .field_values
+            .lists
+            .insert("MOOD".into(), vec!["Calm".into()]);
+        crate::tag_panel::save(&dir.path().join("tag-panel.json"), &retained).unwrap();
+        let before = native(dir.path()).unwrap();
+        let text=format!("\u{feff}Jazz=\r\nRock\\u003dPop=\r\nCaf\\u00e9=\r\nCaf\\xe9=\r\nCaf\\x{{00e9}}=\r\nTune\\ud83c\\udfb5=\r\n C\\\\D =\r\nLiteral\\qName=\r\nPlain genre\r\nJazz=\r\nTabs\\tbad=\r\nbad\\ud800=\r\n{}=\r\n","x".repeat(1001));
+        std::fs::write(source.path().join("genres.ini"), &text).unwrap();
+        let original = input(source.path()).unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        let item = preview
+            .items
+            .iter()
+            .find(|item| item.file == "genres.ini")
+            .unwrap();
+        assert!(item.supported, "{:?}", item.warnings);
+        assert_eq!(item.kind, "genres");
+        assert_eq!(item.warnings.len(), 3);
+        apply(
+            dir.path(),
+            &preview.token,
+            &["genres.ini".into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        assert_eq!(
+            panel.field_values.lists["GENRE"],
+            [
+                "Jazz",
+                "Rock=Pop",
+                "Café",
+                "Tune🎵",
+                " C\\D ",
+                "LiteralqName",
+                "Plain genre"
+            ]
+        );
+        assert_eq!(panel.field_values.lists["MOOD"], ["Calm"]);
+        assert!(!panel.field_values.prefer_tag_values);
+        restore(dir.path(), window()).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert_eq!(input(source.path()).unwrap(), original);
+    }
+
+    #[test]
+    fn genres_migration_empty_list_clears_explicitly_but_invalid_only_file_is_not_applied() {
+        let _guard = TESTS.lock().unwrap();
+        for text in ["", "Bad\\u0000name=\nBad\\uD800=\n"] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut retained = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+            retained
+                .field_values
+                .lists
+                .insert("MOOD".into(), vec!["Calm".into()]);
+            crate::tag_panel::save(&dir.path().join("tag-panel.json"), &retained).unwrap();
+            let before = native(dir.path()).unwrap();
+            std::fs::write(source.path().join("genres.ini"), text).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|item| item.file == "genres.ini")
+                .unwrap();
+            if text.is_empty() {
+                assert!(item.supported);
+                assert!(!item.warnings.is_empty());
+                apply(
+                    dir.path(),
+                    &preview.token,
+                    &["genres.ini".into()],
+                    true,
+                    window(),
+                )
+                .unwrap();
+                assert!(crate::tag_panel::load(&dir.path().join("tag-panel.json"))
+                    .unwrap()
+                    .field_values
+                    .lists["GENRE"]
+                    .is_empty());
+                restore(dir.path(), window()).unwrap();
+            } else {
+                assert!(!item.supported);
+                assert!(apply(
+                    dir.path(),
+                    &preview.token,
+                    &["genres.ini".into()],
+                    true,
+                    window()
+                )
+                .is_err());
+            }
+            assert_eq!(native(dir.path()).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn genres_migration_precedence_is_independent_of_selection_order() {
+        let _guard = TESTS.lock().unwrap();
+        for modern in [false, true] {
+            for reverse in [false, true] {
+                let dir = tempfile::tempdir().unwrap();
+                let source = tempfile::tempdir().unwrap();
+                config(dir.path());
+                let mut retained =
+                    crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+                retained
+                    .field_values
+                    .lists
+                    .insert("MOOD".into(), vec!["Calm".into()]);
+                crate::tag_panel::save(&dir.path().join("tag-panel.json"), &retained).unwrap();
+                let before = native(dir.path()).unwrap();
+                std::fs::write(source.path().join("usrfields.ini"),"[#0]\nvalue=GENRE\ncustom_values=Legacy\nprefer_tag=1\n[#1]\nvalue=ARTIST\ncustom_values=Legacy artist\n").unwrap();
+                std::fs::write(source.path().join("genres.ini"), "Genre file=\n").unwrap();
+                std::fs::write(
+                    source.path().join("usrfieldvalues.ini"),
+                    "[#0]\nfield=GENRE\ncustom_values=Modern\nprefer_tag=1\n",
+                )
+                .unwrap();
+                let id = "a5a066496e5a1d409b6a874bb814b65b";
+                let mut cfg = (0..id.len())
+                    .step_by(2)
+                    .map(|index| u8::from_str_radix(&id[index..index + 2], 16).unwrap())
+                    .collect::<Vec<_>>();
+                cfg.extend(1u32.to_le_bytes());
+                cfg.push(0);
+                std::fs::write(source.path().join("mp3tag.cfg"), cfg).unwrap();
+                let original = input(source.path()).unwrap();
+                let preview =
+                    make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+                let mut selected = vec![
+                    "usrfields.ini".into(),
+                    "genres.ini".into(),
+                    "mp3tag.cfg".into(),
+                ];
+                if modern {
+                    selected.push("usrfieldvalues.ini".into());
+                }
+                if reverse {
+                    selected.reverse();
+                }
+                apply(dir.path(), &preview.token, &selected, true, window()).unwrap();
+                let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+                assert_eq!(
+                    panel.field_values.lists["GENRE"],
+                    [if modern { "Modern" } else { "Genre file" }]
+                );
+                assert_eq!(panel.field_values.prefer_tag_fields["GENRE"], modern);
+                assert_eq!(panel.field_values.lists["ARTIST"], ["Legacy artist"]);
+                assert_eq!(panel.field_values.lists["MOOD"], ["Calm"]);
+                assert!(!panel.field_values.prefer_tag_values);
+                restore(dir.path(), window()).unwrap();
+                assert_eq!(native(dir.path()).unwrap(), before);
+                assert_eq!(input(source.path()).unwrap(), original);
+            }
+        }
+    }
+
+    #[test]
+    fn field_value_migration_modern_values_override_legacy_in_either_selection_order() {
+        let _guard = TESTS.lock().unwrap();
+        for modern_first in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let before = native(dir.path()).unwrap();
+            std::fs::write(source.path().join("usrfields.ini"), "[#0]\nvalue=GENRE\ncustom_values=Legacy\nprefer_tag=0\n[#1]\nvalue=ARTIST\ncustom_values= Legacy artist \nprefer_tag=0\n").unwrap();
+            std::fs::write(
+                source.path().join("usrfieldvalues.ini"),
+                "[#0]\nfield=GENRE\ncustom_values=Modern\nprefer_tag=1\n",
+            )
+            .unwrap();
+            let original_source = input(source.path()).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            let mut selected = vec!["usrfields.ini".into(), "usrfieldvalues.ini".into()];
+            if modern_first {
+                selected.reverse();
+            }
+            apply(dir.path(), &preview.token, &selected, true, window()).unwrap();
+            let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+            assert_eq!(panel.field_values.lists["GENRE"], ["Modern"]);
+            assert_eq!(panel.field_values.lists["ARTIST"], [" Legacy artist "]);
+            assert!(panel.field_values.prefer_tag_fields["GENRE"]);
+            assert!(!panel.field_values.prefer_tag_fields["ARTIST"]);
+            assert_eq!(panel.panel.fields.len(), 2);
+            restore(dir.path(), window()).unwrap();
+            assert_eq!(native(dir.path()).unwrap(), before);
+            assert_eq!(input(source.path()).unwrap(), original_source);
+        }
+    }
+
+    #[test]
+    fn field_value_migration_imports_the_native_field_values_file_and_restores_it() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let before = native(dir.path()).unwrap();
+        std::fs::write(source.path().join("usrfieldvalues.ini"), "[#0]\nfield=GENRE\ncustom_values=Electronic\u{b}Jazz\nprefer_tag=0\nversion=1\n[#1]\nfield=COMPOSER\ncustom_values=Bach\nprefer_tag=1\nversion=1\n").unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        assert!(
+            preview.items[0].supported,
+            "{:?}",
+            preview.items[0].warnings
+        );
+        let applied = apply(
+            dir.path(),
+            &preview.token,
+            &["usrfieldvalues.ini".into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        assert_eq!(applied.report.unwrap().imported, ["usrfieldvalues.ini"]);
+        let restored = serde_json::to_value(
+            crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            restored["field_values"]["lists"]["GENRE"],
+            serde_json::json!(["Electronic", "Jazz"])
+        );
+        assert_eq!(
+            restored["field_values"]["prefer_tag_fields"]["GENRE"],
+            false
+        );
+        assert_eq!(
+            restored["field_values"]["prefer_tag_fields"]["COMPOSER"],
+            true
+        );
+        restore(dir.path(), window()).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+    }
+
+    #[test]
+    fn native_action_import_uses_known_mp3tag_origin_and_stays_disabled() {
+        let _guard = TESTS.lock().unwrap();
+        let target = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(target.path());
+        let path = make_source(source.path());
+        let relative = "data/actions/NativeOrigin.mta";
+        std::fs::write(
+            source.path().join(relative),
+            b"[#0]\nT=1\nF=TITLE\n1=2\n2= \n",
+        )
+        .unwrap();
+        let preview = make_preview(target.path(), &path, window()).unwrap();
+        let item = preview
+            .items
+            .iter()
+            .find(|item| item.file == relative)
+            .unwrap();
+        assert!(item.supported);
+        assert!(item.warnings.is_empty(), "{:?}", item.warnings);
+        apply(
+            target.path(),
+            &preview.token,
+            &[relative.into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        let library =
+            crate::action_host::load_library(&target.path().join("actions.json")).unwrap();
+        let group = library
+            .groups
+            .iter()
+            .find(|group| group.name == "NativeOrigin")
+            .unwrap();
+        assert!(!group.enabled);
+        assert!(matches!(
+            group.actions[0],
+            tag_core::actions::ActionSpec::CaseConversion {
+                mode: tag_core::actions::CaseMode::Upper,
+                ..
+            }
+        ));
     }
     #[test]
     fn populated_folder_preview_import_restart_and_full_content_restore() {

@@ -101,7 +101,7 @@ The existing postmerge [native suite](../../tests/e2e/rename-fixes.js) gains a
 registered-command case for literal folder destinations, suffix retention,
 native backslashes, canonical dot navigation without discarded folders,
 metadata readback, Undo and typed collision refusal without discarded folders.
-It is syntax-checked only and has **not run locally**.
+It was syntax-checked locally and has **not run locally**; the separate hosted result is recorded below.
 It does not prove a physical F2/keyboard/accessibility journey. No local app
 build, UI replay or full Rust/frontend sweep was run for this follow-up.
 Independent code review found two path edges, both reproduced and corrected;
@@ -129,9 +129,10 @@ pure destination dependency. It retains all written-case assertions and
 `-D warnings`. All four focused folder-recipe tests pass, including the real
 standalone helper compile (`taggroove-l47a-guide-probe-ci-fix-4ra03zs5`).
 That test-probe correction did not change application source. Its new review
-then identified the separate application issue below. The corrected final PR
-head requires fresh GitHub CODE approval and immutable premerge validation;
-the earlier clean review does not approve a new commit.
+then identified the separate application issue below. Each corrected PR head
+needed fresh GitHub CODE approval and immutable premerge validation; the
+earlier clean review did not approve a new commit. Final approval and merge
+are recorded below.
 
 ## GitHub CODE parent-navigation correction
 
@@ -162,6 +163,43 @@ and the strict guide passes (`taggroove-l47a-dot-parent-guide-gj3yolhq`).
 Independent code and native-case source reviews are clear. The native case
 was only syntax-checked; no local UI/app execution was performed.
 
+## Final PR68 review, validation and merge
+
+[PR68](https://github.com/johnneerdael/TagGroove/pull/68) final head
+`ad3e9270e9f7de298ada2fafef17620221104389` received a clean GitHub CODE review
+with no findings at 2026-10-20T02:48:38.316968Z
+([receipt](https://github.com/johnneerdael/TagGroove/pull/68#issuecomment-6282168108)).
+The genuine connector approval and resolved finding were verified before
+[immutable premerge validation 39361029033](https://github.com/johnneerdael/TagGroove/actions/runs/39361029033).
+All four jobs passed: 1,530 Rust tests, zero failures, 19 ignored; 888 frontend
+tests, zero failures, one skipped. Formatting, Clippy, workflow/media tooling,
+save acceptance and strict documentation checks passed.
+
+Normal protected merge produced `754462546eb704f14dad300befdb9740885ab523`
+at 2026-10-20T03:02:24Z. Tested merge
+`38444a987931a64d448133df57ec4d71edb976be` and actual merge share tree
+`bd062c834feac0da4aa23453ca498c3b23f1fbc5` and the same ordered parents
+`69cd9f063c66290adbb6b3db3a70b2d5a1ca4592` /
+`ad3e9270e9f7de298ada2fafef17620221104389`.
+
+[Postmerge run 39362192860](https://github.com/johnneerdael/TagGroove/actions/runs/39362192860)
+is the separate packaging/native-integration stage and all its jobs passed.
+The registered literal inline command case passed on Ubuntu job
+`118430900813`, Windows job `118430900781` and macOS job `118430900839`.
+These are hosted command/integration results, not a physical F2 journey or
+original Mp3tag comparison. Android integration and user-guide deployment also
+passed.
+
+[v0.2.56](https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.56) was
+published at 2026-10-20T03:31:41Z from merge source
+`754462546eb704f14dad300befdb9740885ab523`. Trusted metadata verification
+matched the source tag/run, downloaded manifest/checksum digests and API
+sizes/digests for 13 packages in seven platform groups, including the
+corresponding-source archive among 16 public assets. Package binaries and the
+full source archive were not downloaded or installed by this verification.
+The iOS group is an unsigned arm64 simulator preview, not a signed device IPA.
+Original Windows and physical keyboard acceptance remain separate below.
+
 ## Engineer handover and remaining work
 
 Use Windows with the pinned original and a source/executable-bound TagGroove
@@ -173,8 +211,8 @@ Windows execution remains owner-deferred.
 
 Use each desktop OS for actual installed-path permissions and physical
 keyboard/focus/accessibility acceptance under L78; Unix symlink fixture tests
-do not certify every installed filesystem. Postmerge CI must execute its new
-command case before an integration result is claimed. L47a still needs local
+do not certify every installed filesystem. The new managed-command case passed postmerge CI on all three desktop OSes;
+physical keyboard/focus acceptance remains separate. L47a still needs local
 source-identity research/implementation for discovering an externally renamed
 individually loaded file. Do not replace that file with a guessed neighbor or
 hand off the unfinished portable implementation as Windows-only work.

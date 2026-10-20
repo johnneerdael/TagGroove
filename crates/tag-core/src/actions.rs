@@ -9,6 +9,9 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "actions_lcid.rs"]
+mod lcid;
+
 const LIMIT: usize = 1_048_576;
 const MTA_BYTE_LIMIT: usize = 4 * LIMIT;
 /// Separates several values of one field in a Format Value result.
@@ -33,11 +36,10 @@ pub const ACTION_CATALOG: [(&str, &str); 18] = [
     ("set_cover_properties", "Set Cover Properties"),
     ("split_field", "Split Field by Separator"),
 ];
-/// Additional numeric IDs corroborated by original `.mta` reports on the
-/// official forum: /t/testing-mp3tag-behaviour/42469/22. Only types 1 and 2
-/// have settings verified on original action files; the settings of the
-/// others follow the same layout (`F` and numbered settings in dialog order)
-/// and are recorded in docs/verification/script-export.md.
+/// Native numeric IDs corroborated by original files, the original factory
+/// and bounded static reader/dialog traces. Per-type layouts and qualification
+/// limits are recorded in docs/verification; registry membership alone does
+/// not qualify every option or original import/readback behavior.
 pub const MTA_TYPE_REGISTRY: [(u32, &str); 18] = [
     (1, "Case Conversion"),
     (2, "Replace"),
@@ -137,16 +139,22 @@ pub enum ActionSpec {
         word_separators: String,
     },
     ConvertCodepage {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mta_source: Option<MtaSource>,
         field: String,
         codepage: String,
     },
     Export {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mta_source: Option<MtaSource>,
         template: String,
         filename_template: String,
         append: bool,
         partition_template: Option<String>,
     },
     ExportCover {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mta_source: Option<MtaSource>,
         filename_template: String,
         picture_type: Option<String>,
         export_duplicates: bool,
@@ -166,6 +174,8 @@ pub enum ActionSpec {
         pattern: String,
     },
     ImportCover {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mta_source: Option<MtaSource>,
         filename_template: String,
         /// "Import cover as" type; `None` imports a front cover.
         #[serde(default)]
@@ -871,9 +881,9 @@ pub fn validate_action_diagnostic(action: &ActionSpec) -> Result<(), ErrorCause>
         } if !field.trim().is_empty() => {
             regex_values_diagnostic(&[], pattern, replacement, *case_sensitive).map(|_| ())
         }
-        ActionSpec::ConvertCodepage { field, codepage } if !field.trim().is_empty() => {
-            decode_codepage_diagnostic("", codepage).map(|_| ())
-        }
+        ActionSpec::ConvertCodepage {
+            field, codepage, ..
+        } if !field.trim().is_empty() => decode_codepage_diagnostic("", codepage).map(|_| ()),
         ActionSpec::UnresolvedMta {
             type_id, reason, ..
         } => Err(ErrorCause::message(
@@ -956,17 +966,17 @@ where
                 })
                 .collect()
         }),
-        ActionSpec::ConvertCodepage { field, codepage } => {
-            transform_diagnostic(state, field, false, |values| {
-                values
-                    .iter()
-                    .map(|value| {
-                        decode_codepage_diagnostic(value, codepage)
-                            .and_then(|value| checked(value).map_err(ErrorCause::owned_text))
-                    })
-                    .collect()
-            })
-        }
+        ActionSpec::ConvertCodepage {
+            field, codepage, ..
+        } => transform_diagnostic(state, field, false, |values| {
+            values
+                .iter()
+                .map(|value| {
+                    decode_codepage_diagnostic(value, codepage)
+                        .and_then(|value| checked(value).map_err(ErrorCause::owned_text))
+                })
+                .collect()
+        }),
         ActionSpec::Replace {
             field,
             from,
@@ -1141,6 +1151,7 @@ where
             filename_template,
             picture_type,
             delete_existing,
+            ..
         } => Ok(vec![ActionEffect::ImportCover {
             filename: evaluate_mode(filename_template, state, TemplateMode::Filename)?,
             picture_type: picture_type.clone(),
@@ -1150,6 +1161,7 @@ where
             filename_template,
             picture_type,
             export_duplicates,
+            ..
         } => Ok(vec![ActionEffect::ExportCover {
             filename: evaluate_mode(filename_template, state, TemplateMode::Filename)?,
             picture_type: picture_type.clone(),
@@ -1216,6 +1228,7 @@ pub fn execute_groups<H: ActionHost>(
                     filename_template,
                     append,
                     partition_template,
+                    ..
                 } => Some(BatchActionEffect::Export {
                     template: template.clone(),
                     filename_template: filename_template.clone(),
@@ -1475,6 +1488,16 @@ pub struct MtaRecord {
     pub index: usize,
     pub properties: BTreeMap<String, String>,
 }
+/// Provenance is independent from byte encoding. Some old port records collide
+/// exactly with native options, so unknown provenance must not guess semantics.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MtaDialect {
+    #[default]
+    Unknown,
+    Mp3tag,
+    LegacyTaggroove,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MtaIssue {
     pub index: usize,
@@ -1525,17 +1548,12 @@ fn mta_value(value: &str) -> Result<String, String> {
 }
 /// Legacy TagGroove extension IDs retained for older files and options whose
 /// behavior cannot be expressed in native records. Mp3tag cannot load them.
-pub const MTA_OPENTAG_TYPES: [(u32, &str); 3] = [
+pub const MTA_OPENTAG_TYPES: [(u32, &str); 5] = [
     (1001, "Adjust Cover"),
     (1002, "Set Cover Properties"),
     (1003, "Generate Playlists"),
-];
-
-const CASE_MODES: [CaseMode; 4] = [
-    CaseMode::Lower,
-    CaseMode::Mixed,
-    CaseMode::Sentence,
-    CaseMode::Upper,
+    (1004, "Convert Codepage"),
+    (1005, "Export"),
 ];
 
 /// Settings of one `.mta` section, checked strictly so that an unexpected
@@ -1629,10 +1647,13 @@ fn numeric_description(value: &str) -> bool {
 fn native_mta_shape(record: &MtaRecord, retain_source: bool) -> Result<ActionSpec, String> {
     let id = record.properties.get("T").map(String::as_str).unwrap_or("");
     let allowed: &[&str] = match id {
+        "11" => &["T", "F", "1"],
+        "12" | "13" => &["T", "1", "2", "3"],
+        "15" => &["T", "F", "1", "2", "3"],
         "17" => &["T", "1", "2", "3"],
         "18" => &["T", "F", "1", "2", "3"], // 3 is proven inactive, retained below.
         "19" => &["T", "F", "1"],
-        _ => return Err("Not a native cover/playlist record".into()),
+        _ => return Err("Not a retained native record".into()),
     };
     if record
         .properties
@@ -1656,7 +1677,103 @@ fn native_mta_shape(record: &MtaRecord, retain_source: bool) -> Result<ActionSpe
         properties: record.properties.clone(),
     });
     let get = |key: &str| record.properties.get(key);
+    let settings = MtaSettings {
+        record,
+        type_id: id,
+    };
     Ok(match id {
+        "11" => {
+            let raw = settings.required("1")?;
+            let lcid = u32::try_from(native_integer(&raw)?)
+                .map_err(|_| "Unknown native locale identifier")?;
+            let codepage = lcid::ansi_codepage(lcid)
+                .ok_or("Native locale has no qualified portable ANSI codepage")?;
+            ActionSpec::ConvertCodepage {
+                mta_source: source,
+                field: settings.required("F")?,
+                codepage: codepage.to_string(),
+            }
+        }
+        "12" => ActionSpec::ImportCover {
+            mta_source: source,
+            filename_template: settings.required("1")?,
+            picture_type: if get("3").is_none() {
+                None
+            } else {
+                let value = get("3").unwrap();
+                let number = if value.is_empty() {
+                    0
+                } else {
+                    native_integer(value)?
+                };
+                if !(0..=20).contains(&number) {
+                    return Err("Unknown native picture type".into());
+                }
+                Some(format!(
+                    "{:?}",
+                    lofty::picture::PictureType::from_u8(number as u8)
+                ))
+            },
+            delete_existing: settings.flag("2")?,
+        },
+        "13" => {
+            let picture_type = match get("3").map(String::as_str) {
+                None | Some("") => None,
+                Some(value) => {
+                    let (enabled, picture) = value
+                        .split_once('|')
+                        .ok_or("Unqualified native cover filter tuple")?;
+                    // Both tokens have numeric semantics, including inactive types.
+                    let number = native_integer(picture)?;
+                    if !(0..=20).contains(&number) {
+                        return Err("Unknown native picture type".into());
+                    }
+                    match enabled {
+                        "0" => None,
+                        "1" => Some(format!(
+                            "{:?}",
+                            lofty::picture::PictureType::from_u8(number as u8)
+                        )),
+                        _ => return Err("Unknown native cover filter state".into()),
+                    }
+                }
+            };
+            ActionSpec::ExportCover {
+                mta_source: source,
+                filename_template: settings.required("1")?,
+                picture_type,
+                export_duplicates: settings.flag("2")?,
+            }
+        }
+        "15" => {
+            let partition_template = match get("3").map(String::as_str) {
+                None | Some("") => None,
+                Some(value) => {
+                    let (enabled, expression) = value
+                        .split_once('|')
+                        .ok_or("Unqualified native export partition tuple")?;
+                    match enabled {
+                        "0" => None,
+                        "1" => Some(
+                            if expression.is_empty() {
+                                "%_folderpath%"
+                            } else {
+                                expression
+                            }
+                            .into(),
+                        ),
+                        _ => return Err("Unknown native export partition state".into()),
+                    }
+                }
+            };
+            ActionSpec::Export {
+                mta_source: source,
+                template: settings.required("F")?,
+                filename_template: settings.optional("1").unwrap_or_default(),
+                append: settings.flag("2")?,
+                partition_template,
+            }
+        }
         "17" => {
             let format = match get("1").map(String::as_str).unwrap_or("0") {
                 "0" | "" => CoverImageFormat::Original,
@@ -1750,6 +1867,10 @@ fn without_mta_source(action: &ActionSpec) -> ActionSpec {
     let mut action = action.clone();
     match &mut action {
         ActionSpec::AdjustCover { mta_source, .. }
+        | ActionSpec::ConvertCodepage { mta_source, .. }
+        | ActionSpec::ImportCover { mta_source, .. }
+        | ActionSpec::ExportCover { mta_source, .. }
+        | ActionSpec::Export { mta_source, .. }
         | ActionSpec::SetCoverProperties { mta_source, .. }
         | ActionSpec::GeneratePlaylists { mta_source, .. } => *mta_source = None,
         _ => {}
@@ -1759,6 +1880,10 @@ fn without_mta_source(action: &ActionSpec) -> ActionSpec {
 fn source_projection(action: &ActionSpec) -> Result<Option<ActionSpec>, String> {
     let source = match action {
         ActionSpec::AdjustCover { mta_source, .. }
+        | ActionSpec::ConvertCodepage { mta_source, .. }
+        | ActionSpec::ImportCover { mta_source, .. }
+        | ActionSpec::ExportCover { mta_source, .. }
+        | ActionSpec::Export { mta_source, .. }
         | ActionSpec::SetCoverProperties { mta_source, .. }
         | ActionSpec::GeneratePlaylists { mta_source, .. } => mta_source,
         _ => return Ok(None),
@@ -1767,6 +1892,10 @@ fn source_projection(action: &ActionSpec) -> Result<Option<ActionSpec>, String> 
         return Ok(None);
     };
     let id = match action {
+        ActionSpec::ConvertCodepage { .. } => "11",
+        ActionSpec::ImportCover { .. } => "12",
+        ActionSpec::ExportCover { .. } => "13",
+        ActionSpec::Export { .. } => "15",
         ActionSpec::AdjustCover { .. } => "17",
         ActionSpec::SetCoverProperties { .. } => "18",
         _ => "19",
@@ -1798,20 +1927,21 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
     };
     let field = || settings.required("F");
     let action = match type_id.as_str() {
-        "17" | "18" | "19" => native_mta_shape(record, true)?,
-        // Verified on the 3.36.1 action files: mode 1 with its word starts.
-        // The other modes follow the documented order of the conversions.
+        "11" | "12" | "13" | "15" | "17" | "18" | "19" => native_mta_shape(record, true)?,
+        // Native mode values are one-bit flags, not indices into the UI order.
         "1" => {
             settings.only(&["1", "2"])?;
             let mode = settings.required("1")?;
-            let mode = mode
-                .parse::<usize>()
-                .ok()
-                .and_then(|index| CASE_MODES.get(index))
-                .ok_or_else(|| format!("Unknown case mode {mode:?}"))?;
+            let mode = match mode.as_str() {
+                "1" => CaseMode::Mixed,
+                "2" => CaseMode::Upper,
+                "4" => CaseMode::Lower,
+                "8" => CaseMode::Sentence,
+                _ => return Err(format!("Unknown case mode {mode:?}")),
+            };
             ActionSpec::CaseConversion {
                 field: field()?,
-                mode: *mode,
+                mode,
                 word_separators: settings.optional("2").unwrap_or_default(),
             }
         }
@@ -1885,27 +2015,22 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
                 ActionSpec::RemoveFieldsExcept { fields }
             }
         }
-        "11" => {
+        "1004" => {
             settings.only(&["1"])?;
             ActionSpec::ConvertCodepage {
+                mta_source: None,
                 field: field()?,
                 codepage: settings.required("1")?,
             }
         }
-        "12" => {
-            settings.only(&["1", "2"])?;
-            ActionSpec::ImportCover {
-                filename_template: field()?,
-                picture_type: settings.picture_type("1")?,
-                delete_existing: settings.flag("2")?,
-            }
-        }
-        "13" => {
-            settings.only(&["1", "2"])?;
-            ActionSpec::ExportCover {
-                filename_template: field()?,
-                picture_type: settings.picture_type("1")?,
-                export_duplicates: settings.flag("2")?,
+        "1005" => {
+            settings.only(&["1", "2", "3"])?;
+            ActionSpec::Export {
+                mta_source: None,
+                template: field()?,
+                filename_template: settings.optional("1").unwrap_or_default(),
+                append: settings.flag("2")?,
+                partition_template: settings.optional("3"),
             }
         }
         "14" => {
@@ -1913,15 +2038,6 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
             ActionSpec::ImportTextFile {
                 field: field()?,
                 filename_template: settings.required("1")?,
-            }
-        }
-        "15" => {
-            settings.only(&["1", "2", "3"])?;
-            ActionSpec::Export {
-                template: field()?,
-                filename_template: settings.optional("1").unwrap_or_default(),
-                append: settings.flag("2")?,
-                partition_template: settings.optional("3").filter(|p| !p.is_empty()),
             }
         }
         "1001" => {
@@ -1993,8 +2109,93 @@ fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
     };
     Ok(action)
 }
-fn mta_action_diagnostic(record: &MtaRecord) -> Result<ActionSpec, ErrorCause> {
-    let action = mta_action_shape(record).map_err(ErrorCause::owned_text)?;
+fn mta_action_shape_for(record: &MtaRecord, dialect: MtaDialect) -> Result<ActionSpec, String> {
+    let id = record.properties.get("T").map(String::as_str).unwrap_or("");
+    let settings = MtaSettings {
+        record,
+        type_id: id,
+    };
+    if dialect == MtaDialect::LegacyTaggroove {
+        // Explicit old-port interpretation. Never use native-parse-failed or
+        // F-present heuristics to select these incompatible meanings.
+        return Ok(match id {
+            "1" => {
+                settings.only(&["1", "2"])?;
+                let raw = settings.required("1")?;
+                ActionSpec::CaseConversion {
+                    field: settings.required("F")?,
+                    mode: match raw.as_str() {
+                        "0" => CaseMode::Lower,
+                        "1" => CaseMode::Mixed,
+                        "2" => CaseMode::Sentence,
+                        "3" => CaseMode::Upper,
+                        _ => return Err(format!("Unknown legacy case mode {raw:?}")),
+                    },
+                    word_separators: settings.optional("2").unwrap_or_default(),
+                }
+            }
+            "11" => {
+                settings.only(&["1"])?;
+                ActionSpec::ConvertCodepage {
+                    mta_source: None,
+                    field: settings.required("F")?,
+                    codepage: settings.required("1")?,
+                }
+            }
+            "12" | "13" => {
+                settings.only(&["1", "2"])?;
+                let filename_template = settings.required("F")?;
+                let picture_type = settings.picture_type("1")?;
+                let flag = settings.flag("2")?;
+                if id == "12" {
+                    ActionSpec::ImportCover {
+                        mta_source: None,
+                        filename_template,
+                        picture_type,
+                        delete_existing: flag,
+                    }
+                } else {
+                    ActionSpec::ExportCover {
+                        mta_source: None,
+                        filename_template,
+                        picture_type,
+                        export_duplicates: flag,
+                    }
+                }
+            }
+            "15" => {
+                settings.only(&["1", "2", "3"])?;
+                ActionSpec::Export {
+                    mta_source: None,
+                    template: settings.required("F")?,
+                    filename_template: settings.optional("1").unwrap_or_default(),
+                    append: settings.flag("2")?,
+                    partition_template: settings.optional("3").filter(|value| !value.is_empty()),
+                }
+            }
+            _ => return mta_action_shape(record),
+        });
+    }
+    if dialect == MtaDialect::Unknown {
+        let ambiguous = match id {
+            "1" => settings.optional("1").as_deref() == Some("2"),
+            "12" | "13" => record.properties.contains_key("F"),
+            "15" => settings
+                .optional("3")
+                .is_some_and(|value| !value.is_empty()),
+            _ => false,
+        };
+        if ambiguous {
+            return Err("Ambiguous action-file origin; choose Mp3tag/current TagGroove or older TagGroove and import again".into());
+        }
+    }
+    mta_action_shape(record)
+}
+fn mta_action_diagnostic(
+    record: &MtaRecord,
+    dialect: MtaDialect,
+) -> Result<ActionSpec, ErrorCause> {
+    let action = mta_action_shape_for(record, dialect).map_err(ErrorCause::owned_text)?;
     validate_action_diagnostic(&action)?;
     Ok(action)
 }
@@ -2007,6 +2208,15 @@ pub fn import_mta(
 ) -> Result<MtaImport, String> {
     import_mta_diagnostic(name, bytes, legacy_encoding).map(|report| report.result)
 }
+pub fn import_mta_with_dialect(
+    name: String,
+    bytes: &[u8],
+    legacy_encoding: Option<&str>,
+    dialect: MtaDialect,
+) -> Result<MtaImport, String> {
+    import_mta_diagnostic_with_dialect(name, bytes, legacy_encoding, dialect)
+        .map(|report| report.result)
+}
 #[derive(Debug, Serialize)]
 pub struct MtaImportReport {
     #[serde(flatten)]
@@ -2018,6 +2228,14 @@ pub fn import_mta_diagnostic(
     name: String,
     bytes: &[u8],
     legacy_encoding: Option<&str>,
+) -> Result<MtaImportReport, String> {
+    import_mta_diagnostic_with_dialect(name, bytes, legacy_encoding, MtaDialect::Unknown)
+}
+pub fn import_mta_diagnostic_with_dialect(
+    name: String,
+    bytes: &[u8],
+    legacy_encoding: Option<&str>,
+    dialect: MtaDialect,
 ) -> Result<MtaImportReport, String> {
     if bytes.len() > MTA_BYTE_LIMIT {
         return Err("Action group import limit exceeded".into());
@@ -2099,7 +2317,7 @@ pub fn import_mta_diagnostic(
     let mut issues = Vec::new();
     let mut issue_diagnostics = Vec::new();
     for record in &records {
-        match mta_action_diagnostic(record) {
+        match mta_action_diagnostic(record, dialect) {
             Ok(action) => actions.push(action),
             Err(cause) => {
                 let reason = cause.to_string();
@@ -2213,7 +2431,7 @@ pub fn mta_export_report(group: &ActionGroup) -> Result<MtaExportReport, String>
     export_mta_utf16(group)?;
     let mut legacy_actions = Vec::new();
     for action in &group.actions {
-        if let Some((_, Some(name))) = cover_playlist_mta(action)? {
+        if let Some((_, Some(name))) = retained_action_mta(action)? {
             if !legacy_actions.contains(&name) {
                 legacy_actions.push(name);
             }
@@ -2222,16 +2440,100 @@ pub fn mta_export_report(group: &ActionGroup) -> Result<MtaExportReport, String>
     Ok(MtaExportReport { legacy_actions })
 }
 type MtaExportRecord = (Vec<(String, String)>, Option<String>);
-fn cover_playlist_mta(action: &ActionSpec) -> Result<Option<MtaExportRecord>, String> {
+fn retained_action_mta(action: &ActionSpec) -> Result<Option<MtaExportRecord>, String> {
     let mut map = BTreeMap::new();
     let mut legacy = None;
     let source = match action {
         ActionSpec::AdjustCover { mta_source, .. }
+        | ActionSpec::ConvertCodepage { mta_source, .. }
+        | ActionSpec::ImportCover { mta_source, .. }
+        | ActionSpec::ExportCover { mta_source, .. }
+        | ActionSpec::Export { mta_source, .. }
         | ActionSpec::SetCoverProperties { mta_source, .. }
         | ActionSpec::GeneratePlaylists { mta_source, .. } => mta_source,
         _ => return Ok(None),
     };
     match action {
+        ActionSpec::ConvertCodepage {
+            field, codepage, ..
+        } => {
+            map.insert("F".into(), field.clone());
+            if let Some(ActionSpec::ConvertCodepage {
+                codepage: original, ..
+            }) = source_projection(action)?
+            {
+                if &original == codepage {
+                    map.insert("T".into(), "11".into());
+                    map.insert("1".into(), source.as_ref().unwrap().properties["1"].clone());
+                } else {
+                    map.insert("T".into(), "1004".into());
+                    map.insert("1".into(), codepage.clone());
+                    legacy = Some("Convert Codepage".into());
+                }
+            } else {
+                map.insert("T".into(), "1004".into());
+                map.insert("1".into(), codepage.clone());
+                legacy = Some("Convert Codepage".into());
+            }
+        }
+        ActionSpec::ImportCover {
+            filename_template,
+            picture_type,
+            delete_existing,
+            ..
+        } => {
+            map.insert("T".into(), "12".into());
+            map.insert("1".into(), filename_template.clone());
+            map.insert("2".into(), if *delete_existing { "1" } else { "0" }.into());
+            if picture_type.is_some() {
+                map.insert("3".into(), mta_picture_type(picture_type)?);
+            }
+        }
+        ActionSpec::ExportCover {
+            filename_template,
+            picture_type,
+            export_duplicates,
+            ..
+        } => {
+            map.insert("T".into(), "13".into());
+            map.insert("1".into(), filename_template.clone());
+            map.insert(
+                "2".into(),
+                if *export_duplicates { "1" } else { "0" }.into(),
+            );
+            map.insert(
+                "3".into(),
+                if picture_type.is_some() {
+                    format!("1|{}", mta_picture_type(picture_type)?)
+                } else {
+                    "0|3".into()
+                },
+            );
+        }
+        ActionSpec::Export {
+            template,
+            filename_template,
+            append,
+            partition_template,
+            ..
+        } => {
+            let raw_empty = partition_template.as_deref() == Some("");
+            map.insert("T".into(), if raw_empty { "1005" } else { "15" }.into());
+            map.insert("F".into(), template.clone());
+            map.insert("1".into(), filename_template.clone());
+            map.insert("2".into(), if *append { "1" } else { "0" }.into());
+            map.insert(
+                "3".into(),
+                match partition_template {
+                    Some(value) if raw_empty => value.clone(),
+                    Some(value) => format!("1|{value}"),
+                    None => "0|".into(),
+                },
+            );
+            if raw_empty {
+                legacy = Some("Export".into());
+            }
+        }
         ActionSpec::AdjustCover {
             format,
             quality,
@@ -2374,6 +2676,62 @@ fn cover_playlist_mta(action: &ActionSpec) -> Result<Option<MtaExportRecord>, St
             } else {
                 let keys: &[(&str, bool)] = match (&original, action) {
                     (
+                        ActionSpec::ConvertCodepage {
+                            field: a,
+                            codepage: b,
+                            ..
+                        },
+                        ActionSpec::ConvertCodepage {
+                            field: x,
+                            codepage: y,
+                            ..
+                        },
+                    ) => &[("F", a == x), ("1", b == y)],
+                    (
+                        ActionSpec::ImportCover {
+                            filename_template: a,
+                            picture_type: b,
+                            delete_existing: c,
+                            ..
+                        },
+                        ActionSpec::ImportCover {
+                            filename_template: x,
+                            picture_type: y,
+                            delete_existing: z,
+                            ..
+                        },
+                    ) => &[("1", a == x), ("3", b == y), ("2", c == z)],
+                    (
+                        ActionSpec::ExportCover {
+                            filename_template: a,
+                            picture_type: b,
+                            export_duplicates: c,
+                            ..
+                        },
+                        ActionSpec::ExportCover {
+                            filename_template: x,
+                            picture_type: y,
+                            export_duplicates: z,
+                            ..
+                        },
+                    ) => &[("1", a == x), ("3", b == y), ("2", c == z)],
+                    (
+                        ActionSpec::Export {
+                            template: a,
+                            filename_template: b,
+                            append: c,
+                            partition_template: d,
+                            ..
+                        },
+                        ActionSpec::Export {
+                            template: w,
+                            filename_template: x,
+                            append: y,
+                            partition_template: z,
+                            ..
+                        },
+                    ) => &[("F", a == w), ("1", b == x), ("2", c == y), ("3", d == z)],
+                    (
                         ActionSpec::AdjustCover {
                             format: a,
                             quality: b,
@@ -2452,11 +2810,13 @@ fn serialize_mta(group: &ActionGroup) -> Result<String, String> {
                 pair("F", field.clone()),
                 pair(
                     "1",
-                    CASE_MODES
-                        .iter()
-                        .position(|candidate| candidate == mode)
-                        .unwrap_or(1)
-                        .to_string(),
+                    match mode {
+                        CaseMode::Mixed => "1",
+                        CaseMode::Upper => "2",
+                        CaseMode::Lower => "4",
+                        CaseMode::Sentence => "8",
+                    }
+                    .into(),
                 ),
                 pair("2", word_separators.clone()),
             ],
@@ -2522,31 +2882,6 @@ fn serialize_mta(group: &ActionGroup) -> Result<String, String> {
             ActionSpec::RemoveFieldsExcept { fields } => {
                 vec![pair("T", "10".into()), pair("F", fields.join(";"))]
             }
-            ActionSpec::ConvertCodepage { field, codepage } => vec![
-                pair("T", "11".into()),
-                pair("F", field.clone()),
-                pair("1", codepage.clone()),
-            ],
-            ActionSpec::ImportCover {
-                filename_template,
-                picture_type,
-                delete_existing,
-            } => vec![
-                pair("T", "12".into()),
-                pair("F", filename_template.clone()),
-                pair("1", mta_picture_type(picture_type)?),
-                pair("2", flag(*delete_existing).into()),
-            ],
-            ActionSpec::ExportCover {
-                filename_template,
-                picture_type,
-                export_duplicates,
-            } => vec![
-                pair("T", "13".into()),
-                pair("F", filename_template.clone()),
-                pair("1", mta_picture_type(picture_type)?),
-                pair("2", flag(*export_duplicates).into()),
-            ],
             ActionSpec::ImportTextFile {
                 field,
                 filename_template,
@@ -2555,26 +2890,13 @@ fn serialize_mta(group: &ActionGroup) -> Result<String, String> {
                 pair("F", field.clone()),
                 pair("1", filename_template.clone()),
             ],
-            ActionSpec::Export {
-                template,
-                filename_template,
-                append,
-                partition_template,
-            } => {
-                let mut settings = vec![
-                    pair("T", "15".into()),
-                    pair("F", template.clone()),
-                    pair("1", filename_template.clone()),
-                    pair("2", flag(*append).into()),
-                ];
-                if let Some(partition) = partition_template {
-                    settings.push(pair("3", partition.clone()));
-                }
-                settings
-            }
-            ActionSpec::AdjustCover { .. }
+            ActionSpec::ConvertCodepage { .. }
+            | ActionSpec::ImportCover { .. }
+            | ActionSpec::ExportCover { .. }
+            | ActionSpec::Export { .. }
+            | ActionSpec::AdjustCover { .. }
             | ActionSpec::SetCoverProperties { .. }
-            | ActionSpec::GeneratePlaylists { .. } => cover_playlist_mta(action)?.unwrap().0,
+            | ActionSpec::GeneratePlaylists { .. } => retained_action_mta(action)?.unwrap().0,
             ActionSpec::UnresolvedMta { properties, .. } => {
                 let mut ordered: Vec<(String, String)> = ["T", "F"]
                     .iter()
@@ -3029,6 +3351,7 @@ mod tests {
             effects(
                 &mut state,
                 ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "%_folderpath%Covers\\%album%".into(),
                     picture_type: None,
                     export_duplicates: false,
@@ -3044,6 +3367,7 @@ mod tests {
             effects(
                 &mut state,
                 ActionSpec::ImportCover {
+                    mta_source: None,
                     filename_template: "%album%\\*.jpg".into(),
                     picture_type: None,
                     delete_existing: false,
@@ -3339,6 +3663,7 @@ mod tests {
                 enabled: true,
                 actions: vec![
                     ActionSpec::Export {
+                        mta_source: None,
                         template: "test".into(),
                         filename_template: "out.txt".into(),
                         append: false,
@@ -3404,6 +3729,7 @@ mod tests {
             enabled: true,
             actions: vec![
                 ActionSpec::ImportCover {
+                    mta_source: None,
                     filename_template: "cover.jpg".into(),
                     picture_type: None,
                     delete_existing: false,
@@ -3642,6 +3968,7 @@ mod tests {
         assert_eq!(
             saved,
             ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "cover.jpg".into(),
                 picture_type: None,
                 delete_existing: false,
@@ -3651,6 +3978,7 @@ mod tests {
         let effects = apply_action_spec(
             &mut current,
             &ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "%_directory%/back.png".into(),
                 picture_type: Some("CoverBack".into()),
                 delete_existing: true,
@@ -3670,11 +3998,13 @@ mod tests {
     fn unknown_cover_types_are_rejected_before_any_effect() {
         for action in [
             ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "cover.jpg".into(),
                 picture_type: Some("Poster".into()),
                 delete_existing: true,
             },
             ActionSpec::ExportCover {
+                mta_source: None,
                 filename_template: "cover".into(),
                 picture_type: Some("Poster".into()),
                 export_duplicates: false,
@@ -3793,20 +4123,24 @@ mod tests {
                 only_same_content: true,
             },
             ActionSpec::ConvertCodepage {
+                mta_source: None,
                 field: "_ALL".into(),
                 codepage: "1251".into(),
             },
             ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "%_folderpath%folder.jpg".into(),
                 picture_type: Some("CoverBack".into()),
                 delete_existing: true,
             },
             ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "cover.jpg".into(),
                 picture_type: None,
                 delete_existing: false,
             },
             ActionSpec::ExportCover {
+                mta_source: None,
                 filename_template: "%album%".into(),
                 picture_type: Some("CoverFront".into()),
                 export_duplicates: true,
@@ -3816,12 +4150,14 @@ mod tests {
                 filename_template: "%_filename%.txt".into(),
             },
             ActionSpec::Export {
+                mta_source: None,
                 template: "HTML List".into(),
                 filename_template: "%_folderpath%list.html".into(),
                 append: true,
                 partition_template: Some("%album%".into()),
             },
             ActionSpec::Export {
+                mta_source: None,
                 template: "Text".into(),
                 filename_template: String::new(),
                 append: false,
@@ -3869,9 +4205,15 @@ mod tests {
             actions: actions.clone(),
         };
         let text = export_mta(&group).unwrap();
-        assert!(text.contains("[#6]\r\nT=12\r\nF=%_folderpath%folder.jpg\r\n1=4\r\n2=1\r\n"));
-        assert!(text.contains("[#0]\r\nT=1\r\nF=TITLE\r\n1=3\r\n2=\r\n"));
-        let imported = import_mta("Every type".into(), text.as_bytes(), None).unwrap();
+        assert!(text.contains("[#6]\r\n1=%_folderpath%folder.jpg\r\n2=1\r\n3=4\r\nT=12\r\n"));
+        assert!(text.contains("[#0]\r\nT=1\r\nF=TITLE\r\n1=2\r\n2=\r\n"));
+        let imported = import_mta_with_dialect(
+            "Every type".into(),
+            text.as_bytes(),
+            None,
+            MtaDialect::Mp3tag,
+        )
+        .unwrap();
         assert!(imported.issues.is_empty(), "{:?}", imported.issues);
         assert!(imported.group.enabled);
         let interpreted: Vec<_> = imported

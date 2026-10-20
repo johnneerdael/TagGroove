@@ -191,15 +191,79 @@ jobs:
           $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           $global:LASTEXITCODE = 0
       - run: npm ci
+      - name: Prepare AppImage shared license material and inspector
+        if: runner.os == 'Linux'
+        run: python scripts/appimage-licenses.py --stage --prepare-inspector
+      - name: Prepare pinned Linux packaging inputs
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          architecture="$(dpkg --print-architecture)"
+          case "$architecture" in
+            amd64) inspector_arch=x86_64 ;;
+            arm64) inspector_arch=aarch64 ;;
+            *) exit 1 ;;
+          esac
+          inspector_version="$(python -c 'import json; print(json.load(open("src/licenses/appimage-common/SOURCES.json"))["inspector"]["version"])')"
+          python scripts/linux-build-tools.py --architecture "$architecture" --inspector "target/appimage-inspector-$inspector_version-$inspector_arch/7zz"
+          echo "XDG_CACHE_HOME=$GITHUB_WORKSPACE/target/linux-source-tools/xdg-cache" >> "$GITHUB_ENV"
+          echo "LDAI_RUNTIME_FILE=$GITHUB_WORKSPACE/target/linux-source-tools/$architecture/runtime" >> "$GITHUB_ENV"
       # No releaseId or tagName: this action builds only. Nothing is published
       # until the single final job validates every required platform artifact.
+      - name: Prepare private macOS signing inputs
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_PRIVATE_KEY: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY }}
+        run: python scripts/macos-release.py prepare --directory "$RUNNER_TEMP/taggroove-macos-notary"
+      - name: Build signed and notarized macOS packages
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/taggroove-macos-notary/AuthKey.p8
+        run: npm run tauri -- build --target ${{ matrix.target }} --bundles app,dmg --config "$RUNNER_TEMP/taggroove-macos-notary/tauri-release.json" --ci
+      - name: Verify notarized macOS packages and bind their bytes
+        if: runner.os == 'macOS'
+        id: macos
+        env:
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+        run: python scripts/macos-release.py verify-built --target '${{ matrix.target }}' --source-commit "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --directory "$RUNNER_TEMP/taggroove-macos-notary" --github-output "$GITHUB_OUTPUT"
       - name: Build desktop packages
+        if: runner.os != 'macOS'
         id: tauri
         uses: tauri-apps/tauri-action@v1
         with:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --ci
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: false
+      - name: Verify AppImage copyright license references
+        if: runner.os == 'Linux'
+        run: python scripts/appimage-licenses.py --verify-built '${{ matrix.target }}'
+      - name: Capture authenticated Linux package and source bindings
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          architecture="$(dpkg --print-architecture)"
+          case "$architecture" in
+            amd64) inspector_arch=x86_64 ;;
+            arm64) inspector_arch=aarch64 ;;
+            *) exit 1 ;;
+          esac
+          inspector_version="$(python -c 'import json; print(json.load(open("src/licenses/appimage-common/SOURCES.json"))["inspector"]["version"])')"
+          image="$(python -c 'from pathlib import Path; files=list(Path("target/${{ matrix.target }}/release/bundle/appimage").glob("*.AppImage")); assert len(files)==1, "Expected one built AppImage"; print(files[0].resolve())')"
+          python scripts/linux-distribution-capture.py --platform "$RELEASE_PLATFORM" --source-commit "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --image "$image" --inspector "target/appimage-inspector-$inspector_version-$inspector_arch/7zz" --strip "target/linux-source-tools/$architecture/strip" --patchelf "target/linux-source-tools/$architecture/patchelf" --output linux-source-evidence
+          mkdir -p release-assets
+          cp "linux-source-evidence/linux-source-$RELEASE_PLATFORM.json" release-assets/
+      - name: Verify Windows installer helper notice bindings
+        if: runner.os == 'Windows'
+        run: python scripts/component-notices.py --check --built-platform windows
       - name: Check macOS document types (Finder Open With)
         if: runner.os == 'macOS'
         run: |
@@ -219,10 +283,24 @@ jobs:
       - name: Name and hash desktop artifacts
         shell: bash
         env:
-          TAURI_ARTIFACT_PATHS: ${{ steps.tauri.outputs.artifactPaths }}
+          TAURI_ARTIFACT_PATHS: ${{ runner.os == 'macOS' && steps.macos.outputs.artifact_paths || steps.tauri.outputs.artifactPaths }}
         run: |
           python scripts/audio-source-bundle.py --collect-native '${{ matrix.target }}' --native-evidence "$OPENTAG_AUDIO_BUILD_ROOT" --source-sha "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --output "release-assets/native-$RELEASE_PLATFORM.json"
           node scripts/release.mjs collect-desktop
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: linux-source-${{ matrix.platform }}
+          path: linux-source-evidence/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: macos-signing-${{ matrix.platform }}
+          path: release-assets/macos-signing-${{ matrix.platform }}.json
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: native-source-${{ matrix.platform }}
@@ -235,6 +313,9 @@ jobs:
           path: release-assets/*
           if-no-files-found: error
           retention-days: 14
+      - name: Remove private macOS signing inputs
+        if: always() && runner.os == 'macOS'
+        run: python scripts/macos-release.py cleanup --directory "$RUNNER_TEMP/taggroove-macos-notary"
 
   android:
     name: Android arm64 signed release APK
@@ -305,6 +386,17 @@ jobs:
           # Tauri forwards this alias across the IDE build environment.
           export TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"
           npm run tauri -- android build --target aarch64 --apk --ci
+      - name: Verify bundled Android notices against resolved runtime archives
+        run: |
+          python scripts/android-notices.py --capture "$RUNNER_TEMP/taggroove-android-runtime.json"
+          python scripts/android-notices.py --check --metadata "$RUNNER_TEMP/taggroove-android-runtime.json" --verify-material --maven-cache "$HOME/.gradle/caches/modules-2/files-2.1"
+          python scripts/component-notices.py --check --built-platform android --ndk "$NDK_HOME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-runtime-notice-evidence
+          path: ${{ runner.temp }}/taggroove-android-runtime.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Verify APK signature, version and ABI, then collect
         run: |
           python scripts/audio-source-bundle.py --collect-native aarch64-linux-android --native-evidence "$OPENTAG_AUDIO_BUILD_ROOT" --source-sha "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --output release-assets/native-android-arm64.json
@@ -419,11 +511,21 @@ jobs:
           pattern: native-source-*
           path: native-evidence
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: linux-source-*
+          path: linux-evidence
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: macos-signing-*
+          path: macos-evidence
+          merge-multiple: true
       - name: Package and independently verify complete source
         run: |
           mkdir -p release-assets
-          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --output "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
-          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --verify "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
+          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --linux-evidence linux-evidence --macos-evidence macos-evidence --output "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
+          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --linux-evidence linux-evidence --macos-evidence macos-evidence --verify "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
       - uses: actions/upload-artifact@v4
         with:
           name: release-corresponding-source

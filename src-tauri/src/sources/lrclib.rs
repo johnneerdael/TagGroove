@@ -339,6 +339,7 @@ pub fn files_release(
         })
         .collect();
     SourceRelease {
+        preview_url: None,
         provider: Provider::Lrclib,
         id: String::new(),
         url: String::new(),
@@ -360,6 +361,7 @@ pub fn record_release(record: &Value, prefer_synced: bool) -> Result<SourceRelea
     let title = text(record, "trackName");
     let artist = text(record, "artistName");
     Ok(SourceRelease {
+        preview_url: None,
         provider: Provider::Lrclib,
         url: String::new(),
         title: title.clone(),

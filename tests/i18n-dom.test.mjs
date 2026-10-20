@@ -300,7 +300,7 @@ test('real keep-field selection preserves field syntax and each loaded value whi
 test('tag-panel validation keeps technical field keys raw while shortcut labels retain their locale',()=>{
   const messages=['{key}: at most 5000 custom values are supported.','{key}: custom values must be nonempty single lines.','{key}: remove duplicate custom values.'];
   const custom={ARTIST:'Performer',...Object.fromEntries(messages.map(key=>[key,`Field ${key}`])),'@keys':{Ctrl:'Control'}};
-  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [index,values] of [Array.from({length:5001},(_,i)=>String(i)),[' padded'],['same','same']].entries()){
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [index,values] of [Array.from({length:5001},(_,i)=>String(i)),['bad\tvalue'],['same','same']].entries()){
     const p=page();try{const settings=defaultPanelSettings();settings.field_values.lists.ARTIST=values;p.body.textContent=settingsError(settings);const t=p.translate(locale,catalog);assert.equal(p.body.textContent,t.t(messages[index],{key:'ARTIST'}));assert.equal(t.translate('Ctrl S'),locale==='de'?'Strg S':locale==='en'?'Control S':'Ctrl S');}finally{p.close();}
   }
 });
@@ -710,7 +710,7 @@ test('production save and restore conflict frames translate during diagnostics a
 test('owned technical diagnostics translate in production error rows while their URI and parser tokens stay unchanged',async()=>{
   const cases=JSON.parse(await readFile(new URL('./fixtures/owned-backend-diagnostics.json',import.meta.url),'utf8')),custom={...Object.fromEntries(cases.map(item=>[item.error,`Diagnostic: ${item.error}`])),Help:'Wrong file'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const {error} of cases){
-    const p=page();try{const t=new Translator(locale,catalog),e={path:'Help',error};p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);const row=p.body.querySelector('p');assert.notEqual(t.t(error),error);assert.equal(row.textContent,`Help: ${t.t(error)}`);assert.deepEqual(row.textContent.match(/URI|json_foreach(?:_end|_counter)?/g),error.match(/URI|json_foreach(?:_end|_counter)?/g));p.translateTree(p.body);assert.equal(row.textContent,`Help: ${t.t(error)}`);p.translate('en');assert.equal(row.textContent,`Help: ${error}`);}finally{p.close();}
+    const p=page();try{const t=new Translator(locale,catalog),e={path:'Help',error},expected=t.translate(error);p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);const row=p.body.querySelector('p');assert.notEqual(expected,error);assert.equal(row.textContent,`Help: ${expected}`);assert.deepEqual(row.textContent.match(/URI|json_foreach(?:_end|_counter)?/g),error.match(/URI|json_foreach(?:_end|_counter)?/g));p.translateTree(p.body);assert.equal(row.textContent,`Help: ${expected}`);p.translate('en');assert.equal(row.textContent,`Help: ${error}`);}finally{p.close();}
   }
 });
 test('actual selection summary translates each technical component and preserves codec identities',()=>{
@@ -1420,6 +1420,30 @@ test('web-source full-cover action stays separate from thumbnail, index preview 
     assert.deepEqual(calls.filter(([command])=>command==='web_source_release').map(([,args])=>args.url),[url]);
   }finally{p.close();}
 });
+test('album preview uses the loaded browser URL while Next retains the parser URL',async()=>{
+  for(const direct of [false,true])for(const selectedPreview of [null,'https://source.example/chosen-preview']){
+    const p=page();try{
+      const calls=[],url='https://source.example/parser/7',albumPreview='https://source.example/album-preview';
+      const ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async()=>{throw new Error('preview must not apply tags');},invoke:async(command,args)=>{
+        calls.push([command,args]);
+        if(command==='web_source_search')return{direct,columns:['Title'],results:[{url,preview:selectedPreview,values:['Release']}]};
+        if(command==='web_source_release')return{provider:'web',id:url,url,preview_url:albumPreview,artist:'Artist',title:'Release',fields:{},tracks:[],covers:[],more_covers:false};
+        if(command==='tag_source_open_page')return;
+        throw new Error(command);
+      }});
+      await ui.open('web',{web:{id:'fixture.src',name:'Fixture',search_by:[]}});
+      const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await p.window.happyDOM.waitUntilComplete();
+      if(!direct){dialog.querySelector('#ts-next').click();await p.window.happyDOM.waitUntilComplete();}
+      const loads=calls.filter(([command])=>command==='web_source_release');
+      assert.equal(loads.length,1);assert.equal(loads[0][1].url,url);
+      assert.equal(loads[0][1].previewUrl,selectedPreview,'selected index/direct preview reaches album parser');
+      assert.equal(calls.filter(([command])=>command==='tag_source_open_page').length,0,'review does not open a browser');
+      assert.equal(dialog.querySelector('.ts-preview').dataset.url,albumPreview);
+      dialog.querySelector('.ts-preview').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(calls.filter(([command])=>command==='tag_source_open_page').map(([,args])=>args.url),[albumPreview]);
+    }finally{p.close();}
+  }
+});
 test('web-source missing or invalid full-cover addresses leave the action hidden',async()=>{
   for(const full_cover of [undefined,null,'','javascript:alert(1)','https://user:password@source.example/full.jpg','file:///tmp/full.jpg']){
     const p=page();try{
@@ -2119,4 +2143,19 @@ for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['wa
     if(phase==='status')assert.deepEqual(calls.find(call=>call.command==='export_action_group').args,{path,group:library.groups[0]});
     dialog.close();assert.equal(listeners.size,0);
   }finally{p.close();}
+});
+
+
+test('reviewed filename converter renders exact companion paths without translating authored names',()=>{
+  const p=page();try {
+    const fieldRows=rendererVariable(parsed,'fieldRows',{esc});
+    const render=rendererVariable(parsed,'previewMarkup',{esc,fieldRows});
+    const members=[{from:'/Help/A & B.lrc',to:'/Title/<new>.lrc'},{from:'/Help/A & B.CDG',to:'/Title/<new>.CDG'}];
+    p.body.innerHTML=render([{path:'/Help/A & B.wav',target:'/Title/<new>.wav',captures:{},associated:members}],['/Unmatched.wav']);
+    const nodes=[...p.body.querySelectorAll('.associated-file')];assert.equal(nodes.length,2);
+    p.translate('nl',Object.fromEntries(members.flatMap(member=>[[member.from,'Wrong source translation'],[member.to,'Wrong destination translation']])));
+    nodes.forEach((node,index)=>{assert.equal(node.querySelector('small').textContent,members[index].from);assert.equal(node.querySelector('strong').textContent,members[index].to);});
+    assert.equal(p.body.querySelectorAll('new').length,0);
+    assert.ok(p.body.querySelector('.no-match').textContent.includes('/Unmatched.wav'));
+  } finally {p.close();}
 });

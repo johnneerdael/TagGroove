@@ -166,3 +166,15 @@ test('the dialog validators accept partial plans that leave unmatched files unch
   assert.equal(text.complete(keyed, {plan_token: 'keyed', items: [{selection_index: 1, source_line: 1, path: '/b.mp3', fields: {TITLE: ['B']}}], unmatched: ['/a.mp3']}, records, 'workspace'), true);
   assert.equal(text.canApply(records, 'workspace'), true);
 });
+
+
+test('filename companion rows are captured verbatim and malformed members cannot authorize Apply',()=>{
+  const response=preview();response.items[0].associated=[{from:'/Help.lrc',to:'/Title.lrc'}];
+  const state=createConverterReview(validateFilenameItems),attempt=state.begin(request(),'workspace');
+  assert.equal(state.complete(attempt,response,request(),'workspace'),true);response.items[0].associated[0].to='/later.lrc';
+  assert.deepEqual(state.take(request(),'workspace').items[0].associated,[{from:'/Help.lrc',to:'/Title.lrc'}]);
+  for(const associated of [null,{},[{from:1,to:'/x'}],[{from:'/a',to:''}],[{from:'/a',to:'/x'},{from:'/a',to:'/y'}]]) {
+    const bad=preview();bad.items[0].associated=associated;
+    assert.throws(()=>validateFilenameItems(request(),bad.items),/companion/);
+  }
+});

@@ -59,6 +59,7 @@ function runtime(state={}){
     const runtimePlatform={family:desktop?'desktop':'android',folder_picker_supported:desktop,document_access_supported:!desktop,...state.platform};
     const sourcePolicy=()=>documentSelection([...selected],{states:state.documents??{},refreshError:null},runtimePlatform.document_access_supported);
     const dirtySelected=()=>!!state.dirty,paths=()=>[...selected],visible=()=>[...entries.values()];
+    const saveOnMove=async(_previous,_next,change)=>{await change();return true;};
     const fileOps={reason:()=>''},selectedFiles=()=>[],mp4ChapterFiles=()=>({files:state.chapters===false?0:1});
     const history={undo:null},repeatState=()=>({kind:'none'}),tagClipboard=null,listRoots=[],listRootKinds={};
     const columnLayout={sort:state.sort??[{id:'filename',ascending:true}]},tableColumns=()=>[{id:'filename'}],editKey=()=> '_FILENAME_EXT';

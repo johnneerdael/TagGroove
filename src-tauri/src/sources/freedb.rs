@@ -845,6 +845,7 @@ pub fn release(
     let covers = cover_art(&xmcd.covers, &xmcd.art_ids, options.cover_size);
     Ok(SourceRelease {
         provider,
+        preview_url: None,
         id: format!("{category}/{disc_id}"),
         url: if server_is_gnudb {
             release_url(provider, category, disc_id)

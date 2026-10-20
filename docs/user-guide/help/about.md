@@ -12,8 +12,22 @@ license identification. Include that version, your operating system and the
 operation used when reporting a problem. A similar-looking screenshot or an
 old source checkout does not identify the package installed on your computer.
 
-About also lists the built-in fingerprint libraries and Boost.Regex with their
-full license notices, available without a network connection. **Sources and releases** leads to the release downloads and the
+About also lists the built-in fingerprint libraries, Boost.Regex and locale-data
+notices, available without a network connection. Expand **Dependency licenses
+and notices** for the component/version index and its referenced license text.
+**Android/JVM licenses and notices** contains the Android library inventory,
+including notices supplied with bundled parser libraries. Both lists are
+available offline.
+**Native runtime and installer notices** includes additional audio-codec,
+Android C++ runtime, Windows installer and Linux AppImage runtime/launcher
+notices, including their retained supplier-library notices. These lists preserve the
+supplier's copyright and license wording.
+Linux AppImages also carry distribution copyright files under
+`usr/share/doc/` and the standard texts they reference under
+`usr/share/common-licenses/` inside the image. These package documents supplement
+the notices shown in About. They can be read offline from an extracted image.
+Copyright and license text keeps its original language when the dialog's
+controls and headings are translated. **Sources and releases** leads to the release downloads and the
 corresponding-source archive with rebuild and relink instructions. On Android
 and iOS, the notice displays the release address to open in your browser.
 

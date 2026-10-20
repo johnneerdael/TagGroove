@@ -412,6 +412,7 @@ pub fn parse_release(body: &Value, size: CoverSize) -> Result<SourceRelease, Str
     let more_covers =
         archive.get("count").and_then(Value::as_u64).unwrap_or(0) > covers.len() as u64;
     Ok(SourceRelease {
+        preview_url: None,
         provider: Provider::Musicbrainz,
         more_covers,
         url: format!("https://musicbrainz.org/release/{id}"),

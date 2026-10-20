@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
+import {Window} from 'happy-dom';
 
 const source=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const ast=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
@@ -66,4 +67,33 @@ test('About source link invokes the release page without an error on desktop',as
   host.button.dispatchEvent(new Event('click'));await new Promise(resolve=>setImmediate(resolve));
   assert.equal(host.calls.filter(call=>call.command==='open_help_page').length,1);
   assert.equal(host.dialog.querySelector('.dialog-error'),null);
+});
+
+test('About translates its controls while retaining literal upstream notice text',async()=>{
+  const {Translator}=await import(coreURL);
+  const {DomTranslator}=await import(await moduleURL('i18n/dom.ts',{"'./core'":coreURL}));
+  const window=new Window(),saved={};
+  for(const name of ['window','document','Node','Element','Text','MutationObserver','NodeFilter','HTMLInputElement','HTMLTextAreaElement']){
+    saved[name]=Object.getOwnPropertyDescriptor(globalThis,name);
+    Object.defineProperty(globalThis,name,{configurable:true,writable:true,value:name==='window'?window:window[name]});
+  }
+  let watcher;
+  try{
+    let shown;
+    const translator=new Translator('nl',{'Close':'Sluiten','Dependency licenses and notices':'Licenties en vermeldingen van afhankelijkheden'});
+    const modal=(_title,markup)=>{
+      shown=document.createElement('dialog');shown.innerHTML=markup+'<button data-close>Close</button>';document.body.append(shown);return shown;
+    };
+    const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const factory=new Function('enabled','audioLicenses','esc','modal','themedAsset','appVersion','invoke','document','publicDocumentMessage','documentAccess','showFileError','t','translate','onLanguageChange',`${js}\nreturn operateImpl;`);
+    const operate=factory(()=>true,[{title:'Dependency licenses and notices',text:'Close'}],esc,modal,()=>'', '0.2.0',async()=>({chromaprint:'1.6.2',ffmpeg:'9.0.2'}),document,publicDocumentMessage,{states:{}},showFileError,text=>text,text=>text,()=>()=>{});
+    await operate('about');
+    watcher=new DomTranslator(document.body,()=>translator);watcher.translateTree(shown);
+    assert.equal(shown.querySelector('[data-close]').textContent,'Sluiten');
+    assert.equal(shown.querySelector('summary').textContent,'Licenties en vermeldingen van afhankelijkheden');
+    assert.equal(shown.querySelector('pre').textContent,'Close','upstream notice bytes must not be treated as owned UI labels');
+  }finally{
+    await window.happyDOM.abort();
+    for(const[name,value]of Object.entries(saved))if(value)Object.defineProperty(globalThis,name,value);else delete globalThis[name];
+  }
 });

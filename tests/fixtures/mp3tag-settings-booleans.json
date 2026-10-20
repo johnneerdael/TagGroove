@@ -1,0 +1,594 @@
+{
+  "subject": "Mp3tag Windows3.36.1 x64",
+  "sha256": "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911",
+  "authority": "Static shipped-artifact identifiers and codecs; target not executed. Fixtures are authored independently, not exported private settings.",
+  "record_format": {
+    "identifier_bytes": 16,
+    "length_bytes": 4,
+    "length_endian": "little",
+    "boolean_payload_bytes": 1
+  },
+  "reader": "0x14030339c",
+  "writer": "0x1403035c0",
+  "boolean_reader": "0x140075640",
+  "boolean_writer": "0x140075670",
+  "options": [
+    {
+      "native_key": "AutoSave",
+      "identifier": "8840da8e2956d74da1853b63f6df9037",
+      "object": "0x140ac3440",
+      "legacy_key_instruction": "140250423",
+      "legacy_setter_instruction": "14025046a",
+      "component": "settings",
+      "path": [
+        "pages",
+        "tags",
+        "save_on_move"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "NoImageFromFolder",
+      "identifier": "ee0051ba892b9941bce4471869a8f2d0",
+      "object": "0x140ac3580",
+      "legacy_key_instruction": "1402501f4",
+      "legacy_setter_instruction": "14025023e",
+      "component": "settings",
+      "path": [
+        "pages",
+        "tags",
+        "no_folder_image"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "KeepFileTime",
+      "identifier": "c43475eedd175e42b0d89661bd66f42d",
+      "object": "0x140ac3490",
+      "legacy_key_instruction": "1402503d7",
+      "legacy_setter_instruction": "14025041e",
+      "component": "settings",
+      "path": [
+        "tags",
+        "preserve_modified_time"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "JumpOnEdit",
+      "identifier": "53fe21e50af824458cf74de7edade298",
+      "object": "0x140ac3b70",
+      "legacy_key_instruction": "1402505eb",
+      "legacy_setter_instruction": "140250635",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "auto_select_next"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "UseAutoComplete",
+      "identifier": "a17772f7656a2b4fb710657ed41cb01d",
+      "object": "0x140ac57e0",
+      "legacy_key_instruction": "1402506d1",
+      "legacy_setter_instruction": "14025071b",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "autocomplete"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "TitleShowFolderPath",
+      "identifier": "6317969e3cb5424781aab010efedb4a2",
+      "object": "0x140ac5920",
+      "legacy_key_instruction": "14025063a",
+      "legacy_setter_instruction": "140250681",
+      "component": "settings",
+      "path": [
+        "general",
+        "show_directory_in_title"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "Recurse",
+      "identifier": "fbb012dd766b664493dff2ac5f006238",
+      "object": "0x140ac3030",
+      "legacy_key_instruction": "1402508a4",
+      "legacy_setter_instruction": "1402508ee",
+      "component": "settings",
+      "path": [
+        "directories",
+        "subfolders"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "HideStandardGenres",
+      "identifier": "a635489304121948aceaf4ad079f3fa1",
+      "object": "0x140ac27c0",
+      "legacy_key_instruction": "14024f27a",
+      "legacy_setter_instruction": "14024f2c4",
+      "component": "panel",
+      "path": [
+        "field_values",
+        "only_user_genres"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "HideID3Bar",
+      "identifier": "a0f6c4c7dcd9b44fb7d973852061f2cb",
+      "object": "0x140ac3b20",
+      "legacy_key_instruction": "14025046f",
+      "legacy_setter_instruction": "1402504b6",
+      "component": "panel",
+      "path": [
+        "panel",
+        "show_panel"
+      ],
+      "inverted": true
+    },
+    {
+      "native_key": "HideFilterBar",
+      "identifier": "86fd6bff815ed0488b445b271955c35c",
+      "object": "0x140ac3ad0",
+      "legacy_key_instruction": "1402504bb",
+      "legacy_setter_instruction": "140250502",
+      "component": "preferences",
+      "path": [
+        "opentag.filter-shown"
+      ],
+      "inverted": true
+    },
+    {
+      "native_key": "TrayIconShow",
+      "identifier": "07a26324a1f7d84782538bb89e2a57e8",
+      "object": "0x140ac36c0",
+      "legacy_key_instruction": "140250507",
+      "legacy_setter_instruction": "14025054e",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "tray_icon"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "TrayIconMinimize",
+      "identifier": "d5c6e9f135cd614aa8f3d9f513f774f1",
+      "object": "0x140ac3a80",
+      "legacy_key_instruction": "140250553",
+      "legacy_setter_instruction": "14025059a",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "minimize_to_tray"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlCreate",
+      "identifier": "b2efeb13fa6c2c44b8386c2182ac5965",
+      "object": "0x140ac2ef0",
+      "legacy_key_instruction": "140250b1c",
+      "legacy_setter_instruction": "140250b63",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "auto_create"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlExtended",
+      "identifier": "04d7ba2f4f3bfa4d8b0c1ccf2ab1c361",
+      "object": "0x140ac54c0",
+      "legacy_key_instruction": "140250bb4",
+      "legacy_setter_instruction": "140250bfe",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "extended"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlRel",
+      "identifier": "59fc84e13a7c8044b3192709f11d754d",
+      "object": "0x140ac5470",
+      "legacy_key_instruction": "140250ca9",
+      "legacy_setter_instruction": "140250cf3",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "relative"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlShowDlg",
+      "identifier": "f25e55356aa23840bb4e104ab58ce1f3",
+      "object": "0x140ac2ea0",
+      "legacy_key_instruction": "140250cf8",
+      "legacy_setter_instruction": "140250d42",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "confirm_filename"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "PlNoFolders",
+      "identifier": "b0b41d103f16944cb184a331ae6136a9",
+      "object": "0x140ac2fe0",
+      "legacy_key_instruction": "140250ded",
+      "legacy_setter_instruction": "140250e37",
+      "component": "settings",
+      "path": [
+        "pages",
+        "playlist",
+        "dont_create_directories"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "ExpShowDlg",
+      "identifier": "97a81ca5caca824ab21be214338c735e",
+      "object": "0x140ac2540",
+      "legacy_key_instruction": "14024fc1c",
+      "legacy_setter_instruction": "14024fc66",
+      "component": "settings",
+      "path": [
+        "pages",
+        "export",
+        "show_dialog"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "MsgSave",
+      "identifier": "a0d12c9bfeca104a9e28c4d677eeed5b",
+      "object": "0x140ac2e00",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "after_save"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_SAVE",
+      "language_offset": "0xb60",
+      "dialog_field": "0xc30",
+      "control": "0x498",
+      "label": "Notify after saving tags"
+    },
+    {
+      "native_key": "MsgRemove",
+      "identifier": "50ee520115df554ca05d5a2318e7dbb1",
+      "object": "0x140ac2cc0",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "after_delete"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_DEL",
+      "language_offset": "0xb38",
+      "dialog_field": "0xc34",
+      "control": "0x497",
+      "label": "Notify after removing tags"
+    },
+    {
+      "native_key": "MsgChange",
+      "identifier": "c926caafa65b39429d863d45454e9457",
+      "object": "0x140ac2ae0",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "after_change"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_CHANGE",
+      "language_offset": "0xb28",
+      "dialog_field": "0xc38",
+      "control": "0x494",
+      "label": "Notify after actions and converters"
+    },
+    {
+      "native_key": "MsgCut",
+      "identifier": "3e5445fa1d3cc94ea144ac8bcc08cbe6",
+      "object": "0x140ac2b30",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_cut_tags"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_CUT",
+      "language_offset": "0xb30",
+      "dialog_field": "0xc3c",
+      "control": "0x570",
+      "label": "Confirm cutting tags"
+    },
+    {
+      "native_key": "MsgPaste",
+      "identifier": "a5fea160d8e1d543b742a86a86a8f2d5",
+      "object": "0x140ac2c70",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_paste_tags"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_PASTE",
+      "language_offset": "0xb50",
+      "dialog_field": "0xc40",
+      "control": "0x571",
+      "label": "Confirm pasting tags"
+    },
+    {
+      "native_key": "MsgExport",
+      "identifier": "f943c466dfced441ab7d90819f99baaa",
+      "object": "0x140ac2bd0",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_export"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_EXPORT",
+      "language_offset": "0xb48",
+      "dialog_field": "0xc44",
+      "control": "0x572",
+      "label": "Offer to open exported files and playlists"
+    },
+    {
+      "native_key": "MsgDeleteFile",
+      "identifier": "c2b1b77b33dd5e42b8e2bc0a90d00586",
+      "object": "0x140ac2b80",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_delete_files"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_DELETEFILE",
+      "language_offset": "0xb40",
+      "dialog_field": "0xc48",
+      "control": "0x573",
+      "label": "Confirm deleting files"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_ACTIONWARNINGS",
+      "identifier": "215db77b5ec4934c9d28593f17c07afd",
+      "object": "0x140ac2a90",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "action_warnings"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_ACTIONWARNINGS",
+      "language_offset": "0xb20",
+      "dialog_field": "0xc4c",
+      "control": "0x574",
+      "label": "Show warnings from Actions"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_UNSAVED",
+      "identifier": "0175173ea37ff746bf47382a1c7c3f76",
+      "object": "0x140ac2e50",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "unsaved_changes"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_UNSAVED",
+      "language_offset": "0xb70",
+      "dialog_field": "0xc50",
+      "control": "0x86a",
+      "label": "Ask about unsaved changes"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_TSIMPORTCOVER",
+      "identifier": "fc0a600b58c13744ab155cb882f9d901",
+      "object": "0x140ac2c20",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_import_covers"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_TSIMPORTCOVER",
+      "language_offset": "0xb68",
+      "dialog_field": "0xc54",
+      "control": "0x870",
+      "label": "Ask before importing cover art"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_REMOVETAGS",
+      "identifier": "6ffacd136f47034d95660ba5e0469de8",
+      "object": "0x140ac2d10",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_remove_tags"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_REMOVETAGS",
+      "language_offset": "0xb58",
+      "dialog_field": "0xc58",
+      "control": "0x575",
+      "label": "Confirm removing tags"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_SORTNATURAL",
+      "identifier": "3ec5faaa30c28a4b8ea2c470e1f7a276",
+      "object": "0x140ac4a70",
+      "component": "settings",
+      "path": [
+        "general",
+        "natural_sort"
+      ],
+      "inverted": false,
+      "dialog_field": "0x164",
+      "control": "0x5bc",
+      "language_offset": "0xba0",
+      "label": "Use natural sorting (1, 2, 11, …)"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_SELECTFILES",
+      "identifier": "de10ea102047ae448c2c53c4ba58d55e",
+      "object": "0x140ac2310",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "select_added"
+      ],
+      "inverted": false,
+      "dialog_field": "0x160",
+      "control": "0x5bd",
+      "language_offset": "0xb90",
+      "label": "Select files automatically when they are added to the list"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_KEEPMOVEDFILES",
+      "identifier": "8d7feb69eab69f4883076efb11f4b20c",
+      "object": "0x140ac2360",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "keep_moved"
+      ],
+      "inverted": false,
+      "dialog_field": "0x15c",
+      "control": "0x5be",
+      "language_offset": "0xb18",
+      "label": "Keep moved files in the file list"
+    },
+    {
+      "native_key": "binary:243cae0bb6d7804b932f5ea2f2d2a55d",
+      "identifier": "243cae0bb6d7804b932f5ea2f2d2a55d",
+      "object": "0x140ac55b0",
+      "control": "0x868",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "popularimeter_ratings"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:ac740b3914557e479e4b32dbbbacaab0",
+      "identifier": "ac740b3914557e479e4b32dbbbacaab0",
+      "object": "0x140ac5880",
+      "control": "0x85d",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "list_chapters"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:e4f596ec68aba54da0bf8bff3a489238",
+      "identifier": "e4f596ec68aba54da0bf8bff3a489238",
+      "object": "0x140ac56f0",
+      "control": "0x85e",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "matroska_video_mapping"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:40b8c799a9b6ac4080064606a8c10200",
+      "identifier": "40b8c799a9b6ac4080064606a8c10200",
+      "object": "0x140ac5650",
+      "control": "0x95e",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "mp4_single_atom"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:a8c68011b761684596bd8f68db51d329",
+      "identifier": "a8c68011b761684596bd8f68db51d329",
+      "object": "0x140ac56a0",
+      "control": "0x967",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "reuse_mp4_atoms"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:8b86f06a405be14991918e4fc1cf13d8",
+      "identifier": "8b86f06a405be14991918e4fc1cf13d8",
+      "object": "0x140ac5600",
+      "control": "0x95f",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "reuse_id3v2_frames"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:a5a066496e5a1d409b6a874bb814b65b",
+      "identifier": "a5a066496e5a1d409b6a874bb814b65b",
+      "object": "0x140ac2810",
+      "control": "0x5c6",
+      "legacy_alias": null,
+      "component": "panel",
+      "path": [
+        "field_values",
+        "prefer_tag_fields",
+        "GENRE"
+      ],
+      "inverted": false
+    }
+  ]
+}

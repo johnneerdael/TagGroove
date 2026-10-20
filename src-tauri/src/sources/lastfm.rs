@@ -254,6 +254,7 @@ pub fn parse_release(body: &Value, id: &str, genres: usize) -> Result<SourceRele
         .into_iter()
         .collect();
     Ok(SourceRelease {
+        preview_url: None,
         provider: Provider::Lastfm,
         id: id.to_owned(),
         url: text(album, "url"),

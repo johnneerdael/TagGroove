@@ -105,6 +105,7 @@ fn codepage_examples_decode_the_published_input_with_the_published_page() {
         apply_action_spec(
             &mut input,
             &ActionSpec::ConvertCodepage {
+                mta_source: None,
                 field: "TITLE".into(),
                 codepage: codepage.into(),
             },

@@ -308,6 +308,7 @@ fn cover_lesson_written_per_folder_imports_save_distinct_images_without_changing
             let effects = apply_action_spec(
                 &mut state,
                 &ActionSpec::ImportCover {
+                    mta_source: None,
                     filename_template: code(settings["Image filename format"]).into(),
                     picture_type: Some("CoverFront".into()),
                     delete_existing: false,

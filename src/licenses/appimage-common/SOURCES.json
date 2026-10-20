@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "upstream_tag": "v3.29.0",
+  "licenses": [
+    {
+      "name": "MPL-1.1",
+      "source_file": "src/licenses/appimage-common/MPL-1.1",
+      "sha256": "6214f8b1300bb9f37b16ebc146f8f61af0187e0025042ff95c8b3030744a8795",
+      "git_blob_sha1": "e1c842828c91cbb27e0345a0d3154ee0d3745a66",
+      "commit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+      "source_url": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MPL-1.1.txt"
+    },
+    {
+      "name": "MPL-2.0",
+      "source_file": "src/licenses/appimage-common/MPL-2.0",
+      "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172",
+      "git_blob_sha1": "ee6256cdb62a765749a71aae3abea32884301cd1",
+      "commit": "31ba1a50e5397e00a304dbadc76531740e89ee48",
+      "source_url": "https://raw.githubusercontent.com/spdx/license-list-data/31ba1a50e5397e00a304dbadc76531740e89ee48/text/MPL-2.0.txt"
+    }
+  ],
+  "required_names": [
+    "Apache-2.0",
+    "Artistic",
+    "CC0-1.0",
+    "GFDL-1.2",
+    "GFDL-1.3",
+    "GPL",
+    "GPL-1",
+    "GPL-2",
+    "GPL-3",
+    "LGPL",
+    "LGPL-2",
+    "LGPL-2.1",
+    "LGPL-3",
+    "MPL-1.1",
+    "MPL-2.0"
+  ],
+  "inspector": {
+    "version": "26.03",
+    "archives": [
+      {
+        "arch": "aarch64",
+        "url": "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-linux-arm64.tar.xz",
+        "archive": "7z2603-linux-arm64.tar.xz",
+        "sha256": "2389ba20e4d8295e8709c20b6263b69bd1ec4972fe38a04ad7a1badbf595b996",
+        "binary_sha256": "9a26e7d54bfdae8a8f1750cdb70697547b738c2334aa89f3d3f2c8645c8443fe"
+      },
+      {
+        "arch": "x86_64",
+        "url": "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-linux-x64.tar.xz",
+        "archive": "7z2603-linux-x64.tar.xz",
+        "sha256": "dc99eff5008f1ab79bd7084c68513701547a808a89502bf4133683535ab3c695",
+        "binary_sha256": "3d52c92deb7e9f1bd059692eefc33f86a144cdc548acc4b6f4c809a4dd7bc369"
+      }
+    ]
+  }
+}

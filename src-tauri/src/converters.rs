@@ -1,4 +1,5 @@
-//! Reviewed native converter plans. GUI integration is a separate task.
+//! Reviewed converter plans with frozen payloads and whole-batch rollback.
+use crate::associated_files::CreatedDirectories;
 use crate::evaluation::{ColumnSpec, EvaluationSettings};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -35,6 +36,7 @@ pub struct FilenameItem {
     pub path: String,
     pub target: String,
     pub captures: Fields,
+    pub associated: Vec<crate::associated_files::Preview>,
 }
 
 #[derive(Debug, Serialize)]
@@ -42,6 +44,7 @@ pub struct FilenameResult {
     #[serde(flatten)]
     pub result: ScanResult,
     pub renamed: Vec<PathChange>,
+    pub associated_renamed: Vec<PathChange>,
 }
 
 #[derive(Debug, Serialize)]
@@ -229,11 +232,11 @@ pub async fn apply_filename_conversion(
 ) -> Result<FilenameResult, ConverterError> {
     super::io(move || {
         super::reject_provider_operation(&request.paths, "Filename conversion")?;
-        Ok(record_conversion(
-            "Filename → Filename",
-            &request.paths,
-            || apply_filename(&request, &plan_token),
-        ))
+        let paths =
+            filename_history_sources(&request, &plan_token, crate::associated_files::enabled())?;
+        Ok(record_conversion("Filename → Filename", &paths, || {
+            apply_filename(&request, &plan_token)
+        }))
     })
     .await
     .map_err(ConverterError::Plain)?
@@ -283,6 +286,7 @@ struct Snapshot {
     metadata: fs::Metadata,
     hash: [u8; 32],
     writable: bool,
+    identity: tag_core::file_copy::FileIdentity,
 }
 
 fn same_metadata(a: &fs::Metadata, b: &fs::Metadata) -> bool {
@@ -361,6 +365,7 @@ impl Snapshot {
             hash,
             metadata,
             writable,
+            identity: tag_core::file_copy::FileIdentity::read(path)?,
         })
     }
     fn validate(&self) -> Result<(), String> {
@@ -379,6 +384,7 @@ impl Snapshot {
         if current.canonical != self.canonical
             || current.hash != self.hash
             || !same_metadata(&current.metadata, &self.metadata)
+            || current.identity != self.identity
         {
             return Err(format!(
                 "{} changed after preview; preview again",
@@ -396,6 +402,7 @@ struct Move {
     target: PathBuf,
     ancestor: PathBuf,
     ancestor_metadata: fs::Metadata,
+    ancestor_identity: tag_core::file_copy::DirectoryIdentity,
 }
 enum Operation {
     Filename(Vec<Move>),
@@ -408,6 +415,9 @@ struct ReviewedPlan {
     sources: Vec<Snapshot>,
     text_source: Option<Snapshot>,
     operation: Operation,
+    association_policy: Option<bool>,
+    associations: Option<crate::associated_files::Plan>,
+    history_admitted: bool,
 }
 
 fn request_hash(kind: &str, request: &impl Serialize) -> Result<[u8; 32], String> {
@@ -449,6 +459,9 @@ fn consume(token: &str, hash: [u8; 32]) -> Result<ReviewedPlan, String> {
 }
 
 fn validate_sources(plan: &ReviewedPlan) -> Result<(), String> {
+    if let Some(associated) = &plan.associations {
+        associated.validate()?;
+    }
     for source in &plan.sources {
         source.validate()?;
     }
@@ -458,6 +471,49 @@ fn validate_sources(plan: &ReviewedPlan) -> Result<(), String> {
     Ok(())
 }
 
+pub(crate) fn filename_history_sources(
+    request: &FilenameRequest,
+    token: &str,
+    policy: bool,
+) -> Result<Vec<String>, String> {
+    let hash = request_hash("filename", request)?;
+    let mut plans = PLANS.lock().map_err(|_| "Converter plan lock failed")?;
+    let index = plans
+        .iter()
+        .position(|plan| plan.token == token)
+        .ok_or("Converter preview is no longer available; preview again")?;
+    let plan = &plans[index];
+    if plan.created.elapsed().as_secs() >= 300
+        || plan.request_hash != hash
+        || plan.association_policy != Some(policy)
+    {
+        plans.remove(index);
+        return Err("Converter inputs or associated-file policy changed; preview again".into());
+    }
+    // Validate the original directory snapshot before history intentionally
+    // probes source clone capability. After capture, retain native directory
+    // identity, target normalization/collision and full source-content checks;
+    // the probe's temporary files must not invalidate an otherwise exact plan.
+    let validation = match &plan.operation {
+        Operation::Filename(moves) => validate_moves(&plan.sources, moves, true),
+        _ => Err("Wrong converter preview kind".into()),
+    };
+    if let Err(error) = validation {
+        plans.remove(index);
+        return Err(error);
+    }
+    let mut paths = request.paths.clone();
+    if let Some(associated) = &plan.associations {
+        paths.extend(
+            associated
+                .groups
+                .iter()
+                .flat_map(|group| group.associated.iter().map(|item| item.source.clone())),
+        );
+    }
+    plans[index].history_admitted = true;
+    Ok(paths)
+}
 fn path_key(path: &Path) -> String {
     let path = path.to_string_lossy().into_owned();
     // Conservative duplicate protection on the usual case-insensitive hosts.
@@ -487,7 +543,11 @@ fn read_sources(paths: &[String], writable: bool) -> Result<Vec<(Snapshot, Audio
         .collect()
 }
 
-fn validate_moves(sources: &[Snapshot], moves: &[Move]) -> Result<(), String> {
+fn validate_moves(
+    sources: &[Snapshot],
+    moves: &[Move],
+    check_directory_metadata: bool,
+) -> Result<(), String> {
     let mut seen = HashSet::new();
     for (source, movement) in sources.iter().zip(moves) {
         let current = crate::action_host::normalized_rename_target(&movement.raw_target)?;
@@ -496,7 +556,11 @@ fn validate_moves(sources: &[Snapshot], moves: &[Move]) -> Result<(), String> {
         }
         let ancestor = fs::metadata(&movement.ancestor)
             .map_err(|_| "A reviewed destination directory is missing; preview again")?;
-        if !ancestor.is_dir() || !same_metadata(&ancestor, &movement.ancestor_metadata) {
+        if !ancestor.is_dir()
+            || tag_core::file_copy::DirectoryIdentity::read(&movement.ancestor)?
+                != movement.ancestor_identity
+            || (check_directory_metadata && !same_metadata(&ancestor, &movement.ancestor_metadata))
+        {
             return Err("A reviewed destination directory changed; preview again".into());
         }
         if !seen.insert(path_key(&current)) {
@@ -554,6 +618,13 @@ fn preview_filename(
     request: &FilenameRequest,
     settings: &EvaluationSettings,
 ) -> Result<FilenamePreview, String> {
+    preview_filename_policy(request, settings, crate::associated_files::enabled())
+}
+pub(crate) fn preview_filename_policy(
+    request: &FilenameRequest,
+    settings: &EvaluationSettings,
+    associated: bool,
+) -> Result<FilenamePreview, String> {
     let converter =
         tag_core::FilenameConverter::compile(&request.old_pattern, &request.new_pattern)?;
     let loaded = read_sources(&request.paths, false)?;
@@ -579,19 +650,53 @@ fn preview_filename(
             path: request.paths[index].clone(),
             target: target.to_string_lossy().into_owned(),
             captures: rendered.captures,
+            associated: Vec::new(),
         });
         moves.push(Move {
             selection_index: index,
             raw_target,
             target,
+            ancestor_identity: tag_core::file_copy::DirectoryIdentity::read(&ancestor)?,
             ancestor,
             ancestor_metadata,
         });
         sources.push(source);
     }
-    validate_moves(&sources, &moves)?;
+    validate_moves(&sources, &moves, true)?;
+    let associations = if associated {
+        Some(crate::associated_files::Plan::new(
+            sources
+                .iter()
+                .zip(&moves)
+                .map(|(source, movement)| {
+                    (
+                        source.canonical.to_string_lossy().into_owned(),
+                        movement.target.clone(),
+                    )
+                })
+                .collect(),
+            true,
+        )?)
+    } else {
+        None
+    };
+    if let Some(plan) = &associations {
+        for (item, group) in items.iter_mut().zip(&plan.groups) {
+            item.associated = group
+                .associated
+                .iter()
+                .map(|side| crate::associated_files::Preview {
+                    from: side.source.clone(),
+                    to: side.target.to_string_lossy().into_owned(),
+                })
+                .collect();
+        }
+    }
     let plan = ReviewedPlan {
         token: String::new(),
+        history_admitted: false,
+        association_policy: Some(associated),
+        associations,
         request_hash: request_hash("filename", request)?,
         created: Instant::now(),
         sources,
@@ -615,25 +720,130 @@ fn apply_filename(
 fn apply_filename_with(
     request: &FilenameRequest,
     token: &str,
+    before_step: impl FnMut(usize) -> Result<(), String>,
+) -> Result<FilenameResult, ConverterError> {
+    apply_filename_policy(
+        request,
+        token,
+        crate::associated_files::enabled(),
+        before_step,
+    )
+}
+/// A moved member and its produced identity. Companions are never parsed as audio.
+struct CompletedMove {
+    source: PathBuf,
+    target: PathBuf,
+    hash: [u8; 32],
+    produced: Option<fs::Metadata>,
+    produced_identity: Option<tag_core::file_copy::FileIdentity>,
+    source_parent: tag_core::file_copy::DirectoryIdentity,
+    target_parent: tag_core::file_copy::DirectoryIdentity,
+}
+fn move_converter_member(
+    source: &Path,
+    target: &Path,
+    hash: [u8; 32],
+    directories: &mut CreatedDirectories,
+    completed: &mut Vec<CompletedMove>,
+) -> Result<bool, ConverterMessage> {
+    if source == target {
+        return Ok(false);
+    }
+    directories.prepare(target)?;
+    let source_parent = tag_core::file_copy::DirectoryIdentity::read(
+        source.parent().ok_or("Source has no parent directory")?,
+    )?;
+    let target_parent = tag_core::file_copy::DirectoryIdentity::read(
+        target
+            .parent()
+            .ok_or("Destination has no parent directory")?,
+    )?;
+    tag_core::operations::rename_no_clobber(source, target)?;
+    completed.push(CompletedMove {
+        source: source.to_owned(),
+        target: target.to_owned(),
+        hash,
+        produced: None,
+        produced_identity: None,
+        source_parent,
+        target_parent,
+    });
+    let metadata = fs::symlink_metadata(target)
+        .map_err(|error| ConverterMessage::External(error.to_string()))?;
+    if !metadata.is_file() {
+        return Err("Moved file is no longer a regular file; retained at destination".into());
+    }
+    let identity = tag_core::file_copy::FileIdentity::read(target)?;
+    let last = completed.last_mut().unwrap();
+    last.produced = Some(metadata);
+    last.produced_identity = Some(identity);
+    Ok(true)
+}
+fn validate_filename_parent(movement: &Move) -> Result<(), String> {
+    if tag_core::file_copy::DirectoryIdentity::read(&movement.ancestor)?
+        != movement.ancestor_identity
+        || crate::action_host::normalized_rename_target(&movement.raw_target)? != movement.target
+    {
+        return Err("A reviewed destination directory changed; preview again".into());
+    }
+    Ok(())
+}
+pub(crate) fn apply_filename_policy(
+    request: &FilenameRequest,
+    token: &str,
+    associated: bool,
     mut before_step: impl FnMut(usize) -> Result<(), String>,
 ) -> Result<FilenameResult, ConverterError> {
     let plan = consume(token, request_hash("filename", request)?)?;
+    if plan.association_policy != Some(associated) {
+        return Err("The associated-file policy changed; preview again".into());
+    }
     let Operation::Filename(moves) = &plan.operation else {
         return Err("Wrong converter preview kind".into());
     };
-    validate_moves(&plan.sources, moves)?;
-    let mut completed: Vec<usize> = Vec::new();
+    validate_moves(&plan.sources, moves, !plan.history_admitted)?;
+    let mut completed = Vec::new();
+    let mut directories = CreatedDirectories::default();
     let mut result = FilenameResult {
         result: ScanResult::default(),
         renamed: Vec::new(),
+        associated_renamed: Vec::new(),
     };
     let operation = (|| {
         for (index, (source, movement)) in plan.sources.iter().zip(moves).enumerate() {
             before_step(index)?;
             source.validate()?;
-            if source.canonical != movement.target {
-                tag_core::operations::rename_no_clobber(&source.canonical, &movement.target)?;
-                completed.push(index);
+            validate_filename_parent(movement)?;
+            if let Some(associations) = &plan.associations {
+                let group = &associations.groups[index];
+                group.validate()?;
+                for side in &group.associated {
+                    side.validate()?;
+                    validate_filename_parent(movement)?;
+                    if move_converter_member(
+                        Path::new(&side.source),
+                        &side.target,
+                        side.content_hash()
+                            .ok_or("A reviewed companion has no content digest")?,
+                        &mut directories,
+                        &mut completed,
+                    )? {
+                        result.associated_renamed.push(PathChange {
+                            from: side.source.clone(),
+                            to: side.target.to_string_lossy().into_owned(),
+                        });
+                    }
+                }
+            }
+            source.validate()?;
+            validate_filename_parent(movement)?;
+            if move_converter_member(
+                &source.canonical,
+                &movement.target,
+                source.hash,
+                &mut directories,
+                &mut completed,
+            )? {
                 result.renamed.push(PathChange {
                     from: request.paths[movement.selection_index].clone(),
                     to: movement.target.to_string_lossy().into_owned(),
@@ -648,24 +858,58 @@ fn apply_filename_with(
     })();
     if let Err(error) = operation {
         let mut rollback = Vec::new();
-        for index in completed.into_iter().rev() {
-            let source = &plan.sources[index];
-            let target = &moves[index].target;
+        for item in completed.into_iter().rev() {
             let restored = (|| {
-                if digest_message(target)?.0 != source.hash {
+                if tag_core::file_copy::DirectoryIdentity::read(
+                    item.source
+                        .parent()
+                        .ok_or("Source has no parent directory")?,
+                )? != item.source_parent
+                    || tag_core::file_copy::DirectoryIdentity::read(
+                        item.target
+                            .parent()
+                            .ok_or("Destination has no parent directory")?,
+                    )? != item.target_parent
+                {
+                    return Err("A moved file's source or destination folder changed; retained at destination".into());
+                }
+                let Some(expected) = item.produced else {
+                    return Err(
+                        "Moved file identity could not be captured; retained at destination".into(),
+                    );
+                };
+                if !fs::symlink_metadata(&item.target).is_ok_and(|metadata| metadata.is_file()) {
                     return Err("Moved file changed externally; retained at destination".into());
                 }
-                tag_core::operations::rename_no_clobber_diagnostic(target, &source.canonical)
+                let (hash, metadata) = digest_message(&item.target)?;
+                if hash != item.hash
+                    || !same_metadata(&metadata, &expected)
+                    || Some(tag_core::file_copy::FileIdentity::read(&item.target)?)
+                        != item.produced_identity
+                {
+                    return Err("Moved file changed externally; retained at destination".into());
+                }
+                tag_core::operations::rename_no_clobber_diagnostic(&item.target, &item.source)
                     .map_err(|error| ConverterMessage::Rename(Box::new(error)))
             })();
             if let Err(error) = restored {
                 rollback.push(RollbackItem {
-                    path: target.to_string_lossy().into_owned(),
+                    path: item.target.to_string_lossy().into_owned(),
                     error,
                     recovery: None,
                 });
             }
         }
+        rollback.extend(
+            directories
+                .cleanup()
+                .into_iter()
+                .map(|(path, error)| RollbackItem {
+                    path: path.to_string_lossy().into_owned(),
+                    error: ConverterMessage::External(error),
+                    recovery: None,
+                }),
+        );
         return Err(ConverterError::Rollback {
             converter_rollback: Box::new(RollbackFailure {
                 operation: RollbackOperation::Rename,
@@ -749,6 +993,9 @@ fn preview_text(request: &TextRequest) -> Result<TextPreview, String> {
     let plan = ReviewedPlan {
         token: String::new(),
         request_hash: request_hash("text", request)?,
+        history_admitted: false,
+        association_policy: None,
+        associations: None,
         created: Instant::now(),
         sources,
         text_source,
@@ -1000,6 +1247,290 @@ mod tests {
         }
     }
 
+    #[test]
+    fn companion_filename_conversion_reviews_only_matched_members_and_preserves_exclusions() {
+        for enabled in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let audio = root.join("Artist - Song.wav");
+            let odd = root.join("Unmatched.wav");
+            wav(&audio, "Source");
+            wav(&odd, "Unmatched");
+            for (name, bytes) in [
+                ("Artist - Song.lrc", b"lyrics".as_slice()),
+                ("Artist - Song.CDG", b"karaoke"),
+                ("Artist - Song.en.lrc", b"suffix"),
+                ("Artist - Song.txt", b"text"),
+                ("Unmatched.lrc", b"untouched"),
+            ] {
+                fs::write(root.join(name), bytes).unwrap();
+            }
+            let request = filename_request(&[audio.clone(), odd.clone()], "%2 - %1");
+            let preview =
+                preview_filename_policy(&request, &EvaluationSettings::default(), enabled).unwrap();
+            let wire = serde_json::to_value(&preview).unwrap();
+            let expected = if enabled {
+                serde_json::json!([
+                    {"from":root.join("Artist - Song.CDG").to_string_lossy(),"to":root.join("Song - Artist.CDG").to_string_lossy()},
+                    {"from":root.join("Artist - Song.lrc").to_string_lossy(),"to":root.join("Song - Artist.lrc").to_string_lossy()},
+                ])
+            } else {
+                serde_json::json!([])
+            };
+            assert_eq!(wire["items"][0]["associated"], expected);
+            assert_eq!(preview.unmatched, [odd.to_string_lossy().to_string()]);
+            let result =
+                apply_filename_policy(&request, &preview.plan_token, enabled, |_| Ok(())).unwrap();
+            assert_eq!(result.result.entries.len(), 1);
+            assert_eq!(result.renamed.len(), 1);
+            for (old, new, bytes) in [
+                (
+                    "Artist - Song.lrc",
+                    "Song - Artist.lrc",
+                    b"lyrics".as_slice(),
+                ),
+                ("Artist - Song.CDG", "Song - Artist.CDG", b"karaoke"),
+            ] {
+                assert_eq!(
+                    fs::read(root.join(if enabled { new } else { old })).unwrap(),
+                    bytes
+                );
+                assert!(!root.join(if enabled { old } else { new }).exists());
+            }
+            for (name, bytes) in [
+                ("Artist - Song.en.lrc", b"suffix".as_slice()),
+                ("Artist - Song.txt", b"text"),
+                ("Unmatched.lrc", b"untouched"),
+            ] {
+                assert_eq!(fs::read(root.join(name)).unwrap(), bytes);
+            }
+            assert_eq!(
+                serde_json::to_value(result).unwrap()["associated_renamed"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                if enabled { 2 } else { 0 }
+            );
+        }
+    }
+    #[test]
+    fn companion_filename_conversion_rejects_stale_membership_bytes_and_policy_before_mutation() {
+        for change in ["bytes", "new", "deleted", "policy"] {
+            let dir = tempfile::tempdir().unwrap();
+            let audio = dir.path().join("Artist - Song.wav");
+            wav(&audio, "Source");
+            let before = fs::read(&audio).unwrap();
+            let lyric = audio.with_extension("lrc");
+            fs::write(&lyric, b"before").unwrap();
+            let request = filename_request(std::slice::from_ref(&audio), "%2 - %1");
+            let preview =
+                preview_filename_policy(&request, &EvaluationSettings::default(), true).unwrap();
+            match change {
+                "bytes" => fs::write(&lyric, b"changed").unwrap(),
+                "new" => fs::write(audio.with_extension("cdg"), b"new").unwrap(),
+                "deleted" => fs::remove_file(&lyric).unwrap(),
+                _ => {}
+            }
+            assert!(
+                apply_filename_policy(
+                    &request,
+                    &preview.plan_token,
+                    change != "policy",
+                    |_| Ok(())
+                )
+                .is_err(),
+                "{change}"
+            );
+            assert_eq!(fs::read(&audio).unwrap(), before);
+            assert!(!Path::new(&preview.items[0].target).exists());
+            assert!(
+                apply_filename_policy(&request, &preview.plan_token, true, |_| Ok(())).is_err(),
+                "consumed {change}"
+            );
+        }
+    }
+    #[test]
+    fn companion_filename_conversion_later_failure_reverses_all_groups_and_owned_empty_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let paths = [root.join("A - One.wav"), root.join("B - Two.wav")];
+        for path in &paths {
+            wav(path, "Before");
+            fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+            fs::write(path.with_extension("CDG"), b"karaoke").unwrap();
+        }
+        let before: Vec<_> = paths.iter().map(|path| fs::read(path).unwrap()).collect();
+        let request = filename_request(&paths, "New\\Nested\\%2 - %1");
+        let preview =
+            preview_filename_policy(&request, &EvaluationSettings::default(), true).unwrap();
+        let result = apply_filename_policy(&request, &preview.plan_token, true, |index| {
+            if index == 1 {
+                Err("Injected later failure".into())
+            } else {
+                Ok(())
+            }
+        });
+        assert!(result.is_err());
+        for (index, path) in paths.iter().enumerate() {
+            assert_eq!(fs::read(path).unwrap(), before[index]);
+            assert_eq!(fs::read(path.with_extension("lrc")).unwrap(), b"lyric");
+            assert_eq!(fs::read(path.with_extension("CDG")).unwrap(), b"karaoke");
+        }
+        assert!(
+            !root.join("New").exists(),
+            "handled failure cleans only created empty parents"
+        );
+    }
+    #[test]
+    fn companion_filename_conversion_rollback_retains_external_sidecar_edits_and_reports_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let paths = [root.join("A - One.wav"), root.join("B - Two.wav")];
+        for path in &paths {
+            wav(path, "Before");
+            fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+        }
+        let request = filename_request(&paths, "%2 - %1");
+        let preview =
+            preview_filename_policy(&request, &EvaluationSettings::default(), true).unwrap();
+        let moved = Path::new(&preview.items[0].target).with_extension("lrc");
+        let error = apply_filename_policy(&request, &preview.plan_token, true, |index| {
+            if index == 1 {
+                fs::write(&moved, b"External edit").unwrap();
+                Err("Injected later failure".into())
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+        assert!(paths[0].exists() && paths[1].exists());
+        assert!(!paths[0].with_extension("lrc").exists());
+        assert_eq!(fs::read(&moved).unwrap(), b"External edit");
+        assert!(error.to_string().contains(moved.to_str().unwrap()));
+    }
+    #[test]
+    fn companion_filename_conversion_rollback_refuses_replaced_source_or_destination_parent() {
+        for replace_source in [true, false] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let source = root.join("Source");
+            let target = root.join("Target");
+            fs::create_dir(&source).unwrap();
+            fs::create_dir(&target).unwrap();
+            let paths = [source.join("A - One.wav"), source.join("B - Two.wav")];
+            for path in &paths {
+                wav(path, "Before");
+                fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+            }
+            let request = filename_request(&paths, &format!("{}/%2 - %1", target.display()));
+            let preview =
+                preview_filename_policy(&request, &EvaluationSettings::default(), true).unwrap();
+            let moved = PathBuf::from(&preview.items[0].target);
+            let error = apply_filename_policy(&request, &preview.plan_token, true, |index| {
+                if index == 1 {
+                    let parent = if replace_source { &source } else { &target };
+                    let retained = root.join("Retained");
+                    fs::rename(parent, &retained).unwrap();
+                    fs::create_dir(parent).unwrap();
+                    if !replace_source {
+                        for item in [moved.clone(), moved.with_extension("lrc")] {
+                            fs::rename(retained.join(item.file_name().unwrap()), &item).unwrap();
+                        }
+                    }
+                    Err("Injected parent replacement".into())
+                } else {
+                    Ok(())
+                }
+            })
+            .unwrap_err();
+            assert!(
+                moved.exists() && moved.with_extension("lrc").exists(),
+                "unknown parents must retain moved members"
+            );
+            assert!(!paths[0].exists() && !paths[0].with_extension("lrc").exists());
+            assert!(error.to_string().contains(moved.to_str().unwrap()));
+        }
+    }
+    #[test]
+    fn companion_filename_conversion_failed_history_admission_consumes_the_receipt() {
+        let dir = tempfile::tempdir().unwrap();
+        let audio = dir.path().join("A - One.wav");
+        wav(&audio, "Before");
+        fs::write(audio.with_extension("lrc"), b"lyric").unwrap();
+        let request = filename_request(&[audio], "%2 - %1");
+        let preview =
+            preview_filename_policy(&request, &EvaluationSettings::default(), true).unwrap();
+        assert!(filename_history_sources(&request, &preview.plan_token, false).is_err());
+        assert!(
+            filename_history_sources(&request, &preview.plan_token, true).is_err(),
+            "failed Apply cannot resurrect by restoring policy"
+        );
+    }
+    #[test]
+    fn companion_filename_conversion_cleanup_retains_unrelated_files_and_preexisting_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let paths = [root.join("A - One.wav"), root.join("B - Two.wav")];
+        for path in &paths {
+            wav(path, "Before");
+            fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+        }
+        let existing = root.join("Existing");
+        fs::create_dir(&existing).unwrap();
+        let request = filename_request(&paths, "Existing\\New\\%2 - %1");
+        let preview =
+            preview_filename_policy(&request, &EvaluationSettings::default(), true).unwrap();
+        let outside = existing.join("New/Unrelated.txt");
+        let error = apply_filename_policy(&request, &preview.plan_token, true, |index| {
+            if index == 1 {
+                fs::write(&outside, b"Outside data").unwrap();
+                Err("Injected failure".into())
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+        for path in &paths {
+            assert!(path.exists());
+            assert_eq!(fs::read(path.with_extension("lrc")).unwrap(), b"lyric");
+        }
+        assert_eq!(fs::read(&outside).unwrap(), b"Outside data");
+        assert!(existing.is_dir());
+        assert!(error
+            .to_string()
+            .contains(existing.join("New").to_str().unwrap()));
+    }
+    #[test]
+    fn companion_filename_conversion_late_collision_rolls_back_prior_groups_without_touching_occupant(
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let paths = [root.join("A - One.wav"), root.join("B - Two.wav")];
+        for path in &paths {
+            wav(path, "Before");
+            fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+        }
+        let request = filename_request(&paths, "%2 - %1");
+        let preview =
+            preview_filename_policy(&request, &EvaluationSettings::default(), true).unwrap();
+        let occupied = Path::new(&preview.items[1].target).with_extension("lrc");
+        let error = apply_filename_policy(&request, &preview.plan_token, true, |index| {
+            if index == 1 {
+                fs::write(&occupied, b"Outside occupant").unwrap();
+            }
+            Ok(())
+        })
+        .unwrap_err();
+        for path in &paths {
+            assert!(path.exists());
+            assert_eq!(fs::read(path.with_extension("lrc")).unwrap(), b"lyric");
+        }
+        assert_eq!(fs::read(&occupied).unwrap(), b"Outside occupant");
+        let ConverterError::Rollback { converter_rollback } = error else {
+            panic!("expected structured rollback");
+        };
+        assert!(converter_rollback.failures.is_empty());
+    }
     #[test]
     fn rollback_ipc_and_history_bridge_keep_paths_parts_and_plain_errors() {
         let cases: serde_json::Value =

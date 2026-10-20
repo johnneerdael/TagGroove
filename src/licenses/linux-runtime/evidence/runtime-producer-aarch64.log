@@ -1,0 +1,972 @@
+﻿2026-10-19T20:35:34.9650201Z Current runner version: '2.337.0'
+2026-10-19T20:35:34.9684397Z ##[group]Runner Image Provisioner
+2026-10-19T20:35:34.9685878Z Hosted Compute Agent
+2026-10-19T20:35:34.9686654Z Version: 20261012.601
+2026-10-19T20:35:34.9687564Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-19T20:35:34.9688438Z Build Date: 2026-10-12T17:48:21Z
+2026-10-19T20:35:34.9689405Z Worker ID: {7f5173cc-9a53-4b12-84d3-f12340d1d110}
+2026-10-19T20:35:34.9690344Z Region: westus3
+2026-10-19T20:35:34.9691104Z Cloud: Azure
+2026-10-19T20:35:34.9691824Z ##[endgroup]
+2026-10-19T20:35:34.9694712Z ##[group]Operating System
+2026-10-19T20:35:34.9695629Z Ubuntu
+2026-10-19T20:35:34.9696503Z 24.04.5
+2026-10-19T20:35:34.9697175Z LTS
+2026-10-19T20:35:34.9697950Z ##[endgroup]
+2026-10-19T20:35:34.9698703Z ##[group]Runner Image
+2026-10-19T20:35:34.9699557Z Image: ubuntu-24.04-arm
+2026-10-19T20:35:34.9700414Z Version: 20261012.149.1
+2026-10-19T20:35:34.9702181Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24-arm64/20261012.149/images/ubuntu/Ubuntu2404-Arm64-Readme.md
+2026-10-19T20:35:34.9704414Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24-arm64%2F20261012.149
+2026-10-19T20:35:34.9705660Z ##[endgroup]
+2026-10-19T20:35:34.9709040Z ##[group]GITHUB_TOKEN Permissions
+2026-10-19T20:35:34.9712603Z Actions: write
+2026-10-19T20:35:34.9713548Z ArtifactMetadata: write
+2026-10-19T20:35:34.9714658Z Attestations: write
+2026-10-19T20:35:34.9715453Z Checks: write
+2026-10-19T20:35:34.9716283Z CodeQuality: write
+2026-10-19T20:35:34.9717118Z Contents: write
+2026-10-19T20:35:34.9717826Z CopilotRequests: write
+2026-10-19T20:35:34.9718682Z Deployments: write
+2026-10-19T20:35:34.9719503Z Discussions: write
+2026-10-19T20:35:34.9720256Z Drives: write
+2026-10-19T20:35:34.9720912Z Issues: write
+2026-10-19T20:35:34.9721988Z Metadata: read
+2026-10-19T20:35:34.9722700Z Models: read
+2026-10-19T20:35:34.9723537Z Packages: write
+2026-10-19T20:35:34.9724654Z Pages: write
+2026-10-19T20:35:34.9725574Z PullRequests: write
+2026-10-19T20:35:34.9726423Z RepositoryProjects: write
+2026-10-19T20:35:34.9727215Z SecurityEvents: write
+2026-10-19T20:35:34.9728013Z Statuses: write
+2026-10-19T20:35:34.9728827Z VulnerabilityAlerts: read
+2026-10-19T20:35:34.9729619Z ##[endgroup]
+2026-10-19T20:35:34.9733026Z Secret source: Actions
+2026-10-19T20:35:34.9734790Z Cache mode: write
+2026-10-19T20:35:34.9735770Z Prepare workflow directory
+2026-10-19T20:35:35.0218422Z Prepare all required actions
+2026-10-19T20:35:35.0272005Z Getting action download info
+2026-10-19T20:35:35.3312201Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-19T20:35:35.4708649Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-10-19T20:35:36.4269082Z Complete job name: build (aarch64, ubuntu-24.04-arm)
+2026-10-19T20:35:36.5196648Z ##[group]Run actions/checkout@v7
+2026-10-19T20:35:36.5198372Z with:
+2026-10-19T20:35:36.5199380Z   repository: AppImage/type2-runtime
+2026-10-19T20:35:36.5204494Z   token: ***
+2026-10-19T20:35:36.5205445Z   ssh-strict: true
+2026-10-19T20:35:36.5206304Z   ssh-user: git
+2026-10-19T20:35:36.5207254Z   persist-credentials: true
+2026-10-19T20:35:36.5208092Z   clean: true
+2026-10-19T20:35:36.5209062Z   sparse-checkout-cone-mode: true
+2026-10-19T20:35:36.5210005Z   fetch-depth: 1
+2026-10-19T20:35:36.5210945Z   fetch-tags: false
+2026-10-19T20:35:36.5211821Z   show-progress: true
+2026-10-19T20:35:36.5212759Z   lfs: false
+2026-10-19T20:35:36.5213618Z   submodules: false
+2026-10-19T20:35:36.5214813Z   set-safe-directory: true
+2026-10-19T20:35:36.5215863Z   allow-unsafe-pr-checkout: false
+2026-10-19T20:35:36.5217314Z ##[endgroup]
+2026-10-19T20:35:36.6124859Z Syncing repository: AppImage/type2-runtime
+2026-10-19T20:35:36.6128027Z ##[group]Getting Git version info
+2026-10-19T20:35:36.6129796Z Working directory is '/home/runner/work/type2-runtime/type2-runtime'
+2026-10-19T20:35:36.6131720Z [command]/usr/bin/git version
+2026-10-19T20:35:36.6148043Z git version 2.55.0
+2026-10-19T20:35:36.6166224Z ##[endgroup]
+2026-10-19T20:35:36.6190542Z Temporarily overriding HOME='/home/runner/work/_temp/54f12040-511d-4e8f-ab91-57c21a952f14' before making global git config changes
+2026-10-19T20:35:36.6192642Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T20:35:36.6201906Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/type2-runtime/type2-runtime
+2026-10-19T20:35:36.6227891Z Deleting the contents of '/home/runner/work/type2-runtime/type2-runtime'
+2026-10-19T20:35:36.6245968Z ##[group]Determining repository object format
+2026-10-19T20:35:36.6253046Z ##[endgroup]
+2026-10-19T20:35:36.6255197Z ##[group]Initializing the repository
+2026-10-19T20:35:36.6256684Z [command]/usr/bin/git init /home/runner/work/type2-runtime/type2-runtime
+2026-10-19T20:35:36.6330454Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-19T20:35:36.6332447Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-19T20:35:36.6337997Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-19T20:35:36.6340157Z hint: call:
+2026-10-19T20:35:36.6341242Z hint:
+2026-10-19T20:35:36.6342176Z hint: 	git config --global init.defaultBranch <name>
+2026-10-19T20:35:36.6343353Z hint:
+2026-10-19T20:35:36.6344596Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-19T20:35:36.6346233Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-19T20:35:36.6347420Z hint:
+2026-10-19T20:35:36.6348295Z hint: 	git branch -m <name>
+2026-10-19T20:35:36.6349283Z hint:
+2026-10-19T20:35:36.6350368Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-19T20:35:36.6352070Z Initialized empty Git repository in /home/runner/work/type2-runtime/type2-runtime/.git/
+2026-10-19T20:35:36.6355261Z [command]/usr/bin/git remote add origin https://github.com/AppImage/type2-runtime
+2026-10-19T20:35:36.6379060Z ##[endgroup]
+2026-10-19T20:35:36.6380552Z ##[group]Disabling automatic garbage collection
+2026-10-19T20:35:36.6384773Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-19T20:35:36.6413445Z ##[endgroup]
+2026-10-19T20:35:36.6415693Z ##[group]Setting up auth
+2026-10-19T20:35:36.6417117Z Removing SSH command configuration
+2026-10-19T20:35:36.6418943Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T20:35:36.6467907Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T20:35:36.6786478Z Removing HTTP extra header
+2026-10-19T20:35:36.6791085Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T20:35:36.6821150Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T20:35:36.7014748Z Removing includeIf entries pointing to credentials config files
+2026-10-19T20:35:36.7017335Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T20:35:36.7049743Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T20:35:36.7247903Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-19T20:35:36.7290878Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git.path /home/runner/work/_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:35:36.7321550Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:35:36.7354490Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:35:36.7385028Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:35:36.7413916Z ##[endgroup]
+2026-10-19T20:35:36.7415620Z ##[group]Fetching the repository
+2026-10-19T20:35:36.7418885Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +fedfad51acc2860b2916a1eef32ba4a500ff31ef:refs/remotes/origin/main
+2026-10-19T20:35:37.2248729Z From https://github.com/AppImage/type2-runtime
+2026-10-19T20:35:37.2250766Z  * [new ref]         fedfad51acc2860b2916a1eef32ba4a500ff31ef -> origin/main
+2026-10-19T20:35:37.2258158Z [command]/usr/bin/git branch --list --remote origin/main
+2026-10-19T20:35:37.2282351Z   origin/main
+2026-10-19T20:35:37.2290722Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-10-19T20:35:37.2314140Z fedfad51acc2860b2916a1eef32ba4a500ff31ef
+2026-10-19T20:35:37.2318634Z ##[endgroup]
+2026-10-19T20:35:37.2320469Z ##[group]Determining the checkout info
+2026-10-19T20:35:37.2322385Z ##[endgroup]
+2026-10-19T20:35:37.2323698Z [command]/usr/bin/git sparse-checkout disable
+2026-10-19T20:35:37.2364390Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-19T20:35:37.2394240Z ##[group]Checking out the ref
+2026-10-19T20:35:37.2396212Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-19T20:35:37.2444327Z Switched to a new branch 'main'
+2026-10-19T20:35:37.2451572Z branch 'main' set up to track 'origin/main'.
+2026-10-19T20:35:37.2456945Z ##[endgroup]
+2026-10-19T20:35:37.2490806Z [command]/usr/bin/git log -1 --format=%H
+2026-10-19T20:35:37.2515643Z fedfad51acc2860b2916a1eef32ba4a500ff31ef
+2026-10-19T20:35:37.2775792Z ##[group]Run echo -n "https://github.com/${GITHUB_REPOSITORY}/commit/" > src/runtime/version
+2026-10-19T20:35:37.2778521Z [36;1mecho -n "https://github.com/${GITHUB_REPOSITORY}/commit/" > src/runtime/version[0m
+2026-10-19T20:35:37.2780628Z [36;1mgit rev-parse --short HEAD  | xargs >> src/runtime/version[0m
+2026-10-19T20:35:37.2811208Z shell: /usr/bin/sh -e {0}
+2026-10-19T20:35:37.2812553Z ##[endgroup]
+2026-10-19T20:35:37.3022786Z ##[group]Run # make sure to collect artifacts in a separate directory
+2026-10-19T20:35:37.3025409Z [36;1m# make sure to collect artifacts in a separate directory[0m
+2026-10-19T20:35:37.3026883Z [36;1m# makes uploading easier[0m
+2026-10-19T20:35:37.3028078Z [36;1mmkdir -p out[0m
+2026-10-19T20:35:37.3029206Z [36;1m(cd out && ../scripts/docker/build-with-docker.sh)[0m
+2026-10-19T20:35:37.3052952Z shell: /usr/bin/sh -e {0}
+2026-10-19T20:35:37.3054533Z env:
+2026-10-19T20:35:37.3055366Z   ARCH: aarch64
+2026-10-19T20:35:37.3056435Z ##[endgroup]
+2026-10-19T20:35:37.7984539Z #0 building with "default" instance using docker driver
+2026-10-19T20:35:37.7985612Z 
+2026-10-19T20:35:37.7986132Z #1 [internal] load build definition from Dockerfile
+2026-10-19T20:35:37.7987423Z #1 transferring dockerfile: 546B done
+2026-10-19T20:35:37.7988438Z #1 DONE 0.0s
+2026-10-19T20:35:37.7988981Z 
+2026-10-19T20:35:37.7989587Z #2 [internal] load metadata for docker.io/library/alpine:3.21
+2026-10-19T20:35:37.9680148Z #2 ...
+2026-10-19T20:35:37.9680849Z 
+2026-10-19T20:35:37.9681519Z #3 [auth] library/alpine:pull token for registry-1.docker.io
+2026-10-19T20:35:37.9682875Z #3 DONE 0.0s
+2026-10-19T20:35:38.1171864Z 
+2026-10-19T20:35:38.1173222Z #2 [internal] load metadata for docker.io/library/alpine:3.21
+2026-10-19T20:35:38.3948995Z #2 DONE 0.7s
+2026-10-19T20:35:38.4990449Z 
+2026-10-19T20:35:38.4991864Z #4 [internal] load .dockerignore
+2026-10-19T20:35:38.4994995Z #4 transferring context: 2B done
+2026-10-19T20:35:38.4996397Z #4 DONE 0.0s
+2026-10-19T20:35:38.4997230Z 
+2026-10-19T20:35:38.4997635Z #5 [internal] load build context
+2026-10-19T20:35:38.4998213Z #5 transferring context: 4.72kB done
+2026-10-19T20:35:38.4998695Z #5 DONE 0.0s
+2026-10-19T20:35:38.4998894Z 
+2026-10-19T20:35:38.4999356Z #6 [1/6] FROM docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
+2026-10-19T20:35:38.5000434Z #6 resolve docker.io/library/alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507 done
+2026-10-19T20:35:38.5001304Z #6 extracting sha256:248d4d6535e8932d2b51acdf49a4ca8d87629cd408a02bd59788b4c31e3d0c28
+2026-10-19T20:35:38.6945918Z #6 extracting sha256:248d4d6535e8932d2b51acdf49a4ca8d87629cd408a02bd59788b4c31e3d0c28 0.1s done
+2026-10-19T20:35:38.6947826Z #6 sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507 9.22kB / 9.22kB done
+2026-10-19T20:35:38.6949647Z #6 sha256:0a7ed0d449b9318548e66674610d757de19b7645759f74b587b610b59d6b43fd 1.02kB / 1.02kB done
+2026-10-19T20:35:38.6950614Z #6 sha256:748902c9f9368aa7437b05e353c23968266b0bc882ac1d74067fc1768a102ba6 627B / 627B done
+2026-10-19T20:35:38.6951616Z #6 sha256:248d4d6535e8932d2b51acdf49a4ca8d87629cd408a02bd59788b4c31e3d0c28 3.97MB / 3.97MB 0.1s done
+2026-10-19T20:35:38.6952321Z #6 DONE 0.2s
+2026-10-19T20:35:38.6952538Z 
+2026-10-19T20:35:38.6953501Z #7 [2/6] RUN apk add --no-cache     bash alpine-sdk util-linux strace file autoconf automake libtool xz     eudev-dev gettext-dev linux-headers meson     zstd-dev zstd-static zlib-dev zlib-static clang musl-dev mimalloc-dev
+2026-10-19T20:35:38.6955007Z #7 0.110 fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/APKINDEX.tar.gz
+2026-10-19T20:35:38.9262413Z #7 0.342 fetch https://dl-cdn.alpinelinux.org/alpine/v3.21/community/aarch64/APKINDEX.tar.gz
+2026-10-19T20:35:39.3074798Z #7 0.723 (1/138) Upgrading libcrypto3 (3.3.7-r1 -> 3.3.7-r2)
+2026-10-19T20:35:39.4182438Z #7 0.766 (2/138) Upgrading libssl3 (3.3.7-r1 -> 3.3.7-r2)
+2026-10-19T20:35:39.4183123Z #7 0.779 (3/138) Upgrading zlib (1.3.2-r0 -> 1.3.2-r1)
+2026-10-19T20:35:39.4183670Z #7 0.791 (4/138) Installing libcap2 (2.78-r0)
+2026-10-19T20:35:39.4184411Z #7 0.802 (5/138) Installing libcap-getcap (2.78-r0)
+2026-10-19T20:35:39.4184941Z #7 0.812 (6/138) Installing fakeroot (1.37.1.1-r0)
+2026-10-19T20:35:39.4185620Z #7 0.823 (7/138) Installing libgcc (14.2.0-r4)
+2026-10-19T20:35:39.4186136Z #7 0.834 (8/138) Installing libstdc++ (14.2.0-r4)
+2026-10-19T20:35:39.6556124Z #7 0.853 (9/138) Installing lzip (1.24.1-r1)
+2026-10-19T20:35:39.6556784Z #7 0.865 (10/138) Installing openssl (3.3.7-r2)
+2026-10-19T20:35:39.6557282Z #7 0.879 (11/138) Installing patch (2.7.6-r10)
+2026-10-19T20:35:39.6557927Z #7 0.891 (12/138) Installing pkgconf (2.3.0-r0)
+2026-10-19T20:35:39.6558389Z #7 0.902 (13/138) Installing acl-libs (2.3.2-r1)
+2026-10-19T20:35:39.6558793Z #7 0.912 (14/138) Installing tar (1.35-r2)
+2026-10-19T20:35:39.6559226Z #7 0.925 (15/138) Installing abuild (3.14.1-r4)
+2026-10-19T20:35:39.6559602Z #7 1.071 Executing abuild-3.14.1-r4.pre-install
+2026-10-19T20:35:39.7619280Z #7 1.077 (16/138) Installing abuild-sudo (3.14.1-r4)
+2026-10-19T20:35:39.7620066Z #7 1.087 (17/138) Installing jansson (2.14-r4)
+2026-10-19T20:35:39.7620471Z #7 1.098 (18/138) Installing zstd-libs (1.5.6-r2)
+2026-10-19T20:35:39.7620948Z #7 1.112 (19/138) Installing binutils (2.43.1-r3)
+2026-10-19T20:35:39.7621353Z #7 1.177 (20/138) Installing libmagic (5.46-r2)
+2026-10-19T20:35:39.8634452Z #7 1.203 (21/138) Installing file (5.46-r2)
+2026-10-19T20:35:39.8635282Z #7 1.213 (22/138) Installing libgomp (14.2.0-r4)
+2026-10-19T20:35:39.8635697Z #7 1.225 (23/138) Installing libatomic (14.2.0-r4)
+2026-10-19T20:35:39.8636154Z #7 1.236 (24/138) Installing gmp (6.3.0-r2)
+2026-10-19T20:35:39.8636541Z #7 1.248 (25/138) Installing isl26 (0.26-r1)
+2026-10-19T20:35:39.8636955Z #7 1.266 (26/138) Installing mpfr4 (4.2.1-r0)
+2026-10-19T20:35:39.8637321Z #7 1.279 (27/138) Installing mpc1 (1.3.1-r1)
+2026-10-19T20:35:40.0247757Z #7 1.289 (28/138) Installing gcc (14.2.0-r4)
+2026-10-19T20:35:40.3884388Z #7 1.804 (29/138) Installing libstdc++-dev (14.2.0-r4)
+2026-10-19T20:35:40.4938313Z #7 1.909 (30/138) Installing musl-dev (1.2.5-r11)
+2026-10-19T20:35:40.6932740Z #7 1.958 (31/138) Installing g++ (14.2.0-r4)
+2026-10-19T20:35:40.7120842Z #7 2.128 (32/138) Installing make (4.4.1-r2)
+2026-10-19T20:35:40.8213255Z #7 2.139 (33/138) Installing fortify-headers (1.1-r5)
+2026-10-19T20:35:40.8213918Z #7 2.150 (34/138) Installing build-base (0.5-r3)
+2026-10-19T20:35:40.8214480Z #7 2.150 (35/138) Installing brotli-libs (1.1.0-r2)
+2026-10-19T20:35:40.8214919Z #7 2.164 (36/138) Installing c-ares (1.34.8-r0)
+2026-10-19T20:35:40.8215965Z #7 2.176 (37/138) Installing libunistring (1.2-r0)
+2026-10-19T20:35:40.8216356Z #7 2.192 (38/138) Installing libidn2 (2.3.7-r0)
+2026-10-19T20:35:40.8216825Z #7 2.203 (39/138) Installing nghttp2-libs (1.69.0-r0)
+2026-10-19T20:35:40.8217206Z #7 2.214 (40/138) Installing libpsl (0.21.5-r3)
+2026-10-19T20:35:40.8217633Z #7 2.224 (41/138) Installing libcurl (8.14.1-r2)
+2026-10-19T20:35:40.8218004Z #7 2.237 (42/138) Installing libexpat (2.9.0-r0)
+2026-10-19T20:35:40.9272354Z #7 2.247 (43/138) Installing pcre2 (10.43-r0)
+2026-10-19T20:35:40.9273066Z #7 2.260 (44/138) Installing git (2.47.3-r0)
+2026-10-19T20:35:40.9273504Z #7 2.310 (45/138) Installing git-init-template (2.47.3-r0)
+2026-10-19T20:35:40.9274274Z #7 2.321 (46/138) Installing alpine-sdk (1.1-r0)
+2026-10-19T20:35:40.9274712Z #7 2.321 (47/138) Installing m4 (1.4.19-r3)
+2026-10-19T20:35:40.9275179Z #7 2.333 (48/138) Installing libbz2 (1.0.8-r6)
+2026-10-19T20:35:40.9275562Z #7 2.343 (49/138) Installing perl (5.40.4-r0)
+2026-10-19T20:35:41.1250591Z #7 2.540 (50/138) Installing perl-error (0.17029-r2)
+2026-10-19T20:35:41.2340915Z #7 2.551 (51/138) Installing perl-git (2.47.3-r0)
+2026-10-19T20:35:41.2342201Z #7 2.562 (52/138) Installing git-perl (2.47.3-r0)
+2026-10-19T20:35:41.2342890Z #7 2.574 (53/138) Installing autoconf (2.72-r0)
+2026-10-19T20:35:41.2343280Z #7 2.593 (54/138) Installing automake (1.17-r0)
+2026-10-19T20:35:41.2344023Z #7 2.613 (55/138) Installing ncurses-terminfo-base (6.5_p20241006-r3)
+2026-10-19T20:35:41.2344557Z #7 2.625 (56/138) Installing libncursesw (6.5_p20241006-r3)
+2026-10-19T20:35:41.2345071Z #7 2.638 (57/138) Installing readline (8.2.13-r0)
+2026-10-19T20:35:41.2345547Z #7 2.650 (58/138) Installing bash (5.2.37-r0)
+2026-10-19T20:35:41.3458485Z #7 2.674 Executing bash-5.2.37-r0.post-install
+2026-10-19T20:35:41.3459236Z #7 2.677 (59/138) Installing clang19-headers (19.1.4-r0)
+2026-10-19T20:35:41.3460126Z #7 2.722 (60/138) Installing libffi (3.4.7-r0)
+2026-10-19T20:35:41.3460614Z #7 2.732 (61/138) Installing xz-libs (5.8.4-r0)
+2026-10-19T20:35:41.3461042Z #7 2.746 (62/138) Installing libxml2 (2.13.9-r1)
+2026-10-19T20:35:41.3461507Z #7 2.761 (63/138) Installing llvm19-libs (19.1.4-r1)
+2026-10-19T20:35:41.8836308Z #7 3.299 (64/138) Installing clang19-libs (19.1.4-r0)
+2026-10-19T20:35:42.2149206Z #7 3.630 (65/138) Installing llvm19-linker-tools (19.1.4-r1)
+2026-10-19T20:35:42.3224967Z #7 3.642 (66/138) Installing clang19 (19.1.4-r0)
+2026-10-19T20:35:42.3225580Z #7 3.660 (67/138) Installing eudev-libs (3.2.14-r5)
+2026-10-19T20:35:42.3226198Z #7 3.670 (68/138) Installing eudev-dev (3.2.14-r5)
+2026-10-19T20:35:42.3226595Z #7 3.691 (69/138) Installing xz (5.8.4-r0)
+2026-10-19T20:35:42.3227045Z #7 3.703 (70/138) Installing gettext-asprintf (0.22.5-r0)
+2026-10-19T20:35:42.3227504Z #7 3.713 (71/138) Installing libintl (0.22.5-r0)
+2026-10-19T20:35:42.3227956Z #7 3.723 (72/138) Installing gettext-libs (0.22.5-r0)
+2026-10-19T20:35:42.3228411Z #7 3.738 (73/138) Installing gettext-envsubst (0.22.5-r0)
+2026-10-19T20:35:42.4629860Z #7 3.748 (74/138) Installing gettext (0.22.5-r0)
+2026-10-19T20:35:42.4630607Z #7 3.770 (75/138) Installing gettext-dev (0.22.5-r0)
+2026-10-19T20:35:42.4631048Z #7 3.786 (76/138) Installing libltdl (2.4.7-r3)
+2026-10-19T20:35:42.4631523Z #7 3.795 (77/138) Installing libtool (2.4.7-r3)
+2026-10-19T20:35:42.4631923Z #7 3.815 (78/138) Installing linux-headers (6.6-r1)
+2026-10-19T20:35:42.4632395Z #7 3.878 (79/138) Installing samurai (1.2-r6)
+2026-10-19T20:35:42.6444561Z #7 3.888 (80/138) Installing gdbm (1.24-r0)
+2026-10-19T20:35:42.6445108Z #7 3.899 (81/138) Installing mpdecimal (4.0.0-r0)
+2026-10-19T20:35:42.6445814Z #7 3.910 (82/138) Installing libpanelw (6.5_p20241006-r3)
+2026-10-19T20:35:42.6446244Z #7 3.919 (83/138) Installing sqlite-libs (3.48.0-r4)
+2026-10-19T20:35:42.6446737Z #7 3.937 (84/138) Installing python3 (3.12.15-r0)
+2026-10-19T20:35:42.6447236Z #7 4.060 (85/138) Installing python3-pycache-pyc0 (3.12.15-r0)
+2026-10-19T20:35:42.8697935Z #7 4.135 (86/138) Installing pyc (3.12.15-r0)
+2026-10-19T20:35:42.8955303Z #7 4.135 (87/138) Installing meson-pyc (1.6.1-r0)
+2026-10-19T20:35:42.8955803Z #7 4.311 (88/138) Installing python3-pyc (3.12.15-r0)
+2026-10-19T20:35:42.8956453Z #7 4.311 (89/138) Installing meson (1.6.1-r0)
+2026-10-19T20:35:43.1215819Z #7 4.340 (90/138) Installing abuild-meson (1.6.1-r0)
+2026-10-19T20:35:43.1216363Z #7 4.350 (91/138) Installing mimalloc2-debug (2.1.7-r0)
+2026-10-19T20:35:43.1217066Z #7 4.363 (92/138) Installing mimalloc2-insecure (2.1.7-r0)
+2026-10-19T20:35:43.1217639Z #7 4.375 (93/138) Installing mimalloc2 (2.1.7-r0)
+2026-10-19T20:35:43.1218109Z #7 4.386 (94/138) Installing mimalloc2-dev (2.1.7-r0)
+2026-10-19T20:35:43.1250672Z #7 4.540 (95/138) Installing libelf (0.191-r0)
+2026-10-19T20:35:43.2932106Z #7 4.551 (96/138) Installing musl-fts (1.2.7-r6)
+2026-10-19T20:35:43.2932880Z #7 4.562 (97/138) Installing libdw (0.191-r0)
+2026-10-19T20:35:43.2933311Z #7 4.709 (98/138) Installing strace (6.12-r0)
+2026-10-19T20:35:43.3949361Z #7 4.725 (99/138) Installing util-linux (2.40.4-r1)
+2026-10-19T20:35:43.3950141Z #7 4.735 (100/138) Installing dmesg (2.40.4-r1)
+2026-10-19T20:35:43.3950534Z #7 4.746 (101/138) Installing setarch (2.40.4-r1)
+2026-10-19T20:35:43.3950998Z #7 4.756 (102/138) Installing libeconf (0.6.3-r0)
+2026-10-19T20:35:43.3951426Z #7 4.766 (103/138) Installing libblkid (2.40.4-r1)
+2026-10-19T20:35:43.3951848Z #7 4.777 (104/138) Installing libuuid (2.40.4-r1)
+2026-10-19T20:35:43.3952231Z #7 4.788 (105/138) Installing libfdisk (2.40.4-r1)
+2026-10-19T20:35:43.3952738Z #7 4.800 (106/138) Installing liblastlog2 (2.40.4-r1)
+2026-10-19T20:35:43.3953157Z #7 4.810 (107/138) Installing libmount (2.40.4-r1)
+2026-10-19T20:35:43.4958518Z #7 4.823 (108/138) Installing libsmartcols (2.40.4-r1)
+2026-10-19T20:35:43.4959665Z #7 4.834 (109/138) Installing skalibs-libs (2.14.3.0-r0)
+2026-10-19T20:35:43.4960162Z #7 4.845 (110/138) Installing utmps-libs (0.1.2.3-r2)
+2026-10-19T20:35:43.4960983Z #7 4.855 (111/138) Installing util-linux-misc (2.40.4-r1)
+2026-10-19T20:35:43.4961497Z #7 4.890 (112/138) Installing linux-pam (1.6.1-r1)
+2026-10-19T20:35:43.4961967Z #7 4.911 (113/138) Installing runuser (2.40.4-r1)
+2026-10-19T20:35:43.6409085Z #7 5.056 (114/138) Installing mount (2.40.4-r1)
+2026-10-19T20:35:43.7982357Z #7 5.067 (115/138) Installing losetup (2.40.4-r1)
+2026-10-19T20:35:43.7983028Z #7 5.213 (116/138) Installing hexdump (2.40.4-r1)
+2026-10-19T20:35:43.9817832Z #7 5.223 (117/138) Installing uuidgen (2.40.4-r1)
+2026-10-19T20:35:43.9818619Z #7 5.233 (118/138) Installing blkid (2.40.4-r1)
+2026-10-19T20:35:43.9819062Z #7 5.244 (119/138) Installing sfdisk (2.40.4-r1)
+2026-10-19T20:35:43.9819504Z #7 5.254 (120/138) Installing mcookie (2.40.4-r1)
+2026-10-19T20:35:43.9819944Z #7 5.397 (121/138) Installing agetty (2.40.4-r1)
+2026-10-19T20:35:44.1228710Z #7 5.538 (122/138) Installing wipefs (2.40.4-r1)
+2026-10-19T20:35:44.2667537Z #7 5.682 (123/138) Installing cfdisk (2.40.4-r1)
+2026-10-19T20:35:44.4510634Z #7 5.692 (124/138) Installing umount (2.40.4-r1)
+2026-10-19T20:35:44.4511161Z #7 5.702 (125/138) Installing flock (2.40.4-r1)
+2026-10-19T20:35:44.4511803Z #7 5.712 (126/138) Installing lsblk (2.40.4-r1)
+2026-10-19T20:35:44.4512191Z #7 5.723 (127/138) Installing libcap-ng (0.8.5-r0)
+2026-10-19T20:35:44.4512650Z #7 5.866 (128/138) Installing setpriv (2.40.4-r1)
+2026-10-19T20:35:44.6040387Z #7 5.877 (129/138) Installing lscpu (2.40.4-r1)
+2026-10-19T20:35:44.6040947Z #7 6.019 (130/138) Installing logger (2.40.4-r1)
+2026-10-19T20:35:44.8396422Z #7 6.031 (131/138) Installing partx (2.40.4-r1)
+2026-10-19T20:35:44.8397163Z #7 6.040 (132/138) Installing fstrim (2.40.4-r1)
+2026-10-19T20:35:44.8397616Z #7 6.050 (133/138) Installing findmnt (2.40.4-r1)
+2026-10-19T20:35:44.8398043Z #7 6.061 (134/138) Installing zlib-dev (1.3.2-r1)
+2026-10-19T20:35:44.8398501Z #7 6.072 (135/138) Installing zlib-static (1.3.2-r1)
+2026-10-19T20:35:44.8398897Z #7 6.082 (136/138) Installing zstd (1.5.6-r2)
+2026-10-19T20:35:44.8399369Z #7 6.094 (137/138) Installing zstd-dev (1.5.6-r2)
+2026-10-19T20:35:44.8399789Z #7 6.105 (138/138) Installing zstd-static (1.5.6-r2)
+2026-10-19T20:35:45.2047463Z #7 6.620 Executing busybox-1.37.0-r14.trigger
+2026-10-19T20:35:45.3610541Z #7 6.626 OK: 604 MiB in 150 packages
+2026-10-19T20:35:49.1257958Z #7 DONE 10.5s
+2026-10-19T20:35:49.2384819Z 
+2026-10-19T20:35:49.2386269Z #8 [3/6] COPY scripts/common/install-dependencies.sh /tmp/scripts/common/install-dependencies.sh
+2026-10-19T20:35:49.2386940Z #8 DONE 0.0s
+2026-10-19T20:35:49.2387093Z 
+2026-10-19T20:35:49.2387343Z #9 [4/6] COPY patches/ /tmp/patches/
+2026-10-19T20:35:49.2387721Z #9 DONE 0.0s
+2026-10-19T20:35:49.2387921Z 
+2026-10-19T20:35:49.2388059Z #10 [5/6] WORKDIR /tmp
+2026-10-19T20:35:49.2388347Z #10 DONE 0.0s
+2026-10-19T20:35:49.2388527Z 
+2026-10-19T20:35:49.2388732Z #11 [6/6] RUN bash scripts/common/install-dependencies.sh
+2026-10-19T20:35:49.2389196Z #11 0.082 Connecting to github.com (140.82.112.3:443)
+2026-10-19T20:35:49.4586697Z #11 0.302 Connecting to release-assets.githubusercontent.com (185.199.108.133:443)
+2026-10-19T20:35:49.5719525Z #11 0.416 saving to 'fuse-3.15.0.tar.xz'
+2026-10-19T20:35:49.6759494Z #11 0.519 fuse-3.15.0.tar.xz   100% |********************************| 4481k  0:00:00 ETA
+2026-10-19T20:35:49.6760350Z #11 0.519 'fuse-3.15.0.tar.xz' saved
+2026-10-19T20:35:49.8448717Z #11 0.538 fuse-3.15.0.tar.xz: OK
+2026-10-19T20:35:50.0046990Z #11 0.848 /tmp/tmp.mAPDMm/fuse-3.15.0 /tmp/tmp.mAPDMm
+2026-10-19T20:35:50.1556573Z #11 0.849 patching file lib/mount.c
+2026-10-19T20:35:51.1840345Z #11 2.028 The Meson build system
+2026-10-19T20:35:51.1841265Z #11 2.028 Version: 1.6.1
+2026-10-19T20:35:51.1841752Z #11 2.028 Source dir: /tmp/tmp.mAPDMm/fuse-3.15.0
+2026-10-19T20:35:51.1842473Z #11 2.028 Build dir: /tmp/tmp.mAPDMm/fuse-3.15.0/build
+2026-10-19T20:35:51.1842962Z #11 2.028 Build type: native build
+2026-10-19T20:35:51.1843479Z #11 2.028 Project name: libfuse3
+2026-10-19T20:35:51.1844393Z #11 2.028 Project version: 3.15.0
+2026-10-19T20:35:51.1845409Z #11 2.028 C compiler for the host machine: cc (gcc 14.2.0 "cc (Alpine 14.2.0) 14.2.0")
+2026-10-19T20:35:51.1846239Z #11 2.028 C linker for the host machine: cc ld.bfd 2.43.1
+2026-10-19T20:35:51.1846946Z #11 2.028 Host machine cpu family: aarch64
+2026-10-19T20:35:51.1847486Z #11 2.028 Host machine cpu: aarch64
+2026-10-19T20:35:51.1848049Z #11 2.028 Checking for function "fork" : YES 
+2026-10-19T20:35:51.1848615Z #11 2.028 Checking for function "fstatat" : YES 
+2026-10-19T20:35:51.1849171Z #11 2.028 Checking for function "openat" : YES 
+2026-10-19T20:35:51.1849796Z #11 2.028 Checking for function "readlinkat" : YES 
+2026-10-19T20:35:51.1850296Z #11 2.028 Checking for function "pipe2" : YES 
+2026-10-19T20:35:51.1850867Z #11 2.028 Checking for function "splice" : YES 
+2026-10-19T20:35:51.1851437Z #11 2.028 Checking for function "vmsplice" : YES 
+2026-10-19T20:35:51.1852026Z #11 2.028 Checking for function "posix_fallocate" : YES 
+2026-10-19T20:35:51.1852609Z #11 2.028 Checking for function "fdatasync" : YES 
+2026-10-19T20:35:51.1853205Z #11 2.028 Checking for function "utimensat" : YES 
+2026-10-19T20:35:51.1854265Z #11 2.028 Checking for function "copy_file_range" : YES 
+2026-10-19T20:35:51.1854933Z #11 2.028 Checking for function "fallocate" : YES 
+2026-10-19T20:35:51.1855538Z #11 2.028 Checking for function "setxattr" : YES 
+2026-10-19T20:35:51.1856074Z #11 2.028 Checking for function "iconv" : YES 
+2026-10-19T20:35:51.1856712Z #11 2.028 Checking whether type "struct stat" has member "st_atim" : YES 
+2026-10-19T20:35:51.1857394Z #11 2.028 Checking whether type "struct stat" has member "st_atimespec" : NO 
+2026-10-19T20:35:51.1858491Z #11 2.028 Message: Compiler warns about unused result even when casting to void
+2026-10-19T20:35:51.1859737Z #11 2.028 Message: Enabling versioned libc symbols
+2026-10-19T20:35:51.1860723Z #11 2.028 Message: Compiler supports symver attribute
+2026-10-19T20:35:51.1861246Z #11 2.028 Configuring fuse_config.h using configuration
+2026-10-19T20:35:51.1861710Z #11 2.028 Configuring libfuse_config.h using configuration
+2026-10-19T20:35:51.1862241Z #11 2.028 Run-time dependency threads found: YES
+2026-10-19T20:35:51.1862645Z #11 2.028 Library iconv found: NO
+2026-10-19T20:35:51.1863014Z #11 2.028 Library dl found: YES
+2026-10-19T20:35:51.1863357Z #11 2.028 Library rt found: YES
+2026-10-19T20:35:51.1864079Z #11 2.028 Found pkg-config: YES (/usr/bin/pkg-config) 2.3.0
+2026-10-19T20:35:51.1864555Z #11 2.028 Run-time dependency udev found: YES 251
+2026-10-19T20:35:51.1865150Z #11 2.028 C++ compiler for the host machine: c++ (gcc 14.2.0 "c++ (Alpine 14.2.0) 14.2.0")
+2026-10-19T20:35:51.1865726Z #11 2.028 C++ linker for the host machine: c++ ld.bfd 2.43.1
+2026-10-19T20:35:51.1866174Z #11 2.028 Build targets in project: 29
+2026-10-19T20:35:51.1866549Z #11 2.028 
+2026-10-19T20:35:51.1866835Z #11 2.028 libfuse3 3.15.0
+2026-10-19T20:35:51.1867192Z #11 2.028 
+2026-10-19T20:35:51.1867473Z #11 2.028   User defined options
+2026-10-19T20:35:51.1867807Z #11 2.028     prefix: /usr
+2026-10-19T20:35:51.1868147Z #11 2.028 
+2026-10-19T20:35:51.1868452Z #11 2.028 Found ninja-1.9 at /usr/bin/ninja
+2026-10-19T20:35:51.4582511Z #11 2.302 [1/1] /usr/bin/meson --internal regenerate /tmp/tmp.mAPDMm/fuse-3.15.0 .
+2026-10-19T20:35:51.8958625Z #11 2.739 The Meson build system
+2026-10-19T20:35:51.8959084Z #11 2.739 Version: 1.6.1
+2026-10-19T20:35:51.8959595Z #11 2.739 Source dir: /tmp/tmp.mAPDMm/fuse-3.15.0
+2026-10-19T20:35:51.8960005Z #11 2.739 Build dir: /tmp/tmp.mAPDMm/fuse-3.15.0/build
+2026-10-19T20:35:51.8960524Z #11 2.739 Build type: native build
+2026-10-19T20:35:51.8960941Z #11 2.739 Project name: libfuse3
+2026-10-19T20:35:51.8961282Z #11 2.739 Project version: 3.15.0
+2026-10-19T20:35:51.8961798Z #11 2.739 C compiler for the host machine: cc (gcc 14.2.0 "cc (Alpine 14.2.0) 14.2.0")
+2026-10-19T20:35:51.8962360Z #11 2.739 C linker for the host machine: cc ld.bfd 2.43.1
+2026-10-19T20:35:51.8962811Z #11 2.739 Host machine cpu family: aarch64
+2026-10-19T20:35:51.8963168Z #11 2.739 Host machine cpu: aarch64
+2026-10-19T20:35:51.8964260Z #11 2.739 Checking for function "fork" : YES (cached)
+2026-10-19T20:35:51.8964824Z #11 2.739 Checking for function "fstatat" : YES (cached)
+2026-10-19T20:35:51.8965336Z #11 2.739 Checking for function "openat" : YES (cached)
+2026-10-19T20:35:51.8965818Z #11 2.739 Checking for function "readlinkat" : YES (cached)
+2026-10-19T20:35:51.8966304Z #11 2.739 Checking for function "pipe2" : YES (cached)
+2026-10-19T20:35:51.8966730Z #11 2.739 Checking for function "splice" : YES (cached)
+2026-10-19T20:35:51.8967217Z #11 2.739 Checking for function "vmsplice" : YES (cached)
+2026-10-19T20:35:51.8967701Z #11 2.739 Checking for function "posix_fallocate" : YES (cached)
+2026-10-19T20:35:51.8968320Z #11 2.739 Checking for function "fdatasync" : YES (cached)
+2026-10-19T20:35:51.8968818Z #11 2.739 Checking for function "utimensat" : YES (cached)
+2026-10-19T20:35:51.8969327Z #11 2.739 Checking for function "copy_file_range" : YES (cached)
+2026-10-19T20:35:51.8969819Z #11 2.739 Checking for function "fallocate" : YES (cached)
+2026-10-19T20:35:51.8970284Z #11 2.739 Checking for function "setxattr" : YES (cached)
+2026-10-19T20:35:51.8970773Z #11 2.739 Checking for function "iconv" : YES (cached)
+2026-10-19T20:35:51.8971296Z #11 2.739 Checking whether type "struct stat" has member "st_atim" : YES (cached)
+2026-10-19T20:35:51.8971938Z #11 2.739 Checking whether type "struct stat" has member "st_atimespec" : NO (cached)
+2026-10-19T20:35:51.8972530Z #11 2.739 Message: Compiler warns about unused result even when casting to void
+2026-10-19T20:35:51.8973078Z #11 2.739 Message: Enabling versioned libc symbols
+2026-10-19T20:35:51.8973994Z #11 2.739 Message: Compiler supports symver attribute
+2026-10-19T20:35:51.8974494Z #11 2.739 Configuring fuse_config.h using configuration
+2026-10-19T20:35:51.8974937Z #11 2.739 Configuring libfuse_config.h using configuration
+2026-10-19T20:35:51.8975456Z #11 2.739 Dependency threads found: YES unknown (cached)
+2026-10-19T20:35:51.8975839Z #11 2.739 Library iconv found: NO
+2026-10-19T20:35:51.8976213Z #11 2.739 Library dl found: YES
+2026-10-19T20:35:51.8976562Z #11 2.739 Library rt found: YES
+2026-10-19T20:35:51.8977049Z #11 2.739 Found pkg-config: YES (/usr/bin/pkg-config) 2.3.0
+2026-10-19T20:35:51.8977508Z #11 2.739 Dependency udev found: YES 251 (cached)
+2026-10-19T20:35:51.8978024Z #11 2.739 C++ compiler for the host machine: c++ (gcc 14.2.0 "c++ (Alpine 14.2.0) 14.2.0")
+2026-10-19T20:35:51.8978585Z #11 2.739 C++ linker for the host machine: c++ ld.bfd 2.43.1
+2026-10-19T20:35:51.8979043Z #11 2.739 Build targets in project: 29
+2026-10-19T20:35:51.8979417Z #11 2.739 
+2026-10-19T20:35:51.8979679Z #11 2.739 libfuse3 3.15.0
+2026-10-19T20:35:51.8980033Z #11 2.739 
+2026-10-19T20:35:51.8980303Z #11 2.739   User defined options
+2026-10-19T20:35:51.8980742Z #11 2.739     default_library: static
+2026-10-19T20:35:51.8981077Z #11 2.739     prefix         : /usr
+2026-10-19T20:35:51.8981451Z #11 2.739 
+2026-10-19T20:35:51.8981737Z #11 2.739 Found ninja-1.9 at /usr/bin/ninja
+2026-10-19T20:35:52.0007654Z #11 2.778 [1/73] /bin/cp -fPp ../test/conftest.py ../test/pytest.ini ../test/test_examples.py ../test/util.py ../test/test_ctests.py ../test/test_custom_io.py /tmp/tmp.mAPDMm/fuse-3.15.0/build/test
+2026-10-19T20:35:52.0027112Z #11 2.778 [2/73] cc -Itest/release_unlink_race.p -Itest -I../test -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ test/release_unlink_race.p/release_unlink_race.c.o -MF test/release_unlink_race.p/release_unlink_race.c.o.d -o test/release_unlink_race.p/release_unlink_race.c.o -c ../test/release_unlink_race.c
+2026-10-19T20:35:52.0032463Z #11 2.778 [3/73] cc -Itest/readdir_inode.p -Itest -I../test -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -MD -MQ test/readdir_inode.p/readdir_inode.c.o -MF test/readdir_inode.p/readdir_inode.c.o.d -o test/readdir_inode.p/readdir_inode.c.o -c ../test/readdir_inode.c
+2026-10-19T20:35:52.0047483Z #11 2.779 [4/73] cc -Itest/test_syscalls.p -Itest -I../test -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -MD -MQ test/test_syscalls.p/test_syscalls.c.o -MF test/test_syscalls.p/test_syscalls.c.o.d -o test/test_syscalls.p/test_syscalls.c.o -c ../test/test_syscalls.c
+2026-10-19T20:35:52.0051832Z #11 2.780 [5/73] cc -Itest/test_setattr.p -Itest -I../test -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ test/test_setattr.p/test_setattr.c.o -MF test/test_setattr.p/test_setattr.c.o.d -o test/test_setattr.p/test_setattr.c.o -c ../test/test_setattr.c
+2026-10-19T20:35:52.0056993Z #11 2.781 [6/73] cc -Itest/test_write_cache.p -Itest -I../test -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ test/test_write_cache.p/test_write_cache.c.o -MF test/test_write_cache.p/test_write_cache.c.o.d -o test/test_write_cache.p/test_write_cache.c.o -c ../test/test_write_cache.c
+2026-10-19T20:35:52.0067217Z #11 2.782 [7/73] c++ -Iexample/passthrough_hp.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -D_GLIBCXX_ASSERTIONS=1 -Wall -Winvalid-pch -Wextra -std=c++11 -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wno-sign-compare -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -pthread -MD -MQ example/passthrough_hp.p/passthrough_hp.cc.o -MF example/passthrough_hp.p/passthrough_hp.cc.o.d -o example/passthrough_hp.p/passthrough_hp.cc.o -c ../example/passthrough_hp.cc
+2026-10-19T20:35:52.0070201Z #11 2.827 [8/73] cc  -o test/readdir_inode test/readdir_inode.p/readdir_inode.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=.
+2026-10-19T20:35:52.0073344Z #11 2.843 [9/73] cc -Iexample/poll.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/poll.p/poll.c.o -MF example/poll.p/poll.c.o.d -o example/poll.p/poll.c.o -c ../example/poll.c
+2026-10-19T20:35:52.1355947Z #11 2.909 [10/73] cc -Iexample/notify_inval_entry.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/notify_inval_entry.p/notify_inval_entry.c.o -MF example/notify_inval_entry.p/notify_inval_entry.c.o.d -o example/notify_inval_entry.p/notify_inval_entry.c.o -c ../example/notify_inval_entry.c
+2026-10-19T20:35:52.1361459Z #11 2.910 [11/73] cc -Iexample/notify_store_retrieve.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/notify_store_retrieve.p/notify_store_retrieve.c.o -MF example/notify_store_retrieve.p/notify_store_retrieve.c.o.d -o example/notify_store_retrieve.p/notify_store_retrieve.c.o -c ../example/notify_store_retrieve.c
+2026-10-19T20:35:52.1366772Z #11 2.979 [12/73] cc -Iexample/invalidate_path.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/invalidate_path.p/invalidate_path.c.o -MF example/invalidate_path.p/invalidate_path.c.o.d -o example/invalidate_path.p/invalidate_path.c.o -c ../example/invalidate_path.c
+2026-10-19T20:35:52.2654941Z #11 3.020 [13/73] cc -Iexample/notify_inval_inode.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/notify_inval_inode.p/notify_inval_inode.c.o -MF example/notify_inval_inode.p/notify_inval_inode.c.o.d -o example/notify_inval_inode.p/notify_inval_inode.c.o -c ../example/notify_inval_inode.c
+2026-10-19T20:35:52.2660426Z #11 3.109 [14/73] cc -Iexample/null.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/null.p/null.c.o -MF example/null.p/null.c.o.d -o example/null.p/null.c.o -c ../example/null.c
+2026-10-19T20:35:52.3795465Z #11 3.130 [15/73] cc -Iexample/passthrough_ll.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/passthrough_ll.p/passthrough_ll.c.o -MF example/passthrough_ll.p/passthrough_ll.c.o.d -o example/passthrough_ll.p/passthrough_ll.c.o -c ../example/passthrough_ll.c
+2026-10-19T20:35:52.3800633Z #11 3.154 [16/73] cc -Iexample/cuse_client.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/cuse_client.p/cuse_client.c.o -MF example/cuse_client.p/cuse_client.c.o.d -o example/cuse_client.p/cuse_client.c.o -c ../example/cuse_client.c
+2026-10-19T20:35:52.3829747Z #11 3.167 [17/73] cc -Iexample/cuse.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/cuse.p/cuse.c.o -MF example/cuse.p/cuse.c.o.d -o example/cuse.p/cuse.c.o -c ../example/cuse.c
+2026-10-19T20:35:52.3834552Z #11 3.223 [18/73] cc -Iexample/ioctl.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/ioctl.p/ioctl.c.o -MF example/ioctl.p/ioctl.c.o.d -o example/ioctl.p/ioctl.c.o -c ../example/ioctl.c
+2026-10-19T20:35:52.5104859Z #11 3.250 [19/73] cc -Iexample/poll_client.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/poll_client.p/poll_client.c.o -MF example/poll_client.p/poll_client.c.o.d -o example/poll_client.p/poll_client.c.o -c ../example/poll_client.c
+2026-10-19T20:35:52.5110758Z #11 3.354 [20/73] cc -Iexample/ioctl_client.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/ioctl_client.p/ioctl_client.c.o -MF example/ioctl_client.p/ioctl_client.c.o.d -o example/ioctl_client.p/ioctl_client.c.o -c ../example/ioctl_client.c
+2026-10-19T20:35:52.6252054Z #11 3.367 [21/73] cc -Iexample/printcap.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/printcap.p/printcap.c.o -MF example/printcap.p/printcap.c.o.d -o example/printcap.p/printcap.c.o -c ../example/printcap.c
+2026-10-19T20:35:52.6257300Z #11 3.382 [22/73] cc -Iexample/hello_ll_uds.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/hello_ll_uds.p/hello_ll_uds.c.o -MF example/hello_ll_uds.p/hello_ll_uds.c.o.d -o example/hello_ll_uds.p/hello_ll_uds.c.o -c ../example/hello_ll_uds.c
+2026-10-19T20:35:52.6262177Z #11 3.428 [23/73] cc -Iexample/hello_ll.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/hello_ll.p/hello_ll.c.o -MF example/hello_ll.p/hello_ll.c.o.d -o example/hello_ll.p/hello_ll.c.o -c ../example/hello_ll.c
+2026-10-19T20:35:52.6266410Z #11 3.468 [24/73] cc -Iexample/hello.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/hello.p/hello.c.o -MF example/hello.p/hello.c.o.d -o example/hello.p/hello.c.o -c ../example/hello.c
+2026-10-19T20:35:52.8064161Z #11 3.539 [25/73] cc -Iexample/passthrough_fh.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/passthrough_fh.p/passthrough_fh.c.o -MF example/passthrough_fh.p/passthrough_fh.c.o.d -o example/passthrough_fh.p/passthrough_fh.c.o -c ../example/passthrough_fh.c
+2026-10-19T20:35:52.8068817Z #11 3.650 [26/73] cc -Iexample/passthrough.p -Iexample -I../example -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -pthread -MD -MQ example/passthrough.p/passthrough.c.o -MF example/passthrough.p/passthrough.c.o.d -o example/passthrough.p/passthrough.c.o -c ../example/passthrough.c
+2026-10-19T20:35:53.0413939Z #11 3.673 [27/73] cc -Iutil/mount.fuse3.p -Iutil -I../util -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -DFUSE_USE_VERSION=312 -MD -MQ util/mount.fuse3.p/mount.fuse.c.o -MF util/mount.fuse3.p/mount.fuse.c.o.d -o util/mount.fuse3.p/mount.fuse.c.o -c ../util/mount.fuse.c
+2026-10-19T20:35:53.0418648Z #11 3.734 [28/73] cc -Iutil/fusermount3.p -Iutil -I../util -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. '-DFUSE_CONF="/etc/fuse.conf"' -MD -MQ util/fusermount3.p/.._lib_mount_util.c.o -MF util/fusermount3.p/.._lib_mount_util.c.o.d -o util/fusermount3.p/.._lib_mount_util.c.o -c ../lib/mount_util.c
+2026-10-19T20:35:53.0423079Z #11 3.749 [29/73] cc -Iutil/fusermount3.p -Iutil -I../util -Iinclude -I../include -Ilib -I../lib -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. '-DFUSE_CONF="/etc/fuse.conf"' -MD -MQ util/fusermount3.p/fusermount.c.o -MF util/fusermount3.p/fusermount.c.o.d -o util/fusermount3.p/fusermount.c.o -c ../util/fusermount.c
+2026-10-19T20:35:53.0428008Z #11 3.885 [30/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/modules_iconv.c.o -MF lib/libfuse3.a.p/modules_iconv.c.o.d -o lib/libfuse3.a.p/modules_iconv.c.o -c ../lib/modules/iconv.c
+2026-10-19T20:35:53.1850162Z #11 3.926 [31/73] cc  -o test/test_syscalls test/test_syscalls.p/test_syscalls.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=.
+2026-10-19T20:35:53.1853245Z #11 3.935 [32/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/mount.c.o -MF lib/libfuse3.a.p/mount.c.o.d -o lib/libfuse3.a.p/mount.c.o -c ../lib/mount.c
+2026-10-19T20:35:53.1857946Z #11 3.969 [33/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/compat.c.o -MF lib/libfuse3.a.p/compat.c.o.d -o lib/libfuse3.a.p/compat.c.o -c ../lib/compat.c
+2026-10-19T20:35:53.1862587Z #11 4.029 [34/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/fuse_log.c.o -MF lib/libfuse3.a.p/fuse_log.c.o.d -o lib/libfuse3.a.p/fuse_log.c.o -c ../lib/fuse_log.c
+2026-10-19T20:35:53.3238652Z #11 4.048 [35/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/mount_util.c.o -MF lib/libfuse3.a.p/mount_util.c.o.d -o lib/libfuse3.a.p/mount_util.c.o -c ../lib/mount_util.c
+2026-10-19T20:35:53.3243203Z #11 4.091 [36/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/modules_subdir.c.o -MF lib/libfuse3.a.p/modules_subdir.c.o.d -o lib/libfuse3.a.p/modules_subdir.c.o -c ../lib/modules/subdir.c
+2026-10-19T20:35:53.3248205Z #11 4.167 [37/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/helper.c.o -MF lib/libfuse3.a.p/helper.c.o.d -o lib/libfuse3.a.p/helper.c.o -c ../lib/helper.c
+2026-10-19T20:35:53.4428879Z #11 4.286 [38/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/cuse_lowlevel.c.o -MF lib/libfuse3.a.p/cuse_lowlevel.c.o.d -o lib/libfuse3.a.p/cuse_lowlevel.c.o -c ../lib/cuse_lowlevel.c
+2026-10-19T20:35:53.5988926Z #11 4.303 [39/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/buffer.c.o -MF lib/libfuse3.a.p/buffer.c.o.d -o lib/libfuse3.a.p/buffer.c.o -c ../lib/buffer.c
+2026-10-19T20:35:53.5993965Z #11 4.319 [40/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/fuse_signals.c.o -MF lib/libfuse3.a.p/fuse_signals.c.o.d -o lib/libfuse3.a.p/fuse_signals.c.o -c ../lib/fuse_signals.c
+2026-10-19T20:35:53.5998876Z #11 4.377 [41/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/fuse_opt.c.o -MF lib/libfuse3.a.p/fuse_opt.c.o.d -o lib/libfuse3.a.p/fuse_opt.c.o -c ../lib/fuse_opt.c
+2026-10-19T20:35:53.6003283Z #11 4.442 [42/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/fuse_lowlevel.c.o -MF lib/libfuse3.a.p/fuse_lowlevel.c.o.d -o lib/libfuse3.a.p/fuse_lowlevel.c.o -c ../lib/fuse_lowlevel.c
+2026-10-19T20:35:53.7175983Z #11 4.561 [43/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/fuse_loop_mt.c.o -MF lib/libfuse3.a.p/fuse_loop_mt.c.o.d -o lib/libfuse3.a.p/fuse_loop_mt.c.o -c ../lib/fuse_loop_mt.c
+2026-10-19T20:35:53.8300675Z #11 4.573 [44/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/fuse_loop.c.o -MF lib/libfuse3.a.p/fuse_loop.c.o.d -o lib/libfuse3.a.p/fuse_loop.c.o -c ../lib/fuse_loop.c
+2026-10-19T20:35:53.8303912Z #11 4.586 [45/73] cc  -o util/fusermount3 util/fusermount3.p/fusermount.c.o util/fusermount3.p/.._lib_mount_util.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=.
+2026-10-19T20:35:53.8306559Z #11 4.607 [46/73] cc -Ilib/libfuse3.a.p -Ilib -I../lib -Iinclude -I../include -I. -I.. -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -fPIC -pthread -DFUSE_USE_VERSION=312 '-DFUSERMOUNT_DIR="/usr/bin"' -MD -MQ lib/libfuse3.a.p/fuse.c.o -MF lib/libfuse3.a.p/fuse.c.o.d -o lib/libfuse3.a.p/fuse.c.o -c ../lib/fuse.c
+2026-10-19T20:35:53.8310405Z #11 4.629 [47/73] cc -Itest/wrong_command.p -Itest -I../test -fdiagnostics-color=always -Wall -Winvalid-pch -Wextra -O2 -g -D_REENTRANT -DHAVE_LIBFUSE_PRIVATE_CONFIG_H -Wno-sign-compare -D_FILE_OFFSET_BITS=64 -Wstrict-prototypes -Wmissing-declarations -Wwrite-strings -fno-strict-aliasing -Wno-unused-result -DHAVE_SYMVER_ATTRIBUTE -ffile-prefix-map=/tmp/tmp.mAPDMm=. -MD -MQ test/wrong_command.p/wrong_command.c.o -MF test/wrong_command.p/wrong_command.c.o.d -o test/wrong_command.p/wrong_command.c.o -c ../test/wrong_command.c
+2026-10-19T20:35:53.8312973Z #11 4.673 [48/73] cc  -o test/wrong_command test/wrong_command.p/wrong_command.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=.
+2026-10-19T20:35:55.6276218Z #11 6.471 [49/73] rm -f lib/libfuse3.a && gcc-ar csrD lib/libfuse3.a lib/libfuse3.a.p/fuse.c.o lib/libfuse3.a.p/fuse_loop.c.o lib/libfuse3.a.p/fuse_loop_mt.c.o lib/libfuse3.a.p/fuse_lowlevel.c.o lib/libfuse3.a.p/fuse_opt.c.o lib/libfuse3.a.p/fuse_signals.c.o lib/libfuse3.a.p/buffer.c.o lib/libfuse3.a.p/cuse_lowlevel.c.o lib/libfuse3.a.p/helper.c.o lib/libfuse3.a.p/modules_subdir.c.o lib/libfuse3.a.p/mount_util.c.o lib/libfuse3.a.p/fuse_log.c.o lib/libfuse3.a.p/compat.c.o lib/libfuse3.a.p/mount.c.o lib/libfuse3.a.p/modules_iconv.c.o
+2026-10-19T20:35:55.7300805Z #11 6.476 [50/73] cc  -o test/release_unlink_race test/release_unlink_race.p/release_unlink_race.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7303106Z #11 6.477 [51/73] cc  -o test/test_setattr test/test_setattr.p/test_setattr.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7305372Z #11 6.478 [52/73] cc  -o test/test_write_cache test/test_write_cache.p/test_write_cache.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7306876Z #11 6.478 [53/73] cc  -o example/poll example/poll.p/poll.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7308462Z #11 6.483 [54/73] cc  -o example/notify_inval_entry example/notify_inval_entry.p/notify_inval_entry.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7310512Z #11 6.499 [55/73] cc  -o example/notify_store_retrieve example/notify_store_retrieve.p/notify_store_retrieve.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7312301Z #11 6.509 [56/73] cc  -o example/invalidate_path example/invalidate_path.p/invalidate_path.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7314674Z #11 6.509 [57/73] cc  -o example/notify_inval_inode example/notify_inval_inode.p/notify_inval_inode.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7316336Z #11 6.511 [58/73] cc  -o example/null example/null.p/null.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7317889Z #11 6.512 [59/73] cc  -o example/passthrough_ll example/passthrough_ll.p/passthrough_ll.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7319453Z #11 6.525 [60/73] cc  -o example/cuse_client example/cuse_client.p/cuse_client.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7320919Z #11 6.535 [61/73] cc  -o example/cuse example/cuse.p/cuse.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7322328Z #11 6.536 [62/73] cc  -o example/ioctl example/ioctl.p/ioctl.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7324360Z #11 6.542 [63/73] cc  -o example/poll_client example/poll_client.p/poll_client.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7325896Z #11 6.548 [64/73] cc  -o example/ioctl_client example/ioctl_client.p/ioctl_client.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7327416Z #11 6.549 [65/73] cc  -o example/printcap example/printcap.p/printcap.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7328996Z #11 6.555 [66/73] cc  -o example/hello_ll_uds example/hello_ll_uds.p/hello_ll_uds.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7330536Z #11 6.557 [67/73] cc  -o example/hello_ll example/hello_ll.p/hello_ll.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7331922Z #11 6.561 [68/73] cc  -o example/hello example/hello.p/hello.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7333461Z #11 6.568 [69/73] cc  -o example/passthrough_fh example/passthrough_fh.p/passthrough_fh.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.7335350Z #11 6.574 [70/73] cc  -o example/passthrough example/passthrough.p/passthrough.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:35:55.8910214Z #11 6.584 [71/73] cc  -o util/mount.fuse3 util/mount.fuse3.p/mount.fuse.c.o -Wl,--as-needed -Wl,--no-undefined -ffile-prefix-map=/tmp/tmp.mAPDMm=. -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:36:04.0159738Z #11 14.86 [72/73] c++  -o example/passthrough_hp example/passthrough_hp.p/passthrough_hp.cc.o -Wl,--as-needed -Wl,--no-undefined -Wl,--start-group lib/libfuse3.a -pthread -ldl -lrt -Wl,--end-group
+2026-10-19T20:36:04.2361064Z #11 14.93 [73/73] /usr/bin/meson install --no-rebuild
+2026-10-19T20:36:04.2668078Z #11 15.11 == FURTHER ACTION REQUIRED ==
+2026-10-19T20:36:04.2668708Z #11 15.11 Make sure that your init system will start the /etc/init.d//init.d/fuse3 init script
+2026-10-19T20:36:04.4507545Z #11 15.11 Installing lib/libfuse3.a to /usr/lib
+2026-10-19T20:36:04.4508317Z #11 15.11 Installing util/fusermount3 to /usr/bin
+2026-10-19T20:36:04.4508814Z #11 15.11 Installing util/mount.fuse3 to /usr/sbin
+2026-10-19T20:36:04.4509397Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/include/fuse.h to /usr/include/fuse3
+2026-10-19T20:36:04.4510073Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/include/fuse_common.h to /usr/include/fuse3
+2026-10-19T20:36:04.4510789Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/include/fuse_lowlevel.h to /usr/include/fuse3
+2026-10-19T20:36:04.4511473Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/include/fuse_opt.h to /usr/include/fuse3
+2026-10-19T20:36:04.4512213Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/include/cuse_lowlevel.h to /usr/include/fuse3
+2026-10-19T20:36:04.4512887Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/include/fuse_log.h to /usr/include/fuse3
+2026-10-19T20:36:04.4513597Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/doc/fusermount3.1 to /usr/share/man/man1
+2026-10-19T20:36:04.4514725Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/doc/mount.fuse3.8 to /usr/share/man/man8
+2026-10-19T20:36:04.4516004Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/build/libfuse_config.h to /usr/include/fuse3
+2026-10-19T20:36:04.4516748Z #11 15.11 Installing /tmp/tmp.mAPDMm/fuse-3.15.0/build/meson-private/fuse3.pc to /usr/lib/pkgconfig
+2026-10-19T20:36:04.4517639Z #11 15.11 Running custom install script '/tmp/tmp.mAPDMm/fuse-3.15.0/util/install_helper.sh /etc /usr/bin /usr/lib/udev/rules.d true /etc/init.d/'
+2026-10-19T20:36:04.4518390Z #11 15.14 /tmp/tmp.mAPDMm
+2026-10-19T20:36:04.4518737Z #11 15.14 Connecting to github.com (140.82.114.4:443)
+2026-10-19T20:36:04.5196721Z #11 15.36 Connecting to codeload.github.com (140.82.112.10:443)
+2026-10-19T20:36:04.7356738Z #11 15.58 saving to '0.5.2.tar.gz'
+2026-10-19T20:36:04.8389813Z #11 15.68 0.5.2.tar.gz         100% |********************************| 75404  0:00:00 ETA
+2026-10-19T20:36:04.8390710Z #11 15.68 '0.5.2.tar.gz' saved
+2026-10-19T20:36:04.8391837Z #11 15.68 0.5.2.tar.gz: OK
+2026-10-19T20:36:04.8392203Z #11 15.68 /tmp/tmp.mAPDMm/squashfuse-0.5.2 /tmp/tmp.mAPDMm
+2026-10-19T20:36:06.8662274Z #11 17.71 aclocal: installing 'm4/libtool.m4' from '/usr/share/aclocal/libtool.m4'
+2026-10-19T20:36:07.0234668Z #11 17.71 aclocal: installing 'm4/ltoptions.m4' from '/usr/share/aclocal/ltoptions.m4'
+2026-10-19T20:36:07.0235655Z #11 17.71 aclocal: installing 'm4/ltsugar.m4' from '/usr/share/aclocal/ltsugar.m4'
+2026-10-19T20:36:07.0236713Z #11 17.71 aclocal: installing 'm4/ltversion.m4' from '/usr/share/aclocal/ltversion.m4'
+2026-10-19T20:36:07.0237546Z #11 17.72 aclocal: installing 'm4/lt~obsolete.m4' from '/usr/share/aclocal/lt~obsolete.m4'
+2026-10-19T20:36:07.0238378Z #11 17.72 aclocal: installing 'm4/pkg.m4' from '/usr/share/aclocal/pkg.m4'
+2026-10-19T20:36:07.9548690Z #11 18.80 libtoolize: putting auxiliary files in AC_CONFIG_AUX_DIR, 'build-aux'.
+2026-10-19T20:36:07.9549493Z #11 18.80 libtoolize: copying file 'build-aux/ltmain.sh'
+2026-10-19T20:36:09.5969626Z #11 20.44 configure.ac:15: installing 'build-aux/ar-lib'
+2026-10-19T20:36:09.7380877Z #11 20.44 configure.ac:13: installing 'build-aux/compile'
+2026-10-19T20:36:09.7382088Z #11 20.44 configure.ac:10: installing 'build-aux/config.guess'
+2026-10-19T20:36:09.7383287Z #11 20.44 configure.ac:10: installing 'build-aux/config.sub'
+2026-10-19T20:36:09.7384159Z #11 20.45 configure.ac:12: installing 'build-aux/install-sh'
+2026-10-19T20:36:09.7384657Z #11 20.45 configure.ac:12: installing 'build-aux/missing'
+2026-10-19T20:36:09.7385612Z #11 20.47 Makefile.am: installing 'build-aux/depcomp'
+2026-10-19T20:36:09.7386123Z #11 20.52 parallel-tests: installing 'build-aux/test-driver'
+2026-10-19T20:36:09.9095292Z #11 20.58 checking build system type... aarch64-unknown-linux-musl
+2026-10-19T20:36:09.9096060Z #11 20.62 checking host system type... aarch64-unknown-linux-musl
+2026-10-19T20:36:09.9096581Z #11 20.62 checking target system type... aarch64-unknown-linux-musl
+2026-10-19T20:36:09.9097210Z #11 20.62 checking for a BSD-compatible install... /usr/bin/install -c
+2026-10-19T20:36:10.0615116Z #11 20.75 checking whether sleep supports fractional seconds... yes
+2026-10-19T20:36:10.1389927Z #11 20.75 checking filesystem timestamp resolution... 2
+2026-10-19T20:36:10.2667399Z #11 20.98 checking whether build environment is sane... yes
+2026-10-19T20:36:10.2668637Z #11 20.99 checking for a race-free mkdir -p... /bin/mkdir -p
+2026-10-19T20:36:10.2669243Z #11 20.99 checking for gawk... no
+2026-10-19T20:36:10.2669577Z #11 20.99 checking for mawk... no
+2026-10-19T20:36:10.2670013Z #11 20.99 checking for nawk... no
+2026-10-19T20:36:10.2670376Z #11 20.99 checking for awk... awk
+2026-10-19T20:36:10.2670776Z #11 20.99 checking whether make sets $(MAKE)... yes
+2026-10-19T20:36:10.2671213Z #11 21.00 checking whether make supports nested variables... yes
+2026-10-19T20:36:10.2671744Z #11 21.00 checking xargs -n works... yes
+2026-10-19T20:36:10.2672242Z #11 21.00 checking whether make supports the include directive... yes (GNU style)
+2026-10-19T20:36:10.2672725Z #11 21.01 checking for gcc... gcc
+2026-10-19T20:36:10.2673124Z #11 21.02 checking whether the C compiler works... yes
+2026-10-19T20:36:10.2674511Z #11 21.05 checking for C compiler default output file name... a.out
+2026-10-19T20:36:10.2675063Z #11 21.05 checking for suffix of executables... 
+2026-10-19T20:36:10.2675491Z #11 21.08 checking whether we are cross compiling... no
+2026-10-19T20:36:10.3830963Z #11 21.11 checking for suffix of object files... o
+2026-10-19T20:36:10.3831775Z #11 21.13 checking whether the compiler supports GNU C... yes
+2026-10-19T20:36:10.3832307Z #11 21.15 checking whether gcc accepts -g... yes
+2026-10-19T20:36:10.3832809Z #11 21.17 checking for gcc option to enable C11 features... none needed
+2026-10-19T20:36:10.4966457Z #11 21.23 checking whether gcc understands -c and -o together... yes
+2026-10-19T20:36:10.4967235Z #11 21.26 checking dependency style of gcc... gcc3
+2026-10-19T20:36:10.4967655Z #11 21.28 checking for stdio.h... yes
+2026-10-19T20:36:10.4968095Z #11 21.30 checking for stdlib.h... yes
+2026-10-19T20:36:10.4968435Z #11 21.32 checking for string.h... yes
+2026-10-19T20:36:10.6011329Z #11 21.34 checking for inttypes.h... yes
+2026-10-19T20:36:10.6012030Z #11 21.36 checking for stdint.h... yes
+2026-10-19T20:36:10.6012407Z #11 21.38 checking for strings.h... yes
+2026-10-19T20:36:10.6012890Z #11 21.40 checking for sys/stat.h... yes
+2026-10-19T20:36:10.6013301Z #11 21.42 checking for sys/types.h... yes
+2026-10-19T20:36:10.7021722Z #11 21.44 checking for unistd.h... yes
+2026-10-19T20:36:10.7022422Z #11 21.47 checking for wchar.h... yes
+2026-10-19T20:36:10.7022806Z #11 21.49 checking for minix/config.h... no
+2026-10-19T20:36:10.7023332Z #11 21.52 checking whether it is safe to define __EXTENSIONS__... yes
+2026-10-19T20:36:10.8104654Z #11 21.55 checking whether _XOPEN_SOURCE should be defined... no
+2026-10-19T20:36:10.8105366Z #11 21.57 checking for ar... ar
+2026-10-19T20:36:10.8105803Z #11 21.57 checking the archiver (ar) interface... ar
+2026-10-19T20:36:10.8106286Z #11 21.60 checking how to print strings... printf
+2026-10-19T20:36:10.8106754Z #11 21.60 checking for a sed that does not truncate output... /bin/sed
+2026-10-19T20:36:10.8107380Z #11 21.61 checking for grep that handles long lines and -e... /bin/grep
+2026-10-19T20:36:10.8107863Z #11 21.64 checking for egrep... /bin/grep -E
+2026-10-19T20:36:10.8108308Z #11 21.65 checking for fgrep... /bin/grep -F
+2026-10-19T20:36:10.8108774Z #11 21.65 checking for ld used by gcc... /usr/aarch64-alpine-linux-musl/bin/ld
+2026-10-19T20:36:10.9568386Z #11 21.65 checking if the linker (/usr/aarch64-alpine-linux-musl/bin/ld) is GNU ld... yes
+2026-10-19T20:36:10.9569248Z #11 21.66 checking for BSD- or MS-compatible name lister (nm)... /usr/bin/nm -B
+2026-10-19T20:36:10.9569968Z #11 21.66 checking the name lister (/usr/bin/nm -B) interface... BSD nm
+2026-10-19T20:36:10.9570431Z #11 21.69 checking whether ln -s works... yes
+2026-10-19T20:36:10.9570931Z #11 21.69 checking the maximum length of command line arguments... 98304
+2026-10-19T20:36:10.9571688Z #11 21.69 checking how to convert aarch64-unknown-linux-musl file names to aarch64-unknown-linux-musl format... func_convert_file_noop
+2026-10-19T20:36:10.9572711Z #11 21.70 checking how to convert aarch64-unknown-linux-musl file names to toolchain format... func_convert_file_noop
+2026-10-19T20:36:10.9573491Z #11 21.70 checking for /usr/aarch64-alpine-linux-musl/bin/ld option to reload object files... -r
+2026-10-19T20:36:10.9574507Z #11 21.70 checking for file... file
+2026-10-19T20:36:10.9574869Z #11 21.70 checking for objdump... objdump
+2026-10-19T20:36:10.9575451Z #11 21.70 checking how to recognize dependent libraries... pass_all
+2026-10-19T20:36:10.9575886Z #11 21.70 checking for dlltool... no
+2026-10-19T20:36:10.9576390Z #11 21.70 checking how to associate runtime and link libraries... printf %s\n
+2026-10-19T20:36:10.9576962Z #11 21.70 checking for archiver @FILE support... @
+2026-10-19T20:36:10.9577393Z #11 21.74 checking for strip... strip
+2026-10-19T20:36:10.9577774Z #11 21.74 checking for ranlib... ranlib
+2026-10-19T20:36:10.9578263Z #11 21.74 checking command to parse /usr/bin/nm -B output from gcc object... ok
+2026-10-19T20:36:11.0696266Z #11 21.80 checking for sysroot... no
+2026-10-19T20:36:11.0696812Z #11 21.80 checking for a working dd... /bin/dd
+2026-10-19T20:36:11.0697381Z #11 21.80 checking how to truncate binary pipes... /bin/dd bs=4096 count=1
+2026-10-19T20:36:11.0697883Z #11 21.81 checking for mt... no
+2026-10-19T20:36:11.0698293Z #11 21.81 checking if : is a manifest tool... no
+2026-10-19T20:36:11.0698735Z #11 21.81 checking for dlfcn.h... yes
+2026-10-19T20:36:11.0699179Z #11 21.83 checking for objdir... .libs
+2026-10-19T20:36:11.0699643Z #11 21.88 checking if gcc supports -fno-rtti -fno-exceptions... no
+2026-10-19T20:36:11.0700207Z #11 21.90 checking for gcc option to produce PIC... -fPIC -DPIC
+2026-10-19T20:36:11.0700667Z #11 21.90 checking if gcc PIC flag -fPIC -DPIC works... yes
+2026-10-19T20:36:11.1798514Z #11 21.91 checking if gcc static flag -static works... yes
+2026-10-19T20:36:11.1799491Z #11 21.94 checking if gcc supports -c -o file.o... yes
+2026-10-19T20:36:11.1800193Z #11 21.96 checking if gcc supports -c -o file.o... (cached) yes
+2026-10-19T20:36:11.1801094Z #11 21.96 checking whether the gcc linker (/usr/aarch64-alpine-linux-musl/bin/ld) supports shared libraries... yes
+2026-10-19T20:36:11.1802399Z #11 21.97 checking whether -lc should be explicitly linked in... no
+2026-10-19T20:36:11.1807099Z #11 21.99 checking dynamic linker characteristics... GNU/Linux ld.so
+2026-10-19T20:36:11.1807891Z #11 22.02 checking how to hardcode library paths into programs... immediate
+2026-10-19T20:36:11.2940802Z #11 22.02 checking whether stripping libraries is possible... yes
+2026-10-19T20:36:11.2941999Z #11 22.02 checking if libtool supports shared libraries... yes
+2026-10-19T20:36:11.2943267Z #11 22.02 checking whether to build shared libraries... yes
+2026-10-19T20:36:11.2944156Z #11 22.02 checking whether to build static libraries... yes
+2026-10-19T20:36:11.2944682Z #11 22.03 checking for pkg-config... /usr/bin/pkg-config
+2026-10-19T20:36:11.2945282Z #11 22.03 checking pkg-config is at least version 0.9.0... yes
+2026-10-19T20:36:11.2945785Z #11 22.03 checking for gawk... (cached) awk
+2026-10-19T20:36:11.2946256Z #11 22.03 checking for a sed that does not truncate output... (cached) /bin/sed
+2026-10-19T20:36:11.2947270Z #11 22.03 checking how to run the C preprocessor... gcc -E
+2026-10-19T20:36:11.2947895Z #11 22.07 checking for gcc option to enable large file support... none needed
+2026-10-19T20:36:11.2948761Z #11 22.12 checking how to enable all compiler warnings... -Wall
+2026-10-19T20:36:11.3993532Z #11 22.14 checking for QNX makedev... no
+2026-10-19T20:36:11.3994232Z #11 22.15 checking for sys/mkdev.h... no
+2026-10-19T20:36:11.3994690Z #11 22.17 checking for sys/sysmacros.h... yes
+2026-10-19T20:36:11.3995116Z #11 22.19 configure: checking for definition needed by makedev
+2026-10-19T20:36:11.3995638Z #11 22.19 checking if makedev works without changes... yes
+2026-10-19T20:36:11.3996089Z #11 22.21 configure: checking for definition needed by pread
+2026-10-19T20:36:11.3996587Z #11 22.21 checking if pread works without changes... yes
+2026-10-19T20:36:11.5041542Z #11 22.24 configure: checking for definition needed by S_IFSOCK
+2026-10-19T20:36:11.5042347Z #11 22.24 checking if S_IFSOCK works without changes... yes
+2026-10-19T20:36:11.5042830Z #11 22.27 checking for attr/xattr.h... no
+2026-10-19T20:36:11.5043303Z #11 22.29 configure: checking for definition needed by ENOATTR
+2026-10-19T20:36:11.5044152Z #11 22.29 checking if ENOATTR works without changes... no
+2026-10-19T20:36:11.5044705Z #11 22.30 checking if ENOATTR requires changing _DARWIN_C_SOURCE... no
+2026-10-19T20:36:11.5045284Z #11 22.32 checking if ENOATTR requires changing _NETBSD_SOURCE... no
+2026-10-19T20:36:11.5045827Z #11 22.33 checking if ENOATTR requires changing _XOPEN_SOURCE... no
+2026-10-19T20:36:11.6391980Z #11 22.35 checking if ENOATTR requires changing _BSD_SOURCE... no
+2026-10-19T20:36:11.6393024Z #11 22.36 checking if ENOATTR requires changing _GNU_SOURCE... no
+2026-10-19T20:36:11.6393935Z #11 22.38 checking if ENOATTR requires changing _POSIX_C_SOURCE... no
+2026-10-19T20:36:11.6395238Z #11 22.39 configure: checking for definition needed by symlink
+2026-10-19T20:36:11.6395885Z #11 22.39 checking if symlink works without changes... yes
+2026-10-19T20:36:11.6396549Z #11 22.42 checking for library containing uncompress... -lz
+2026-10-19T20:36:11.7888982Z #11 22.48 checking for zlib.h... yes
+2026-10-19T20:36:11.7889634Z #11 22.51 checking for liblzma... no
+2026-10-19T20:36:11.7890118Z #11 22.51 checking for library containing lzma_stream_buffer_decode... no
+2026-10-19T20:36:11.7890730Z #11 22.57 checking for library containing lzo1x_decompress_safe... no
+2026-10-19T20:36:11.9989191Z #11 22.63 checking for library containing LZ4_decompress_safe... no
+2026-10-19T20:36:14.8062761Z #11 22.69 checking for library containing ZSTD_decompress... -lzstd
+2026-10-19T20:36:14.9076980Z #11 25.65 checking for zstd.h... yes
+2026-10-19T20:36:14.9077448Z #11 25.68 checking for fuse3 >= 3.2... yes
+2026-10-19T20:36:14.9078357Z #11 25.68 checking for FUSE library... already present
+2026-10-19T20:36:15.0700449Z #11 25.75 checking for FUSE header... yes
+2026-10-19T20:36:15.0701271Z #11 25.78 checking for gcc options needed to detect all undeclared functions... none needed
+2026-10-19T20:36:15.0701854Z #11 25.82 checking whether fuse_session_loop is declared... yes
+2026-10-19T20:36:15.0702398Z #11 25.84 checking for fuse_session_loop... yes
+2026-10-19T20:36:15.1891292Z #11 25.91 checking whether fuse_add_direntry is declared... yes
+2026-10-19T20:36:15.1891860Z #11 25.94 checking whether fuse_add_dirent is declared... no
+2026-10-19T20:36:15.1892538Z #11 25.96 checking whether fuse_daemonize is declared... yes
+2026-10-19T20:36:15.1893123Z #11 25.99 checking whether fuse_session_remove_chan is declared... no
+2026-10-19T20:36:15.1893620Z #11 26.01 checking for two-argument fuse_unmount... no
+2026-10-19T20:36:15.3082781Z #11 26.03 checking for 64_t third argument to fuse ll forget op... yes
+2026-10-19T20:36:15.3083408Z #11 26.07 checking whether fuse_cmdline_help is declared... yes
+2026-10-19T20:36:15.3084401Z #11 26.09 checking for position argument to FUSE xattr operations... no
+2026-10-19T20:36:15.3084901Z #11 26.11 checking if make supports export... yes
+2026-10-19T20:36:15.3085313Z #11 26.12 checking for __le16... yes
+2026-10-19T20:36:15.4192234Z #11 26.15 checking for asm/byteorder.h... yes
+2026-10-19T20:36:15.4193042Z #11 26.18 checking for endian.h... yes
+2026-10-19T20:36:15.4194193Z #11 26.20 checking for inline... inline
+2026-10-19T20:36:15.4194655Z #11 26.22 checking for fusermount3... fusermount3
+2026-10-19T20:36:15.4195134Z #11 26.22 checking for mksquashfs... no
+2026-10-19T20:36:15.4195525Z #11 26.22 checking for md5sum... md5sum
+2026-10-19T20:36:15.4195981Z #11 26.22 checking for pthread_mutex_lock in -lpthread... yes
+2026-10-19T20:36:15.4196493Z #11 26.26 checking that generated files are newer than configure... done
+2026-10-19T20:36:15.5696038Z #11 26.26 configure: creating ./config.status
+2026-10-19T20:36:15.6308216Z #11 26.47 config.status: creating tests/ll-smoke.sh
+2026-10-19T20:36:15.7606326Z #11 26.48 config.status: creating tests/ll-smoke-singlethreaded.sh
+2026-10-19T20:36:15.7607221Z #11 26.49 config.status: creating tests/umount-test.sh
+2026-10-19T20:36:15.7607633Z #11 26.50 config.status: creating Makefile
+2026-10-19T20:36:15.7608082Z #11 26.52 config.status: creating squashfuse.pc
+2026-10-19T20:36:15.7608469Z #11 26.53 config.status: creating squashfuse_ll.pc
+2026-10-19T20:36:15.7608966Z #11 26.53 config.status: creating tests/lib.sh
+2026-10-19T20:36:15.7609341Z #11 26.54 config.status: creating ci/features
+2026-10-19T20:36:15.7609792Z #11 26.55 config.status: creating config.h
+2026-10-19T20:36:15.7610222Z #11 26.56 config.status: executing depfiles commands
+2026-10-19T20:36:15.7610679Z #11 26.60 config.status: executing libtool commands
+2026-10-19T20:36:15.8625841Z #11 26.61 
+2026-10-19T20:36:15.8626463Z #11 26.61 Compression support ....... : ZLIB ZSTD
+2026-10-19T20:36:15.8626881Z #11 26.61 High-level FUSE driver .... : yes
+2026-10-19T20:36:15.8627694Z #11 26.61 Low-level FUSE driver ..... : yes
+2026-10-19T20:36:15.8628075Z #11 26.61 Demo program .............. : yes
+2026-10-19T20:36:15.8628487Z #11 26.61 Tests ..................... : none
+2026-10-19T20:36:15.8628812Z #11 26.61 
+2026-10-19T20:36:15.8629134Z #11 26.64 make  all-am
+2026-10-19T20:36:15.8629565Z #11 26.64 make[1]: Entering directory '/tmp/tmp.mAPDMm/squashfuse-0.5.2'
+2026-10-19T20:36:15.8630074Z #11 26.64 SED="/bin/sed" ./gen_swap.sh ./squashfs_fs.h
+2026-10-19T20:36:15.8630488Z #11 26.64   CC       squashfuse-hl.o
+2026-10-19T20:36:15.8630906Z #11 26.64   CC       libfuseprivate_la-fuseprivate.lo
+2026-10-19T20:36:15.8631385Z #11 26.64   CC       libfuseprivate_la-nonstd-makedev.lo
+2026-10-19T20:36:15.8631810Z #11 26.64   CC       libfuseprivate_la-nonstd-enoattr.lo
+2026-10-19T20:36:15.8632290Z #11 26.71   CC       libfuseprivate_la-stat.lo
+2026-10-19T20:36:15.9627142Z #11 26.71   CC       squashfuse_ll-ll_main.o
+2026-10-19T20:36:15.9627842Z #11 26.76   CC       libsquashfuse_ll_convenience_la-ll.lo
+2026-10-19T20:36:15.9628363Z #11 26.77   CC       libsquashfuse_ll_convenience_la-ll_inode.lo
+2026-10-19T20:36:15.9628928Z #11 26.81   CC       libsquashfuse_ll_convenience_la-nonstd-daemon.lo
+2026-10-19T20:36:16.0759099Z #11 26.81   CC       ls.o
+2026-10-19T20:36:16.0760171Z #11 26.85   CC       squashfuse_extract-extract.o
+2026-10-19T20:36:16.0760774Z #11 26.88   CC       squashfuse_extract-stat.o
+2026-10-19T20:36:16.0761609Z #11 26.92   CC       squashfuse_extract-nonstd-makedev.o
+2026-10-19T20:36:16.2049878Z #11 26.93   CC       squashfuse_extract-nonstd-symlink.o
+2026-10-19T20:36:16.2050874Z #11 26.93   CC       libsquashfuse_convenience_la-swap.lo
+2026-10-19T20:36:16.2051780Z #11 26.94   CC       libsquashfuse_convenience_la-cache.lo
+2026-10-19T20:36:16.2052464Z #11 26.95   CC       libsquashfuse_convenience_la-table.lo
+2026-10-19T20:36:16.2053172Z #11 26.99   CC       libsquashfuse_convenience_la-dir.lo
+2026-10-19T20:36:16.2053986Z #11 27.05   CC       libsquashfuse_convenience_la-file.lo
+2026-10-19T20:36:16.3609454Z #11 27.06   CC       libsquashfuse_convenience_la-fs.lo
+2026-10-19T20:36:16.3610631Z #11 27.10   CC       libsquashfuse_convenience_la-decompress.lo
+2026-10-19T20:36:16.3611646Z #11 27.20   CC       libsquashfuse_convenience_la-xattr.lo
+2026-10-19T20:36:16.5306715Z #11 27.23   CC       libsquashfuse_convenience_la-hash.lo
+2026-10-19T20:36:16.5308100Z #11 27.27   CC       libsquashfuse_convenience_la-stack.lo
+2026-10-19T20:36:16.5309140Z #11 27.37   CC       libsquashfuse_convenience_la-traverse.lo
+2026-10-19T20:36:16.6345189Z #11 27.39   CC       libsquashfuse_convenience_la-util.lo
+2026-10-19T20:36:16.6346599Z #11 27.41   CC       libsquashfuse_convenience_la-nonstd-pread.lo
+2026-10-19T20:36:16.6347292Z #11 27.41   CC       libsquashfuse_convenience_la-nonstd-stat.lo
+2026-10-19T20:36:16.6347956Z #11 27.48   CC       libsquashfuse_convenience_la-cache_mt.lo
+2026-10-19T20:36:16.7750597Z #11 27.49   CCLD     libfuseprivate.la
+2026-10-19T20:36:16.7751451Z #11 27.62   CCLD     libsquashfuse_convenience.la
+2026-10-19T20:36:16.8871496Z #11 27.73   CCLD     libsquashfuse_ll_convenience.la
+2026-10-19T20:36:17.0083160Z #11 27.73   CCLD     squashfuse
+2026-10-19T20:36:17.0084284Z #11 27.73   CCLD     libsquashfuse.la
+2026-10-19T20:36:17.0085039Z #11 27.85   CCLD     squashfuse_ls
+2026-10-19T20:36:17.1673630Z #11 27.85   CCLD     squashfuse_extract
+2026-10-19T20:36:17.1674451Z #11 27.88   CCLD     libsquashfuse_ll.la
+2026-10-19T20:36:17.1674896Z #11 27.88   CCLD     squashfuse_ll
+2026-10-19T20:36:17.1675448Z #11 28.01 make[1]: Leaving directory '/tmp/tmp.mAPDMm/squashfuse-0.5.2'
+2026-10-19T20:36:17.2679139Z #11 28.02 make[1]: Entering directory '/tmp/tmp.mAPDMm/squashfuse-0.5.2'
+2026-10-19T20:36:17.2680119Z #11 28.03  /bin/mkdir -p '/usr/local/lib'
+2026-10-19T20:36:17.2681089Z #11 28.03  /bin/sh ./libtool   --mode=install /usr/bin/install -c   libsquashfuse.la libsquashfuse_ll.la '/usr/local/lib'
+2026-10-19T20:36:17.2682154Z #11 28.04 libtool: install: /usr/bin/install -c .libs/libsquashfuse.lai /usr/local/lib/libsquashfuse.la
+2026-10-19T20:36:17.2683647Z #11 28.04 libtool: install: /usr/bin/install -c .libs/libsquashfuse_ll.lai /usr/local/lib/libsquashfuse_ll.la
+2026-10-19T20:36:17.2684874Z #11 28.05 libtool: install: /usr/bin/install -c .libs/libsquashfuse.a /usr/local/lib/libsquashfuse.a
+2026-10-19T20:36:17.2685746Z #11 28.05 libtool: install: chmod 644 /usr/local/lib/libsquashfuse.a
+2026-10-19T20:36:17.2686432Z #11 28.05 libtool: install: ranlib /usr/local/lib/libsquashfuse.a
+2026-10-19T20:36:17.2687239Z #11 28.07 libtool: install: /usr/bin/install -c .libs/libsquashfuse_ll.a /usr/local/lib/libsquashfuse_ll.a
+2026-10-19T20:36:17.2688022Z #11 28.07 libtool: install: chmod 644 /usr/local/lib/libsquashfuse_ll.a
+2026-10-19T20:36:17.2688988Z #11 28.08 libtool: install: ranlib /usr/local/lib/libsquashfuse_ll.a
+2026-10-19T20:36:17.2694461Z #11 28.11 libtool: finish: PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/sbin" ldconfig -n /usr/local/lib
+2026-10-19T20:36:17.2696567Z #11 28.11 ----------------------------------------------------------------------
+2026-10-19T20:36:17.2697136Z #11 28.11 Libraries have been installed in:
+2026-10-19T20:36:17.2697564Z #11 28.11    /usr/local/lib
+2026-10-19T20:36:17.2697919Z #11 28.11 
+2026-10-19T20:36:17.2698277Z #11 28.11 If you ever happen to want to link against installed libraries
+2026-10-19T20:36:17.2698839Z #11 28.11 in a given directory, LIBDIR, you must either use libtool, and
+2026-10-19T20:36:17.2699401Z #11 28.11 specify the full pathname of the library, or use the '-LLIBDIR'
+2026-10-19T20:36:17.2699980Z #11 28.11 flag during linking and do at least one of the following:
+2026-10-19T20:36:17.2700486Z #11 28.11    - add LIBDIR to the 'LD_LIBRARY_PATH' environment variable
+2026-10-19T20:36:17.2700972Z #11 28.11      during execution
+2026-10-19T20:36:17.2701393Z #11 28.11    - add LIBDIR to the 'LD_RUN_PATH' environment variable
+2026-10-19T20:36:17.2701872Z #11 28.11      during linking
+2026-10-19T20:36:17.2702222Z #11 28.11    - use the '-Wl,-rpath -Wl,LIBDIR' linker flag
+2026-10-19T20:36:17.2702676Z #11 28.11 
+2026-10-19T20:36:17.2703039Z #11 28.11 See any operating system documentation about shared libraries for
+2026-10-19T20:36:17.2703643Z #11 28.11 more information, such as the ld(1) and ld.so(8) manual pages.
+2026-10-19T20:36:17.2704773Z #11 28.11 ----------------------------------------------------------------------
+2026-10-19T20:36:17.4011772Z #11 28.11  /bin/mkdir -p '/usr/local/bin'
+2026-10-19T20:36:17.4012930Z #11 28.11   /bin/sh ./libtool   --mode=install /usr/bin/install -c squashfuse squashfuse_ll '/usr/local/bin'
+2026-10-19T20:36:17.4014009Z #11 28.13 libtool: install: /usr/bin/install -c squashfuse /usr/local/bin/squashfuse
+2026-10-19T20:36:17.4014703Z #11 28.14 libtool: install: /usr/bin/install -c squashfuse_ll /usr/local/bin/squashfuse_ll
+2026-10-19T20:36:17.4015314Z #11 28.14  /bin/mkdir -p '/usr/local/share/man/man1'
+2026-10-19T20:36:17.4015848Z #11 28.14  /usr/bin/install -c -m 644 squashfuse.1 squashfuse_ll.1 '/usr/local/share/man/man1'
+2026-10-19T20:36:17.4016482Z #11 28.14  /bin/mkdir -p '/usr/local/lib/pkgconfig'
+2026-10-19T20:36:17.4017044Z #11 28.14  /usr/bin/install -c -m 644 squashfuse.pc squashfuse_ll.pc '/usr/local/lib/pkgconfig'
+2026-10-19T20:36:17.4017649Z #11 28.14  /bin/mkdir -p '/usr/local/include/squashfuse'
+2026-10-19T20:36:17.4018586Z #11 28.15  /usr/bin/install -c -m 644 squashfuse.h squashfs_fs.h cache.h common.h config.h decompress.h dir.h file.h fs.h stack.h table.h traverse.h util.h xattr.h ll.h '/usr/local/include/squashfuse'
+2026-10-19T20:36:17.4019544Z #11 28.15 make[1]: Leaving directory '/tmp/tmp.mAPDMm/squashfuse-0.5.2'
+2026-10-19T20:36:17.4020005Z #11 28.15 /tmp/tmp.mAPDMm
+2026-10-19T20:36:17.4020336Z #11 28.15 Cleaning up /tmp/tmp.mAPDMm
+2026-10-19T20:36:17.4020737Z #11 DONE 28.2s
+2026-10-19T20:36:17.5528830Z 
+2026-10-19T20:36:17.5529572Z #12 exporting to image
+2026-10-19T20:36:17.5530143Z #12 exporting layers
+2026-10-19T20:36:19.0711981Z #12 exporting layers 1.7s done
+2026-10-19T20:36:19.0864378Z #12 writing image sha256:f54ad26f42184af64dd73d9017e256864b1f93c089a29def7040be7c6db2fd68 done
+2026-10-19T20:36:19.0865749Z #12 naming to docker.io/library/type2-runtime-build done
+2026-10-19T20:36:19.0866166Z #12 DONE 1.7s
+2026-10-19T20:36:19.2192574Z + set -euo pipefail
+2026-10-19T20:36:19.2197657Z +++ pwd
+2026-10-19T20:36:19.2198489Z ++ readlink -f /ws
+2026-10-19T20:36:19.2204189Z + out_dir=/ws/out
+2026-10-19T20:36:19.2204712Z + mkdir -p /ws/out
+2026-10-19T20:36:19.2212136Z ++ mktemp -d -t type2-runtime-build-XXXXXX
+2026-10-19T20:36:19.2221590Z + build_dir=/tmp/type2-runtime-build-iJfEBm
+2026-10-19T20:36:19.2223378Z + cp -R src /tmp/type2-runtime-build-iJfEBm/
+2026-10-19T20:36:19.2231268Z + pushd /tmp/type2-runtime-build-iJfEBm
+2026-10-19T20:36:19.2233001Z /tmp/type2-runtime-build-iJfEBm /ws
+2026-10-19T20:36:19.2234699Z + pushd src/runtime/
+2026-10-19T20:36:19.2235741Z /tmp/type2-runtime-build-iJfEBm/src/runtime /tmp/type2-runtime-build-iJfEBm /ws
+2026-10-19T20:36:19.2236429Z ++ nproc
+2026-10-19T20:36:19.2240356Z + make -j4 runtime
+2026-10-19T20:36:19.2256782Z clang -I/usr/local/include/squashfuse -I/usr/include/fuse3 -std=gnu99 -Os -D_FILE_OFFSET_BITS=64 -DGIT_COMMIT=\"https://github.com/AppImage/type2-runtime/commit/fedfad5\" -T data_sections.ld -ffunction-sections -fdata-sections -Wl,--gc-sections -static -Wall -Werror -static-pie runtime.c -lsquashfuse -lsquashfuse_ll -lzstd -lz -lfuse3 -lmimalloc -o runtime
+2026-10-19T20:36:19.6348457Z + file runtime
+2026-10-19T20:36:19.6375498Z runtime: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), static-pie linked, BuildID[sha1]=0a796f5cd3bf38d146ab26cdee365f802812576b, with debug_info, not stripped
+2026-10-19T20:36:19.6378264Z + objcopy --only-keep-debug runtime runtime.debug
+2026-10-19T20:36:19.6405235Z objcopy: runtime.debug: section `.note.gnu.build-id' can't be allocated in segment 0
+2026-10-19T20:36:19.6406133Z LOAD: .appimage .static .note.gnu.build-id .gnu.hash .dynsym .dynstr .rela.dyn .init .text .fini .rodata .eh_frame_hdr .eh_frame
+2026-10-19T20:36:19.6417215Z + strip --strip-debug --strip-unneeded runtime
+2026-10-19T20:36:19.6450745Z + ls -lh runtime runtime.debug
+2026-10-19T20:36:19.6458077Z -rwxr-xr-x    1 1001     1001      914.4K Oct 19 20:36 runtime
+2026-10-19T20:36:19.6458698Z -rwxr-xr-x    1 1001     1001        1.4M Oct 19 20:36 runtime.debug
+2026-10-19T20:36:19.6460786Z ++ file -L /bin/bash
+2026-10-19T20:36:19.6477126Z + runtime='/bin/bash: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-musl-aarch64.so.1, BuildID[sha1]=ab69421af288153e84b94ef1d60a58e30cc94a14, stripped'
+2026-10-19T20:36:19.6478765Z + [[ /bin/bash: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-musl-aarch64.so.1, BuildID[sha1]=ab69421af288153e84b94ef1d60a58e30cc94a14, stripped =~ 80386 ]]
+2026-10-19T20:36:19.6482470Z + [[ /bin/bash: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-musl-aarch64.so.1, BuildID[sha1]=ab69421af288153e84b94ef1d60a58e30cc94a14, stripped =~ i386 ]]
+2026-10-19T20:36:19.6485046Z + [[ /bin/bash: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-musl-aarch64.so.1, BuildID[sha1]=ab69421af288153e84b94ef1d60a58e30cc94a14, stripped =~ aarch64 ]]
+2026-10-19T20:36:19.6485988Z + architecture=aarch64
+2026-10-19T20:36:19.6486398Z + mv runtime runtime-aarch64
+2026-10-19T20:36:19.6486798Z + mv runtime.debug runtime-aarch64.debug
+2026-10-19T20:36:19.6491027Z + objcopy --add-gnu-debuglink runtime-aarch64.debug runtime-aarch64
+2026-10-19T20:36:19.6554667Z + echo -ne 'AI\x02'
+2026-10-19T20:36:19.6555158Z + dd of=runtime-aarch64 bs=1 count=3 seek=8 conv=notrunc
+2026-10-19T20:36:19.6560243Z 3+0 records in
+2026-10-19T20:36:19.6560753Z 3+0 records out
+2026-10-19T20:36:19.6561282Z 3 bytes (3B) copied, 0.000039 seconds, 75.1KB/s
+2026-10-19T20:36:19.6561793Z + cp runtime-aarch64 /ws/out/
+2026-10-19T20:36:19.6569643Z + cp runtime-aarch64.debug /ws/out/
+2026-10-19T20:36:19.6578098Z + ls -al /ws/out
+2026-10-19T20:36:19.6583612Z total 2312
+2026-10-19T20:36:19.6585120Z drwxr-xr-x    2 1001     1001          4096 Oct 19 20:36 .
+2026-10-19T20:36:19.6585779Z drwxr-xr-x    8 1001     1001          4096 Oct 19 20:35 ..
+2026-10-19T20:36:19.6586439Z -rwxr-xr-x    1 1001     1001        936456 Oct 19 20:36 runtime-aarch64
+2026-10-19T20:36:19.6586980Z -rwxr-xr-x    1 1001     1001       1420616 Oct 19 20:36 runtime-aarch64.debug
+2026-10-19T20:36:19.7581853Z ##[group]Run find out
+2026-10-19T20:36:19.7582182Z [36;1mfind out[0m
+2026-10-19T20:36:19.7582422Z [36;1mscripts/sign.sh out/runtime-*[0m
+2026-10-19T20:36:19.7582862Z [36;1m# copy pubkey so that it's included with the files uploaded to the release page[0m
+2026-10-19T20:36:19.7583304Z [36;1mcp signing-pubkey.asc out/[0m
+2026-10-19T20:36:19.7603365Z shell: /usr/bin/sh -e {0}
+2026-10-19T20:36:19.7603625Z env:
+2026-10-19T20:36:19.7607824Z   SIGNING_KEY: ***
+
+2026-10-19T20:36:19.7608051Z ##[endgroup]
+2026-10-19T20:36:19.7651020Z out
+2026-10-19T20:36:19.7651271Z out/runtime-aarch64
+2026-10-19T20:36:19.7651506Z out/runtime-aarch64.debug
+2026-10-19T20:36:19.7682443Z === importing key ===
+2026-10-19T20:36:19.7734327Z gpg: enabled compatibility flags:
+2026-10-19T20:36:19.7735278Z gpg: keybox '/tmp/tmp.skP9fn1GLD/pubring.kbx' created
+2026-10-19T20:36:19.7745596Z gpg: sec  ed25519/BF96CCA56490F695 2024-05-04  AppImage type 2 runtime <type2-runtime@appimage.org>
+2026-10-19T20:36:19.7771006Z gpg: /tmp/tmp.skP9fn1GLD/trustdb.gpg: trustdb created
+2026-10-19T20:36:19.7771373Z gpg: using pgp trust model
+2026-10-19T20:36:19.7771834Z gpg: key BF96CCA56490F695: public key "AppImage type 2 runtime <type2-runtime@appimage.org>" imported
+2026-10-19T20:36:19.7772394Z gpg: no running gpg-agent - starting '/usr/bin/gpg-agent'
+2026-10-19T20:36:19.7806480Z gpg: waiting for the agent to come up ... (5s)
+2026-10-19T20:36:19.7819006Z gpg: connection to the agent established
+2026-10-19T20:36:19.7830984Z gpg: key BF96CCA56490F695/BF96CCA56490F695: secret key imported
+2026-10-19T20:36:19.7831857Z gpg: key BF96CCA56490F695/E2C291A8A68D0041: secret key imported
+2026-10-19T20:36:19.7832241Z gpg: key BF96CCA56490F695: secret key imported
+2026-10-19T20:36:19.7832743Z gpg: Total number processed: 1
+2026-10-19T20:36:19.7833113Z gpg:               imported: 1
+2026-10-19T20:36:19.7833453Z gpg:       secret keys read: 1
+2026-10-19T20:36:19.7834015Z gpg:   secret keys imported: 1
+2026-10-19T20:36:19.7837445Z 
+2026-10-19T20:36:19.7837710Z === listing available secret keys ===
+2026-10-19T20:36:19.7870098Z /tmp/tmp.skP9fn1GLD/pubring.kbx
+2026-10-19T20:36:19.7870506Z -------------------------------
+2026-10-19T20:36:19.7870880Z sec   ed25519 2024-05-04 [SC] [expires: 2034-05-03]
+2026-10-19T20:36:19.7871299Z       570C77ACEA40C0F1B758902CBF96CCA56490F695
+2026-10-19T20:36:19.7871823Z uid           [ unknown] AppImage type 2 runtime <type2-runtime@appimage.org>
+2026-10-19T20:36:19.7874276Z 
+2026-10-19T20:36:19.7874420Z 
+2026-10-19T20:36:19.7874653Z === signing out/runtime-aarch64 ===
+2026-10-19T20:36:19.7888607Z gpg: enabled compatibility flags:
+2026-10-19T20:36:19.7898791Z gpg: using pgp trust model
+2026-10-19T20:36:19.7905284Z gpg: writing to 'out/runtime-aarch64.sig'
+2026-10-19T20:36:19.7934314Z gpg: EDDSA/SHA512 signature from: "BF96CCA56490F695 AppImage type 2 runtime <type2-runtime@appimage.org>"
+2026-10-19T20:36:19.7938592Z 
+2026-10-19T20:36:19.7938858Z === test-verifying signature ===
+2026-10-19T20:36:19.7954873Z gpg: enabled compatibility flags:
+2026-10-19T20:36:19.7973242Z gpg: Signature made Mon Oct 19 20:36:19 2026 UTC
+2026-10-19T20:36:19.7973657Z gpg:                using EDDSA key 570C77ACEA40C0F1B758902CBF96CCA56490F695
+2026-10-19T20:36:19.7980179Z gpg: using pgp trust model
+2026-10-19T20:36:19.7980603Z gpg: Good signature from "AppImage type 2 runtime <type2-runtime@appimage.org>" [unknown]
+2026-10-19T20:36:19.7981168Z gpg: WARNING: This key is not certified with a trusted signature!
+2026-10-19T20:36:19.7981630Z gpg:          There is no indication that the signature belongs to the owner.
+2026-10-19T20:36:19.7982512Z Primary key fingerprint: 570C 77AC EA40 C0F1 B758  902C BF96 CCA5 6490 F695
+2026-10-19T20:36:19.7983040Z gpg: binary signature, digest algorithm SHA512, key algorithm ed25519
+2026-10-19T20:36:19.8100220Z ##[group]Run actions/upload-artifact@v7
+2026-10-19T20:36:19.8100589Z with:
+2026-10-19T20:36:19.8100806Z   name: artifacts aarch64
+2026-10-19T20:36:19.8101052Z   path: out/*
+2026-10-19T20:36:19.8101273Z   if-no-files-found: warn
+2026-10-19T20:36:19.8101520Z   compression-level: 6
+2026-10-19T20:36:19.8101754Z   overwrite: false
+2026-10-19T20:36:19.8101988Z   include-hidden-files: false
+2026-10-19T20:36:19.8102242Z   archive: true
+2026-10-19T20:36:19.8102461Z ##[endgroup]
+2026-10-19T20:36:19.9295829Z With the provided path, there will be 4 files uploaded
+2026-10-19T20:36:19.9300584Z Artifact name is valid!
+2026-10-19T20:36:19.9301836Z Root directory input is valid!
+2026-10-19T20:36:20.2641884Z Uploading artifact: artifacts aarch64.zip
+2026-10-19T20:36:20.2677865Z Beginning upload of artifact content to blob storage
+2026-10-19T20:36:20.8686389Z Uploaded bytes 1041062
+2026-10-19T20:36:20.9400570Z Finished uploading artifact content to blob storage!
+2026-10-19T20:36:20.9401324Z SHA256 digest of uploaded artifact is 01e1cbaba8ce4cb102d9aa95e37af57a3c4f40773394b3f8f54b5689287138c9
+2026-10-19T20:36:20.9401863Z Finalizing artifact upload
+2026-10-19T20:36:21.3231883Z Artifact artifacts aarch64 successfully finalized. Artifact ID 12218694052
+2026-10-19T20:36:21.3232609Z Artifact artifacts aarch64 has been successfully uploaded! Final size is 1041062 bytes. Artifact ID is 12218694052
+2026-10-19T20:36:21.3236874Z Artifact download URL: https://github.com/AppImage/type2-runtime/actions/runs/39320578745/artifacts/12218694052
+2026-10-19T20:36:21.3428382Z Post job cleanup.
+2026-10-19T20:36:21.4119380Z [command]/usr/bin/git version
+2026-10-19T20:36:21.4157348Z git version 2.55.0
+2026-10-19T20:36:21.4200292Z Temporarily overriding HOME='/home/runner/work/_temp/49ce4fbc-bc1f-418b-8cf5-6bd3fd5f1653' before making global git config changes
+2026-10-19T20:36:21.4201362Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T20:36:21.4215270Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/type2-runtime/type2-runtime
+2026-10-19T20:36:21.4247853Z Removing SSH command configuration
+2026-10-19T20:36:21.4253313Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T20:36:21.4285280Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T20:36:21.4484846Z Removing HTTP extra header
+2026-10-19T20:36:21.4489667Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T20:36:21.4521472Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T20:36:21.4709966Z Removing includeIf entries pointing to credentials config files
+2026-10-19T20:36:21.4716278Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T20:36:21.4743516Z includeif.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git.path
+2026-10-19T20:36:21.4744433Z includeif.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git/worktrees/*.path
+2026-10-19T20:36:21.4745033Z includeif.gitdir:/github/workspace/.git.path
+2026-10-19T20:36:21.4745554Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T20:36:21.4750811Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git.path
+2026-10-19T20:36:21.4774753Z /home/runner/work/_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:36:21.4784125Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-00eabe15\-4a49\-41cc\-b51f\-7115b5ec8e40\.config
+2026-10-19T20:36:21.4819522Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git/worktrees/*.path
+2026-10-19T20:36:21.4843044Z /home/runner/work/_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:36:21.4858225Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/type2-runtime/type2-runtime/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-00eabe15\-4a49\-41cc\-b51f\-7115b5ec8e40\.config
+2026-10-19T20:36:21.4894873Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-19T20:36:21.4918420Z /github/runner_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:36:21.4925318Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-00eabe15\-4a49\-41cc\-b51f\-7115b5ec8e40\.config
+2026-10-19T20:36:21.4958540Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T20:36:21.4981535Z /github/runner_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config
+2026-10-19T20:36:21.4988671Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-00eabe15\-4a49\-41cc\-b51f\-7115b5ec8e40\.config
+2026-10-19T20:36:21.5024250Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T20:36:21.5230211Z Removing credentials config '/home/runner/work/_temp/git-credentials-00eabe15-4a49-41cc-b51f-7115b5ec8e40.config'
+2026-10-19T20:36:21.5369691Z Cleaning up orphan processes

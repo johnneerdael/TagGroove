@@ -214,7 +214,8 @@ test('source-audited numeric roles reject text across current catalog frames whi
   for(const key of Object.keys(english).filter(key=>!key.startsWith('@'))){
     for(const role of placeholders(key))if(roles.has(role.replace(/\d+$/,'')))pairs.push({key,role});
   }
-  assert.equal(pairs.length,39);
+  assert.ok(pairs.some(({key,role})=>key==='GENRE: at most {MAX_VALUES} custom values are supported'&&role==='MAX_VALUES'),'genre importer uses the audited numeric MAX_VALUES producer');
+  assert.equal(pairs.length,41);
   const glyphs=['0','1','2','1.234','1,234','1\u202f234','١٬٢٣٤','۱۲۳۴','১২৩৪','१२३४','一二三','𝟙𝟚𝟛'];
   for(const {key,role} of pairs){
     const params=Object.fromEntries([...placeholders(key)].map(name=>[name,'2']));

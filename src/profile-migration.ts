@@ -4,7 +4,7 @@ type LegacyWorkspace = {paths:string[];selected:string[];roots:string[];location
 export type ProfileWorkspaceV2 = LegacyWorkspace & {version:2;root_kinds?:SourceRootKind[];working_directory:string|null;list_order:'columns'|'manual'|'playlist';source_order:string[]|null};
 export type ProfileWorkspace = LegacyWorkspace | ProfileWorkspaceV2;
 export type ProfileWindow = {version:1;preferences:Record<string,string>;workspace:LegacyWorkspace}|{version:2;preferences:Record<string,string>;workspace:ProfileWorkspaceV2|null};
-type Item = {file:string;kind:string;name:string;warnings:string[];collision:boolean;supported:boolean};
+type Item = {file:string;kind:string;name:string;warnings:string[];collision:boolean;supported:boolean;settings?:{label:string;enabled?:boolean;value?:string;verbatim?:boolean}[]};
 type Report = {operation?:'profile'|'configuration';configuration?:{version:number;files:number;export_assets:number;preferences:number;workspace_rows:number;omitted:string[]};legacy_encoding?:string|null;items:Item[];imported:string[];kept:string[];source_hash:string};
 type Pending = {id:string;attempted:boolean;failed?:boolean;window:ProfileWindow};
 export type ProfileStatus = {desktop:boolean;phase:string;report:Report|null;restorable:boolean;pending:Pending|null;preference_keys:string[];portable_preference_keys?:string[]};
@@ -25,7 +25,7 @@ type Host = {
   fail:(error:unknown)=>void;
 };
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-export const profileKinds:Record<string,string>={columns:'Columns',panel:'Tag panel',actions:'Action groups',export:'Export templates',unsupported:'Unsupported'};
+export const profileKinds:Record<string,string>={columns:'Columns',panel:'Tag panel',field_values:'Field values',genres:'Custom genres',settings:'Portable settings',actions:'Action groups',export:'Export templates',unsupported:'Unsupported'};
 
 export function captureProfilePreferences(storage:Storage, keys:readonly string[]):Record<string,string> {
   return Object.fromEntries(keys.flatMap(key=>{const value=storage.getItem(key);return value===null?[]:[[key,value]];}));
@@ -118,7 +118,7 @@ export class ProfileMigrationUI {
       await this.host.flush();await this.status();
       let legacyEncoding:string|null=null;
       const mode=await new Promise<boolean|null>(resolve=>{
-        const dialog=this.dialog('Import Mp3tag setup','<p>Inspect a configuration folder or ZIP. Columns, tag panels, action groups and export templates can be selected before anything changes. Unsupported settings remain listed. Credentials and audio files are left untouched.</p><label class="field"><span>Legacy codepage for actions and exports (optional)</span><input data-encoding placeholder="For example windows-1252; empty uses current importer defaults" maxlength="64"></label>','<button data-cancel>Cancel</button><button data-folder>Folder…</button><button data-zip>ZIP…</button>');
+        const dialog=this.dialog('Import Mp3tag setup','<p>Inspect a configuration folder or ZIP. Columns, tag panels, field values, portable settings, action groups and export templates can be selected before anything changes. Unsupported settings remain listed. Credentials and audio files are left untouched.</p><label class="field"><span>Legacy codepage for actions and exports (optional)</span><input data-encoding placeholder="For example windows-1252; empty uses current importer defaults" maxlength="64"></label>','<button data-cancel>Cancel</button><button data-folder>Folder…</button><button data-zip>ZIP…</button>');
         let choice:boolean|null=null;
         const choose=(folder:boolean)=>{legacyEncoding=dialog.querySelector<HTMLInputElement>('[data-encoding]')!.value.trim()||null;choice=folder;dialog.close();};
         dialog.querySelector('[data-folder]')!.addEventListener('click',()=>choose(true));dialog.querySelector('[data-zip]')!.addEventListener('click',()=>choose(false));dialog.querySelector('[data-cancel]')!.addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>{dialog.remove();resolve(choice);},{once:true});
@@ -130,15 +130,15 @@ export class ProfileMigrationUI {
     }catch(error){this.host.fail(error);}finally{this.showing=false;}
   }
   private preview(preview:Preview) {
-    const rows=preview.items.map((item,index)=>`<tr><td><input type="checkbox" data-item="${index}" ${item.supported?'':'disabled'} aria-label="${html(item.file)}"></td><td><strong translate="no">${html(item.file)}</strong><div>${html(profileKinds[item.kind]||'Unsupported')}${item.collision?' · Existing configuration':''}</div>${item.warnings.length?`<ul translate="no">${item.warnings.map(warning=>`<li>${html(warning)}</li>`).join('')}</ul>`:''}</td></tr>`).join('');
-    const dialog=this.dialog('Review setup migration',`<p>Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Imported action groups stay disabled, including unresolved actions that need editing.</p><table><tbody>${rows}</tbody></table><label class="field"><span>Existing action-group or export-template names</span><select data-collisions><option value="keep">Keep current items</option><option value="replace">Replace current items</option></select></label><p>The previous configuration, physical export templates, histories and workspace remain available through Restore setup. This is separate from audio Undo.</p>`, '<button data-cancel>Cancel</button><button class="primary" data-apply disabled>Import selected setup</button>');
+    const rows=preview.items.map((item,index)=>`<tr><td><input type="checkbox" data-item="${index}" ${item.supported?'':'disabled'} aria-label="${html(item.file)}"></td><td><strong translate="no">${html(item.file)}</strong><div>${html(profileKinds[item.kind]||'Unsupported')}${item.collision?' · Existing configuration':''}</div>${item.settings?.length?`<ul>${item.settings.map(setting=>`<li><span>${html(setting.label)}</span>: <span${setting.verbatim&&setting.value!==''?' translate="no"':''}>${html(setting.value===''?'(empty)':setting.value??(setting.enabled?'On':'Off'))}</span></li>`).join('')}</ul>`:''}${item.warnings.length?`<ul translate="no">${item.warnings.map(warning=>`<li>${html(warning)}</li>`).join('')}</ul>`:''}</td></tr>`).join('');
+    const dialog=this.dialog('Review setup migration',`<p>Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Selected portable settings replace the listed matching options. Unmapped binary records are not imported. Imported field-value entries replace matching saved lists and preferences. A selected genres.ini replaces the legacy genre list. A selected usrfieldvalues.ini takes precedence over legacy panel values, genres.ini and the binary genre preference. Imported action groups stay disabled, including unresolved actions that need editing.</p><table><tbody>${rows}</tbody></table><label class="field"><span>Existing action-group or export-template names</span><select data-collisions><option value="keep">Keep current items</option><option value="replace">Replace current items</option></select></label><p>The previous configuration, physical export templates, histories and workspace remain available through Restore setup. This is separate from audio Undo.</p>`, '<button data-cancel>Cancel</button><button class="primary" data-apply disabled>Import selected setup</button>');
     let working=false,reloadRequired=false,completed=false;
     const apply=dialog.querySelector<HTMLButtonElement>('[data-apply]')!;
     dialog.querySelector('[data-cancel]')!.addEventListener('click',()=>{if(!working)dialog.close();});
     dialog.addEventListener('cancel',event=>{if(working||reloadRequired)event.preventDefault();});
     dialog.querySelectorAll<HTMLInputElement>('[data-item]').forEach(box=>box.addEventListener('change',()=>{
       const kind=preview.items[Number(box.dataset.item)].kind;
-      if(box.checked&&(kind==='columns'||kind==='panel'))dialog.querySelectorAll<HTMLInputElement>('[data-item]').forEach(other=>{if(other!==box&&preview.items[Number(other.dataset.item)].kind===kind)other.checked=false;});
+      if(box.checked&&['columns','panel','genres','field_values','settings'].includes(kind))dialog.querySelectorAll<HTMLInputElement>('[data-item]').forEach(other=>{if(other!==box&&preview.items[Number(other.dataset.item)].kind===kind)other.checked=false;});
       apply.disabled=!dialog.querySelector('[data-item]:checked');
     }));
     apply.addEventListener('click',async()=>{

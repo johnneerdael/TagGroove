@@ -16,13 +16,21 @@ can contain several lines without becoming several separate field values.
    Do not add a second COMMENT row if one already exists; edit that row.
 4. Choose **＋ Add value**, then type `Checked for the catalogue` in its
    value box.
-5. Choose **Keep changes**. Back in the main window, the change is pending.
-6. Choose **File → Save tags** (++cmd+s++ / ++ctrl+s++) to write it.
-7. Reopen Extended tags and confirm the saved value.
+5. Choose **Save tags** to write the displayed selection. The dialog closes
+   after the save succeeds.
+6. Reopen Extended tags and confirm the saved value.
 
-**Keep changes** stages text-field edits; it does not itself write all tags.
-Until saving, **Edit → Discard pending changes** can discard staged field
-edits. Keep an original copy and inspect the actual errors after a save.
+Choose **Keep changes** instead if you want to stage text-field edits and
+review them from the main window before using **File → Save tags**
+(++cmd+s++ / ++ctrl+s++). **Keep changes** does not write those edits.
+Until saving, **Edit → Discard pending changes** can discard staged fields.
+
+A refused, canceled or partially successful save leaves the dialog open and
+the unsaved changes pending. Check the reported errors, fix the cause, and
+retry. The controls are disabled while writing to prevent duplicate saves or
+edits being lost during the operation. If the source cannot be saved back,
+use **Keep changes** and the supported **Save a copy** workflow. Keep an
+original copy and inspect the actual errors after a save.
 
 ## Read a selection without overwriting differences
 
@@ -57,7 +65,7 @@ With **Options → General → Auto-completion at selection boxes** enabled,
 typing shows matching whole values from the field's custom/loaded values.
 No suffix is inserted in these multiline boxes. Use Up/Down to highlight a
 choice, then Enter to replace the whole value; the choice changes only this
-dialog's edit, without saving tags or pressing **Keep changes**. Enter with
+dialog's edit, without saving tags or confirming the dialog. Enter with
 no highlighted choice, including after a choice was accepted, inserts a
 newline as usual. **Alt+Down** opens matching choices explicitly, **Esc**
 closes them first, and Tab moves focus without accepting a highlighted
@@ -129,9 +137,12 @@ The treatment of changed fields follows
 | **Ignore changes** | Leave the current dialog edits unapplied and move on. |
 | **Save changes** | Stage and write the current changed fields before moving; a reported save error keeps the issue visible. |
 
-The separate **Save tags when using arrow-keys/single mouse click** preference
-can also write pending changes as selection changes. Check both settings
-before relying on navigation as a read-only inspection workflow.
+These navigation choices are independent of **Save tags when using
+arrow-keys/single mouse click** in the main file list. In particular,
+**Keep changes pending** remains pending even when that separate preference
+is enabled. **Save tags** in this dialog writes the displayed file or
+selection; drafts kept while visiting earlier files remain pending until
+you select and save those files.
 
 Closing the dialog does not undo edits already kept by an earlier navigation
 or written by a save mode. To discard unsaved work, inspect the main window's

@@ -5,6 +5,7 @@ import {mkdtempSync, rmSync} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode, shipsChanges, NON_SHIPPING_PATHS } from '../scripts/release.mjs';
 
 const sourceFixtureRoot = mkdtempSync(join(tmpdir(), 'taggroove-release-source-'));
@@ -100,6 +101,155 @@ async function completeAssets(t) {
   await copyFile(sourceFixture.bundle, join(outputDir, 'TagGroove-v0.1.0-sources.tar.xz'));
   return { root, outputDir };
 }
+
+test('macOS collection requires policy-valid signing evidence bound to both artifact bytes', async (t) => {
+  const root = await fixture(t);const platform = 'macos-arm64';
+  const sourcePaths = await Promise.all(['.dmg', '.app.tar.gz'].map(async suffix => {
+    const path = join(root, 'fixture'+suffix);await writeFile(path, 'signed '+suffix);return path;
+  }));
+  const policyRaw = await readFile(new URL('../src-tauri/macos/signing-policy.json', import.meta.url));
+  const policy = JSON.parse(policyRaw);
+  const config = JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json', import.meta.url)));
+  const artifacts = Object.fromEntries(await Promise.all(sourcePaths.map(async path => {
+    const raw = await readFile(path);return [path.endsWith('.dmg') ? '.dmg' : '.app.tar.gz',
+      {size: raw.length, sha256: createHash('sha256').update(raw).digest('hex')}];
+  })));
+  const receipt = {schema: 1, platform, target: 'aarch64-apple-darwin', source_commit: sha, version: '0.1.0',
+    identity: policy.identity, team_id: policy.team_id, identifier: config.identifier,
+    policy_sha256: createHash('sha256').update(policyRaw).digest('hex'), app_cdhash: 'a'.repeat(40),
+    checks: {codesign: true, hardened_runtime: true, stapler: true, gatekeeper: true, dmg_app_binding: true},
+    dmg_notarization: {status: 'Accepted', id: '12345678-1234-5678-1234-567812345678'}, artifacts};
+  const macosManifest = join(root, 'macos-signing.json');await writeFile(macosManifest, JSON.stringify(receipt));
+  const args = {plan: plan(), platform, sourcePaths, outputDir: join(root, 'assets'), macosManifest,
+    nativeManifest: join(sourceFixture.evidence, 'native-macos-arm64.json')};
+  const manifest = await collectAssets(args);
+  assert.ok(manifest.macos_signing, "Missing macOS signing metadata");
+  assert.equal(manifest.macos_signing.identity, policy.identity);
+  assert.equal(manifest.macos_signing.name, 'macos-signing-macos-arm64.json');
+  assert.deepEqual(manifest.macos_signing.artifacts, artifacts);
+  for (const changed of [{source_commit: 'b'.repeat(40)}, {version: '0.2.0'}, {platform: 'macos-x64'},
+    {target: 'x86_64-apple-darwin'}, {identifier: 'org.other.app'}, {identity: 'other'}, {team_id: 'OTHER'},
+    {policy_sha256: '0'.repeat(64)}, {checks: {...receipt.checks, gatekeeper: false}},
+    {dmg_notarization: {...receipt.dmg_notarization, status: 'Invalid'}},
+    {artifacts: {...artifacts, '.dmg': {...artifacts['.dmg'], sha256: '0'.repeat(64)}}},
+    {artifacts: {...artifacts, '.app.tar.gz': {...artifacts['.app.tar.gz'], size: artifacts['.app.tar.gz'].size+1}}}]) {
+    await writeFile(macosManifest, JSON.stringify({...receipt, ...changed}));
+    await assert.rejects(collectAssets(args), /macOS|Command failed/i);
+  }
+});
+
+test('Linux package collection binds source evidence to the actual image and release identity', async (t) => {
+  const root = await fixture(t);const platform = 'linux-x64';
+  const sourcePaths = await Promise.all(['.deb', '.rpm', '.AppImage'].map(async suffix => {
+    const path = join(root, 'fixture'+suffix);await writeFile(path, 'packaged '+suffix);return path;
+  }));
+  const image = await readFile(sourcePaths[2]);
+  const capture = {schema: 1, platform, target: 'x86_64-unknown-linux-gnu', source_commit: sha, version: '0.1.0',
+    appimage_sha256: createHash('sha256').update(image).digest('hex'), appimage_size: image.length};
+  const linuxManifest = join(root, 'linux-source.json');
+  await writeFile(linuxManifest, JSON.stringify(capture));
+  const args = {plan: plan(), platform, sourcePaths, outputDir: join(root, 'assets'), linuxManifest,
+    nativeManifest: join(sourceFixture.evidence, 'native-linux-x64.json')};
+  const manifest = await collectAssets(args);
+  assert.equal(manifest.linux_source.appimage_sha256, capture.appimage_sha256);
+  assert.equal(manifest.linux_source.name, 'linux-source-linux-x64.json');
+  assert.equal(manifest.linux_source.target, capture.target);
+  for (const changed of [{source_commit: 'b'.repeat(40)}, {version: '0.2.0'}, {platform: 'linux-arm64'},
+    {target: 'aarch64-unknown-linux-gnu'}, {appimage_sha256: '0'.repeat(64)}, {appimage_size: image.length+1}]) {
+    await writeFile(linuxManifest, JSON.stringify({...capture, ...changed}));
+    await assert.rejects(collectAssets(args), /Linux.*(source|image|target|binding)/i);
+  }
+});
+
+test('modern release assembly binds both Mac receipts to source policy and collected package bytes', async (t) => {
+  const root = await fixture(t);
+  const captured = JSON.parse(execFileSync(process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
+    ['scripts/tests/test_audio_source_bundle.py', '--release-signed-fixture', join(root, 'source')], {encoding: 'utf8'}));
+  const releasePlan = {...plan(), commit: captured.commit};const directory = join(root, 'assets');
+  const suffixes = {'windows-x64': ['.exe'], 'macos-arm64': ['.dmg', '.app.tar.gz'], 'macos-x64': ['.dmg', '.app.tar.gz'],
+    'linux-x64': ['.deb', '.rpm', '.AppImage'], 'linux-arm64': ['.deb', '.rpm', '.AppImage'],
+    'android-arm64': ['.apk'], 'ios-arm64-simulator-preview': ['.app.zip']};
+  for (const platform of PLATFORMS) {
+    const sourcePaths = [];
+    for (const suffix of suffixes[platform]) {
+      const path = join(root, platform+suffix);await writeFile(path, `fixture ${platform} ${suffix}`);sourcePaths.push(path);
+    }
+    await collectAssets({plan: releasePlan, platform, sourcePaths, outputDir: directory,
+      nativeManifest: join(captured.evidence, `native-${platform}.json`),
+      ...(platform.startsWith('macos-') ? {macosManifest: join(captured.macos_evidence, `macos-signing-${platform}.json`)} : {})});
+  }
+  await copyFile(captured.bundle, join(directory, 'TagGroove-v0.1.0-sources.tar.xz'));
+  const assembled = await assembleRelease({plan: releasePlan, directory});
+  assert.equal(assembled.assets.length, 16);
+  const published = JSON.parse(await readFile(join(directory, 'release-manifest.json'), 'utf8'));
+  assert.deepEqual(Object.keys(published.macos_signing).sort(), ['macos-arm64', 'macos-x64']);
+  const platform = 'macos-arm64';const sidecar = join(directory, `macos-signing-${platform}.json`);
+  const original = await readFile(sidecar);const receipt = JSON.parse(original);
+  assert.equal(published.macos_signing[platform].identity, receipt.identity);
+  assert.deepEqual(published.macos_signing[platform].checks, receipt.checks);
+  assert.deepEqual(published.macos_signing[platform].dmg_notarization, receipt.dmg_notarization);
+  assert.ok(!assembled.assets.some(asset => asset.name.startsWith('macos-signing-')));
+  await writeFile(sidecar, Buffer.concat([original, Buffer.from('\n')]));
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /macOS.*(differs|hash|evidence)|Command failed/i);
+  await writeFile(sidecar, original);
+  const manifestPath = join(directory, `manifest-${platform}.json`);const manifestRaw = await readFile(manifestPath);
+  const manifest = JSON.parse(manifestRaw);
+  await writeFile(manifestPath, JSON.stringify({...manifest, macos_signing: {...manifest.macos_signing, identity: 'Other'}}));
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /macOS signing evidence/i);
+  await writeFile(manifestPath, manifestRaw);
+  const artifact = join(directory, `TagGroove-v0.1.0-${platform}.dmg`);const artifactRaw = await readFile(artifact);
+  await writeFile(artifact, 'replacement package');
+  const changed = await readFile(artifact);
+  const tampered = structuredClone(manifest);
+  Object.assign(tampered.assets.find(asset => asset.name.endsWith('.dmg')),
+    {size: changed.length, sha256: createHash('sha256').update(changed).digest('hex')});
+  await writeFile(manifestPath, JSON.stringify(tampered));
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /macOS signing\/artifact binding/i);
+  await writeFile(artifact, artifactRaw);await writeFile(manifestPath, manifestRaw);
+  await rm(sidecar);
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /macOS|Command failed/i);
+  await writeFile(sidecar, original);
+  await writeFile(join(directory, 'macos-signing-extra.json'), original);
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /Unexpected files/);
+});
+
+test('modern release assembly requires the two source-bound Linux sidecars', {skip: process.platform === 'win32'}, async (t) => {
+  const root = await fixture(t);
+  const python = process.env.PYTHON || 'python3';
+  const captured = JSON.parse(execFileSync(python,
+    ['scripts/tests/test_audio_source_bundle.py', '--release-complete-fixture', join(root, 'source')], {encoding: 'utf8'}));
+  const previousPython = process.env.PYTHON;process.env.PYTHON = captured.python;
+  t.after(() => {if (previousPython === undefined) delete process.env.PYTHON;else process.env.PYTHON = previousPython;});
+  const releasePlan = {...plan(), commit: captured.commit};const directory = join(root, 'assets');
+  const suffixes = { 'windows-x64': ['.exe'], 'macos-arm64': ['.dmg', '.app.tar.gz'], 'macos-x64': ['.dmg', '.app.tar.gz'],
+    'linux-x64': ['.deb', '.rpm', '.AppImage'], 'linux-arm64': ['.deb', '.rpm', '.AppImage'],
+    'android-arm64': ['.apk'], 'ios-arm64-simulator-preview': ['.app.zip']};
+  for (const platform of PLATFORMS) {
+    const sourcePaths = [];
+    for (const suffix of suffixes[platform]) {
+      const path = join(root, platform+suffix);await writeFile(path, `fixture ${platform} ${suffix}`);sourcePaths.push(path);
+    }
+    await collectAssets({plan: releasePlan, platform, sourcePaths, outputDir: directory,
+      nativeManifest: join(captured.evidence, `native-${platform}.json`),
+      ...(platform.startsWith('linux-') ? {linuxManifest: join(captured.linux_evidence, `linux-source-${platform}.json`)} : {}),
+      ...(platform.startsWith('macos-') ? {macosManifest: join(captured.macos_evidence, `macos-signing-${platform}.json`)} : {})});
+  }
+  await copyFile(captured.bundle, join(directory, 'TagGroove-v0.1.0-sources.tar.xz'));
+  const assembled = await assembleRelease({plan: releasePlan, directory});
+  assert.equal(assembled.assets.length, 16);
+  const published = JSON.parse(await readFile(join(directory, 'release-manifest.json'), 'utf8'));
+  assert.deepEqual(Object.keys(published.linux_distribution).sort(), ['linux-arm64', 'linux-x64']);
+  const sidecar = join(directory, 'linux-source-linux-x64.json');const original = await readFile(sidecar);
+  await writeFile(sidecar, Buffer.concat([original, Buffer.from('\n')]));
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /differs from built packages/);
+  await writeFile(sidecar, original);
+  const manifestPath = join(directory, 'manifest-linux-x64.json');const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  await writeFile(manifestPath, JSON.stringify({...manifest, linux_source: {...manifest.linux_source, sha256: '0'.repeat(64)}}));
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /Linux source evidence hash/);
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await writeFile(join(directory, 'linux-source-extra.json'), original);
+  await assert.rejects(assembleRelease({plan: releasePlan, directory}), /Unexpected files/);
+});
 
 test('assembly requires all seven matching platform manifests and checks every hash', async (t) => {
   const { outputDir } = await completeAssets(t);
@@ -218,7 +368,7 @@ test('release notes link the tagged banner and parity ledger and state signing l
   const body = releaseBody(plan(), 'johnneerdael/TagGroove');
   assert.match(body, /raw\.githubusercontent\.com\/johnneerdael\/TagGroove\/v0\.1\.0\/assets\/brand\/TagGroove-Brand-Kit\/03-banners\/taggroove-github-light-1280x640\.png/);
   assert.match(body, /\/blob\/v0\.1\.0\/docs\/PARITY\.md/);
-  for (const word of ['ad-hoc', 'unsigned', 'application key', 'simulator', 'device installer']) assert.ok(body.includes(word), word);
+  for (const word of ['Developer ID', 'Apple notarized', 'unsigned', 'application key', 'simulator', 'device installer']) assert.ok(body.includes(word), word);
 });
 
 test('desktop app directories are archived when build-only action supplies no archive', async (t) => {

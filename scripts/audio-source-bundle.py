@@ -4,6 +4,7 @@ import argparse
 import base64
 import difflib
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -15,6 +16,10 @@ import tarfile
 import tempfile
 import tomllib
 import urllib.request
+
+_policy_spec = importlib.util.spec_from_file_location('ffmpeg_policy', Path(__file__).resolve().parent / 'audio-deps/ffmpeg_policy.py')
+policy = importlib.util.module_from_spec(_policy_spec)
+_policy_spec.loader.exec_module(policy)
 
 TARGETS = {
     "windows-x64": "x86_64-pc-windows-msvc",
@@ -99,6 +104,7 @@ def compiler_closure(wrapper, native):
     if decoders & gated_adpcm:
         required.add("libavcodec/adpcm.c")
     require(required.issubset(sources), "Compiler source closure omits enabled LGPL audio implementation")
+    policy.verify_no_gpl_sources(sources)
     return sources
 
 
@@ -333,7 +339,7 @@ def add_directory(files, source, prefix, modes):
             modes[name] = 0o755 if path.stat().st_mode & 0o111 else 0o644
 
 
-def verify_upstream_closure(archive, directory, expected):
+def verify_upstream_closure(archive, directory, expected, patched_sources=None):
     # A streaming pass avoids repeatedly seeking/re-decompressing a large xz archive.
     found = set()
     prefix = safe(directory) + "/"
@@ -344,13 +350,18 @@ def verify_upstream_closure(archive, directory, expected):
             name = member.name[len(prefix):]
             if name in expected:
                 require(name not in found and member.isfile(), "Invalid or duplicate compiler source archive entry")
-                require(sha(handle.extractfile(member).read()) == expected[name],
+                original = handle.extractfile(member).read()
+                patched = (patched_sources or {}).get(name)
+                if patched is not None:
+                    entry, diff = patched
+                    original = policy.apply_patch(entry, original, diff)
+                require(sha(original) == expected[name],
                         "Compiler source closure differs from pinned upstream archive")
                 found.add(name)
     require(found == set(expected), "Compiler source closure file missing from pinned upstream archive")
 
 
-def verify_contents(files, manifest, commit, version, native_evidence=None):
+def verify_contents(files, manifest, commit, version, native_evidence=None, linux_evidence=None, macos_evidence=None):
     identity(commit, version)
     require(manifest.get("schema") == 1 and manifest.get("version") == version
             and manifest.get("source_commit") == commit, "Source package source/version mismatch")
@@ -389,12 +400,17 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
                 member = handle.getmember(component["directory"] + "/" + license_name)
                 require(member.isfile(), "License must be a regular upstream file")
                 require(handle.extractfile(member).read() == files[f"native/licenses/{name}/{license_name}"], "License bytes differ")
+    policy.validate_patches(inventory.get("patches", []))
+    patched_sources, patched_outputs = {}, {}
     for patch in inventory.get("patches", []):
         component = inventory["components"][patch["component"]]
         with tarfile.open(fileobj=io.BytesIO(files["native/archives/" + component["archive"]]), mode="r:*") as handle:
             member = handle.getmember(component["directory"] + "/" + safe(patch["target"]))
-            require(member.isfile() and sha(handle.extractfile(member).read()) == patch["original_sha256"],
-                    "Patch original upstream file hash differs")
+            require(member.isfile(), "Patch original must be a regular upstream file")
+            original = handle.extractfile(member).read()
+            diff = files["app/scripts/audio-deps/" + safe(patch["file"])]
+            patched_outputs[patch["target"]] = policy.apply_patch(patch, original, diff)
+            patched_sources[patch["target"]] = (patch, diff)
     closure_sources = {}
     for platform, target in TARGETS.items():
         path = "native/targets/" + platform + ".json"
@@ -407,20 +423,37 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
             require(name not in closure_sources or closure_sources[name] == digest, "Cross-target compiler source closure differs")
             closure_sources[name] = digest
         inputs = native["build_inputs"]
-        required_inputs = {"build.py", "sources.json", "bzip2/CMakeLists.txt"} | {patch["file"] for patch in inventory.get("patches", [])}
+        required_inputs = {"build.py", "sources.json", "ffmpeg_policy.py", "bzip2/CMakeLists.txt"} | {patch["file"] for patch in inventory.get("patches", [])}
         require(set(inputs) == required_inputs, "Native recipe inputs are incomplete or unexpected")
         for name, digest in inputs.items():
             safe(name)
             require(sha(files["app/scripts/audio-deps/" + name]) == digest, "Native recipe/source input differs")
         for patch in native.get("patch_metadata", []):
             require(inputs.get(patch["file"]) == patch["sha256"], "Native patch source hash differs")
-            require(patch["component"] == "ffmpeg" and patch["target"] == "configure", "Unexpected native patch target")
-            patched = base64.b64decode(wrapper["files"]["ffmpeg-patched-configure"]["base64"], validate=True)
-            require(sha(patched) == patch["patched_sha256"], "Applied native patch output hash differs")
+            patched = base64.b64decode(wrapper["files"][policy.patched_path(patch["target"])]["base64"], validate=True)
+            require(patched == patched_outputs[patch["target"]], "Applied native patch output differs from exact replay")
         if native_evidence is not None:
             require((Path(native_evidence) / f"native-{platform}.json").read_bytes() == raw, "Native target evidence differs from built packages")
     ffmpeg = inventory["components"]["ffmpeg"]
-    verify_upstream_closure(files["native/archives/" + ffmpeg["archive"]], ffmpeg["directory"], closure_sources)
+    verify_upstream_closure(files["native/archives/" + ffmpeg["archive"]], ffmpeg["directory"], closure_sources, patched_sources)
+    notice_path = "app/scripts/notices/component-material.json"
+    if notice_path in files:
+        notice_spec = importlib.util.spec_from_file_location("component_notices", Path(__file__).with_name("component-notices.py"))
+        notices = importlib.util.module_from_spec(notice_spec)
+        notice_spec.loader.exec_module(notices)
+        notice_data = load(files[notice_path])
+        require(notice_data["bindings"]["ffmpeg"] == ffmpeg, "Native notice source pins differ")
+        notices.verify_ffmpeg_coverage(notice_data, files["native/archives/" + ffmpeg["archive"]],
+                                       ffmpeg["directory"], closure_sources, lambda name: files["app/" + safe(name)])
+    runtime_path = 'app/scripts/notices/linux-runtime-material.json'
+    if runtime_path in files:
+        expected_files.update(runtime_material_helper().verify_files(files, load(files[runtime_path])))
+    linux_files, linux_targets = verify_linux_distribution(files, commit, version, linux_evidence)
+    expected_files.update(linux_files)
+    require(manifest.get('linux_distribution', {}) == linux_targets, 'Linux distribution summary differs')
+    macos_files, macos_targets = verify_macos_signing(files, commit, version, macos_evidence)
+    expected_files.update(macos_files)
+    require(manifest.get('macos_signing', {}) == macos_targets, 'macOS signing summary differs')
     vendor = {name.removeprefix("app/vendor/"): data for name, data in files.items() if name.startswith("app/vendor/")}
     expected_files.update(name for name in files if name.startswith(("app/vendor/", "app/dist/")))
     require(set(files) == expected_files, "Untracked or unexpected source archive file")
@@ -430,7 +463,95 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
     return manifest
 
 
-def build_bundle(root, commit, version, output, native_evidence=None, source_dir=None, vendor_dir=None, dist_dir=None):
+def runtime_material_helper():
+    # Use checked-out trusted verifier code, never Python from a source asset.
+    spec = importlib.util.spec_from_file_location('linux_runtime_material', Path(__file__).with_name('linux-runtime-material.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def distribution_helper():
+    spec = importlib.util.spec_from_file_location('linux_distribution_capture', Path(__file__).with_name('linux-distribution-capture.py'))
+    module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+
+def macos_helper():
+    spec = importlib.util.spec_from_file_location('macos_release', Path(__file__).with_name('macos-release.py'))
+    module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+
+def verify_macos_signing(files, commit, version, evidence=None):
+    policy_path = 'app/src-tauri/macos/signing-policy.json'
+    if policy_path not in files:
+        require(not any(name.startswith('macos-signing/') for name in files), 'macOS signing input has no Git-bound policy')
+        if evidence is not None:
+            require(not list(Path(evidence).glob('macos-signing-*.json')), 'Unbound external macOS signing evidence')
+        return set(), {}
+    identifier = load(files['app/src-tauri/tauri.conf.json'])['identifier']
+    helper = macos_helper();required, targets = set(), {}
+    for platform in ['macos-arm64', 'macos-x64']:
+        path = 'macos-signing/targets/'+platform+'.json'
+        require(path in files, 'Missing required macOS signing evidence: '+platform)
+        raw = files[path];receipt = load(raw)
+        helper.validate_receipt(receipt, files[policy_path], commit, version, platform, identifier)
+        if evidence is not None:
+            require((Path(evidence)/('macos-signing-'+platform+'.json')).read_bytes() == raw,
+                    'macOS signing evidence differs from built packages')
+        required.add(path)
+        targets[platform] = {key: receipt[key] for key in ['target', 'identity', 'team_id', 'policy_sha256', 'artifacts']}
+        targets[platform]['manifest_sha256'] = sha(raw)
+    return required, targets
+
+
+def verify_linux_git_inputs(files, capture, objects):
+    """Bind already-verified builder observations to the archive's proven Git tree."""
+    def equal(source, record):
+        safe(source)
+        raw = objects[record['sha256']]
+        require(files.get('app/'+source) == raw, 'Linux builder input differs from Git-bound source: '+source)
+    for source, record in capture['builder_inputs'].items():equal(source, record)
+    recipes = load(files['app/scripts/notices/linux-packager-recipes.json'])['sources']
+    require(len({record['id'] for record in recipes}) == len(recipes)
+            and {record['id'] for record in recipes} == set(capture['builder_recipes']),
+            'Linux builder recipe source set differs')
+    for record in recipes:equal(record['source_file'], capture['builder_recipes'][record['id']])
+    for record in capture['files'].values():
+        if record['kind'] == 'repository-bytes':equal(record['source_file'], record)
+
+
+def verify_linux_distribution(files, commit, version, evidence=None):
+    if 'app/scripts/notices/linux-packager-recipes.json' not in files:
+        require(not any(name.startswith('linux-distribution/') for name in files),
+                'Linux distribution input has no Git-bound recipe')
+        if evidence is not None:
+            require(not list(Path(evidence).glob('linux-source-*.json')), 'Unbound external Linux distribution evidence')
+        return set(), {}
+    require('app/scripts/notices/linux-runtime-material.json' in files, 'Linux distribution requires a runtime descriptor')
+    helper = distribution_helper()
+    objects = {name.removeprefix('linux-distribution/objects/'): raw for name, raw in files.items()
+               if name.startswith('linux-distribution/objects/')}
+    required, targets = set(), {}
+    runtime = load(files['app/scripts/notices/linux-runtime-material.json'])
+    for platform in ('linux-x64', 'linux-arm64'):
+        path = 'linux-distribution/targets/'+platform+'.json'
+        require(path in files, 'Missing Linux distribution evidence: '+platform)
+        raw = files[path];capture = load(raw)
+        selected = helper.verify_materials(capture, objects, runtime, commit, version, platform)
+        verify_linux_git_inputs(files, capture, objects)
+        required.add(path);required.update('linux-distribution/objects/'+digest for digest in selected)
+        if evidence is not None:
+            require((Path(evidence)/('linux-source-'+platform+'.json')).read_bytes() == raw,
+                    'Linux distribution evidence differs from built packages')
+        targets[platform] = {'target': capture['target'], 'manifest_sha256': sha(raw),
+                             'appimage_sha256': capture['appimage_sha256'], 'appimage_size': capture['appimage_size']}
+    return required, targets
+
+
+def build_bundle(root, commit, version, output, native_evidence=None, source_dir=None, vendor_dir=None, dist_dir=None,
+                 linux_runtime_sources=None, linux_evidence=None, macos_evidence=None):
     root, output = Path(root), Path(output)
     identity(commit, version)
     native_evidence = Path(native_evidence or output.parent)
@@ -472,9 +593,32 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
     require(OFFLINE_CARGO_CONFIG.removeprefix("app/") not in entries, "Reserved offline Cargo configuration already exists")
     files[OFFLINE_CARGO_CONFIG] = OFFLINE_CARGO_BYTES
     add_directory(files, dist_dir or root / "dist", "app/dist", modes)
+    if 'app/scripts/notices/linux-runtime-material.json' in files:
+        files.update(runtime_material_helper().source_files(root, linux_runtime_sources))
+    else:
+        require(linux_runtime_sources is None, 'Runtime source input supplied without a tracked runtime descriptor')
+    if 'app/scripts/notices/linux-packager-recipes.json' in files:
+        require(linux_evidence is not None, 'Missing Linux distribution evidence directory')
+        require('app/scripts/notices/linux-runtime-material.json' in files, 'Linux distribution requires a runtime descriptor')
+        files.update(distribution_helper().source_files(Path(linux_evidence), commit, version,
+                     load(files['app/scripts/notices/linux-runtime-material.json'])))
+    else:
+        require(linux_evidence is None, 'Linux distribution input supplied without a tracked recipe')
+    _linux_files, linux_targets = verify_linux_distribution(files, commit, version, linux_evidence)
+    if 'app/src-tauri/macos/signing-policy.json' in files:
+        require(macos_evidence is not None, 'Missing required macOS signing evidence directory')
+        helper = macos_helper()
+        for platform in ['macos-arm64', 'macos-x64']:
+            files['macos-signing/targets/'+platform+'.json'] = helper.bounded(
+                Path(macos_evidence)/('macos-signing-'+platform+'.json'), 1024*1024)
+    else:
+        require(macos_evidence is None, 'macOS signing input supplied without a tracked policy')
+    _macos_files, macos_targets = verify_macos_signing(files, commit, version, macos_evidence)
     manifest = {"schema": 1, "version": version, "source_commit": commit, "targets": targets,
                 "files": {name: {"size": len(data), "sha256": sha(data), "mode": modes.get(name, 0o644)} for name, data in sorted(files.items())}}
-    verify_contents(files, manifest, commit, version, native_evidence)
+    if linux_targets:manifest['linux_distribution'] = linux_targets
+    if macos_targets:manifest['macos_signing'] = macos_targets
+    verify_contents(files, manifest, commit, version, native_evidence, linux_evidence, macos_evidence)
     prefix = "TagGroove-v" + version + "-sources/"
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
@@ -485,14 +629,14 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
                 info.size = len(data)
                 info.mode = modes.get(name, 0o644)
                 archive.addfile(info, io.BytesIO(data))
-        verify_bundle(temporary, commit, version, native_evidence)
+        verify_bundle(temporary, commit, version, native_evidence, linux_evidence, macos_evidence)
         temporary.replace(output)
     finally:
         temporary.unlink(missing_ok=True)
     return manifest
 
 
-def verify_bundle(path, commit, version, native_evidence=None):
+def verify_bundle(path, commit, version, native_evidence=None, linux_evidence=None, macos_evidence=None):
     identity(commit, version)
     prefix = "TagGroove-v" + version + "-sources/"
     files, modes, total = {}, {}, 0
@@ -511,7 +655,7 @@ def verify_bundle(path, commit, version, native_evidence=None):
     require(set(manifest.get("files", {})) == set(files), "Source archive file inventory differs")
     for name, data in files.items():
         require(manifest["files"][name] == {"size": len(data), "sha256": sha(data), "mode": modes[name]}, f"Source archive file hash differs: {name}")
-    return verify_contents(files, manifest, commit, version, native_evidence)
+    return verify_contents(files, manifest, commit, version, native_evidence, linux_evidence, macos_evidence)
 
 
 def main():
@@ -525,21 +669,35 @@ def main():
     parser.add_argument("--verify-native", type=Path)
     parser.add_argument("--cargo-vendor", type=Path)
     parser.add_argument("--dist", type=Path)
+    parser.add_argument("--linux-runtime-sources", type=Path, help="Exact local pinned AppImage runtime/launcher source archives; otherwise fetched by checksum")
+    parser.add_argument('--linux-evidence', type=Path, help='Both Linux builder source manifests and, when building, captured objects')
+    parser.add_argument('--macos-evidence', type=Path, help='Both source-bound macOS signing receipts')
+    parser.add_argument('--verify-macos', type=Path, help='Validate a macOS builder signing receipt offline')
     args = parser.parse_args()
     if args.verify:
-        result = verify_bundle(args.verify, args.source_sha, args.version, args.native_evidence)
-        print(json.dumps({key: result[key] for key in ("schema", "version", "source_commit", "targets")}))
+        result = verify_bundle(args.verify, args.source_sha, args.version, args.native_evidence, args.linux_evidence, args.macos_evidence)
+        print(json.dumps({**{key: result[key] for key in ("schema", "version", "source_commit", "targets")},
+                          'linux_distribution': result.get('linux_distribution', {}),
+                          'macos_signing': result.get('macos_signing', {})}))
     elif args.verify_native:
         wrapper = load(args.verify_native.read_bytes())
         native_manifest(wrapper, args.source_sha, args.version)
         print(json.dumps({"target": wrapper["target"], "manifest_sha256": sha(args.verify_native.read_bytes())}))
+    elif args.verify_macos:
+        helper = macos_helper();root = Path(__file__).resolve().parents[1]
+        receipt = load(helper.bounded(args.verify_macos, 1024*1024))
+        helper.validate_receipt(receipt, helper.bounded(root/helper.POLICY, 8192), args.source_sha, args.version,
+                                receipt['platform'], load((root/'src-tauri/tauri.conf.json').read_bytes())['identifier'])
+        print(json.dumps(receipt))
     elif args.collect_native:
         require(args.output and args.native_evidence, "Native collection requires --output and --native-evidence")
         collect_native(args.native_evidence, args.collect_native, args.source_sha, args.version, args.output)
     else:
         require(args.output is not None, "Building requires --output")
         build_bundle(Path(__file__).resolve().parents[1], args.source_sha, args.version, args.output,
-                     args.native_evidence, vendor_dir=args.cargo_vendor, dist_dir=args.dist)
+                     args.native_evidence, vendor_dir=args.cargo_vendor, dist_dir=args.dist,
+                     linux_runtime_sources=args.linux_runtime_sources, linux_evidence=args.linux_evidence,
+                     macos_evidence=args.macos_evidence)
 
 
 if __name__ == "__main__":

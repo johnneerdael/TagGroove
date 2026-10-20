@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
+import {Window} from 'happy-dom';
 const source=await readFile(new URL('../src/export-ui.ts',import.meta.url),'utf8');
 const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {configurationFilename,copyExportConfiguration,removeExportConfiguration,renameExportConfiguration}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
@@ -80,4 +81,32 @@ test('relative filename subpaths keep the current output folder while rooted pat
   ['C:\\Lists\\export.txt','\\\\server\\share\\report.csv','\\\\server\\share\\report.csv'],
   ['C:\\Lists\\export.txt','\\rooted\\report.csv','\\rooted\\report.csv'],
  ]) assert.equal(configurationFilename(current,`$filename(${argument},utf-8)`),expected,`${current} / ${argument}`);
+});
+
+
+test('disabled imported partition expression survives save, reopen and re-enabling',async()=>{
+ const window=new Window();globalThis.window=window;globalThis.document=window.document;
+ let saved=library();saved.preferences.partition_memory='%artist%';
+ const ui=new ExportUI({load:async()=>saved,save:async value=>{saved=value;},reason:()=>'',selectedCount:()=>1});
+ const settle=async()=>{for(let i=0;i<3;i++)await new Promise(resolve=>setTimeout(resolve,0));};
+ try{
+  await ui.open();
+  assert.equal(document.querySelector('#export-partition').value,'%artist%');
+  assert.equal(document.querySelector('#export-partition-enabled').checked,false);
+  document.querySelector('#export-save').click();await settle();
+  assert.equal(saved.preferences.partition,null);assert.equal(saved.preferences.partition_memory,'%artist%');
+  document.querySelector('#export-cancel').click();await ui.open();
+  document.querySelector('#export-partition-enabled').click();
+  document.querySelector('#export-save').click();await settle();
+  assert.equal(saved.preferences.partition,'%artist%');
+  document.querySelector('#export-partition-enabled').click();
+  document.querySelector('#export-save').click();await settle();
+  assert.equal(saved.preferences.partition,null);assert.equal(saved.preferences.partition_memory,'%artist%');
+  document.querySelector('#export-partition-enabled').click();
+  document.querySelector('#export-partition').value='$if(';
+  document.querySelector('#export-partition-enabled').click();
+  document.querySelector('#export-save').click();await settle();
+  assert.equal(saved.preferences.partition,null);assert.equal(saved.preferences.partition_memory,'$if(');
+  document.querySelector('#export-cancel').click();
+ }finally{await window.happyDOM.abort();}
 });

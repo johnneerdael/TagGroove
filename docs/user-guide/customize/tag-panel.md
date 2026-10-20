@@ -158,6 +158,11 @@ custom field-value lists and the whole-application configuration backup.
 Where **Import Mp3tag configuration…** is offered, select a user-supplied
 `usrfields.ini` or supported saved panel file. Inspect the imported fields
 and **Not imported** report, then choose OK to keep the reviewed layout.
+Legacy custom suggestions and their per-field preferences appear in the
+field-value settings summary and are saved with OK. Matching imported entries
+replace their saved counterparts; unrelated lists stay intact. Cancel leaves
+the settings unchanged. The separate `usrfieldvalues.ini` is imported through
+[Import Mp3tag setup](../getting-started/coming-from-mp3tag.md).
 Unsupported controls/settings are not an identical-layout guarantee.
 
 ## Related

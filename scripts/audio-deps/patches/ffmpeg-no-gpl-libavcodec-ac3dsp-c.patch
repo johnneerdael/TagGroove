@@ -1,0 +1,11 @@
+--- a/libavcodec/ac3dsp.c
++++ b/libavcodec/ac3dsp.c
+@@ -389,7 +389,7 @@
+     c->downmix               = NULL;
+     c->downmix_fixed         = NULL;
+ 
+-#if ARCH_AARCH64
++#if ARCH_AARCH64 && CONFIG_GPL
+     ff_ac3dsp_init_aarch64(c);
+ #elif ARCH_ARM
+     ff_ac3dsp_init_arm(c);

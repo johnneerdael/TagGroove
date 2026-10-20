@@ -217,6 +217,9 @@ pub struct Preferences {
     pub filename: String,
     pub append: bool,
     pub partition: Option<String>,
+    /// Retain the authored expression when output partitioning is disabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partition_memory: Option<String>,
     pub write_bom: bool,
     pub create_directories: bool,
 }
@@ -227,6 +230,7 @@ impl Default for Preferences {
             filename: String::new(),
             append: false,
             partition: None,
+            partition_memory: None,
             write_bom: false,
             create_directories: true,
         }
@@ -1353,6 +1357,24 @@ mod tests {
     }
 
     #[test]
+    fn disabled_partition_memory_does_not_block_saving_but_active_expression_is_validated() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        let mut library = Library::default();
+        library.preferences.partition_memory = Some("$if(".into());
+        save(&path, &library).unwrap();
+        let reopened = load(&path).unwrap();
+        assert_eq!(
+            reopened.preferences.partition_memory.as_deref(),
+            Some("$if(")
+        );
+        assert!(reopened.preferences.partition.is_none());
+        let before = fs::read(&path).unwrap();
+        library.preferences.partition = Some("$if(".into());
+        assert!(save(&path, &library).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
+    #[test]
     fn library_roundtrips_templates_and_every_export_preference() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("settings/exports.json");
@@ -1363,6 +1385,7 @@ mod tests {
             filename: "exports/%album%.txt".into(),
             append: true,
             partition: Some("%album%".into()),
+            partition_memory: Some("%album%".into()),
             write_bom: true,
             create_directories: false,
         };

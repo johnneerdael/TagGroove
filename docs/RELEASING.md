@@ -75,15 +75,15 @@ Every PR must contain substantive `## Release notes` describing the final public
 
 The publisher collects the public note sections from merged PRs on the first-parent range since the previous published release. It includes intervening docs-only merges, deduplicates PRs and links their source. Draft or unpublished tags do not truncate the range. Later PRs without the required section, invalid placeholders and GitHub API failures stop publication rather than falling back to commit titles. PRs at or before the full SHA in `.github/release-notes-baseline` may use a sanitized historical description; direct commits retain their actual subject and explanation. The collector treats PR text as data and never executes it.
 
-The download table, signing status (Windows and Linux packages are unsigned, macOS builds are ad-hoc signed and not notarized) and mobile preview limitations follow the collected notes. CI validates structure and placeholders; reviewers remain responsible for factual prose and scope. The Linux publish job uses Python 3.12 and read access to PR metadata alongside its existing release permission. Existing versioning, artifact, signature and checksum rules remain enforced.
+The download table, signing status and mobile preview limitations follow the collected notes. New Mac releases require the pinned Developer ID identity and notarization receipts; older releases through the inspected v0.2.56 baseline remain ad-hoc signed and not notarized. Windows and Linux packages remain unsigned. CI validates structure and placeholders; reviewers remain responsible for factual prose and scope. The Linux publish job uses Python 3.12 and read access to PR metadata alongside its existing release permission. Existing versioning, artifact, signature and checksum rules remain enforced.
 
 ## Required build outputs
 
 | Build | Runner | Assets and status |
 | --- | --- | --- |
 | Windows x64 | `windows-2022` | NSIS installer; unsigned, no Authenticode certificate |
-| macOS Apple Silicon | `macos-15` | DMG and app archive; ad-hoc signed, not notarized |
-| macOS Intel | `macos-15-intel` | DMG and app archive; ad-hoc signed, not notarized |
+| macOS Apple Silicon | `macos-15` | DMG and app archive; new pipeline requires Developer ID signatures and notarization; actual new-artifact qualification pending |
+| macOS Intel | `macos-15-intel` | DMG and app archive; same signing/notarization gates; actual new-artifact qualification pending |
 | Linux x64 | `ubuntu-24.04` | AppImage, DEB, RPM; unsigned |
 | Linux arm64 | `ubuntu-24.04-arm` | AppImage, DEB, RPM; unsigned |
 | Android arm64 UI preview | `ubuntu-24.04` | Release APK signed with the persistent TagGroove application key; document editing/save-back still in progress |
@@ -91,15 +91,24 @@ The download table, signing status (Windows and Linux packages are unsigned, mac
 
 Approved PR validation runs frontend and Rust unit tests, formatting and Clippy on Linux. Main runs the native UI and Android integration suites, builds versioned packages and checks bundled metadata; it does not rerun pre-merge unit tests or lint. Tauri's [GitHub pipeline guidance](https://v2.tauri.app/distribute/pipelines/github/) and [tauri-action v1](https://github.com/tauri-apps/tauri-action/tree/v1) provide the build path. The action receives no release ID or tag name: it builds only. Its `artifactPaths` output feeds the collection script. The collector supplies a tested tar fallback for `.app` directories if the action does not create their app archives.
 
+Mac release jobs use the Tauri CLI with a private signing override; other desktop
+jobs keep the build-only action. The [Mac signing helper](../scripts/macos-release.py)
+creates the collected app archive after verification and notarizes/staples the
+DMG explicitly. Both signing receipts bind the actual packages to the release
+and source policy; they travel with the corresponding-source asset and are
+checked again before publication. Local development/native tests retain ad-hoc
+signing. See the [source/test receipt](verification/macos-release-signing-2026-10-20.md)
+for credential handling, checks and unqualified native results.
+
 Native build tools are installed explicitly before compilation: Python 3.12, CMake, Make and the target C/C++ toolchain, plus NASM for x86 assembly. Windows exposes the MSVC developer environment, binds `OPENTAG_MSYS2` to the setup action's actual installation after verifying Bash and Make, verifies the NASM executable, and adds its installation directory to `PATH`; Apple and Linux jobs install the matching tools through their existing package managers. Android and iOS retain their existing NDK/SDK and simulator targets. These are build prerequisites and do not add runtime programs to the application.
 
 Trusted PR validation runs the workflow from `main`. Land build-tool prerequisites before a feature that needs them: a PR cannot bootstrap its first validation using changes to its own workflow. A runner inventory that does not list a tool is not proof of a live command failure; explicit installation provides the prerequisite without relying on a transitive package.
 
 Linux packages are built on Ubuntu 24.04; compatibility with older distributions is not established by compilation. The [GitHub runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) documents native arm64 Linux and separate macOS Intel/arm64 runners. Platform jobs use separate artifact names and preserve their OS/architecture in public download filenames.
 
-Each builder uploads its packages, `manifest-<platform>.json`, and `native-<platform>.json` as workflow artifacts. The native sidecar binds the installed static libraries, headers, configuration, source recipe and patch evidence to the release commit, version and Rust target. A fresh per-run native build directory prevents a restored Rust cache from silently substituting a missing or older native prefix. The source job receives only these seven sidecars, rather than downloading the application packages again.
+Each builder uploads its packages, `manifest-<platform>.json`, and `native-<platform>.json` as workflow artifacts. The native sidecar binds the installed static libraries, headers, configuration, source recipe and patch evidence to the release commit, version and Rust target. A fresh per-run native build directory prevents a restored Rust cache from silently substituting a missing or older native prefix. Each Linux builder also uploads its `linux-source-<platform>.json` and captured source/repository objects. The source job receives these two captures and the seven native sidecars, rather than downloading the application packages again.
 
-The final publisher requires all seven platform manifests, their exact native sidecars, the original 13 package filenames/formats, and exactly one `TagGroove-v<version>-sources.tar.xz`. It verifies commit/version/target identities, rejects unexpected files or duplicate formats, and streams every public asset through SHA256. It publishes 16 assets: 13 application packages, the corresponding-source archive, `release-manifest.json`, and `SHA256SUMS`. The checksum list includes the packages, source archive and release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, native evidence hashes, byte sizes and hashes.
+The final publisher requires all seven platform manifests, their exact native sidecars, the original 13 package filenames/formats, and exactly one `TagGroove-v<version>-sources.tar.xz`. The Git-bound Linux recipe additionally requires both Linux capture sidecars; their full bytes must match those inside the verified source archive, and each captured AppImage hash/size must match its package. It verifies commit/version/target identities, rejects unexpected files or duplicate formats, and streams every public asset through SHA256. It publishes 16 assets: 13 application packages, the corresponding-source archive, `release-manifest.json`, and `SHA256SUMS`. The Linux sidecars and source objects are retained inside the source archive. The checksum list includes the packages, source archive and release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, native and Linux evidence hashes, byte sizes and hashes.
 
 The release body embeds the supplied [TagGroove banner](../assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.png) from the released tag and links the matching parity ledger. Signing and mobile limitations appear alongside the download table.
 
@@ -111,8 +120,12 @@ Every release includes `TagGroove-v<version>-sources.tar.xz` with:
 
 - The tracked application source stamped to the release version, `Cargo.lock`, the built frontend, and vendored Cargo dependencies with a separate offline Cargo configuration. Existing project settings, including target linkers, remain unchanged.
 - The original, hash-pinned Chromaprint, FFmpeg, zlib and bzip2 source archives and their original license files, plus the tracked recipes and patches.
+- The eight pinned Linux runtime/launcher source archives selected by `scripts/notices/linux-runtime-material.json`, with retained recipes, patches and complete notice members. This working-branch archive requirement does not itself establish Linux distribution-library source mapping or new-package publication; see the [runtime material receipt](verification/linux-runtime-material-2026-10-20.md).
+- Both Linux package/source captures, authenticated Ubuntu repository metadata, selected binary/source package records, and complete selected source archives, distribution patches and packaging material. Objects are deduplicated by verified SHA256. Package-member extraction and full-byte packaging replay remain explicitly trusted builder observations; offline verification reauthenticates the repository/source selections and retained object identities.
 - Exact native build manifests and non-library prefix evidence for all seven targets: installed headers, configuration, notices, patch output and FFmpeg upstream/generated source-closure metadata. The original archives supply the complete upstream source, including files outside that compiled closure.
 - The original Git commit object, reconstructed tree/blob identities, original pre-stamp files and an actual version-stamp diff. The extracted tree needs no `.git` directory to build.
+
+FFmpeg patches are replayed against original archive bytes with exact context and original/patch/result hashes. Retain every patched C file and Makefile, including files outside compiler dependency lists. The no-GPL compiler closure rejects the three confirmed AArch64 AC3/CRC source families described in the [policy audit](verification/ffmpeg-native-policy-audit-2026-10-20.md). Modified compiler inputs must match reconstructed patched source. This source safeguard still requires actual rebuilt target evidence and native decoder integration.
 
 The source job vendors Cargo dependencies, builds the stamped frontend, and verifies the complete archive before upload. Publication independently checks it again against the native sidecars from the package jobs. A missing archive, wrong commit/version, changed source blob, mismatched upstream archive/license/patch, empty or incorrect compiler source-closure hashes, incomplete target set or mismatched native recipe blocks publication. Verification reads archive data using the checked-out verifier; it never executes code from downloaded artifacts.
 
@@ -156,14 +169,123 @@ runtime `PATH`. This is one qualified host control, rather than evidence for
 all seven release targets. The complete release source asset still requires
 all seven actual native manifests.
 
+Keep `THIRD_PARTY_NOTICES.md` as the canonical UTF-8 notice text. After changing
+its manual notices, regenerate the installer copy with `python3 scripts/installer-license.py`.
+The bundle uses `THIRD_PARTY_NOTICES.rtf` so copyright characters and literal
+braces/backslashes remain readable across the Windows license-page paths.
+`python3 scripts/installer-license.py --check` refuses a stale generated copy;
+the installer-notice tests also verify text preservation. Do not transliterate
+or remove characters from upstream license text to satisfy an ASCII guard.
+
+The delimited Rust/JavaScript dependency section is generated from
+`src/licenses/dependency-inventory.json`; do not edit that section by hand.
+`python3 scripts/dependency-notices.py --check` validates current source pins,
+material hashes and the attached common/offline/RTF outputs without accessing
+the network or package caches. Updating dependencies requires fresh bound
+Cargo metadata and exact checksum/integrity-verified package material. Follow
+the [collector and replay instructions](verification/dependency-notices-2026-10-20.md#regeneration-and-checks).
+This candidate inventory does not establish exact linked membership or replace
+the native/JVM/installer-helper audit and actual package inspection.
+
+The separate Android/JVM section comes from `src/licenses/android-inventory.json`
+and `THIRD_PARTY_ANDROID.md`. Run `python3 scripts/android-notices.py --check`
+without Gradle or caches to check source bindings, text hashes and the attached
+Android/common/RTF payload; frontend checks separately verify About's import.
+After preparing the current Tauri Android Gradle
+project, capture and replay actual runtime material with:
+
+```sh
+python3 scripts/android-notices.py --capture /tmp/taggroove-android-runtime.json
+python3 scripts/android-notices.py --generate --metadata /tmp/taggroove-android-runtime.json --maven-cache /path/to/.gradle/caches/modules-2/files-2.1
+python3 scripts/android-notices.py --check --metadata /tmp/taggroove-android-runtime.json --verify-material --maven-cache /path/to/.gradle/caches/modules-2/files-2.1
+```
+
+Capture runs only the scoped offline runtime-metadata task; Gradle may compile
+its buildSrc tooling, but no application, Rust or native packaging task is
+requested. It ignores application-signing environment variables. The collector
+requires current tracked app/buildSrc inputs, exact generated dependency scripts
+and Cargo-archive-bound Tauri module configuration. See the
+[Android audit](verification/android-jvm-notices-2026-10-20.md) for material and
+candidate-membership limits. The Android release job captures the dependency
+selection after its normal APK build, then checks exact runtime archive hashes
+and replays material before package collection. It retains the metadata as a
+separate workflow artifact, outside the strict public release asset set.
+
+The native/installer supplement is described by
+`scripts/notices/component-material.json` and rendered in `THIRD_PARTY_NATIVE.md`.
+Run `python3 scripts/component-notices.py --check` without caches to check its
+source pins, retained notice bytes and generated native/common/RTF files.
+Regenerate with `--generate`; `--upstream /path/to/material` additionally replays
+the pinned FFmpeg source and NSIS toolchain archives. The source verifier checks
+supplier notice blocks throughout the actual compiler closure, including inner
+Boost-derived grants, rather than inspecting only each file's first comment.
+
+After normal packaging, Windows uses `--check --built-platform windows` to read
+the installer with 7-Zip and require the exact known helper set and hashes.
+Android uses `--check --built-platform android --ndk "$NDK_HOME"` to match the
+bundled C++ runtime against its pin and selected NDK, including its notice
+material. Neither path executes the application or installer. See the
+[native/installer receipt](verification/native-installer-notices-2026-10-20.md)
+for the supplier, candidate-membership and actual-release limits.
+
+Linux AppImages also need the complete standard license documents referenced
+by bundled distribution copyright files. Before the normal Linux build, run:
+
+```sh
+python3 scripts/appimage-licenses.py --stage --prepare-inspector
+```
+
+The staging command materializes the builder's `/usr/share/common-licenses`
+files, including safe local aliases, and adds immutable, hash-checked Mozilla
+fallbacks. Tauri copies that staged directory to the same path inside the
+AppImage. The command preserves unknown or externally changed staging files
+by refusing publication. Its inspection tool is checksum-pinned for both Linux
+architectures and stays outside the packaged license directory.
+
+After the existing package build, before artifact collection, run:
+
+```sh
+python3 scripts/appimage-licenses.py --verify-built x86_64-unknown-linux-gnu
+```
+
+Use `aarch64-unknown-linux-gnu` on the arm64 job. This reads the image without
+running it, checks the exact staged document bytes, and resolves every bundled
+copyright reference to `/usr/share/common-licenses/`. To inspect a retained
+image on another host, pass `--verify /path/to/file.AppImage --inspector /path/to/7zz`
+after staging a suitable host collection. See the
+[AppImage receipt](verification/appimage-license-material-2026-10-20.md)
+for the baseline defect and the distinction between archive consistency and
+the remaining source, runtime and reproducibility qualifications.
+
+The Linux release workflow next prepares the pinned linuxdeploy, strip, patchelf,
+AppRun and runtime inputs using `scripts/linux-build-tools.py`. It sets a private
+`XDG_CACHE_HOME` and `LDAI_RUNTIME_FILE` for the existing application build.
+After packaging, `scripts/linux-distribution-capture.py` inventories installed
+package ownership, authenticates exact Ubuntu binary/source versions, and
+compares every selected original member to its packaged bytes. Changed ELF files
+must reproduce the pinned recipe's transformations exactly. Missing or ambiguous
+file/source mapping stops collection. The workflow performs this capture for
+both architectures and adds no second application build or UI run. If an installed
+package version is no longer present in the authenticated repository suites,
+capture refuses; refresh the affected builder dependency rather than guessing a
+replacement source version or weakening the byte checks.
+
+When assembling source locally, pass `--linux-evidence DIRECTORY` containing
+`linux-source-linux-x64.json`, `linux-source-linux-arm64.json`, and their
+`objects/SHA256` files. Both source-archive assembly and final verification
+reauthenticate the captures; final publication also compares the external
+sidecars and actual AppImage hashes. This machinery is separate from successful
+new-platform packaging and publication, which remain required release evidence.
+See the [Linux source audit](verification/linux-bundle-source-audit-2026-10-20.md).
+
 For maintainers, collect each finished native prefix and assemble the source asset with:
 
 ```sh
 python3 scripts/audio-source-bundle.py --collect-native RUST_TARGET --native-evidence BUILD_ROOT_OR_PREFIX --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --output native-evidence/native-PLATFORM.json
-python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --native-evidence native-evidence --output TagGroove-vRELEASE_VERSION-sources.tar.xz
+python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --native-evidence native-evidence --linux-evidence linux-evidence --output TagGroove-vRELEASE_VERSION-sources.tar.xz
 ```
 
-The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.
+The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. `--linux-runtime-sources DIRECTORY` supplies exactly the eight selected original runtime archives without downloading replacements; omission downloads and verifies the pinned inputs. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.
 
 ### Native evidence roots for mobile builds
 

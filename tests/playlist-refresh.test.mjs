@@ -4,10 +4,11 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const root=new URL('../',import.meta.url),transpile=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const load=async name=>import(`data:text/javascript;base64,${Buffer.from(transpile(await readFile(new URL(`src/${name}.ts`,root),'utf8'))).toString('base64')}`);
-const columns=await load('columns'),order=await load('playlist-order'),{PlaylistUI,isPlaylistPath}=await load('playlist-ui'),{mergeOrder,shuffleOrder,moveSelection}=await load('list-behaviour');
+const {SourceRootTracker}=await load('source-tracking');
+const columns=await load('columns'),order=await load('playlist-order'),{PlaylistUI,isPlaylistPath}=await load('playlist-ui'),{mergeOrder,shuffleOrder,moveSelection,autoSaveTargets,tagsPagePrefs}=await load('list-behaviour');
 const {resolvePathChanges,rebaseCaseOnly}=await load('action-ui'),{DirectoryHistory}=await load('file-ops'),{insideFolders}=await load('general-options'),{rowFile,replaceFileRows}=await load('chapters'),{reconcileDrafts}=await load('document-state');
 const source=await readFile(new URL('src/main.ts',root),'utf8'),parsed=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true);
-const functionNames=['loadPaths','scan','sourceReadContext','activeSort','setListOrder','ordered','applyColumns','clearWorkspace','removeEntries','listEnabled','listOperation','operateImpl','sortMenuItems','reorderFiles','shuffleFiles','applyRenamed','rebaseSourceRoots','executeGroups','renameFromList','accept','spliceRows','optionsApplied','captureConfigurationWorkspace'];
+const functionNames=['loadPaths','scan','sourceReadContext','activeSort','setListOrder','ordered','applyColumns','clearWorkspace','removeEntries','listEnabled','listOperation','operateImpl','sortMenuItems','reorderFiles','shuffleFiles','saveOnMove','applyRenamed','rebaseSourceRoots','executeGroups','renameFromList','accept','spliceRows','optionsApplied','captureConfigurationWorkspace'];
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&functionNames.includes(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const fileHost=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>node.declarationList.declarations).find(node=>node.name.getText(parsed)==='fileOps').initializer.arguments[0];
 const movedCallback=fileHost.properties.find(node=>node.name?.getText(parsed)==='moved').initializer.getText(parsed);
@@ -19,6 +20,19 @@ function runtime(state={}){
   state.playlists??={'/lists/one.m3u8':{files:['/music/b.wav','/music/a.wav'],errors:[]}};
   const calls=[],entries=new Map(),selected=new Set(),drafts=new Map(),pendingCovers=new Map(),copyOverrides=new Map(),workingReadErrors=new Map();
   const invoke=async(command,args)=>{calls.push([command,structuredClone(args)]);
+    if(command==='begin_source_tracking')return 'owned-source-session';
+    if(command==='release_source_roots')return;
+    if(command==='prepare_source_roots'){
+      state.sourceSerial=(state.sourceSerial??0)+1;
+      const sources=args.paths.map((path,index)=>({path,token:Object.hasOwn(state.directories??{},path)||isPlaylistPath(path)?null:`owned-file-${state.sourceSerial}-${index}`,error:null}));
+      return{key:`owned-prepared-${state.sourceSerial}`,sources,acquired:sources.flatMap(source=>source.token?[source.token]:[])};
+    }
+    if(command==='resolve_source_roots'){
+      const paths=args.sources.map(source=>source.path),renamed=(state.externalRenames??[]).filter(change=>paths.includes(change.from));
+      state.sourceSerial=(state.sourceSerial??0)+1;
+      const sources=args.sources.map(source=>({...source,path:renamed.find(change=>change.from===source.path)?.to??source.path}));
+      return{key:`owned-resolved-${state.sourceSerial}`,paths:sources.map(source=>source.path),renamed,sources,acquired:[]};
+    }
     if(command==='classify_source_paths'){if(state.kindGate)await state.kindGate.promise;return args.paths.map(path=>{const kind=Object.hasOwn(state.directories??{},path)?'directory':state.missing?.includes(path)?'unknown':'file';return{kind,resolved:kind==='unknown'?null:state.resolvedRoots?.[path]??path};});}
     if(command==='read_playlist'){const gate=state.readGates?.[args.path]??state.readGate;if(gate)await gate.promise;const result=state.playlists[args.path];if(result instanceof Error)throw result;if(!result)throw new Error('Unreadable playlist');return structuredClone(result);}
     if(command==='scan_files'){if(state.scanGate)await state.scanGate.promise;if(state.scanFailure)throw new Error(state.scanFailure);const expanded=state.scanEntries??args.paths.flatMap(path=>state.directories?.[path]??[path]),paths=[...new Set(expanded)].filter(path=>!state.missing?.includes(path));return{entries:paths.map(path=>({path,filename:path.split('/').pop(),fields:{TITLE:[path]},covers:[]})),errors:state.scanErrors??[]};}
@@ -28,16 +42,16 @@ function runtime(state={}){
     throw new Error(`Unexpected ${command}`);
   };
   const playlistUI=new PlaylistUI({invoke});
-  const dependencies={state,calls,entries,selected,drafts,pendingCovers,copyOverrides,workingReadErrors,invoke,playlistUI,isPlaylistPath,...columns,...order,mergeOrder,shuffleOrder,moveSelection,resolvePathChanges,rebaseCaseOnly,DirectoryHistory,insideFolders,rowFile,replaceFileRows,reconcileDrafts};
+  const dependencies={state,calls,entries,selected,drafts,pendingCovers,copyOverrides,workingReadErrors,invoke,playlistUI,isPlaylistPath,...columns,...order,mergeOrder,shuffleOrder,moveSelection,autoSaveTargets,tagsPagePrefs,resolvePathChanges,rebaseCaseOnly,DirectoryHistory,insideFolders,rowFile,replaceFileRows,reconcileDrafts,SourceRootTracker};
   const code=transpile(`
-    const desktop=state.desktop??true,runtimePlatform={document_access_supported:!!state.provider},documentAccess={states:{}};
+    const desktop=state.desktop??true,runtimePlatform={document_access_supported:!!state.provider},documentAccess={states:{}};const sourceTracker=new SourceRootTracker({invoke});
     let columnLayout=defaultLayout(),listRoots=[],listRootKinds={},listRootResolved={},loadedPlaylist=state.legacyPlaylist,listOrder='columns',sourceOrder,sourceGeneration=0;
-    let busy=false,errors=[],status='',location='',locationIsData=false,coverIndex=0,anchor,progressJob,dataRevision=0,orderCacheKey='',filterCacheKey='',orderCache=[],filter='',filterDraft;
+    let busy=false,selectionChangePending=false,errors=[],status='',location='',locationIsData=false,coverIndex=0,anchor,progressJob,dataRevision=0,orderCacheKey='',filterCacheKey='',orderCache=[],filter='',filterDraft;
     let collator=new Intl.Collator('en',{numeric:true});const columnValues={revision:0,retain:()=>{}},cellValue=(entry,_template)=>entry.filename,sortValueOf=path=>path;
     const tableColumns=()=>columnLayout.columns.filter(column=>column.visible);
-    const cellEditor={cancel:()=>calls.push(['cell-cancel'])},folderImages={clear:()=>calls.push(['art-clear'])},optionsUI={settings:{directories:{subfolders:false}}},generalPrefs=()=>({select_added:false,keep_moved:state.keepMoved??true});
+    const cellEditor={cancel:()=>calls.push(['cell-cancel'])},folderImages={clear:()=>calls.push(['art-clear'])},optionsUI={settings:{directories:{subfolders:false}},page:()=>({save_on_move:false})},generalPrefs=()=>({select_added:false,keep_moved:state.keepMoved??true});
     const render=()=>{},refreshList=()=>{},refreshSelection=()=>{},revealRow=()=>{},timing=()=>{},invalidateCovers=()=>{},changedData=()=>{dataRevision++;orderCacheKey='';};
-    const esc=String,document={querySelector:()=>({scrollTop:0,textContent:''})};
+    class HTMLElement{}class HTMLTableRowElement extends HTMLElement{};const esc=String,document={querySelector:()=>({scrollTop:0,textContent:''})};
     const visible=()=>ordered(),paths=()=>ordered().filter(entry=>selected.has(entry.path)).map(entry=>entry.path);
     const basename=path=>path.split('/').pop(),publicMessage=String;
     const dirname=path=>path.replace(/[\\/][^\\/]*$/,'')||path,sourcePolicy=()=>({unsupportedReason:''}),columnSpecs=()=>[],storeEntry=entry=>{entries.set(entry.path,entry);changedData();},movedOut=new Set();let lastActionGroups,queuedNotices=[];
@@ -74,8 +88,36 @@ test('Refresh rereads updated source membership and order, reports missing entri
   const model=runtime();await model.loadPaths(['/lists/one.m3u8'],{replace:true});
   model.state.playlists['/lists/one.m3u8']={files:['/music/c.wav','/music/b.wav'],errors:[{path:'/lists/one.m3u8',error:'Line 3: missing.wav: file not found'}]};
   await model.refresh();assert.deepEqual(model.snapshot().paths,['/music/c.wav','/music/b.wav']);assert.equal(model.snapshot().errors.length,1);assert.equal(model.calls.filter(([command])=>command==='read_playlist').length,2);
-  assert.ok(model.calls.every(([command])=>['classify_source_paths','read_playlist','scan_files','save_columns','cell-cancel','art-clear'].includes(command)),JSON.stringify(model.calls));
+  assert.ok(model.calls.every(([command])=>['begin_source_tracking','prepare_source_roots','release_source_roots','resolve_source_roots','classify_source_paths','read_playlist','scan_files','save_columns','cell-cancel','art-clear'].includes(command)),JSON.stringify(model.calls));
   model.state.playlists['/lists/one.m3u8']={files:[],errors:[]};await model.refresh();assert.deepEqual(model.snapshot().paths,[],'valid empty playlist clears membership');assert.equal(model.canRefresh(),true,'source remains refreshable after an empty read');
+});
+
+for(const destination of ['/music/renamed.wav','/elsewhere/renamed.wav']){
+  test(`external individual-file rename Refresh follows verified identity to ${destination} without admitting neighbors`,async()=>{
+    const from='/music/original.wav',neighbor='/music/unrelated.wav';
+    const model=runtime({directories:{'/music':[neighbor]}});
+    await model.loadPaths([from],{replace:true});model.select(from);
+    model.state.missing=[from];model.state.externalRenames=[{from,to:destination}];
+    await model.refresh();
+    assert.deepEqual(model.snapshot().paths,[destination]);
+    assert.deepEqual(model.snapshot().roots,[destination]);
+    assert.deepEqual(model.snapshot().selected,[destination]);
+    assert.equal(model.snapshot().rootResolved[destination],destination);
+    assert.deepEqual(model.calls.filter(([command])=>command==='scan_files').at(-1)[1].paths,[destination]);
+    assert.ok(!model.snapshot().paths.includes(neighbor));
+    assert.ok(!model.calls.some(([command,args])=>command==='scan_files'&&args.paths.includes('/music')));
+  });
+}
+
+test('external alias rename Refresh retains the selected canonical row and manual position among other sources',async()=>{
+  const alias='/logical/a.wav',from='/physical/a.wav',to='/physical/new.wav',other='/music/other.wav';
+  const model=runtime({resolvedRoots:{[alias]:from},scanEntries:[from,other]});
+  await model.loadPaths([alias,other],{replace:true});model.select(from);model.moveTop();
+  model.state.scanEntries=[to,other];model.state.externalRenames=[{from:alias,to}];model.state.missing=[alias,from];
+  await model.refresh();
+  assert.deepEqual(model.snapshot().manual,[to,other]);
+  assert.deepEqual(model.snapshot().selected,[to]);
+  assert.deepEqual(model.snapshot().roots,[to,other]);
 });
 
 for(const kind of ['folder','playlist']){

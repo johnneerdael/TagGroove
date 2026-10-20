@@ -52,6 +52,7 @@ export const TAGS_PAGE_DEFAULTS={save_on_move:false,no_folder_image:false,extend
 /** pages.appearance: scaling in percent and the file list grid. */
 export const APPEARANCE_DEFAULTS={toolbar_scale:'100',ui_scale:'100',grid:'off'};
 const SCALES:[string,string][]=['100','110','125','150','175','200'].map(v=>[v,`${v}%`]);
+const UI_SCALES:[string,string][]=['100','110','120','125','130','140','150','160','170','175','180','190','200'].map(v=>[v,`${v}%`]);
 
 const pageId=/^[a-z0-9][a-z0-9_-]*$/;
 export function getPath(value:unknown,path:string):unknown{return path.split('.').reduce<unknown>((current,key)=>current&&typeof current==='object'?(current as Record<string,unknown>)[key]:undefined,value);}
@@ -136,8 +137,8 @@ for(const page of [
       {kind:'note',text:'Minimizing then hides the window and its task bar entry; click the icon or choose Show TagGroove in its menu to bring it back. Windows and Linux only (Linux needs libayatana-appindicator); macOS keeps minimized windows in the Dock.'}]}]},
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Associated files',controls:[
-      {kind:'checkbox',path:'pages.files.associated_files',label:'Move matching .lrc and .cdg files with audio'},
-      {kind:'note',text:'Off by default. Applies to Tag → Filename and Move files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy, other converters and action-driven renames do not use this option.'}]},
+      {kind:'checkbox',path:'pages.files.associated_files',label:'Move or copy matching .lrc and .cdg files with audio'},
+      {kind:'note',text:'Off by default. Includes exact-basename .lrc and .cdg files in Tag → Filename, Filename → Filename, Move files to, Copy files to, Tag → Tag and action-driven filename renames. Converters and transfers show companion paths for review. Actions and Tag → Tag run immediately with frozen membership and per-effect checks. Copy keeps originals and has no transfer Undo. Inline filename edits remain audio-only.'}]},
     {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
       {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},
     {kind:'group',label:'Rename files from tags',controls:[{kind:'text',path:'files.folder_separator',label:'Replace folder separator in tag values with',placeholder:'Nothing: remove separators',maxLength:16},
@@ -149,7 +150,7 @@ for(const page of [
   {id:'appearance',label:'Appearance',order:40,defaults:{...APPEARANCE_DEFAULTS},controls:[{kind:'select',path:'appearance',label:'Color mode',choices:[['system','System'],['light','Light'],['dark','Dark']]},
     {kind:'note',text:'Color mode is remembered on this device and also available in the title bar.'},
     {kind:'select',path:'pages.appearance.toolbar_scale',label:'Toolbar scaling',choices:SCALES},
-    {kind:'select',path:'pages.appearance.ui_scale',label:'User interface scaling',choices:SCALES},
+    {kind:'select',path:'pages.appearance.ui_scale',label:'User interface scaling',choices:UI_SCALES},
     {kind:'radio',path:'pages.appearance.grid',label:'Display grid lines in file view',choices:[['off','Off'],['alternate','Alternate row colors'],['lines','Grid lines']]}]},
   {id:'tags',label:'Tags',order:50,description:'Choose which tag types are read, written and removed for each format family.',defaults:{...TAGS_PAGE_DEFAULTS},controls:[
     {kind:'checkbox',path:'pages.tags.save_on_move',label:'Save tags when using arrow keys or a single mouse click'},

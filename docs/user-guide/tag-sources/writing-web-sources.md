@@ -202,7 +202,7 @@ keep its album parser/settings, then append this block:
 [SearchBy]=Album||Harbour Lights||%s
 
 [ParserScriptIndex]=...
-OutputTo ""
+OutputTo "Output"
 json "on"
 json_foreach "releases"
 json_select "path"

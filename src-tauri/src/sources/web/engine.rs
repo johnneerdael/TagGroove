@@ -1,5 +1,6 @@
 //! The parser language of web source scripts (`[ParserScriptIndex]` and
-//! `[ParserScriptAlbum]`), implemented from the public Mp3tag documentation.
+//! `[ParserScriptAlbum]`), implemented from public documentation and pinned
+//! static native command contracts.
 //!
 //! A cursor (line and position) moves over the downloaded text; Say commands
 //! append to the current output buffer. In JSON mode the JSON commands select
@@ -13,10 +14,14 @@ use std::fmt;
 const STEP_LIMIT: usize = 2_000_000;
 /// Total size of all output buffers.
 const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
+const CURRENT_PREVIEW_OUTPUT: &str = "CURRENTPREVIEW";
 /// Cumulative bytes appended by retained-line joins during one run.
 const JOIN_GROWTH_LIMIT: usize = 16 * 1024 * 1024;
 /// Debug files without an explicit size limit stop growing at this size.
 const DEBUG_LIMIT: usize = 10 * 1024 * 1024;
+/// Bound retained SaveData/error-dump requests before the host writes them.
+const DATA_FILE_LIMIT: usize = 64;
+const DATA_BYTES_LIMIT: usize = 16 * 1024 * 1024;
 /// The output Say commands write to until OutputTo names another; the index
 /// script's results are read from it (published scripts return to it with
 /// `OutputTo "Output"`).
@@ -75,6 +80,7 @@ const COMMANDS: &[(&str, usize, usize)] = &[
     ("movechar", 1, 1),
     ("moveline", 1, 2),
     ("say", 1, 1),
+    ("sayall", 1, 1),
     ("sayuntil", 1, 1),
     ("sayuntilml", 1, 1),
     ("sayrest", 0, 0),
@@ -103,27 +109,34 @@ const COMMANDS: &[(&str, usize, usize)] = &[
     ("ifnotvar", 2, 2),
     ("else", 0, 0),
     ("endif", 0, 0),
-    ("outputto", 1, 1),
+    ("outputto", 1, 2),
+    ("incoutput", 1, 1),
+    ("decoutput", 0, 0),
+    ("exit", 0, 0),
+    ("extern", 2, 2),
+    ("savedata", 1, 1),
+    ("onerror", 1, 2),
     ("do", 0, 0),
-    ("while", 1, 2),
+    ("while", 0, 2),
     ("replace", 2, 2),
     ("regexpreplace", 2, 2),
     ("joinuntil", 1, 1),
     ("joinlines", 1, 1),
     ("killtag", 1, 2),
     ("trim", 1, 1),
-    ("unspace", 0, 0),
+    ("unspace", 0, 1),
     ("debug", 1, 3),
     ("debugwriteinput", 0, 1),
     ("json", 1, 2),
-    ("json_foreach", 1, 1),
-    ("json_foreach_reverse", 1, 1),
+    ("json_foreach", 0, 1),
+    ("json_foreach_reverse", 0, 1),
     ("json_foreach_counter", 0, 1),
     ("json_foreach_end", 0, 0),
+    ("json_foreach_continue", 0, 0),
     ("json_select_object", 1, 1),
     ("json_unselect_object", 0, 0),
     ("json_select", 1, 1),
-    ("json_select_array", 2, 3),
+    ("json_select_array", 1, 3),
     ("json_select_many", 2, 6),
     ("json_select_many_count", 1, 3),
 ];
@@ -326,11 +339,13 @@ pub struct Environment<'a> {
     pub vars: BTreeMap<String, String>,
     /// The address of the downloaded page (`CurrentUrl`).
     pub current_url: &'a str,
+    /// Initial album browser preview (`CurrentPreview`), absent for index scripts.
+    pub current_preview: Option<&'a str>,
     /// Trace every command to this debug file name (Options → Tag Sources).
     pub trace: Option<String>,
 }
 
-/// A file a script asked to write with Debug or DebugWriteInput.
+/// A script file result; the host confines writes to its source-debug folder.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DebugFile {
     pub name: String,
@@ -345,6 +360,8 @@ pub struct Outcome {
 }
 
 struct Each {
+    start: usize,
+    end: usize,
     items: Vec<Value>,
     /// Member names when iterating an object; json_foreach_counter emits them.
     keys: Option<Vec<String>>,
@@ -390,6 +407,10 @@ struct Machine<'a> {
     repeats: HashMap<usize, usize>,
     trace: Option<Trace>,
     files: Vec<DebugFile>,
+    data_files: usize,
+    data_bytes: usize,
+    error_handler: String,
+    error_file: Option<String>,
 }
 
 fn split_lines(text: &str) -> Vec<String> {
@@ -579,15 +600,20 @@ fn format_value(
 
 impl<'a> Machine<'a> {
     fn new(input: &'a str, env: &'a Environment<'a>) -> Self {
+        let outputs = env.current_preview.map_or_else(BTreeMap::new, |preview| {
+            BTreeMap::from([(CURRENT_PREVIEW_OUTPUT.into(), preview.to_owned())])
+        });
         Machine {
             env,
             original: input,
             lines: split_lines(input),
             line: 0,
             pos: 0,
-            outputs: BTreeMap::new(),
+            outputs,
             current: DEFAULT_OUTPUT.into(),
-            size: 0,
+            size: env.current_preview.map_or(0, |preview| {
+                preview.len().saturating_add(CURRENT_PREVIEW_OUTPUT.len())
+            }),
             joined_bytes: 0,
             trim: true,
             json: None,
@@ -598,6 +624,10 @@ impl<'a> Machine<'a> {
                 text: String::new(),
             }),
             files: Vec::new(),
+            data_files: 0,
+            data_bytes: 0,
+            error_handler: "<FAIL>".into(),
+            error_file: None,
         }
     }
 
@@ -626,15 +656,83 @@ impl<'a> Machine<'a> {
     }
 
     fn say(&mut self, text: &str) -> Result<(), String> {
-        self.size += text.len();
-        if self.size > OUTPUT_LIMIT {
-            return Err("the output is larger than 16 MB".into());
-        }
-        self.outputs
-            .entry(self.current.clone())
-            .or_default()
-            .push_str(text);
+        let key = self.current.to_uppercase();
+        self.reserve_output(&key, text.len(), false)?;
+        self.outputs.entry(key).or_default().push_str(text);
         Ok(())
+    }
+
+    fn reserve_output(&mut self, name: &str, bytes: usize, replace: bool) -> Result<(), String> {
+        let name_bytes = if self.outputs.contains_key(name) {
+            0
+        } else {
+            name.len()
+        };
+        let replaced_bytes = if replace {
+            self.outputs.get(name).map_or(0, String::len)
+        } else {
+            0
+        };
+        let total = self
+            .size
+            .checked_sub(replaced_bytes)
+            .and_then(|size| size.checked_add(name_bytes))
+            .and_then(|size| size.checked_add(bytes));
+        self.size = total
+            .filter(|size| *size <= OUTPUT_LIMIT)
+            .ok_or("the output is larger than 16 MB")?;
+        Ok(())
+    }
+
+    fn set_output(&mut self, name: &str, value: &str) -> Result<(), String> {
+        self.reserve_output(name, value.len(), true)?;
+        self.outputs.insert(name.to_owned(), value.to_owned());
+        Ok(())
+    }
+
+    fn reserve_data_file(&mut self, name: &str, bytes: usize) -> Result<(), String> {
+        let total = self
+            .data_bytes
+            .checked_add(name.len())
+            .and_then(|size| size.checked_add(bytes));
+        if self.data_files >= DATA_FILE_LIMIT || total.is_none_or(|size| size > DATA_BYTES_LIMIT) {
+            return Err("script file output exceeds 64 files or 16 MB".into());
+        }
+        self.data_files += 1;
+        self.data_bytes = total.unwrap();
+        Ok(())
+    }
+
+    fn handle_error(&mut self, error: &mut ScriptError) -> bool {
+        if self.error_handler == "<FAIL>" {
+            let _ = self.set_output(&self.current.to_uppercase(), "<Error>");
+            return false;
+        }
+        if let Some(name) = self.error_file.clone() {
+            let content = self
+                .outputs
+                .get(&self.current.to_uppercase())
+                .cloned()
+                .unwrap_or_default();
+            if let Err(message) = self.reserve_data_file(&name, content.len()) {
+                error.message.push_str(&format!("; {message}"));
+                return false;
+            }
+            self.files.push(DebugFile { name, content });
+        }
+        let handler = self.error_handler.clone();
+        if !handler.is_empty() && !handler.starts_with('<') {
+            match self.set_output(&self.current.to_uppercase(), &handler) {
+                Ok(()) => true,
+                Err(message) => {
+                    error.message.push_str(&format!("; {message}"));
+                    false
+                }
+            }
+        } else {
+            error.message.push_str(&handler);
+            false
+        }
     }
     /// Text read from the input, trimmed unless `Trim "off"`.
     fn say_read(&mut self, text: &str) -> Result<(), String> {
@@ -797,7 +895,7 @@ impl<'a> Machine<'a> {
                 + 1,
             excerpt(line)
         ));
-        if let Some(value) = self.outputs.get(&self.current) {
+        if let Some(value) = self.outputs.get(&self.current.to_uppercase()) {
             entry.push_str(&format!(
                 "       output {:?}: {}\n",
                 self.current,
@@ -925,6 +1023,16 @@ impl<'a> Machine<'a> {
                 self.pos = 0;
             }
             "say" => self.say(arg(0))?,
+            "sayall" => {
+                let used = self
+                    .rest()
+                    .char_indices()
+                    .find(|(_, ch)| !arg(0).contains(*ch))
+                    .map_or(self.rest().len(), |(index, _)| index);
+                let text = self.rest()[..used].to_owned();
+                self.say_read(&text)?;
+                self.pos += used;
+            }
             "sayuntil" => {
                 let rest = self.rest();
                 let end = (!arg(0).is_empty())
@@ -1054,8 +1162,7 @@ impl<'a> Machine<'a> {
                 // Without a value the output is emptied but still exists, so
                 // `%name%` in later parameters becomes nothing.
                 let value = args.get(1).cloned().unwrap_or_default();
-                self.size += value.len();
-                self.outputs.insert(arg(0).to_uppercase(), value);
+                self.set_output(&arg(0).to_uppercase(), &value)?;
             }
             "skipchars" => {
                 let skip = arg(0);
@@ -1085,15 +1192,72 @@ impl<'a> Machine<'a> {
             "else" => next = command.target + 1,
             "endif" => {}
             "outputto" => {
-                self.current = match arg(0).to_uppercase() {
-                    name if name.is_empty() => DEFAULT_OUTPUT.into(),
-                    name => name,
+                let name = arg(0).to_owned();
+                if !arg(1).is_empty() {
+                    self.set_output(&name.to_uppercase(), arg(1))?;
+                }
+                self.current = name;
+            }
+            "incoutput" => {
+                let suffix = arg(0);
+                if self.current.len().saturating_add(suffix.len()) > OUTPUT_LIMIT {
+                    return Err("the output name is larger than 16 MB".into());
+                }
+                self.current.push_str(suffix);
+            }
+            "decoutput" => {
+                if self
+                    .current
+                    .chars()
+                    .next_back()
+                    .is_some_and(|ch| ch.len_utf16() > 1)
+                {
+                    return Err(
+                        "DecOutput cannot split a UTF-16 surrogate in an output name".into(),
+                    );
+                }
+                self.current.pop();
+            }
+            "exit" => next = script.commands.len(),
+            "extern" => return Err("NO EXTERN HANDLER".into()),
+            "onerror" => {
+                self.error_handler = arg(0).to_owned();
+                if !arg(1).is_empty() {
+                    self.error_file = Some(arg(1).to_owned());
+                }
+            }
+            "savedata" => {
+                if !arg(0).is_empty() {
+                    let bytes = self
+                        .lines
+                        .iter()
+                        .try_fold(0usize, |sum, line| {
+                            sum.checked_add(line.len())
+                                .and_then(|size| size.checked_add(2))
+                        })
+                        .ok_or("script file output exceeds 64 files or 16 MB")?;
+                    self.reserve_data_file(arg(0), bytes)?;
+                    let mut content = String::with_capacity(bytes);
+                    for line in &self.lines {
+                        content.push_str(line);
+                        content.push_str("\r\n");
+                    }
+                    self.files.push(DebugFile {
+                        name: arg(0).into(),
+                        content,
+                    });
                 }
             }
             "do" => {
                 self.repeats.insert(index, 0);
             }
             "while" => {
+                if arg(0).is_empty() {
+                    if !self.rest().is_empty() {
+                        next = command.target + 1;
+                    }
+                    return Ok(next);
+                }
                 let limit = args
                     .get(1)
                     .map(|n| parse_number(n, "The loop limit"))
@@ -1249,6 +1413,8 @@ impl<'a> Machine<'a> {
                     let depth = json.stack.len();
                     json.stack.push(items[0].clone());
                     json.loops.push(Each {
+                        start: index,
+                        end: command.target,
                         items,
                         keys,
                         index: 0,
@@ -1256,19 +1422,22 @@ impl<'a> Machine<'a> {
                     });
                 }
             }
-            "json_foreach_end" => {
-                let start = command.target;
+            "json_foreach_end" | "json_foreach_continue" => {
                 let json = self.json()?;
                 let Some(each) = json.loops.last_mut() else {
-                    return Err("json_foreach_end without a running json_foreach".into());
+                    if command.name == "json_foreach_continue" {
+                        return Ok(next);
+                    }
+                    return Err(format!("{} without a running json_foreach", command.name));
                 };
                 json.stack.truncate(each.depth);
                 each.index += 1;
                 if each.index < each.items.len() {
                     let item = each.items[each.index].clone();
                     json.stack.push(item);
-                    next = start + 1;
+                    next = each.start + 1;
                 } else {
+                    next = each.end + 1;
                     json.loops.pop();
                 }
             }
@@ -1319,9 +1488,13 @@ impl<'a> Machine<'a> {
                 self.set_input(&text);
             }
             "json_select_array" => {
-                let n = parse_number(arg(1), "The element")?;
+                let n = if arg(1).is_empty() {
+                    0
+                } else {
+                    parse_number(arg(1), "The element")?
+                };
                 let items = self.json_array(arg(0))?;
-                let text = if n == -1 {
+                let text = if n <= 0 {
                     items.iter().map(json_text).collect::<Vec<_>>().join(arg(2))
                 } else {
                     let item = usize::try_from(n - 1).ok().and_then(|i| items.get(i));
@@ -1439,10 +1612,22 @@ fn excerpt_tail(text: &str) -> String {
 
 /// Run `script` over `input`.
 pub fn run(script: &Script, input: &str, env: &Environment<'_>) -> Outcome {
+    if env.current_preview.is_some_and(|value| {
+        value.len().saturating_add(CURRENT_PREVIEW_OUTPUT.len()) > OUTPUT_LIMIT
+    }) {
+        return Outcome {
+            result: Err(ScriptError {
+                line: 0,
+                command: "CurrentPreview".into(),
+                message: "the output is larger than 16 MB".into(),
+            }),
+            files: Vec::new(),
+        };
+    }
     let mut machine = Machine::new(input, env);
     let mut index = 0;
     let mut steps = 0;
-    let result = loop {
+    let mut result = loop {
         let Some(command) = script.commands.get(index) else {
             break Ok(());
         };
@@ -1474,6 +1659,13 @@ pub fn run(script: &Script, input: &str, env: &Environment<'_>) -> Outcome {
             }
         }
     };
+    if let Err(mut error) = result {
+        result = if machine.handle_error(&mut error) {
+            Ok(())
+        } else {
+            Err(error)
+        };
+    }
     machine.finish_trace();
     Outcome {
         result: result.map(|()| machine.outputs),
@@ -1508,6 +1700,328 @@ mod tests {
         run(&script(text), input, &Environment::default())
             .result
             .unwrap_err()
+    }
+
+    #[test]
+    fn native3361_registered_commands_and_argument_counts_are_covered() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/web-source-native-3361-commands.json"
+        ))
+        .unwrap();
+        let expected: BTreeMap<_, _> = fixture["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| {
+                (
+                    row["command"].as_str().unwrap(),
+                    (
+                        row["native_arity"][0].as_u64().unwrap() as usize,
+                        row["native_arity"][1].as_u64().unwrap() as usize,
+                    ),
+                )
+            })
+            .collect();
+        let actual: BTreeMap<_, _> = COMMANDS
+            .iter()
+            .map(|(name, min, max)| (*name, (*min, *max)))
+            .collect();
+        assert_eq!(expected.len(), 67);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn native3361_output_names_and_initializing_outputto_preserve_other_buffers() {
+        let result=outputs("Say \"initial\"\nOutputTo \"\"\nSay \"discard\"\nDecOutput\nSay \"!\"\nOutputTo \"Output\"\nSay \" final\"\nIncOutput \"A\"\nSay \"child\"\nDecOutput\nSay \" parent\"\nOutputTo \"B\" \"old\"\nOutputTo \"B\" \"\"\nSay \" kept\"\nOutputTo \"C\" \"replacement\"\nSay \"+\"", "");
+        assert_eq!(result[DEFAULT_OUTPUT], "initial final parent");
+        assert_eq!(result[""], "discard!");
+        assert_eq!(result["OUTPUTA"], "child");
+        assert_eq!(result["B"], "old kept");
+        assert_eq!(result["C"], "replacement+");
+        assert_eq!(
+            outputs("Set \"A\" \"old\"\nOutputTo \"a\" \"new\"\nSay \"!\"", "")["A"],
+            "new!"
+        );
+    }
+
+    #[test]
+    fn native3361_sayall_consumes_only_a_matching_prefix_and_honors_trim() {
+        assert_eq!(
+            out("SayAll \" ab\"\nSay \"|\"\nSayRest", " abba:tail"),
+            "abba|:tail"
+        );
+        assert_eq!(
+            out(
+                "Trim \"off\"\nSayAll \" ab\"\nSay \"|\"\nSayRest",
+                " abba:tail"
+            ),
+            " abba|:tail"
+        );
+        assert_eq!(out("SayAll \"\"\nSayRest", "entire"), "entire");
+        assert_eq!(out("SayAll \"abc\"\nSayRest", ":tail"), ":tail");
+        assert_eq!(out("SayAll \"éø\"\nSayRest", "éø:tail"), "éø:tail");
+    }
+
+    #[test]
+    fn native3361_optional_while_and_unspace_arguments() {
+        for condition in ["While", "While \"\"", "While \"\" 1"] {
+            assert_eq!(
+                out(&format!("Do\nSayNChars 1\n{condition}"), "abc"),
+                "abc",
+                "{condition}"
+            );
+            assert_eq!(
+                out(&format!("Do\nSayNChars 1\n{condition}"), ""),
+                "",
+                "{condition}"
+            );
+        }
+        assert_eq!(
+            out("Trim \"off\"\nUnspace \"ignored\"\nSayRest", "  padded  "),
+            "padded"
+        );
+        assert_eq!(out("Do\nSayNChars 1\nWhile \"b\" 1", "abc"), "a");
+    }
+
+    #[test]
+    fn native3361_exit_keeps_outputs_and_never_executes_following_commands() {
+        let result = outputs(
+            "Set \"ARTIST\" \"Kept\"\nSay \"done\"\nExit\nExtern \"x\" \"y\"\nSay \"unreachable\"",
+            "",
+        );
+        assert_eq!(result[DEFAULT_OUTPUT], "done");
+        assert_eq!(result["ARTIST"], "Kept");
+        let failure = error("Extern \"callback\" \"argument\"", "");
+        assert!(failure.message.contains("NO EXTERN HANDLER"));
+    }
+
+    #[test]
+    fn native3361_json_optional_root_loops_continue_and_reverse_restore_context() {
+        let input = r#"[{"title":"one"},{"title":"two"}]"#;
+        for (command, expected) in [
+            ("json_foreach", "one|two|"),
+            ("json_foreach_reverse", "two|one|"),
+        ] {
+            let script=format!("json \"on\"\n{command}\njson_select \"title\"\nSayRest\nSay \"|\"\nIfNot \"never\"\njson_foreach_continue\nEndif\nSay \"unreachable\"\njson_foreach_end\nOutputTo \"AFTER\"\njson_select_array \"\" 1\njson_select \"title\"\nSayRest");
+            let result = outputs(&script, input);
+            assert_eq!(result[DEFAULT_OUTPUT], expected);
+            assert_eq!(result["AFTER"], "one");
+        }
+        assert_eq!(out("json \"on\"\njson_foreach \"\"\njson_foreach_counter\nSay \"=\"\njson_select \"\"\nSayRest\nSay \";\"\njson_foreach_continue\njson_foreach_end", r#"{"a":1,"b":2}"#),"a=1;b=2;");
+        assert_eq!(out("json \"on\"\njson_foreach \"groups\"\njson_foreach \"tracks\"\njson_select \"\"\nSayRest\njson_foreach_continue\nSay \"bad\"\njson_foreach_end\njson_select \"group\"\nSayRest\njson_foreach_end",r#"{"groups":[{"group":"A","tracks":[1,2]},{"group":"B","tracks":[3]}]}"#),"12A3B");
+    }
+
+    #[test]
+    fn native3361_json_array_nonpositive_and_optional_indices_join_all() {
+        for index in ["", " \"\"", " 0", " -1", " -2", " -9223372036854775808"] {
+            assert_eq!(
+                out(
+                    &format!("json \"on\"\njson_select_array \"\"{index}\nSayRest"),
+                    r#"["a","b"]"#
+                ),
+                "ab",
+                "{index}"
+            );
+        }
+        assert_eq!(
+            out(
+                "json \"on\"\njson_select_array \"\" \"\" \";\"\nSayRest",
+                r#"["a","b"]"#
+            ),
+            "a;b"
+        );
+        assert_eq!(
+            out(
+                "json \"on\"\njson_select_array \"\" 2\nSayRest",
+                r#"["a","b"]"#
+            ),
+            "b"
+        );
+        assert_eq!(
+            out(
+                "json \"on\"\njson_select_array \"\" 3\nSayRest",
+                r#"["a","b"]"#
+            ),
+            ""
+        );
+    }
+
+    #[test]
+    fn native3361_json_continue_without_an_active_loop_continues_in_json_mode() {
+        for input in ["{}", "[]", "null"] {
+            assert_eq!(
+                out("json \"on\"\njson_foreach_continue\nSay \"after\"", input),
+                "after"
+            );
+        }
+        assert!(error("json_foreach_continue", "")
+            .message
+            .contains("JSON mode is off"));
+    }
+
+    #[test]
+    fn native3361_decoutput_uses_raw_bmp_name_before_case_normalization() {
+        assert_eq!(
+            outputs(
+                "OutputTo \"Output\"\nIncOutput \"ß\"\nDecOutput\nSay \"kept\"",
+                ""
+            )[DEFAULT_OUTPUT],
+            "kept"
+        );
+        assert_eq!(
+            outputs("OutputTo \"Aß\"\nDecOutput\nSay \"kept\"", "")["A"],
+            "kept"
+        );
+    }
+
+    #[test]
+    fn native3361_output_names_and_data_requests_are_bounded_before_mutation() {
+        let env = Environment::default();
+        let mut machine = Machine::new("input", &env);
+        machine.size = OUTPUT_LIMIT;
+        assert!(one_step(&mut machine, "Set \"A\" \"\"")
+            .unwrap_err()
+            .contains("16 MB"));
+        assert!(machine.outputs.is_empty());
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        assert!(one_step(&mut machine, "OutputTo \"B\" \"replacement\"")
+            .unwrap_err()
+            .contains("16 MB"));
+        assert_eq!(machine.current, DEFAULT_OUTPUT);
+        assert!(machine.outputs.is_empty());
+        machine.data_bytes = DATA_BYTES_LIMIT;
+        assert!(one_step(&mut machine, "SaveData \"bounded.txt\"")
+            .unwrap_err()
+            .contains("16 MB"));
+        assert!(machine.files.is_empty());
+        assert_eq!(machine.data_files, 0);
+        machine.error_handler = "fallback".into();
+        machine.error_file = Some("error.txt".into());
+        let mut failed = ScriptError {
+            line: 1,
+            command: "FindLine".into(),
+            message: "original failure".into(),
+        };
+        assert!(!machine.handle_error(&mut failed));
+        assert!(failed.message.contains("16 MB"));
+        assert!(machine.files.is_empty());
+        let oversized = "x".repeat(DATA_BYTES_LIMIT);
+        let large = run(&script("SaveData \"large.txt\""), &oversized, &env);
+        assert!(large.result.unwrap_err().message.contains("16 MB"));
+        assert!(large.files.is_empty());
+        let result = run(
+            &script("Do\nSaveData \"repeated.txt\"\nWhile \"input\" 65"),
+            "input",
+            &env,
+        );
+        assert!(result.result.unwrap_err().message.contains("64 files"));
+        assert_eq!(result.files.len(), 64);
+        assert!(error("OutputTo \"X😀\"\nDecOutput", "")
+            .message
+            .contains("UTF-16 surrogate"));
+        assert_eq!(
+            outputs("OutputTo \"Xé\"\nDecOutput\nSay \"kept\"", "")["X"],
+            "kept"
+        );
+    }
+
+    #[test]
+    fn output_replacement_reuses_live_byte_budget_in_native_commands() {
+        let chunk = "é".repeat(512 * 1024); // 1 MiB of UTF-8 bytes.
+        for command in ["OutputTo", "Set"] {
+            let text = format!("Do\n{command} \"Scratch\" \"{chunk}\"\nWhile \"x\" 20");
+            let result = run(&script(&text), "x", &Environment::default())
+                .result
+                .unwrap_or_else(|error| panic!("{} at line {}", error.message, error.line));
+            assert_eq!(result["SCRATCH"], chunk, "{command}");
+        }
+    }
+
+    #[test]
+    fn output_replacement_preserves_shared_limit_and_refused_state() {
+        let env = Environment::default();
+        let mut machine = Machine::new("", &env);
+        let large = "x".repeat(OUTPUT_LIMIT - 6); // Two names plus four retained bytes.
+        machine.set_output("A", &large).unwrap();
+        machine.set_output("B", "stay").unwrap();
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        for command in ["Set \"B\" \"longer\"", "OutputTo \"B\" \"longer\""] {
+            assert!(one_step(&mut machine, command)
+                .unwrap_err()
+                .contains("16 MB"));
+            assert_eq!(machine.outputs["A"], large);
+            assert_eq!(machine.outputs["B"], "stay");
+            assert_eq!(machine.size, OUTPUT_LIMIT);
+            assert_eq!(machine.current, DEFAULT_OUTPUT);
+        }
+        one_step(&mut machine, "Set \"A\"").unwrap();
+        assert_eq!(machine.size, 6); // Retain both names and B's value.
+        one_step(&mut machine, "OutputTo \"A\"").unwrap();
+        machine.say(&large).unwrap();
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        assert!(machine.say("!").unwrap_err().contains("16 MB"));
+        assert_eq!(machine.outputs["A"], large);
+        assert_eq!(machine.outputs["B"], "stay");
+    }
+
+    #[test]
+    fn native3361_savedata_emits_transformed_retained_lines_with_crlf() {
+        let result = run(
+            &script(
+                "Replace \"original\" \"changed\"\nSaveData \"../saved.txt\"\nSay \"continued\"",
+            ),
+            "original\nsecond",
+            &Environment::default(),
+        );
+        assert_eq!(result.result.unwrap()[DEFAULT_OUTPUT], "continued");
+        assert_eq!(
+            result.files,
+            [DebugFile {
+                name: "../saved.txt".into(),
+                content: "changed\r\nsecond\r\n".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn native3361_onerror_stops_and_substitutes_only_the_current_output() {
+        for second in ["", " \"\""] {
+            let text=format!("Set \"OTHER\" \"keep\"\nOutputTo \"ALBUM\"\nSay \"partial\"\nOnError \"first\" \"../failed.txt\"\nOnError \"fallback\"{second}\nFindLine \"absent\"\nSay \"unreachable\"");
+            let result = run(&script(&text), "input", &Environment::default());
+            let fields = result.result.unwrap();
+            assert_eq!(fields["ALBUM"], "fallback");
+            assert_eq!(fields["OTHER"], "keep");
+            assert_eq!(
+                result.files,
+                [DebugFile {
+                    name: "../failed.txt".into(),
+                    content: "partial".into()
+                }]
+            );
+        }
+        assert_eq!(
+            out(
+                "OnError \"fallback\"\nExtern \"x\" \"y\"\nSay \"unreachable\"",
+                ""
+            ),
+            "fallback"
+        );
+        for handler in ["<FAIL>", "<fail>", "<other>", ""] {
+            let result = run(
+                &script(&format!(
+                    "Say \"before\"\nOnError \"{handler}\" \"failed.txt\"\nFindLine \"absent\""
+                )),
+                "input",
+                &Environment::default(),
+            );
+            assert!(result.result.is_err(), "{handler}");
+            assert_eq!(result.files.len(), usize::from(handler != "<FAIL>"));
+        }
+        assert!(Script::compile(&[
+            (1, "OnError \"fallback\"".into()),
+            (2, "UnknownCommand".into())
+        ])
+        .is_err());
     }
 
     #[test]
@@ -1836,7 +2350,7 @@ mod tests {
             "no number"
         );
         assert_eq!(
-            out("OutputTo \"T\"\nSay \"x\"\nOutputTo \"\"\nIfOutput \"T\"\nSay \"has\"\nEndif\nIfNotOutput \"U\"\nSay \" none\"\nEndif", ""),
+            out("OutputTo \"T\"\nSay \"x\"\nOutputTo \"Output\"\nIfOutput \"T\"\nSay \"has\"\nEndif\nIfNotOutput \"U\"\nSay \" none\"\nEndif", ""),
             "has none"
         );
         // Nested blocks skip correctly.
@@ -1862,6 +2376,86 @@ mod tests {
             &env,
         );
         assert_eq!(o[DEFAULT_OUTPUT], "de+!");
+    }
+
+    #[test]
+    fn album_preview_seed_is_readable_appendable_and_replaceable() {
+        let env = Environment {
+            current_preview: Some("https://source.example/preview"),
+            ..Default::default()
+        };
+        let read = outputs_with(
+            "SayOutput \"CurrentPreview\"\nSay \";%currentpreview%\"\nSayFormat \";%CURRENTPREVIEW%\"",
+            "",
+            &env,
+        );
+        assert_eq!(read[DEFAULT_OUTPUT], "https://source.example/preview;https://source.example/preview;https://source.example/preview");
+        assert_eq!(
+            outputs_with("OutputTo \"currentpreview\"\nSay \"/more\"", "", &env)["CURRENTPREVIEW"],
+            "https://source.example/preview/more"
+        );
+        assert_eq!(
+            outputs_with("Set \"CurrentPreview\" \"/replacement\"", "", &env)["CURRENTPREVIEW"],
+            "/replacement"
+        );
+        assert_eq!(
+            outputs_with("Set \"CurrentPreview\" \"\"", "", &env)["CURRENTPREVIEW"],
+            ""
+        );
+        assert!(!outputs("Say \"index\"", "").contains_key("CURRENTPREVIEW"));
+    }
+
+    #[test]
+    fn album_preview_seed_counts_toward_output_limit_without_script_commands() {
+        let seed = "x".repeat(OUTPUT_LIMIT + 1);
+        let env = Environment {
+            current_preview: Some(&seed),
+            ..Default::default()
+        };
+        let error = run(&script(""), "", &env).result.unwrap_err();
+        assert!(error.message.contains("16 MB"));
+    }
+
+    #[test]
+    fn album_preview_seed_name_counts_before_any_script_command() {
+        let seed = "x".repeat(OUTPUT_LIMIT - "CURRENTPREVIEW".len() + 1);
+        let env = Environment {
+            current_preview: Some(&seed),
+            ..Default::default()
+        };
+        let outcome = run(&script(""), "", &env);
+        assert!(outcome.files.is_empty());
+        let Err(error) = outcome.result else {
+            panic!("seed name must count");
+        };
+        assert_eq!(error.line, 0);
+        assert_eq!(error.command, "CurrentPreview");
+        assert!(error.message.contains("16 MB"));
+    }
+
+    #[test]
+    fn album_preview_seed_exact_limit_retains_name_after_clearing() {
+        let seed = "x".repeat(OUTPUT_LIMIT - "CURRENTPREVIEW".len());
+        let env = Environment {
+            current_preview: Some(&seed),
+            ..Default::default()
+        };
+        assert!(run(&script(""), "", &env).result.is_ok());
+        let mut machine = Machine::new("", &env);
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        assert!(one_step(&mut machine, "Say \"\"")
+            .unwrap_err()
+            .contains("16 MB"));
+        assert_eq!(machine.outputs["CURRENTPREVIEW"], seed);
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        one_step(&mut machine, "Set \"CurrentPreview\"").unwrap();
+        assert_eq!(machine.size, "CURRENTPREVIEW".len());
+        let remaining = "y".repeat(OUTPUT_LIMIT - "CURRENTPREVIEW".len() - DEFAULT_OUTPUT.len());
+        machine.say(&remaining).unwrap();
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        assert!(machine.say("!").unwrap_err().contains("16 MB"));
+        assert_eq!(machine.outputs[DEFAULT_OUTPUT], remaining);
+        assert_eq!(machine.outputs["CURRENTPREVIEW"], "");
     }
 
     #[test]
@@ -1954,13 +2548,13 @@ mod tests {
         );
         assert_eq!(
             out(
-                "OutputTo \"A\"\nSay \"x\"\nOutputTo \"\"\nUseFormat \"%a%-%_current%\"\nSayRest",
+                "OutputTo \"A\"\nSay \"x\"\nOutputTo \"Output\"\nUseFormat \"%a%-%_current%\"\nSayRest",
                 "in"
             ),
             "x-in"
         );
         assert_eq!(
-            out("OutputTo \"A\"\nSay \"x\"\nOutputTo \"\"\nUseFormat \"<%a%>%_current%\" 1\nSayRest", "in"),
+            out("OutputTo \"A\"\nSay \"x\"\nOutputTo \"Output\"\nUseFormat \"<%a%>%_current%\" 1\nSayRest", "in"),
             "<>in"
         );
     }

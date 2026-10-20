@@ -172,6 +172,7 @@ fn written_front_cover_export_settings_and_per_track_format_produce_actual_host_
             let effects = apply_action_spec(
                 &mut state,
                 &ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: template,
                     picture_type: Some("CoverFront".into()),
                     export_duplicates: false,

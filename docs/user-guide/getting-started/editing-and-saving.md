@@ -100,6 +100,12 @@ selection through commands such as **Unselect all**. Extending a selection
 can also trigger a save of previously selected pending files. Treat selection
 changes as potentially writing when this preference is on.
 
+Sorting and shuffle can also save the current selection with this preference
+on, even if the selection itself stays the same. Navigation waits for a
+successful save. A failure or cancellation keeps the current selection and
+leaves unsaved edits pending; a partial save may already have written some
+files. Check the reported results before retrying.
+
 Extended tags has a separate navigation save-mode setting for its **<<** and
 **>>** buttons. See [Tags options](../reference/options/tags.md) for its
 pending, ask, ignore and save choices.

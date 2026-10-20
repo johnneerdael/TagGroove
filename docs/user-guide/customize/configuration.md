@@ -51,7 +51,7 @@ its configuration folder.
 | `actions.json` | Saved action groups, definitions, order and enabled state |
 | `exports.json` and active `.mte` assets | Saved export identities/preferences plus the active physical template bytes and their text encoding |
 | `columns.json` | File-list columns and saved column sorting |
-| `tag-panel.json` | Tag-panel field configuration |
+| `tag-panel.json` | Tag-panel field configuration, custom suggestion lists and their global/per-field preferences |
 | `directories.json` | Favorite and recent directories |
 | `lists.json` | Supported helper/history/value lists, names and favorites |
 | Saved preferences | Supported appearance/language, layout/filter choices, numbering and Tag → Tag memory, Quick-action settings, confirmed group codepage, cover controls and tag-source choices |

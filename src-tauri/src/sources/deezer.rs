@@ -325,6 +325,7 @@ pub fn parse_release(
         .into_iter()
         .collect();
     Ok(SourceRelease {
+        preview_url: None,
         provider: Provider::Deezer,
         url: match text(album, "link") {
             link if link.is_empty() => format!("https://www.deezer.com/album/{id}"),

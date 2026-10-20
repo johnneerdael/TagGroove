@@ -1,8 +1,8 @@
 import {ValueSuggestions} from './value-suggestions';
 // View → Extended Tags (docs.mp3tag.de/extended-tags/): every field of the
 // selected files with multi-line values, the cover window, and << / >> to step
-// through the File List one file at a time. Field edits become pending changes
-// (Save tags writes them); cover commands write at once and can be undone.
+// through the File List one file at a time. Save tags writes the displayed
+// selection; Keep changes stages edits. Cover commands write at once and can be undone.
 import './extended-tags.css';
 import {extendedCaption,fieldClipText,fieldNameIdentity,neighbourFile,pasteFields,resolveTagEdits,selectionTagRows,type FieldClip,type Fields,type TagRowEdit} from './tag-edits';
 import {contextMenuMarkup} from './row-context-menu';
@@ -34,8 +34,10 @@ export type ExtendedTagsHost={
   done:(staged:string[])=>void;
   /** Options → Tags → Save mode at extended tag dialog. */
   saveMode:()=>ExtendedSaveMode;
-  /** Write the pending changes of `path` to disk (save mode "Save changes"). */
-  save:(path:string)=>Promise<void>;
+  /** Write pending changes of the displayed files together; reject if any remain unsaved. */
+  save:(paths:string[])=>Promise<void>;
+  /** A current save-back limitation; Keep changes remains available. */
+  saveReason?:()=>string|undefined;
   /** Copied fields also go to the system clipboard as text. */
   copyText?:(text:string)=>void;
 };
@@ -45,6 +47,8 @@ const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;'
 export class ExtendedTags{
   private dialog?:HTMLDialogElement;
   private files:string[]=[];
+  private fieldSnapshots=new Map<string,Fields>();
+  private stagedKeys=new Map<string,string[]>();
   private originals=new WeakMap<HTMLTextAreaElement,string>();
   private rowSetters=new WeakMap<HTMLElement,(values:string[])=>void>();
   private staged=new Set<string>();
@@ -60,7 +64,7 @@ export class ExtendedTags{
     this.files=this.host.selection();if(!this.files.length)return;
     this.staged=new Set();
     const dialog=this.host.modal('Extended tags',`<div class="extended-layout"><div class="extended-fields"><p class="extended-hint"></p><div id="extended-rows"></div><button type="button" id="add-field">＋ Add field</button></div><section class="cover-section extended-cover" aria-label="Cover art"></section></div>`,
-      `<button type="button" class="extended-nav" data-nav="-1" aria-label="Previous file" title="Previous file in the File List">&lt;&lt;</button><button type="button" class="extended-nav" data-nav="1" aria-label="Next file" title="Next file in the File List">&gt;&gt;</button><button class="primary" id="apply-extended">Keep changes</button>`);
+      `<button type="button" class="extended-nav" data-nav="-1" aria-label="Previous file" title="Previous file in the File List">&lt;&lt;</button><button type="button" class="extended-nav" data-nav="1" aria-label="Next file" title="Next file in the File List">&gt;&gt;</button><button type="button" id="apply-extended">Keep changes</button><button type="button" class="primary" id="save-extended">Save tags</button>`);
     dialog.classList.add('extended-dialog');this.dialog=dialog;
     dialog.querySelector('#add-field')!.addEventListener('click',()=>{const added=this.addRow();this.rowSetters.set(added.row,added.setValues);this.rows().lastElementChild?.querySelector<HTMLInputElement>('.extended-name input')?.focus();});
     dialog.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button=>button.addEventListener('click',()=>void this.navigate(Number(button.dataset.nav) as 1|-1)));
@@ -73,7 +77,9 @@ export class ExtendedTags{
       if(!(key.key==='ContextMenu'||(key.shiftKey&&key.key==='F10'))||!row)return;
       key.preventDefault();const box=row.getBoundingClientRect();this.fieldMenu(row,box.left+24,box.top+24);
     });
-    dialog.querySelector('#apply-extended')!.addEventListener('click',()=>{if(this.commit())dialog.close();});
+    dialog.querySelector('#apply-extended')!.addEventListener('click',()=>{if(!this.navigating&&this.commit())dialog.close();});
+    dialog.querySelector('#save-extended')!.addEventListener('click',()=>void this.saveAndClose());
+    dialog.addEventListener('cancel',event=>{if(this.navigating)event.preventDefault();});
     dialog.addEventListener('close',()=>{
       this.closeMenu();this.closeSuggestions();
       if(this.dialog===dialog)this.dialog=undefined;
@@ -83,6 +89,7 @@ export class ExtendedTags{
   }
   /** Redraw the cover window after the displayed file or its covers change. */
   refreshCover(){
+    if(this.saving)return;
     const section=this.dialog?.open?this.dialog.querySelector<HTMLElement>('.extended-cover'):null;if(!section)return;
     section.innerHTML=this.host.coverMarkup();this.host.bindCover(section);
   }
@@ -92,14 +99,18 @@ export class ExtendedTags{
     const dialog=this.dialog!,single=this.files.length===1,list=this.host.listed();
     dialog.querySelector('header')!.textContent=extendedCaption(this.files.map(path=>this.host.describe(path)));
     dialog.querySelector('.extended-hint')!.textContent=single
-      ?'Each value can contain multiple lines. Remove all values to remove a field. << and >> move to the previous or next file and keep this file\'s changes pending.'
+      ?'Each value can contain multiple lines. Remove all values to remove a field. << and >> follow the save mode in Options → Tags.'
       :'Fields whose values differ between the selected files keep each file\'s values unless you edit them. Renaming a field keeps each file\'s values.';
     dialog.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button=>{
       button.hidden=!single;button.disabled=!single||!neighbourFile(list,this.files[0],Number(button.dataset.nav) as 1|-1);
     });
+    const save=dialog.querySelector<HTMLButtonElement>('#save-extended')!,reason=this.host.saveReason?.();
+    save.disabled=!!reason;save.title=reason??'';
     this.closeSuggestions();
     this.rows().replaceChildren();
-    selectionTagRows(this.files.map(path=>this.host.fields(path))).forEach(({name,values,mixed})=>{const added=this.addRow(name,values,mixed);this.rowSetters.set(added.row,added.setValues);});
+    this.fieldSnapshots=new Map(this.files.map(path=>[path,Object.fromEntries(Object.entries(this.host.fields(path)).map(([name,values])=>[name,[...values]]))]));
+    this.stagedKeys.clear();
+    selectionTagRows([...this.fieldSnapshots.values()]).forEach(({name,values,mixed})=>{const added=this.addRow(name,values,mixed);this.rowSetters.set(added.row,added.setValues);});
     dialog.querySelector('.dialog-error')?.remove();
     this.refreshCover();
     this.rows().querySelector<HTMLInputElement>('input')?.focus({preventScroll:true});
@@ -141,6 +152,7 @@ export class ExtendedTags{
   private closeMenu(){this.menu?.remove();this.menu=undefined;}
   /** Field list context menu: Cut, Copy and Paste fields (Mp3tag's field list menu). */
   private fieldMenu(row:HTMLElement|null,x:number,y:number){
+    if(this.navigating)return;
     this.closeMenu();const dialog=this.dialog;if(!dialog)return;
     const name=row?fieldNameIdentity(row.querySelector('input')!.value.trim()):'',values=row?this.rowValues(row):undefined;
     const copyable=!!row&&!!name&&values!==undefined;
@@ -185,12 +197,37 @@ export class ExtendedTags{
       changed:row.dataset.changed==='true',valueChanged:row.dataset.valueChanged==='true',removed:row.dataset.removed==='true'}));
     if(!edits.some(edit=>edit.changed))return true;
     try{
-      const changes=this.files.map(path=>({path,updates:resolveTagEdits(this.host.fields(path),edits)})).filter(change=>Object.keys(change.updates).length);
-      this.host.stage(changes);changes.forEach(change=>this.staged.add(change.path));
+      const changes=this.files.map(path=>{
+        const snapshot=this.fieldSnapshots.get(path)!,updates=resolveTagEdits(snapshot,edits);
+        const original=new Map(Object.entries(snapshot).map(([name,values])=>[fieldNameIdentity(name),values]));
+        const current=new Set(Object.keys(updates).map(fieldNameIdentity));
+        // A retry may correct a previously staged field name. Restore keys
+        // omitted by the new intent, including files already saved in a partial result.
+        for(const name of this.stagedKeys.get(path)??[])if(!current.has(fieldNameIdentity(name)))updates[name]=[...original.get(fieldNameIdentity(name))??[]];
+        return{path,updates};
+      }).filter(change=>Object.keys(change.updates).length);
+      this.host.stage(changes);changes.forEach(change=>{this.staged.add(change.path);this.stagedKeys.set(change.path,Object.keys(change.updates));});
       return true;
     }catch(error){this.host.modalError(this.dialog!,error);return false;}
   }
   private changed(){return[...this.rows().querySelectorAll<HTMLDivElement>('.extended-row')].some(row=>row.dataset.changed==='true');}
+  private lockControls(dialog:HTMLDialogElement){
+    this.closeMenu();this.suggestions.forEach(list=>list.close());this.saving=true;
+    const controls=[...dialog.querySelectorAll<HTMLInputElement|HTMLTextAreaElement|HTMLButtonElement>('input,textarea,button')].map(control=>[control,control.disabled] as const);
+    controls.forEach(([control])=>control.disabled=true);
+    return()=>{controls.forEach(([control,disabled])=>control.disabled=disabled);this.saving=false;this.refreshCover();};
+  }
+  private async saveAndClose(){
+    const dialog=this.dialog;
+    if(!dialog?.open||this.navigating||this.host.saveReason?.()||!this.commit())return;
+    this.navigating=true;
+    const unlock=this.lockControls(dialog);
+    try{
+      await this.host.save([...this.files]);
+      if(this.dialog===dialog&&dialog.open)dialog.close();
+    }catch(error){if(this.dialog===dialog&&dialog.open)this.host.modalError(dialog,error);}
+    finally{unlock();this.navigating=false;}
+  }
   /** << and >>: what happens to changed fields follows Options → Tags → Save mode at extended tag dialog. */
   private async navigate(step:1|-1){
     if(this.files.length!==1||this.navigating)return;
@@ -200,13 +237,17 @@ export class ExtendedTags{
       let mode=this.changed()?this.host.saveMode():'pending';
       if(mode==='ask'){const answer=await this.askSave(path);if(!answer)return;mode=answer;}
       if(mode!=='ignore'&&!this.commit())return;
-      if(mode==='save'&&this.staged.has(path))await this.host.save(path);
+      if(mode==='save'&&this.staged.has(path)){
+        const unlock=this.lockControls(this.dialog!);
+        try{await this.host.save([path]);}finally{unlock();}
+      }
       if(!this.dialog?.open)return;
       this.host.select(target);this.files=[target];this.fill();
     }catch(error){if(this.dialog)this.host.modalError(this.dialog,error);}
     finally{this.navigating=false;}
   }
   private navigating=false;
+  private saving=false;
   /** Save mode "Ask": save, discard, or stay on this file (Cancel). */
   private askSave(path:string):Promise<'save'|'ignore'|undefined>{
     return new Promise(resolve=>{

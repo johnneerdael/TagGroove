@@ -42,7 +42,7 @@ preview. Check the full selection and destination yourself before accepting.
 
 After at least one file is copied successfully, the next **Copy files to…**
 dialog starts at that destination. **Move files to…** remembers its own
-destination separately. Both choices survive restarting OpenTag. Cancelling
+destination separately. Both choices survive restarting TagGroove. Cancelling
 the picker or confirmation, or a transfer that moves/copies no files, keeps
 the previous choice. If preferences cannot be saved, the destination is
 remembered for the current session and the completed transfer still stands.
@@ -102,9 +102,12 @@ Undo. Files changed elsewhere are reported and retained; other files in the
 step can still reverse. Copy commands do not create a transfer Undo step.
 Identify the destination copy carefully before removing an unwanted copy.
 
-To move same-basename `.lrc`/`.cdg` companions too, enable the optional
-[associated files policy](associated-files.md). The existing Move confirmation
-then lists their reviewed paths. The policy does not apply to Copy.
+To move or copy same-basename `.lrc`/`.cdg` companions too, enable the optional
+[associated files policy](associated-files.md). The existing confirmation lists
+their reviewed paths before either command. Copy keeps the originals and has no
+transfer Undo; a failed copy group removes only unchanged copies it created.
+Edited or replaced outputs are retained with a cleanup warning. Earlier
+successful groups can remain; inspect errors before retrying.
 
 ## Remove rows while retaining files
 

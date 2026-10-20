@@ -1,0 +1,679 @@
+{
+  "version": 1,
+  "subject": "Mp3tag 3.36.1 Windows x64",
+  "sha256": "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911",
+  "registry_function": "0x140322524",
+  "evidence": "Static registered command signatures; no historical introduction-version or runtime parity claim.",
+  "commands": [
+    {
+      "command": "incoutput",
+      "spec": "S     ",
+      "command_va": "0x140971dd8",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "decoutput",
+      "spec": "      ",
+      "command_va": "0x140971da0",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "sayoutput",
+      "spec": "S     ",
+      "command_va": "0x140971d78",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "do",
+      "spec": "      ",
+      "command_va": "0x1409718d4",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "while",
+      "spec": "sn    ",
+      "command_va": "0x140971ca8",
+      "spec_va": "0x140971d48",
+      "native_arity": [
+        0,
+        2
+      ]
+    },
+    {
+      "command": "gotoline",
+      "spec": "N     ",
+      "command_va": "0x140971380",
+      "spec_va": "0x140971d58",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "moveline",
+      "spec": "Nn    ",
+      "command_va": "0x140971338",
+      "spec_va": "0x140971d28",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "findline",
+      "spec": "Snn   ",
+      "command_va": "0x140971350",
+      "spec_va": "0x140971d38",
+      "native_arity": [
+        1,
+        3
+      ]
+    },
+    {
+      "command": "findlinenocase",
+      "spec": "Snn   ",
+      "command_va": "0x140971308",
+      "spec_va": "0x140971d38",
+      "native_arity": [
+        1,
+        3
+      ]
+    },
+    {
+      "command": "gotochar",
+      "spec": "N     ",
+      "command_va": "0x140971cf8",
+      "spec_va": "0x140971d58",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "movechar",
+      "spec": "N     ",
+      "command_va": "0x140971d10",
+      "spec_va": "0x140971d58",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "findinline",
+      "spec": "Snn   ",
+      "command_va": "0x140971cc8",
+      "spec_va": "0x140971d38",
+      "native_arity": [
+        1,
+        3
+      ]
+    },
+    {
+      "command": "skipchars",
+      "spec": "S     ",
+      "command_va": "0x140971ce0",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "joinlines",
+      "spec": "N     ",
+      "command_va": "0x140971f60",
+      "spec_va": "0x140971d58",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "joinuntil",
+      "spec": "S     ",
+      "command_va": "0x140971f78",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "killtag",
+      "spec": "Ss    ",
+      "command_va": "0x140971f40",
+      "spec_va": "0x140971f50",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "replace",
+      "spec": "SS    ",
+      "command_va": "0x140945c50",
+      "spec_va": "0x140971f10",
+      "native_arity": [
+        2,
+        2
+      ]
+    },
+    {
+      "command": "regexpreplace",
+      "spec": "SS    ",
+      "command_va": "0x140971f20",
+      "spec_va": "0x140971f10",
+      "native_arity": [
+        2,
+        2
+      ]
+    },
+    {
+      "command": "unspace",
+      "spec": "s     ",
+      "command_va": "0x140971ef0",
+      "spec_va": "0x140971f00",
+      "native_arity": [
+        0,
+        1
+      ]
+    },
+    {
+      "command": "say",
+      "spec": "S     ",
+      "command_va": "0x140971ed0",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "sayuntil",
+      "spec": "S     ",
+      "command_va": "0x140971ed8",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "sayuntilml",
+      "spec": "S     ",
+      "command_va": "0x140971ea8",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "sayrest",
+      "spec": "      ",
+      "command_va": "0x140971ec0",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "saynextword",
+      "spec": "      ",
+      "command_va": "0x140971e70",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "saynextnumber",
+      "spec": "      ",
+      "command_va": "0x140971e88",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "saynchars",
+      "spec": "N     ",
+      "command_va": "0x140971e48",
+      "spec_va": "0x140971d58",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "sayall",
+      "spec": "S     ",
+      "command_va": "0x140971e60",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "saynewline",
+      "spec": "      ",
+      "command_va": "0x140972090",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "sayformat",
+      "spec": "Sn    ",
+      "command_va": "0x1409720a8",
+      "spec_va": "0x140972068",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "sayregexp",
+      "spec": "Sss   ",
+      "command_va": "0x140972078",
+      "spec_va": "0x140972048",
+      "native_arity": [
+        1,
+        3
+      ]
+    },
+    {
+      "command": "saydate",
+      "spec": "s     ",
+      "command_va": "0x140972058",
+      "spec_va": "0x140971f00",
+      "native_arity": [
+        0,
+        1
+      ]
+    },
+    {
+      "command": "sayduration",
+      "spec": "snn   ",
+      "command_va": "0x140972020",
+      "spec_va": "0x140972038",
+      "native_arity": [
+        0,
+        3
+      ]
+    },
+    {
+      "command": "sayvar",
+      "spec": "S     ",
+      "command_va": "0x140972008",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "use",
+      "spec": "S     ",
+      "command_va": "0x140972018",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "useformat",
+      "spec": "Sn    ",
+      "command_va": "0x140971fe0",
+      "spec_va": "0x140972068",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "insert",
+      "spec": "S     ",
+      "command_va": "0x140971ff8",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "if",
+      "spec": "S     ",
+      "command_va": "0x1409458a8",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "ifnot",
+      "spec": "S     ",
+      "command_va": "0x140971fb8",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "ifoutput",
+      "spec": "S     ",
+      "command_va": "0x140971fc8",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "ifnotoutput",
+      "spec": "S     ",
+      "command_va": "0x140971f90",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "ifgreater",
+      "spec": "N     ",
+      "command_va": "0x140945980",
+      "spec_va": "0x140971d58",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "ifless",
+      "spec": "N     ",
+      "command_va": "0x140971fa8",
+      "spec_va": "0x140971d58",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "ifvar",
+      "spec": "SS    ",
+      "command_va": "0x140972188",
+      "spec_va": "0x140971f10",
+      "native_arity": [
+        2,
+        2
+      ]
+    },
+    {
+      "command": "ifnotvar",
+      "spec": "SS    ",
+      "command_va": "0x140972198",
+      "spec_va": "0x140971f10",
+      "native_arity": [
+        2,
+        2
+      ]
+    },
+    {
+      "command": "else",
+      "spec": "      ",
+      "command_va": "0x140971160",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "endif",
+      "spec": "      ",
+      "command_va": "0x140971170",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "extern",
+      "spec": "SS    ",
+      "command_va": "0x1409719c8",
+      "spec_va": "0x140971f10",
+      "native_arity": [
+        2,
+        2
+      ]
+    },
+    {
+      "command": "savedata",
+      "spec": "S     ",
+      "command_va": "0x140971960",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "debug",
+      "spec": "Ssn   ",
+      "command_va": "0x140972168",
+      "spec_va": "0x140972178",
+      "native_arity": [
+        1,
+        3
+      ]
+    },
+    {
+      "command": "debugwriteinput",
+      "spec": "s     ",
+      "command_va": "0x1409717e8",
+      "spec_va": "0x140971f00",
+      "native_arity": [
+        0,
+        1
+      ]
+    },
+    {
+      "command": "onerror",
+      "spec": "Ss    ",
+      "command_va": "0x140971928",
+      "spec_va": "0x140971f50",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "outputto",
+      "spec": "Ss    ",
+      "command_va": "0x140972148",
+      "spec_va": "0x140971f50",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "set",
+      "spec": "Ss    ",
+      "command_va": "0x140972160",
+      "spec_va": "0x140971f50",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "exit",
+      "spec": "      ",
+      "command_va": "0x140971938",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "json",
+      "spec": "Ss    ",
+      "command_va": "0x1409717a0",
+      "spec_va": "0x140971f50",
+      "native_arity": [
+        1,
+        2
+      ]
+    },
+    {
+      "command": "json_foreach",
+      "spec": "s     ",
+      "command_va": "0x1409712c0",
+      "spec_va": "0x140971f00",
+      "native_arity": [
+        0,
+        1
+      ]
+    },
+    {
+      "command": "json_foreach_reverse",
+      "spec": "s     ",
+      "command_va": "0x140971258",
+      "spec_va": "0x140971f00",
+      "native_arity": [
+        0,
+        1
+      ]
+    },
+    {
+      "command": "json_select",
+      "spec": "S     ",
+      "command_va": "0x140971788",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "json_select_array",
+      "spec": "Sns   ",
+      "command_va": "0x1409716f8",
+      "spec_va": "0x140972128",
+      "native_arity": [
+        1,
+        3
+      ]
+    },
+    {
+      "command": "json_select_many",
+      "spec": "SSssnn",
+      "command_va": "0x140971a88",
+      "spec_va": "0x140972138",
+      "native_arity": [
+        2,
+        6
+      ]
+    },
+    {
+      "command": "json_select_many_count",
+      "spec": "Ssn   ",
+      "command_va": "0x140971ab0",
+      "spec_va": "0x140972178",
+      "native_arity": [
+        1,
+        3
+      ]
+    },
+    {
+      "command": "json_select_object",
+      "spec": "S     ",
+      "command_va": "0x140971720",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    },
+    {
+      "command": "json_unselect_object",
+      "spec": "      ",
+      "command_va": "0x1409716c8",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "json_foreach_continue",
+      "spec": "      ",
+      "command_va": "0x140971758",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "json_foreach_end",
+      "spec": "      ",
+      "command_va": "0x140971288",
+      "spec_va": "0x140971d68",
+      "native_arity": [
+        0,
+        0
+      ]
+    },
+    {
+      "command": "json_foreach_counter",
+      "spec": "n     ",
+      "command_va": "0x1409719e8",
+      "spec_va": "0x140972110",
+      "native_arity": [
+        0,
+        1
+      ]
+    },
+    {
+      "command": "trim",
+      "spec": "S     ",
+      "command_va": "0x140945c80",
+      "spec_va": "0x140971d90",
+      "native_arity": [
+        1,
+        1
+      ]
+    }
+  ]
+}

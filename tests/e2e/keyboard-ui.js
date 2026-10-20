@@ -299,6 +299,30 @@
       return 'save, ignore, ask';
     });
 
+    await step('Extended Tags explicit Save writes, while pending navigation ignores main-list auto-save', async () => {
+      const titleOf = async name => (await inv('scan_files', { paths: [row(name).dataset.path], recursive: false, refresh: true })).entries[0].fields.TITLE?.[0];
+      const edit = (dlg, text) => { const field = [...dlg.querySelectorAll('.extended-row')].find(r => r.querySelector('input').value === 'TITLE'); input(field.querySelector('textarea'), text); };
+      const beforeA = await titleOf('sine-a.mp3'), beforeB = await titleOf('sine-b.mp3');
+      await setOptions('tags', [['pages.tags.save_on_move', true], ['pages.tags.extended_save_mode', 'pending']]);
+      try {
+        await clickRow('sine-a.mp3'); press(document.body, 't', { code: 'KeyT', altKey: true });
+        const dlg = await waitFor(() => document.querySelector('dialog.extended-dialog[open]'), 3000, 'extended');
+        edit(dlg, 'Pending Via Extended'); dlg.querySelector('[data-nav="1"]').click();
+        await waitFor(() => /sine-b\.mp3/.test(dlg.querySelector('header').textContent), 5000, 'pending navigation');
+        await idle();
+        if (await titleOf('sine-a.mp3') !== beforeA || !document.querySelector('.dirty-count')) throw new Error('main-list auto-save overrode pending Extended Tags navigation');
+        edit(dlg, 'Saved Via Extended'); dlg.querySelector('#save-extended').click();
+        await waitFor(() => !dlg.open, 8000, 'explicit Extended Tags save'); await idle();
+        if (await titleOf('sine-b.mp3') !== 'Saved Via Extended' || await titleOf('sine-a.mp3') !== beforeA) throw new Error('explicit save wrote the wrong files');
+        op('undo').click(); await idle();
+        if (await titleOf('sine-b.mp3') !== beforeB) throw new Error('explicit save was not restored by Undo');
+        return 'pending first file retained; displayed file saved and undone';
+      } finally {
+        await closeDialogs(); await discardAll();
+        await setOptions('tags', [['pages.tags.save_on_move', false]]);
+      }
+    });
+
     await step('Extended Tags field list: Cut, Copy and Paste fields from the context menu', async () => {
       await clickRow('sine-a.mp3'); press(document.body, 't', { code: 'KeyT', altKey: true });
       const dlg = await waitFor(() => document.querySelector('dialog.extended-dialog[open]'), 3000, 'extended');
@@ -318,6 +342,33 @@
       dlg.querySelector('#apply-extended').click(); await sleep(200);
       if (document.querySelector('.dirty-count')) throw new Error('unchanged fields left a draft');
       return 'cut + paste restores ARTIST, copy + paste';
+    });
+
+    await step('Field values preserve literal entries and per-field preferences through native persistence', async () => {
+      const before = (await inv('load_tag_panel')).field_values;
+      const openValues = async () => { op('field-values').click(); return waitFor(() => document.querySelector('dialog.field-values-dialog[open]'), 3000, 'field values'); };
+      const field = (dlg, name, values, preference) => {
+        const key = dlg.querySelector('#fv-field'); key.value = name; key.dispatchEvent(new Event('change', { bubbles: true }));
+        dlg.querySelector('#fv-values').value = values.join('\n');
+        dlg.querySelector('#fv-prefer-field').value = preference === undefined ? 'global' : preference ? 'tags' : 'custom';
+      };
+      try {
+        let dlg = await openValues(); field(dlg, 'COMPOSER', [' Bach ', 'Mozart'], true);
+        dlg.querySelector('#fv-ok').click(); await waitFor(() => !dlg.open, 5000, 'saved field values');
+        dlg = await openValues(); field(dlg, 'ARTIST', ['Custom artist'], false);
+        dlg.querySelector('#fv-prefer').checked = true; dlg.querySelector('#fv-ok').click();
+        await waitFor(() => !dlg.open, 5000, 'saved independent field preference');
+        const actual = (await inv('load_tag_panel')).field_values;
+        if (JSON.stringify(actual.lists.COMPOSER) !== JSON.stringify([' Bach ', 'Mozart'])) throw new Error('literal field values changed');
+        if (actual.prefer_tag_fields?.COMPOSER !== true || actual.prefer_tag_fields?.ARTIST !== false || actual.prefer_tag_values !== true) throw new Error('field/global preferences did not round-trip independently');
+        return 'literal spaces and independent true/false preferences persisted';
+      } finally {
+        await closeDialogs(); const dlg = await openValues();
+        for (const name of ['COMPOSER', 'ARTIST']) field(dlg, name, before.lists[name] || [], before.prefer_tag_fields?.[name]);
+        dlg.querySelector('#fv-prefer').checked = before.prefer_tag_values;
+        dlg.querySelector('#fv-only-genres').checked = before.only_user_genres;
+        dlg.querySelector('#fv-ok').click(); await waitFor(() => !dlg.open, 5000, 'field values restored');
+      }
     });
 
     await step('Tag Panel: right-click opens the panel menu at the pointer; it hides and shows fields', async () => {
