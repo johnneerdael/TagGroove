@@ -355,5 +355,24 @@
       }
     },
     "verifier_sha256": "7300c6637f085392dd799c0465e9bb339c0c74c894b1a09f4938d4f49cdb8974"
+  },
+  "gtk_binary_member_control": {
+    "schema": 1,
+    "package": {
+      "package": "libgtk-3-0t64",
+      "version": "3.24.41-4ubuntu1.3",
+      "architecture": "amd64",
+      "filename": "pool/main/g/gtk+3.0/libgtk-3-0t64_3.24.41-4ubuntu1.3_amd64.deb",
+      "sha256": "fd61e308234b12d243160798216d0efcb605d83af185bf3414ac99c2ed5166fc",
+      "size": 2913080,
+      "source_package": "gtk+3.0",
+      "source_version": "3.24.41-4ubuntu1.3"
+    },
+    "requested_path": "usr/lib/x86_64-linux-gnu/libgtk-3.so.0",
+    "resolved_member": "usr/lib/x86_64-linux-gnu/libgtk-3.so.0.2409.32",
+    "size": 8156632,
+    "sha256": "0611fd19d1354a39a7cfafceffa3bdf4289d4c497c7f69ff337f86e99cf37d93",
+    "verifier_sha256": "c147866ce56f170ae512908347e508ebc06ef8bfa523a4a8fe1451682cfea871",
+    "scope": "Actual authenticated GTK package member read, not packaged ELF transformation or whole AppImage mapping"
   }
 }

@@ -83,6 +83,17 @@ transport fixtures for amd64 and arm64. They run through the existing premerge
 headless discovery. Packaged-file mapping and publication integration remain
 unfinished; this collector is not a completed new-release source delivery.
 
+The [binary member reader](../../scripts/linux-package-files.py) checks the
+authenticated `.deb` hash and its package/version/architecture/source control
+identity before reading original file bytes. It streams the control and data
+tar archives through `dpkg-deb`, without installation or maintainer-script
+execution. Link resolution stays within the archive; missing/escaping/cyclic
+aliases and duplicate member paths refuse. Control records are capped before
+their bodies are read. Four package regressions join the ten repository cases
+in the same focused premerge discovery. A compressed 24 MiB control fixture
+reproduced the initial buffering defect and now refuses within the allocation
+bound. Independent re-review is clear.
+
 The [structured controls](linux-source-controls-2026-10-20.json) retain exact
 input identities and limits:
 
@@ -101,6 +112,11 @@ input identities and limits:
   binary package, retaining 11 source/repository proof files. This exercises
   cross-component selection on supplier data, not just synthetic fixtures; it
   does not establish that this binary is bundled in the app.
+- The actual authenticated GTK `.deb` resolves
+  `usr/lib/x86_64-linux-gnu/libgtk-3.so.0` to its regular
+  `libgtk-3.so.0.2409.32` member. Its 8,156,632 original bytes match the retained
+  original input exactly. This verifies package identity and alias/data reading;
+  it does not yet verify packaging's ELF transformation or map the whole image.
 - The actual packaged GTK has a different full hash from that package's
   original library. Its 6,885 dynamic symbol records, 26 other section records
   and original dynamic strings agree after resolving metadata references; the

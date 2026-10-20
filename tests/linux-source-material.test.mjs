@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
-test('Linux source bindings reject missing, altered and detached distribution material',()=>{
+test('Linux package and source bindings reject altered, detached and unsafe archive material',()=>{
   const python=process.env.PYTHON||(process.platform==='win32'?'python':'python3');
-  const checked=spawnSync(python,['-m','unittest','discover','-s','scripts/tests','-p','test_linux_source_material.py','-v'],{
+  const checked=spawnSync(python,['-m','unittest','discover','-s','scripts/tests','-p','test_linux_*.py','-v'],{
     cwd:fileURLToPath(new URL('../',import.meta.url)),encoding:'utf8',
   });
   const output=(checked.stdout||'')+(checked.stderr||'');
