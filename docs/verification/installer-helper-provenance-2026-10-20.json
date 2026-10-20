@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "scope": "Static declared-dependency/material audit, not exact prebuilt-helper resolution or Windows execution",
+  "helper": {
+    "version": "0.5.3",
+    "release_published_at": "2026-01-26T02:38:59Z",
+    "source_commit": "13d9edd27b69310e108d6fbd49f90992f8a05390",
+    "dll_sha256": "5ba143b5db4a87d32d6e7802e033330aae56cbceabe0d1e3ba41948385ad4709",
+    "source_tree_sha": "13d9edd27b69310e108d6fbd49f90992f8a05390",
+    "has_cargo_lock": false
+  },
+  "source_manifests": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "a652c35630f2991b7bb12e4ef8327a54e39bba9817ee2ab688c969afc8a99b5b",
+      "git_blob_sha1": "2818c8860f5d8587b76c2c65fa311eb4fff0df06",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/Cargo.toml"
+    },
+    {
+      "path": "crates/nsis-fn/Cargo.toml",
+      "sha256": "c192c19a39d45b15597691a17c839087c430e204f8339b315be7903460af93eb",
+      "git_blob_sha1": "bb7727f51b0fc728b0c6af5040d30d0f6a4ceb6f",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/crates/nsis-fn/Cargo.toml"
+    },
+    {
+      "path": "crates/nsis-plugin-api/Cargo.toml",
+      "sha256": "d8e704d9d87d8ad0db4169f5815f59fd8196b06f561a7ccea8005030dc5f4034",
+      "git_blob_sha1": "89a1cbb7ba389699c166f0ad9111cdf1e82455a8",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/crates/nsis-plugin-api/Cargo.toml"
+    },
+    {
+      "path": "crates/nsis-process/Cargo.toml",
+      "sha256": "2f199b0a981bdb8b131057c85af9d493491f0303b0ab3083c2dea849765ea952",
+      "git_blob_sha1": "77390f4191c77ee179b67c8aa7bc64a9d41aa58f",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/crates/nsis-process/Cargo.toml"
+    },
+    {
+      "path": "crates/nsis-semvercompare/Cargo.toml",
+      "sha256": "5b1c2e7b9ae5f46acdb833102a91fd1c6835053a99513ff63a8e4aa1b8319303",
+      "git_blob_sha1": "6f9edbcb6219f6cae8bb130bb776421f300d0936",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/crates/nsis-semvercompare/Cargo.toml"
+    },
+    {
+      "path": "crates/nsis-string/Cargo.toml",
+      "sha256": "d378a5ee74df9ca51b09e00c939e6c39b70005095ba10b5b31a904cc785b95e0",
+      "git_blob_sha1": "0409c2da1a6824f2088608bac9e53bb199f3b2a2",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/crates/nsis-string/Cargo.toml"
+    },
+    {
+      "path": "crates/nsis-tauri-utils/Cargo.toml",
+      "sha256": "7cb1532f034a44b8b59a0a45c094d37a34f031fc6305df0863540eae1d572b30",
+      "git_blob_sha1": "07e167feef0c8254493ecbf95f396c230c09de2b",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/nsis-tauri-utils/13d9edd27b69310e108d6fbd49f90992f8a05390/crates/nsis-tauri-utils/Cargo.toml"
+    }
+  ],
+  "normal_declarations": {
+    "nsis-tauri-utils": [
+      "workspace nsis-plugin-api",
+      "workspace windows-sys ^0.61.2",
+      "semver ^1.0, default-features=false"
+    ],
+    "nsis-plugin-api": [
+      "workspace windows-sys ^0.61.2",
+      "nsis-fn proc macro"
+    ],
+    "windows-sys 0.61.2": [
+      "windows-link ^0.2.1"
+    ]
+  },
+  "semver_control": {
+    "latest_eligible_version": "1.0.27",
+    "candidate_version_count": 28,
+    "exact_producer_version": "not established",
+    "archive_sha256": "d767eb0aabc880b29956c35734170f26ed551a859dbd361d140cdbeca61ab1e2",
+    "url": "https://static.crates.io/crates/semver/semver-1.0.27.crate",
+    "materials": [
+      {
+        "path": "LICENSE-APACHE",
+        "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+      },
+      {
+        "path": "LICENSE-MIT",
+        "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+      }
+    ],
+    "matches_app_candidate_version": "1.0.28"
+  },
+  "remaining": [
+    "Producer Cargo resolution and compiler-support closure are not supplied by the publisher.",
+    "Matching declared source and license bytes does not reconstruct the helper build."
+  ]
+}

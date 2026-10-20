@@ -96,6 +96,15 @@ supplied with the DLL. This receipt does not certify its exact transitive
 resolution, compiler-support closure or a rebuilt matching binary. Compiler/OS
 support and target-specific package qualification remain explicit audit topics.
 
+The [source-provenance control](installer-helper-provenance-2026-10-20.json)
+binds all seven inspected source manifests to their upstream Git blobs. The
+complete recursive tree has no Cargo lock. There were 28 stable semver 1.x
+versions available by the helper's publication date; the latest was 1.0.27.
+Its checksum-verified crate contains the same complete MIT and Apache license
+bytes already retained for the app's 1.0.28 candidate. This rules out a text
+difference for that control, but does not identify the helper producer's version
+or establish material coverage for every earlier version.
+
 Static inspection of the hash-verified Linux x64 AppImage found 115 copyright
 members, including GTK/WebKit metadata, but no `usr/share/common-licenses` files
 despite references to that location. The [working-branch packaging repair](appimage-license-material-2026-10-20.md)
