@@ -8,7 +8,8 @@ result, check its fields and file-to-track matches, then save the changes.
 | Source | Use it for | Setup |
 |---|---|---|
 | MusicBrainz | Release metadata and Cover Art Archive artwork | No key |
-| [Discogs](discogs.md) | Releases, catalog numbers and artwork | Optional personal token; some builds include an application key |
+| [Discogs](discogs.md) | Releases, artist/track-title search, catalog numbers and artwork | TagGroove application credentials or a personal token |
+| [Beatport / Traxsource](catalog.md) | Individual tracks, releases, mix/version metadata and artwork | No personal key; Traxsource may need an optional challenge solver |
 | [iTunes](itunes.md) | Store album metadata and artwork | No key; choose the store country in Options |
 | [Deezer](deezer.md) | Album metadata, ISRCs and artwork | No key |
 | [LRCLIB](lrclib.md) | Lyrics matched to each selected file | No key |
@@ -23,7 +24,7 @@ text fields. A provider may have no result for your edition.
 
 ## Search, review and save
 
-1. Select the files for one album. Check their order and existing tags.
+1. Select one track or the files for one album. Check their order and existing tags.
 2. Choose a source from **Tag Sources**, choose a search type, enter the
    identifying information and select **Search** or **Look up** for an ID.
 3. Select a search result and choose **Next**. An ID lookup opens the review
@@ -41,8 +42,10 @@ text fields. A provider may have no result for your edition.
    shows how many files will be written.
 
 Saving writes immediately. Unmatched files and files with no checked source
-values or selected cover are skipped. A successful import is one undo step;
-use **Edit → Undo** to undo it. **Cancel** leaves proposed tag changes unwritten.
+values or selected cover are skipped. An eligible successful desktop local-file import is one undo step;
+use **Edit → Undo** and read the history notice. Snapshot/storage failures can
+leave a successful write without Undo. Provider documents are outside the
+desktop local-file journal. See [Undo and history](../guides/undo-history.md). **Cancel** leaves proposed tag changes unwritten.
 **Save cover as…** saves the displayed image separately when requested;
 canceling the tagging dialog does not cancel that separate save.
 
@@ -53,6 +56,32 @@ not protect an existing external image from that replacement.
 Repeat the last source with ++cmd+i++ / ++ctrl+i++. Add Shift
 (++cmd+shift+i++ / ++ctrl+shift+i++) to start its search immediately when
 the required input is available.
+
+## Compare fields from several sources
+
+Select exactly one audio file and choose **Tag Sources → Compare sources
+for one file…**. This compares Discogs, Beatport and Traxsource candidates before
+writing anything.
+
+1. Choose a source, check the prefilled artist and complete track title, including
+   the mix/version, and select **Search**.
+2. Choose a matching result. A track result supplies its identified track; for
+   a release, select the exact track from its list. No search result is accepted
+   automatically. Repeat with another source to add a comparison column.
+3. Compare each source's values with **Current file**. Every **Save from** choice
+   starts at **Keep current**. Choose a source separately for each field to import;
+   fields absent from that source cannot be selected. Choosing a different
+   candidate for the same source resets that source's field choices.
+4. Select **Save chosen fields** for one save through the existing tag writer.
+   Only the chosen fields are written. Other fields, including personal notes,
+   remain unchanged. This comparison does not import artwork.
+
+**Cancel** performs no writes. A failed source lookup leaves other sources
+available. Changing the selected file invalidates the comparison; close
+it and start again for the intended file. Normal platform and provider save-back rules, write errors and the desktop
+[Undo limits](../guides/undo-history.md) still apply. Writable provider documents
+use their existing [save-back and recovery path](../platforms/android.md),
+rather than the desktop Undo journal.
 
 ## Set up API keys { #api-keys }
 
@@ -120,6 +149,7 @@ a newer source request supersedes older work without resetting provider quotas.
 
 ## Related
 
+- [Beatport and Traxsource](catalog.md)
 - [iTunes / Apple Music](itunes.md)
 - [Deezer](deezer.md)
 - [LRCLIB lyrics](lrclib.md)

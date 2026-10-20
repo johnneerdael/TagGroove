@@ -2344,10 +2344,11 @@
   ],
   "inputs": {
     ".cargo/config.toml": "3ff31a83584d8d901bf02e9ca21cc69a09cdd736f1e4ffb316df0ae420584adf",
-    "Cargo.lock": "cf565b3ff5ef369ef06f017eb9af098aed8e2b4dd3abddaef6ef2df28c6ff4c5",
-    "Cargo.toml": "3bcb685a50cdb19e9752e573947a3fb5bc5431711280b87c8a94c50cf8081e81",
+    "Cargo.lock": "f2765decd5b1bddae933b52ec16187c1462ea3823f63e3a1562344bcfb73cfa5",
+    "Cargo.toml": "bda324ea50fbf7f156501ec9e2ca95930073e14a390911f7be40f74f970bbc19",
     "android-plugin-set": "ae1dbbde069649700a82ba51ae930b49f98167b70e5a927746eb89420c1c892b",
     "crates/audio-fingerprint/Cargo.toml": "20742fb5f4ab0f7909d5fcb72cce6cfd4d7a39a3a9ff96658e859bc91f3bbbae",
+    "crates/catalog-sources/Cargo.toml": "fdd9acc32901365bb0c727a26cb097c11070a6fdf463841c2f4f389d754851c0",
     "crates/document-access/Cargo.toml": "94e9c5b0ea305707f11a7a4c79a07113130c8d97bb91ef725e1e1428743403d4",
     "crates/document-access/android/build.gradle.kts": "cca03ad60af807e19e00d7608dd6ba2568de8a9e595af7ca59526e229cf2e496",
     "crates/library/Cargo.toml": "6f226f0ce174b4f142af50567516b11a22fa4c800b5dbff5051f8555a00da946",
@@ -2355,15 +2356,15 @@
     "crates/regex-compat/vendor/boost-regex/SOURCE.json": "4643ce2bd897215d87db056803805f5f708b837d1b3201eb27759765471d388f",
     "crates/tag-core/Cargo.toml": "9ae220d20faf69eb83abbe97b151e7fb7f0bd34f738d5781cc46e56190b512c7",
     "crates/tag-core/src/actions_lcid.source.json": "2ee7e914b1200571713ef7f2ed5e7a1b6ef7245f52652c0f23487abc23cb7676",
-    "package-lock.json": "c30e0ba323aa28d24ac5cd9fbd512afc4fe348a54be1340ec449f15c519b091a",
-    "package.json": "8883ff1769db0149d420f9468f3039bc227fc777a2342273050e7a215eea479c",
+    "package-lock.json": "66326d933fd457458c8ddf1248327ca2f9571f372af47d44680522190013227a",
+    "package.json": "b096d4abec735202a0933d544b2753ab78b4037917d9cfcfa760f72eb463fe1e",
     "scripts/android-notices.py": "fbe79ffd0c6548eaf6c34dafa2b6a98440ddca20e130fcdad91569acad3d2967",
     "scripts/audio-deps/sources.json": "46d04767d23cd18830b122c98d2a1b4e4d1aba3c3fd44ca1f721369e1830d619",
-    "scripts/dependency-notices.py": "6da21e2461181a382895ca3a777da097996927bb3f1c5f6720bff4adef4fd27d",
+    "scripts/dependency-notices.py": "23ffdb6fae8707d4fab3432b94249b86b51cb247b628d4421265d2ff09ce50c8",
     "scripts/notices/android-material.json": "bfc15dd31dd4742b0321e9af55ff50236376210651d95e6edc2498f303c1c5c4",
     "scripts/notices/android-runtime-report.init.gradle": "c302472a2a9f9e1741d5e439d0a7df6bc53fb964acf17b1046608094de60420f",
-    "scripts/notices/supplements.json": "9a5a91cb76b74c879f0de8c01789dd7ca2d46d14a8e6f97f044802887062f4f8",
-    "src-tauri/Cargo.toml": "ffb7b15e1371426ce3170071e626257e7691a551c532c91d93f7d715dba58018",
+    "scripts/notices/supplements.json": "78299f655d3b8f003f0820a6f6eafd21dc69be70c3aeb9426de36582b018fdd9",
+    "src-tauri/Cargo.toml": "bece31b18989c5c00f1add573657c0a4da82f3a44de142c03e6e75c2bd27e114",
     "src-tauri/gen/android/app/build.gradle.kts": "0da3ef527fed088410b911e4ba172c3306bfb209507d479ff20e0403042e57c0",
     "src-tauri/gen/android/build.gradle.kts": "4e3485f074acc6d6287c2209babcbfef55a387aa697571b9159f03d0fba04334",
     "src-tauri/gen/android/buildSrc/build.gradle.kts": "9b22e776e4a09b933785f130924d65ae24d80e57ec2da494737fe779761e5aeb",
@@ -5060,7 +5061,7 @@
           }
         ],
         "id": "project :app",
-        "module": "project:app:unspecified"
+        "module": "android:app:unspecified"
       },
       {
         "dependencies": [
@@ -5096,7 +5097,7 @@
           }
         ],
         "id": "project :tauri-android",
-        "module": "project:tauri-android:unspecified"
+        "module": "android:tauri-android:unspecified"
       },
       {
         "dependencies": [
@@ -5127,7 +5128,7 @@
           }
         ],
         "id": "project :tauri-plugin-dialog",
-        "module": "project:tauri-plugin-dialog:unspecified"
+        "module": "android:tauri-plugin-dialog:unspecified"
       },
       {
         "dependencies": [
@@ -5148,23 +5149,24 @@
           }
         ],
         "id": "project :tauri-plugin-document-access",
-        "module": "project:tauri-plugin-document-access:unspecified"
+        "module": "android:tauri-plugin-document-access:unspecified"
       }
     ],
     "configuration": "arm64ReleaseRuntimeClasspath",
     "inputs": {
       ".cargo/config.toml": "3ff31a83584d8d901bf02e9ca21cc69a09cdd736f1e4ffb316df0ae420584adf",
-      "Cargo.lock": "cf565b3ff5ef369ef06f017eb9af098aed8e2b4dd3abddaef6ef2df28c6ff4c5",
-      "Cargo.toml": "3bcb685a50cdb19e9752e573947a3fb5bc5431711280b87c8a94c50cf8081e81",
+      "Cargo.lock": "f2765decd5b1bddae933b52ec16187c1462ea3823f63e3a1562344bcfb73cfa5",
+      "Cargo.toml": "bda324ea50fbf7f156501ec9e2ca95930073e14a390911f7be40f74f970bbc19",
       "android-plugin-set": "ae1dbbde069649700a82ba51ae930b49f98167b70e5a927746eb89420c1c892b",
       "crates/audio-fingerprint/Cargo.toml": "20742fb5f4ab0f7909d5fcb72cce6cfd4d7a39a3a9ff96658e859bc91f3bbbae",
+      "crates/catalog-sources/Cargo.toml": "fdd9acc32901365bb0c727a26cb097c11070a6fdf463841c2f4f389d754851c0",
       "crates/document-access/Cargo.toml": "94e9c5b0ea305707f11a7a4c79a07113130c8d97bb91ef725e1e1428743403d4",
       "crates/document-access/android/build.gradle.kts": "cca03ad60af807e19e00d7608dd6ba2568de8a9e595af7ca59526e229cf2e496",
       "crates/library/Cargo.toml": "6f226f0ce174b4f142af50567516b11a22fa4c800b5dbff5051f8555a00da946",
       "crates/regex-compat/Cargo.toml": "8e1c67a6a45f21eab825e6155356dd8790ad23196a6722a53d903e4ca7fef40c",
       "crates/tag-core/Cargo.toml": "9ae220d20faf69eb83abbe97b151e7fb7f0bd34f738d5781cc46e56190b512c7",
       "scripts/notices/android-runtime-report.init.gradle": "c302472a2a9f9e1741d5e439d0a7df6bc53fb964acf17b1046608094de60420f",
-      "src-tauri/Cargo.toml": "ffb7b15e1371426ce3170071e626257e7691a551c532c91d93f7d715dba58018",
+      "src-tauri/Cargo.toml": "bece31b18989c5c00f1add573657c0a4da82f3a44de142c03e6e75c2bd27e114",
       "src-tauri/gen/android/app/build.gradle.kts": "0da3ef527fed088410b911e4ba172c3306bfb209507d479ff20e0403042e57c0",
       "src-tauri/gen/android/build.gradle.kts": "4e3485f074acc6d6287c2209babcbfef55a387aa697571b9159f03d0fba04334",
       "src-tauri/gen/android/buildSrc/build.gradle.kts": "9b22e776e4a09b933785f130924d65ae24d80e57ec2da494737fe779761e5aeb",

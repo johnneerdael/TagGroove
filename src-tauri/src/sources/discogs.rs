@@ -84,6 +84,13 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
     ];
     let trimmed = |value: &str| value.trim().to_owned();
     match query.mode {
+        SearchMode::ArtistTitle => {
+            if query.artist.trim().is_empty() || query.title.trim().is_empty() {
+                return Err("Enter an artist and track title.".into());
+            }
+            params.push(("artist", trimmed(&query.artist)));
+            params.push(("track", trimmed(&query.title)));
+        }
         SearchMode::ArtistAlbum => {
             if !query.artist.trim().is_empty() {
                 params.push(("artist", trimmed(&query.artist)));
@@ -205,6 +212,7 @@ fn parse_results(body: &Value) -> Vec<SearchResult> {
                     uri
                 },
                 id,
+                ..Default::default()
             })
         })
         .collect()
@@ -447,6 +455,24 @@ pub fn parse_release(body: &Value) -> Result<SourceRelease, String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn artist_title_queries_use_track_title_without_requiring_an_album() {
+        let query: SearchQuery = serde_json::from_value(json!({
+            "mode":"artist_title", "artist":"Harbour & Vale", "title":"Nightfall (Dub)",
+            "album":"Wrong release", "page":1
+        }))
+        .expect("track search is a supported mode");
+        let url = reqwest::Url::parse(&search_query(&query).unwrap()).unwrap();
+        let params: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+        assert_eq!(params.get("artist").unwrap(), "Harbour & Vale");
+        assert_eq!(params.get("track").unwrap(), "Nightfall (Dub)");
+        assert_eq!(params.get("page").unwrap(), "2");
+        assert!(!params.contains_key("release_title"));
+        let empty: SearchQuery =
+            serde_json::from_value(json!({"mode":"artist_title","artist":"Harbour"})).unwrap();
+        assert!(search_query(&empty).is_err());
+    }
 
     #[test]
     fn names_drop_numeric_disambiguation_only() {

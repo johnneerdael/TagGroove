@@ -7,6 +7,8 @@ use tag_core::Fields;
 pub enum Provider {
     Musicbrainz,
     Discogs,
+    Beatport,
+    Traxsource,
     /// A CDDB server over HTTP (gnudb by default).
     Freedb,
     /// A folder of xmcd files (a freedb snapshot).
@@ -31,6 +33,10 @@ pub enum Provider {
 pub enum SearchMode {
     #[default]
     ArtistAlbum,
+    /// Search an individual recording by its artist and track title.
+    ArtistTitle,
+    /// Search catalog releases, rather than individual tracks.
+    Release,
     Text,
     Barcode,
     CatalogNumber,
@@ -51,6 +57,8 @@ pub struct SearchQuery {
     pub artist: String,
     #[serde(default)]
     pub album: String,
+    #[serde(default)]
+    pub title: String,
     #[serde(default)]
     pub text: String,
     /// Track lengths in seconds, in file list order (freedb `Toc` mode).
@@ -104,6 +112,10 @@ pub struct SearchResult {
     /// Small preview image, fetched on demand through `tag_source_image`.
     pub thumb: Option<String>,
     pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_title: Option<String>,
 }
 
 /// A complete release: album-level fields apply to every matched file and

@@ -159,6 +159,15 @@ pub fn trusted(url: &Url) -> bool {
                 | "api.discogs.com"
                 | "i.discogs.com"
                 | "img.discogs.com"
+                | "api.beatport.com"
+                | "account.beatport.com"
+                | "www.beatport.com"
+                | "www.traxsource.com"
+                | "traxsource.com"
+                | "geo-static.traxsource.com"
+                | "geo-static2.traxsource.com"
+                | "geo-w-static.traxsource.com"
+                | "w-static.traxsource.com"
                 | "itunes.apple.com"
                 | "api.deezer.com"
                 | "cdn-images.dzcdn.net"
@@ -170,7 +179,9 @@ pub fn trusted(url: &Url) -> bool {
                 | "webservice.fanart.tv"
                 | "assets.fanart.tv"
         ) || host.ends_with(".archive.org")
-            || host.ends_with(".mzstatic.com"))
+            || host.ends_with(".mzstatic.com")
+            || host == "beatportimage.com"
+            || host.ends_with(".beatportimage.com"))
 }
 pub fn parse_trusted(url: &str) -> Result<Url, String> {
     Url::parse(url)
@@ -236,6 +247,10 @@ fn client() -> Result<reqwest::Client, String> {
         reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() >= 5 {
                 attempt.error("too many redirects")
+            } else if attempt.url().host_str() == Some("api.discogs.com") {
+                // Discogs has a separate no-redirect client so each API call
+                // enters the authenticated shared quota gate explicitly.
+                attempt.error("untrusted redirect")
             } else if trusted(attempt.url()) {
                 attempt.follow()
             } else {
@@ -248,6 +263,12 @@ fn client() -> Result<reqwest::Client, String> {
 /// The freedb server is user-configured (Options → Tag Sources → freedb), so
 /// it is not on the trusted list; its client never follows redirects.
 fn freedb_client() -> Result<reqwest::Client, String> {
+    static CLIENT: CachedClient = StdMutex::new(None);
+    cached_client(&CLIENT, reqwest::redirect::Policy::none)
+}
+
+/// API redirects would send a second request outside the shared quota gate.
+fn discogs_client() -> Result<reqwest::Client, String> {
     static CLIENT: CachedClient = StdMutex::new(None);
     cached_client(&CLIENT, reqwest::redirect::Policy::none)
 }
@@ -318,6 +339,14 @@ pub const OFFLINE_PORT: u16 = 18766;
 fn routed(url: &Url) -> Url {
     route(url, offline_test_run())
 }
+
+/// Catalog adapters share the same offline fixture routing as native sources.
+pub(crate) fn catalog_route(url: &Url) -> Result<Url, String> {
+    if !trusted(url) {
+        return Err("The catalog returned an unsupported address.".into());
+    }
+    Ok(routed(url))
+}
 fn route(url: &Url, offline: bool) -> Url {
     if !offline || !trusted(url) {
         return url.clone();
@@ -344,6 +373,23 @@ async fn send_with(
     channel: Channel,
     ticket: u64,
 ) -> Result<reqwest::Response, String> {
+    // No indirect source path (including a supplied image address) can create
+    // an anonymous Discogs request or acquire its own independent budget.
+    let fallback = (url.host_str() == Some("api.discogs.com") && service.name != "Discogs")
+        .then(|| super::service(super::Provider::Discogs, String::new()));
+    let service = fallback.as_ref().unwrap_or(service);
+    if service.name == "Discogs" && (!trusted(url) || url.host_str() != Some("api.discogs.com")) {
+        return Err("Discogs API requests require HTTPS on api.discogs.com.".into());
+    }
+    if service.name == "Discogs" && matches!(&service.auth, Auth::None) {
+        return Err("This build has no Discogs application credentials. Add a personal access token in Tag Sources → Discogs access token….".into());
+    }
+    let discogs_client = if service.name == "Discogs" {
+        Some(discogs_client()?)
+    } else {
+        None
+    };
+    let client = discogs_client.as_ref().unwrap_or(client);
     let mut last = service.gate.0.lock().await;
     if let Some(previous) = *last {
         let wait = service.spacing.saturating_sub(previous.elapsed());
@@ -608,6 +654,9 @@ pub fn release_page(url: &str) -> Result<Url, String> {
                     "musicbrainz.org"
                         | "www.discogs.com"
                         | "discogs.com"
+                        | "www.beatport.com"
+                        | "www.traxsource.com"
+                        | "traxsource.com"
                         | "gnudb.org"
                         | "music.apple.com"
                         | "www.deezer.com"
@@ -680,6 +729,8 @@ fn web_client() -> Result<reqwest::Client, String> {
         reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() >= 10 {
                 attempt.error("too many redirects")
+            } else if attempt.url().host_str() == Some("api.discogs.com") {
+                attempt.error("Discogs API redirects require the shared authenticated source")
             } else if web_allowed(attempt.url()) {
                 attempt.follow()
             } else {
@@ -726,6 +777,7 @@ pub fn decode_text(bytes: &[u8], content_type: Option<&str>) -> String {
 }
 
 /// Download a page for a web source. `user_agent` replaces TagGroove's own.
+#[cfg(test)]
 pub async fn web_page(
     name: &str,
     url: &str,
@@ -733,36 +785,65 @@ pub async fn web_page(
     channel: Channel,
     ticket: u64,
 ) -> Result<Page, String> {
+    web_page_with_service(name, url, user_agent, channel, ticket, None).await
+}
+
+/// Discogs scripts use the same credentials and gate as the native adapter.
+pub async fn web_page_with_service(
+    name: &str,
+    url: &str,
+    user_agent: Option<&str>,
+    channel: Channel,
+    ticket: u64,
+    discogs: Option<&Service>,
+) -> Result<Page, String> {
     let url = Url::parse(url)
         .ok()
         .filter(web_allowed)
         .ok_or_else(|| format!("{name} produced an address TagGroove cannot open: {url}"))?;
-    let client = web_client()?;
-    let response = async {
-        let mut last = WEB.0.lock().await;
-        if stale(channel, ticket) {
-            return Err(CANCELLED.into());
-        }
-        let mut request = client.get(url.clone());
-        if let Some(agent) = user_agent {
-            request = request.header(header::USER_AGENT, agent);
-        }
-        #[cfg(test)]
-        if let Some(result) = fixture::response(&request) {
-            *last = Some(Instant::now());
-            return result;
-        }
-        let result = request.send().await;
-        *last = Some(Instant::now());
-        result.map_err(|error| {
-            if error.is_redirect() {
-                format!("{name} redirected to an address TagGroove cannot open.")
-            } else {
-                network_message(name, &error)
+    let page_client = web_client()?;
+    let response = if url.host_str() == Some("api.discogs.com") {
+        let fallback = super::service(super::Provider::Discogs, String::new());
+        let service = discogs.unwrap_or(&fallback);
+        // API redirects must stay on the native trusted host policy. Sending
+        // through this gate also prevents scripts from acquiring a second budget.
+        send_with(
+            &client()?,
+            service,
+            &url,
+            "application/json",
+            None,
+            channel,
+            ticket,
+        )
+        .await?
+    } else {
+        async {
+            let mut last = WEB.0.lock().await;
+            if stale(channel, ticket) {
+                return Err(CANCELLED.into());
             }
-        })
-    }
-    .await?;
+            let mut request = page_client.get(url.clone());
+            if let Some(agent) = user_agent {
+                request = request.header(header::USER_AGENT, agent);
+            }
+            #[cfg(test)]
+            if let Some(result) = fixture::response(&request) {
+                *last = Some(Instant::now());
+                return result;
+            }
+            let result = request.send().await;
+            *last = Some(Instant::now());
+            result.map_err(|error| {
+                if error.is_redirect() {
+                    format!("{name} redirected to an address TagGroove cannot open.")
+                } else {
+                    network_message(name, &error)
+                }
+            })
+        }
+        .await?
+    };
     let status = response.status();
     if !status.is_success() {
         return Err(format!(
@@ -851,6 +932,80 @@ impl Image {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discogs_web_requests_use_the_native_service_gate_and_credentials() {
+        let auth = Auth::DiscogsApp {
+            key: "test-app".into(),
+            secret: "test-secret".into(),
+        };
+        let service = Service {
+            auth,
+            ..Service::new("Discogs", &DISCOGS, 2500)
+        };
+        let scope = fixture::Scope::start(vec![fixture::Reply {
+            url: "https://api.discogs.com/releases/42".into(),
+            status: 200,
+            content_type: "application/json",
+            body: b"{\"id\":42}".to_vec(),
+            cancel: None,
+        }]);
+        let page = tauri::async_runtime::block_on(web_page_with_service(
+            "Discogs script",
+            "https://api.discogs.com/releases/42",
+            None,
+            Channel::Release,
+            u64::MAX,
+            Some(&service),
+        ))
+        .unwrap();
+        assert_eq!(page.text, "{\"id\":42}");
+        assert!(DISCOGS.0.try_lock().unwrap().is_some());
+        assert_eq!(scope.counts(), (1, 0, 0));
+        drop(scope);
+    }
+
+    #[test]
+    fn discogs_script_credentials_never_leave_over_plaintext_or_nonstandard_ports() {
+        let service = Service {
+            auth: Auth::DiscogsToken("test-personal-token".into()),
+            ..Service::new("Discogs", &DISCOGS, 1100)
+        };
+        for address in [
+            "http://api.discogs.com/releases/42",
+            "https://api.discogs.com:8443/releases/42",
+        ] {
+            let scope = fixture::Scope::start(vec![fixture::Reply {
+                url: address.into(),
+                status: 200,
+                content_type: "application/json",
+                body: b"{}".to_vec(),
+                cancel: None,
+            }]);
+            let result = tauri::async_runtime::block_on(web_page_with_service(
+                "Discogs script",
+                address,
+                None,
+                Channel::Release,
+                u64::MAX,
+                Some(&service),
+            ));
+            assert!(result.unwrap_err().contains("require HTTPS"));
+            assert_eq!(scope.counts(), (0, 0, 1));
+        }
+    }
+
+    #[test]
+    fn catalog_cover_hosts_match_supported_parser_outputs() {
+        for address in [
+            "https://geo-static2.traxsource.com/cover.jpg",
+            "https://beatportimage.com/image.jpg",
+            "https://geo-media.beatportimage.com/image.jpg",
+        ] {
+            assert!(parse_trusted(address).is_ok(), "{address}");
+        }
+        assert!(parse_trusted("https://beatportimage.com.example.invalid/image.jpg").is_err());
+    }
 
     #[test]
     fn only_https_source_hosts_are_trusted() {

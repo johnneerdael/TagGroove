@@ -1,15 +1,15 @@
 import type { OptionsDraft, OptionsPage } from './options-ui';
 import type { WebResult, WebSearchPage, WebSourceInfo } from './web-sources';
 type Fields = Record<string, string[]>;
-export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb'|'web'|'itunes'|'deezer'|'lrclib'|'acoustid'|'lastfm'|'fanart';
-export type SearchMode = 'artist_album'|'text'|'release_id'|'barcode'|'catalog_number'|'toc'|'disc_id'|'files'|'fingerprint';
-export type SearchResult = {id:string;title:string;artist:string;year:string;country:string;label:string;catalog_number:string;format:string;track_count:number|null;score:number|null;barcode:string;thumb:string|null;url:string};
+export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb'|'web'|'itunes'|'deezer'|'lrclib'|'acoustid'|'lastfm'|'fanart'|'beatport'|'traxsource';
+export type SearchMode = 'artist_album'|'text'|'release_id'|'barcode'|'catalog_number'|'toc'|'disc_id'|'files'|'fingerprint'|'artist_title'|'release';
+export type SearchResult = {id:string;release_id?:string|null;release_title?:string|null;title:string;artist:string;year:string;country:string;label:string;catalog_number:string;format:string;track_count:number|null;score:number|null;barcode:string;thumb:string|null;url:string};
 export type SearchPage = {results:SearchResult[];total:number|null};
 export type SourceTrack = {position:string;disc:number;number:number;title:string;artist:string;length:number|null;fields:Fields};
 export type SourceCover = {url:string;thumb:string|null;kind:string;width:number|null;height:number|null};
 export type SourceRelease = {provider:Provider;id:string;url:string;preview_url?:string|null;title:string;artist:string;fields:Fields;tracks:SourceTrack[];covers:SourceCover[];more_covers:boolean};
 /** Selected file values as shown in the file list (native field casing already resolved). */
-export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number};
+export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number;fields?:Fields};
 export type ApplyItem = {path:string;updates:Fields;raw_lyrics?:boolean};
 /** `save_as` is Utils → Save image to disc: the file name format from Options → Tag Sources. */
 export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|null;preserve_existing?:boolean};
@@ -38,7 +38,7 @@ export type FieldRow = {name:string;value:string;perTrack:boolean;editable:boole
  * album and artist at once and opens a single result without the list.
  * `web` is the script of the `web` provider, shown with `title`.
  */
-export type OpenOptions = {coversOnly?:boolean;releaseId?:boolean;quick?:boolean;web?:WebSourceInfo;title?:string};
+export type OpenOptions = {coversOnly?:boolean;releaseId?:boolean;quick?:boolean;web?:WebSourceInfo;title?:string;artistTitle?:boolean};
 export type IndexStatus = {directory:string|null;discs:number};
 /** Options → Local freedb: the text index commands of the backend. */
 export type LocalIndexHost = {
@@ -50,17 +50,19 @@ export type LocalIndexHost = {
 };
 
 /** Tag Sources menu commands that open a source dialog. */
-export const SOURCE_OPERATIONS = ['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-freedb','source-cover-musicbrainz','source-cover-discogs','source-itunes','source-deezer','source-lastfm','source-acoustid','source-lrclib','source-cover-itunes','source-cover-deezer','source-cover-fanart'] as const;
+export const SOURCE_OPERATIONS = ['source-beatport','source-traxsource','source-discogs-artist-title','source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-freedb','source-cover-musicbrainz','source-cover-discogs','source-itunes','source-deezer','source-lastfm','source-acoustid','source-lrclib','source-cover-itunes','source-cover-deezer','source-cover-fanart'] as const;
 export type SourceOperation = typeof SOURCE_OPERATIONS[number];
-export type SourceRequest = {provider:Provider;coversOnly:boolean;releaseId:boolean};
+export type SourceRequest = {provider:Provider;coversOnly:boolean;releaseId:boolean;artistTitle?:boolean};
 export function sourceRequest(op:string):SourceRequest|null {
   if (!(SOURCE_OPERATIONS as readonly string[]).includes(op)) return null;
   const releaseId = op === 'source-discogs-release';
-  const provider = (releaseId ? 'discogs' : op.replace(/^source-(cover-)?/,'').replace('-','_')) as Provider;
-  return {provider,coversOnly:op.startsWith('source-cover-'),releaseId};
+  const artistTitle = op === 'source-discogs-artist-title';
+  const provider = (releaseId || artistTitle ? 'discogs' : op.replace(/^source-(cover-)?/,'').replace('-','_')) as Provider;
+  return {provider,coversOnly:op.startsWith('source-cover-'),releaseId,...(artistTitle ? {artistTitle:true} : {})};
 }
 export function sourceOperation(request:SourceRequest):SourceOperation {
   if (request.releaseId) return 'source-discogs-release';
+  if (request.artistTitle) return 'source-discogs-artist-title';
   return `source-${request.coversOnly ? 'cover-' : ''}${request.provider.replace('_','-')}` as SourceOperation;
 }
 /** Ctrl+I repeats the last tag source of any kind; older builds remembered only MusicBrainz or Discogs. */
@@ -222,7 +224,7 @@ const localFreedbPage = 'tag-sources-local-freedb', freedbPage = 'tag-sources-fr
  * Options › Tag Sources › freedb / Local freedb). Values persist under
  * `pages.<id>`; the backend reads them through the shared settings.
  */
-export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, index?:LocalIndexHost, keys?:()=>Promise<void>|void):OptionsPage[] {
+export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, index?:LocalIndexHost, keys?:()=>Promise<void>|void, resetCatalog?:()=>Promise<void>):OptionsPage[] {
   const directoryPath = `pages.${localFreedbPage}.directory`;
   const directory = (draft:OptionsDraft) => String((draft.pages[localFreedbPage] as Record<string,unknown>|undefined)?.directory ?? '');
   const setDirectory = (draft:OptionsDraft, value:string) => { draft.pages[localFreedbPage] = {...draft.pages[localFreedbPage],directory:value}; };
@@ -336,6 +338,23 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         render:draft => `<div class="field"><span>TEXT INDEX</span><p id="local-freedb-index-status" role="status">${html(indexText(indexStatus,draft))}</p><div class="action-input"><button type="button" id="local-freedb-index-build">Build index</button><button type="button" id="local-freedb-index-cancel" hidden>Cancel</button></div></div>`,
         bind:(root,draft) => bindIndex(root,draft)},
       ]},
+    {id:'tag-sources-catalog',label:'Beatport and Traxsource',parent:'tag-sources',order:4,
+      description:'Search tracks and releases from Beatport and Traxsource. Traxsource may require a separately hosted FlareSolverr-compatible proxy.',
+      defaults:{endpoint:'',timeout_seconds:120},
+      controls:[
+        {kind:'text',path:'pages.tag-sources-catalog.endpoint',label:'Optional challenge solver endpoint',placeholder:'http://localhost:8191/v1'},
+        {kind:'note',text:'Leave empty for direct access. Saving an endpoint allows blocked catalog page requests to use that solver. The solver receives catalog page addresses; keep it on a server trusted by you.'},
+        {kind:'text',path:'pages.tag-sources-catalog.timeout_seconds',label:'Solver timeout (seconds)',placeholder:'120'},
+        {kind:'button',id:'tag-source-catalog-reset',label:'Retry restricted catalog services',run:async () => { await resetCatalog?.(); }},
+        {kind:'note',text:'Clear remembered access restrictions after updating the solver or fixing connectivity. This does not change saved tags.'},
+      ],
+      validate:draft => {
+        const page = (draft.pages['tag-sources-catalog'] || {}) as Record<string,unknown>;
+        const endpoint = String(page.endpoint ?? '').trim();
+        if (endpoint) { try { const url = new URL(endpoint); if (!['http:','https:'].includes(url.protocol) || url.username || url.password) return 'Enter an HTTP or HTTPS solver endpoint without credentials.'; } catch { return 'Enter a valid solver endpoint address.'; } }
+        const timeout = String(page.timeout_seconds ?? '120');
+        return !/^\d+$/.test(timeout) || Number(timeout) < 1 || Number(timeout) > 300 ? 'Enter a solver timeout from 1 to 300 seconds.' : undefined;
+      }},
     {id:onlinePage,label:'Online services',parent:'tag-sources',order:3,
       description:'iTunes, Deezer, Last.fm, AcoustID, LRCLIB lyrics and fanart.tv artwork (Tag Sources menu). Each service has its own terms; TagGroove identifies itself to them and keeps to their request limits.',
       defaults:{itunes_country:'US',itunes_cover_size:'1200',deezer_cover_size:'1000',lrclib_synced:false,lastfm_genres:'1',fpcalc:''},
@@ -371,12 +390,14 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
 }
 
 export const isFreedb = (provider:Provider) => provider === 'freedb' || provider === 'local_freedb';
-export const providerName = (provider:Provider) => ({musicbrainz:'MusicBrainz',discogs:'Discogs',freedb:'freedb',local_freedb:'freedb (local)',web:'Web source',itunes:'iTunes',deezer:'Deezer',lrclib:'LRCLIB lyrics',acoustid:'AcoustID',lastfm:'Last.fm',fanart:'fanart.tv'})[provider];
+export const providerName = (provider:Provider) => ({musicbrainz:'MusicBrainz',discogs:'Discogs',freedb:'freedb',local_freedb:'freedb (local)',web:'Web source',itunes:'iTunes',deezer:'Deezer',lrclib:'LRCLIB lyrics',acoustid:'AcoustID',lastfm:'Last.fm',fanart:'fanart.tv',beatport:'Beatport',traxsource:'Traxsource'})[provider];
 /** Search types each source offers (MusicBrainz and Discogs share theirs). */
 export function searchModes(provider:Provider, releaseOnly = false):[SearchMode,string][] {
   if (releaseOnly) return [['release_id','Release ID or address']];
   if (isFreedb(provider)) return freedbModes(provider);
   switch (provider) {
+    case 'beatport': case 'traxsource': return [['artist_title','Track: artist and title'],['release','Release: artist and title'],['release_id','Track or release ID / address']];
+    case 'discogs': return [['artist_album','Artist and album'],['artist_title','Artist and track title'],['text','Free text'],['release_id','Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
     case 'itunes': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Album ID or Apple Music address'],['barcode','Barcode (UPC)']];
     case 'deezer': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Album ID or address'],['barcode','Barcode (UPC)']];
     case 'lastfm': return [['artist_album','Artist and album'],['text','Album title words'],['release_id','MusicBrainz release ID']];
@@ -393,6 +414,7 @@ export function resultColumns(provider:Provider):ResultColumn[]|null {
   const tracks:ResultColumn = ['Tracks',r => r.track_count == null ? '' : String(r.track_count),'ts-num ts-wide'], type:ResultColumn = ['Type',r => r.format,'ts-wide'];
   const score:ResultColumn = ['Score',r => r.score == null ? '' : String(r.score),'ts-num ts-wide'];
   switch (provider) {
+    case 'beatport': case 'traxsource': return [artist,title,['Release',r => r.release_title || '', 'ts-wide'],['Label',r => r.label,'ts-wide'],['Cat. no.',r => r.catalog_number,'ts-wide'],year,type,tracks];
     case 'itunes': return [artist,title,year,['Country',r => r.country,'ts-wide'],type,tracks];
     case 'deezer': return [artist,title,type,tracks];
     case 'lastfm': return [artist,title,tracks];
@@ -418,6 +440,17 @@ export function searchPrefill(files:SourceFile[]) {
     return [...counts].sort((a,b) => b[1]-a[1])[0]?.[0] || '';
   };
   return {artist:common(files.map(f => f.album_artist || f.artist)), album:common(files.map(f => f.album))};
+}
+
+/** Track queries use the performing artist and preserve the mix/version in TITLE. */
+export function trackSearchPrefill(files:SourceFile[]) {
+  return {artist:files[0]?.artist || '',title:files[0]?.title || ''};
+}
+/** Open the exact release attached to a loaded catalog track. */
+export function catalogReleaseInput(release:SourceRelease):string|null {
+  const key = release.provider === 'beatport' ? 'BEATPORT_RELEASE_ID' : release.provider === 'traxsource' ? 'TRAXSOURCE_RELEASE_ID' : '';
+  const id = key && release.fields[key]?.[0];
+  return id && /^\d+$/.test(id) && release.id.startsWith('track:') ? `release:${id}` : null;
 }
 
 /**
@@ -640,7 +673,112 @@ export class TagSourcesUI {
     const quick = op === 'source-last-quick';
     const request = sourceRequest(quick ? this.lastBuiltInOperation : op === 'source-last' ? this.lastOperation : op);
     if (!request) throw new Error(`Unknown tag source command ${op}`);
-    await this.open(request.provider,{coversOnly:request.coversOnly,releaseId:request.releaseId,quick});
+    await this.open(request.provider,{coversOnly:request.coversOnly,releaseId:request.releaseId,artistTitle:request.artistTitle,quick});
+  }
+
+  /** Compare explicitly chosen metadata candidates for exactly one local file. */
+  async compare() {
+    if (this.showing) return;
+    const reason = this.host.reason(), files = this.host.files();
+    if (reason) throw new Error(reason);
+    if (files.length !== 1) throw new Error('Select exactly one file to compare sources.');
+    this.showing = true;
+    const file = structuredClone(files[0]);
+    const current:Fields = file.fields || {TITLE:[file.title],ARTIST:[file.artist],ALBUM:[file.album],ALBUMARTIST:[file.album_artist],TRACK:[file.track],DISCNUMBER:[file.disc]};
+    const candidates:{provider:Provider;release:SourceRelease;track:SourceTrack;fields:Fields}[] = [];
+    const choices = new Map<string,number>();
+    let results:SearchResult[] = [], loaded:SourceRelease|undefined, ticket = 0, writing = false, working = false;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'tag-source-dialog ts-compare-dialog';
+    dialog.setAttribute('aria-label','Compare tag sources');
+    dialog.innerHTML = `<header>Compare tag sources</header><div class="dialog-content">
+      <p>Compare metadata for <strong translate="no">${html(file.name)}</strong>. Choose a result and its track for each source, then choose the fields to save. Keep current is selected by default.</p>
+      <div class="ts-search"><label class="field"><span>SOURCE</span><select id="ts-compare-provider"><option value="beatport">Beatport</option><option value="traxsource">Traxsource</option><option value="discogs">Discogs</option></select></label><div class="field-pair"><label class="field"><span>ARTIST</span><input id="ts-compare-artist" value="${html(file.artist)}"></label><label class="field"><span>TITLE</span><input id="ts-compare-title" value="${html(file.title)}"></label></div><button id="ts-compare-search">Search</button></div>
+      <p class="ts-status" role="status" aria-live="polite">Search a source, then choose the matching result.</p><div class="ts-compare-results"></div><div class="ts-compare-tracks"></div><div class="ts-compare-fields"></div><p class="dialog-error" role="alert"></p></div>
+      <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-compare-save" disabled>Save chosen fields</button></div>`;
+    document.body.append(dialog);
+    const $ = <T extends HTMLElement = HTMLElement>(selector:string) => dialog.querySelector<T>(selector)!;
+    const provider = () => $<HTMLSelectElement>('#ts-compare-provider').value as Provider;
+    const validFile = () => { const selected = this.host.files(); return selected.length === 1 && selected[0].path === file.path; };
+    const error = (value:unknown) => { $('.dialog-error').textContent = String(value).replace(/^Error: /,''); };
+    const sync = () => {
+      $<HTMLButtonElement>('#ts-compare-save').disabled = writing || working || !choices.size;
+      dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('.dialog-content input,.dialog-content select,.dialog-content button').forEach(control => control.disabled = writing || working);
+      $<HTMLButtonElement>('[data-close]').disabled = writing;
+    };
+    const renderFields = () => {
+      const names = [...new Set([...Object.keys(current),...candidates.flatMap(candidate => Object.keys(candidate.fields))])].sort((a,b) => (fieldOrder.indexOf(a) < 0 ? fieldOrder.length : fieldOrder.indexOf(a))-(fieldOrder.indexOf(b) < 0 ? fieldOrder.length : fieldOrder.indexOf(b)) || a.localeCompare(b));
+      $('.ts-compare-fields').innerHTML = candidates.length ? `<h3>Choose fields</h3><div class="ts-comparison-area"><table class="ts-table ts-comparison" aria-label="Metadata comparison"><thead><tr><th>Field</th><th>Current file</th>${candidates.map(candidate => `<th>${html(providerName(candidate.provider))}<small translate="no">${html(candidate.track.title)} · ${html(candidate.release.title)}</small></th>`).join('')}<th>Save from</th></tr></thead><tbody>${names.map(name => `<tr><th scope="row" translate="no">${html(name)}</th><td translate="no">${html((current[name] || []).join(MULTI))}</td>${candidates.map(candidate => `<td translate="no">${html((candidate.fields[name] || []).join(MULTI))}</td>`).join('')}<td><select data-choice="${html(name)}" aria-label="Save ${html(name)} from"><option value="">Keep current</option>${candidates.map((candidate,i) => candidate.fields[name]?.length ? `<option value="${i}" ${choices.get(name) === i ? 'selected' : ''}>${html(providerName(candidate.provider))}</option>` : '').join('')}</select></td></tr>`).join('')}</tbody></table></div>` : '';
+      sync();
+    };
+    const addCandidate = (release:SourceRelease, track:SourceTrack) => {
+      const candidate = {provider:release.provider,release,track,fields:structuredClone({...release.fields,...track.fields})};
+      const index = candidates.findIndex(existing => existing.provider === release.provider);
+      if (index < 0) candidates.push(candidate);
+      else { candidates[index] = candidate; for (const [name,choice] of choices) if (choice === index) choices.delete(name); }
+      $('.ts-status').textContent = `${providerName(release.provider)} candidate selected: ${track.title}. Search another source to compare, or choose fields below.`;
+      renderFields();
+    };
+    const renderTracks = (release:SourceRelease) => {
+      loaded = release;
+      $('.ts-compare-tracks').innerHTML = `<h3 translate="no">${html(release.artist)} – ${html(release.title)}</h3>${catalogReleaseInput(release) ? '<p><button id="ts-compare-open-release">Open full release</button></p>' : ''}<p>Select the exact track, including its mix or version.</p><ol class="ts-candidate-list">${release.tracks.map((track,i) => `<li><button data-compare-track="${i}"><span translate="no">${html(track.position)} · ${html(track.artist)} – ${html(track.title)}</span></button></li>`).join('')}</ol>`;
+      // A track search result identifies one exact track; a release always needs an explicit row choice.
+      if (release.id.startsWith('track:') && release.tracks.length === 1) addCandidate(release,release.tracks[0]);
+    };
+    const load = async (input:string) => {
+      const own = ticket = nextTicket(), selectedProvider = provider();
+      working = true; sync(); error('');
+      try {
+        const release = await this.host.invoke<SourceRelease>('tag_source_release',{provider:selectedProvider,input,ticket:own});
+        if (own !== ticket || !dialog.open) return;
+        if (!validFile()) throw new Error('The local file selection changed. Close comparison and select the file again.');
+        renderTracks(release);
+      } catch (e) { if (own === ticket && dialog.open) error(e); }
+      finally { if (own === ticket && dialog.open) { working = false; sync(); } }
+    };
+    $('#ts-compare-search').addEventListener('click',async () => {
+      const own = ticket = nextTicket(), selectedProvider = provider();
+      working = true; sync(); error(''); loaded = undefined;
+      $('.ts-compare-results').innerHTML = ''; $('.ts-compare-tracks').innerHTML = '';
+      $('.ts-status').textContent = `Searching ${providerName(selectedProvider)}…`;
+      try {
+        const page = await this.host.invoke<SearchPage>('tag_source_search',{provider:selectedProvider,query:{mode:'artist_title',artist:$<HTMLInputElement>('#ts-compare-artist').value,title:$<HTMLInputElement>('#ts-compare-title').value,album:file.album,text:'',page:0},ticket:own});
+        if (own !== ticket || !dialog.open) return;
+        if (!validFile()) throw new Error('The local file selection changed. Close comparison and select the file again.');
+        results = page.results;
+        $('.ts-status').textContent = results.length ? 'Choose the matching result. No result is selected automatically.' : 'No matches. Try other words or another source.';
+        $('.ts-compare-results').innerHTML = `<ol class="ts-candidate-list">${results.map((result,i) => `<li><button data-candidate="${i}"><span translate="no">${html(result.artist)} – ${html(result.title)}${result.release_title ? ` · ${html(result.release_title)}` : ''}${result.catalog_number ? ` · ${html(result.catalog_number)}` : ''}</span></button></li>`).join('')}</ol>`;
+      } catch (e) { if (own === ticket && dialog.open) { $('.ts-status').textContent = `${providerName(selectedProvider)} search failed. Other sources remain available.`; error(e); } }
+      finally { if (own === ticket && dialog.open) { working = false; sync(); } }
+    });
+    $('#ts-compare-provider').addEventListener('change',() => { ticket = nextTicket(); results = []; loaded = undefined; $('.ts-compare-results').innerHTML = ''; $('.ts-compare-tracks').innerHTML = ''; });
+    dialog.addEventListener('click',event => {
+      const target = event.target as Element, result = target.closest<HTMLButtonElement>('[data-candidate]'), track = target.closest<HTMLButtonElement>('[data-compare-track]');
+      if (result && !working) void load(results[Number(result.dataset.candidate)].id);
+      if (track && loaded && !working) addCandidate(loaded,loaded.tracks[Number(track.dataset.compareTrack)]);
+      if (target.closest('#ts-compare-open-release') && loaded && !working) void load(catalogReleaseInput(loaded)!);
+    });
+    dialog.addEventListener('change',event => {
+      const select = event.target as HTMLSelectElement;
+      if (!select.matches('[data-choice]')) return;
+      if (select.value === '') choices.delete(select.dataset.choice!); else choices.set(select.dataset.choice!,Number(select.value));
+      sync();
+    });
+    $('[data-close]').addEventListener('click',() => dialog.close());
+    dialog.addEventListener('cancel',event => { if (writing) event.preventDefault(); });
+    dialog.addEventListener('close',() => { ticket = nextTicket(); this.showing = false; void this.host.invoke('tag_source_cancel',{ticket}).catch(() => undefined); dialog.remove(); });
+    $('#ts-compare-save').addEventListener('click',async () => {
+      if (writing || working || !choices.size) return;
+      if (!validFile()) { error('The local file selection changed. Close comparison and select the file again.'); return; }
+      const reason = this.host.reason(); if (reason) { error(reason); return; }
+      const updates:Fields = {};
+      for (const [name,index] of choices) { const values = candidates[index]?.fields[name]; if (values?.length) updates[name] = [...values]; }
+      if (!Object.keys(updates).length) return;
+      writing = true; sync();
+      try { await this.host.apply([{path:file.path,updates}],null); dialog.close(); }
+      catch (e) { if (dialog.open) { writing = false; error(e); sync(); } }
+    });
+    dialog.showModal(); $('#ts-compare-artist').focus();
   }
 
   /** The Discogs token stays in its own private file, never in the shared Options store. */
@@ -657,7 +795,7 @@ export class TagSourcesUI {
       <label class="field"><span>PERSONAL ACCESS TOKEN</span><input id="ts-token" type="password" autocomplete="off" spellcheck="false" placeholder="${credentials.discogs_token_set ? 'Saved. Enter a new token to replace it.' : 'Not set'}"></label>
       <label class="action-check"><input id="ts-token-clear" type="checkbox" ${credentials.discogs_token_set ? '' : 'disabled'}> Remove the saved token</label>
       ${credentials.keychain_available ? `<label class="action-check"><input id="ts-token-keychain" type="checkbox" ${credentials.discogs_token_in_keychain ? 'checked' : ''}> Keep the token in the system keychain</label>` : ''}
-      <p>${credentials.discogs_app_key ? 'Discogs works without a token: this build of TagGroove signs its requests with its own Discogs application key (60 requests a minute, cover thumbnails included). A personal token, created on Discogs under Settings → Developers, is used instead when you save one.' : 'Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails.'} The token is not shown again.</p>
+      <p>${credentials.discogs_app_key ? 'Discogs works without a token: this build of TagGroove signs its requests with its own Discogs application key (25 requests a minute, cover thumbnails included). A personal token, created on Discogs under Settings → Developers, allows 60 requests a minute and is used instead when you save one.' : 'This build has no Discogs application credentials. Create a personal token on Discogs under Settings → Developers and save it here to enable API lookups, up to 60 requests a minute.'} The token is not shown again.</p>
       <p class="ts-token-place" role="status">${credentials.discogs_token_set ? `The saved token is kept ${where}.` : 'No token is saved.'}${credentials.keychain_available ? ' Changing the keychain option moves a saved token when you select Save.' : ''}</p></div>
       <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-token">Save</button></div>`;
     document.body.append(dialog);
@@ -734,13 +872,14 @@ export class TagSourcesUI {
     const perFile = provider === 'lrclib' || provider === 'acoustid', columns = resultColumns(provider);
     // Read the old preference before a web source replaces it, including on
     // upgrade from profiles that have no separate built-in preference yet.
-    const builtIn = web ? this.lastBuiltInOperation : sourceOperation({provider,coversOnly,releaseId:releaseOnly});
+    const builtIn = web ? this.lastBuiltInOperation : sourceOperation({provider,coversOnly,releaseId:releaseOnly,artistTitle:options.artistTitle});
     storage.set('opentag.tagSources.lastBuiltIn',builtIn);
     storage.set('opentag.tagSources.lastSource',web ? `web:${web.id}` : builtIn);
-    const files = this.host.files(), name = web ? options.title || web.name : coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files);
+    const files = this.host.files(), name = web ? options.title || web.name : coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files), trackPrefill = trackSearchPrefill(files);
     const toc = discToc(files.map(f => f.length));
     const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover', suggestKey = 'opentag.tagSources.suggestSorting';
     let results:SearchResult[] = [], total:number|null = null, lastQuery:Record<string,unknown>|null = null, chosen = -1;
+    let selectedTrackId:string|undefined;
     let release:SourceRelease|undefined, slots:(string|null)[] = [], enabled = new Set<string>(), trackField = 'TITLE';
     /** AcoustID: the recordings each file was identified as. */
     let fingerprints:Record<string,FileRecording[]>|null = null;
@@ -889,12 +1028,15 @@ export class TagSourcesUI {
       : mode === 'fingerprint' ? `Each of the ${files.length} selected file${files.length === 1 ? '' : 's'} is fingerprinted locally and identified on AcoustID; releases that hold the most files are listed first.` : tocText();
     const tocText = () => toc ? `Disc ID ${toc.id}: ${toc.tracks} track${toc.tracks === 1 ? '' : 's'} from the selected files in file list order, ${duration(toc.seconds-2)} in total.` : 'The disc ID needs the length of every selected file (at most 99 files).';
     const syncSearch = () => {
+      if (!web && !dialog.querySelector('#ts-mode')) { syncReview(); return; }
       if (web) {
         dialog.querySelectorAll<HTMLInputElement|HTMLButtonElement>('.dialog-content input,.dialog-content button').forEach(control => control.disabled = working);
         $<HTMLButtonElement>('#ts-next').disabled = working || chosen < 0;
         return;
       }
-      const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode, pair = mode === 'artist_album';
+      const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode, pair = mode === 'artist_album' || mode === 'artist_title' || mode === 'release';
+      $('#ts-album-field').hidden = mode === 'artist_title'; $('#ts-title-field').hidden = mode !== 'artist_title';
+      $('#ts-album-label').textContent = mode === 'release' ? 'RELEASE' : 'ALBUM';
       const noted = mode === 'toc' || mode === 'files' || mode === 'fingerprint';
       $('#ts-pair').hidden = !pair; $('#ts-text-field').hidden = pair || noted; $('#ts-toc').hidden = !noted; $('#ts-toc').textContent = modeNote(mode);
       $('#ts-text-label').textContent = mode === 'release_id' ? 'RELEASE ID OR ADDRESS' : mode === 'barcode' ? 'BARCODE' : mode === 'catalog_number' ? 'CATALOG NUMBER' : mode === 'disc_id' ? 'DISC ID' : 'SEARCH TEXT';
@@ -925,9 +1067,10 @@ export class TagSourcesUI {
     };
     const search = async (more = false, auto = false) => {
       clearError();
+      if (!more) selectedTrackId = undefined;
       if (web) { await searchWeb(); return; }
       const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode;
-      const query:Record<string,unknown> = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0,...(perFile ? {files:fileSignatures(files)} : {})};
+      const query:Record<string,unknown> = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,title:$<HTMLInputElement>('#ts-title').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0,...(perFile ? {files:fileSignatures(files)} : {})};
       if (!more && mode === 'release_id') { await loadRelease(query.text as string); return; }
       const ticket = searchTicket = nextTicket();
       if (coversOnly && provider === 'freedb' && mode === 'artist_album') { await searchCovers(String(query.artist),String(query.album)); return; }
@@ -948,7 +1091,7 @@ export class TagSourcesUI {
         } else { results = found.results; total = found.total; chosen = -1; }
         $('.ts-result-area').innerHTML = resultMarkup();
         const shown = results.length, all = total != null && total > shown ? ` (${total} in total)` : '';
-        status(mode === 'files' && shown ? `${results[0].title}.` : shown ? `${shown} ${provider === 'lrclib' ? `lyrics record${shown === 1 ? '' : 's'}` : `release${shown === 1 ? '' : 's'}`} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb && mode === 'toc' && provider === 'freedb' ? 'No disc with this track layout was found. Try searching by artist and album.' : freedb && mode === 'artist_album' ? `No disc with ${files.length} track${files.length === 1 ? '' : 's'} matches this artist and album.` : freedb ? 'No disc with this ID was found.' : mode === 'fingerprint' ? 'AcoustID knows no release for these files.' : 'No releases found. Try fewer words, another spelling or a different search type.');
+        status(mode === 'files' && shown ? `${results[0].title}.` : shown ? `${shown} ${mode === 'artist_title' && (provider === 'beatport' || provider === 'traxsource') ? `track${shown === 1 ? '' : 's'}` : provider === 'lrclib' ? `lyrics record${shown === 1 ? '' : 's'}` : `release${shown === 1 ? '' : 's'}`} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb && mode === 'toc' && provider === 'freedb' ? 'No disc with this track layout was found. Try searching by artist and album.' : freedb && mode === 'artist_album' ? `No disc with ${files.length} track${files.length === 1 ? '' : 's'} matches this artist and album.` : freedb ? 'No disc with this ID was found.' : mode === 'fingerprint' ? 'AcoustID knows no release for these files.' : 'No releases found. Try fewer words, another spelling or a different search type.');
         // Ctrl+Shift+I: a single result opens without the list; so does the
         // lookup of the selected files' lyrics, which always has one.
         if ((auto || mode === 'files') && !more && shown === 1) void loadRelease(results[0].id);
@@ -983,6 +1126,8 @@ export class TagSourcesUI {
       try {
         const loaded = web ? await this.host.invoke<SourceRelease>('web_source_release',{source:web.id,url:input,previewUrl,ticket}) : await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket,...(provider === 'lrclib' ? {files:fileSignatures(files)} : {})});
         if (ticket !== releaseTicket || !dialog.open) return;
+        // Addresses and typed IDs share the backend's canonical track identity.
+        if ((provider === 'beatport' || provider === 'traxsource') && loaded.id.startsWith('track:')) selectedTrackId = loaded.id;
         working = false;
         if (provider === 'acoustid') fingerprints = await this.host.invoke<Record<string,FileRecording[]>>('acoustid_file_matches').catch(() => null);
         if (ticket !== releaseTicket || !dialog.open) return;
@@ -1007,18 +1152,20 @@ export class TagSourcesUI {
       const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span ${field.default_label?'':'translate="no"'}>${html(field.label)}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
       dialog.innerHTML = `<header>${nameMarkup}</header><div class="dialog-content">
         ${searchFields}<div class="ts-search ${web ? 'ts-web-unused' : ''} ${modes.length === 1 ? 'ts-single-mode' : ''}"><label class="field" ${modes.length === 1 ? 'hidden' : ''}><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
-        <div class="field-pair" id="ts-pair"><label class="field"><span>ARTIST</span><input id="ts-artist" value="${html(prefill.artist)}" autocomplete="off" spellcheck="false"></label><label class="field"><span>ALBUM</span><input id="ts-album" value="${html(prefill.album)}" autocomplete="off" spellcheck="false"></label></div>
+        <div class="field-pair" id="ts-pair"><label class="field"><span>ARTIST</span><input id="ts-artist" value="${html(prefill.artist)}" autocomplete="off" spellcheck="false"></label><label class="field" id="ts-album-field"><span id="ts-album-label">ALBUM</span><input id="ts-album" value="${html(prefill.album)}" autocomplete="off" spellcheck="false"></label><label class="field" id="ts-title-field" hidden><span>TITLE</span><input id="ts-title" value="${html(trackPrefill.title)}" autocomplete="off" spellcheck="false"></label></div>
         <label class="field" id="ts-text-field" hidden><span id="ts-text-label">SEARCH TEXT</span><input id="ts-text" autocomplete="off" spellcheck="false"></label>
         <p class="ts-toc" id="ts-toc" hidden>${html(tocText())}</p>
         <button id="ts-search" class="ts-search-button">Search</button></div>
-        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${provider === 'local_freedb' ? 'Look up the disc these files were ripped from.' : freedb && coversOnly ? 'Search gnudb’s cover art by artist and album, or look the disc up by the track layout of the files.' : freedb ? `Look up the disc these files were ripped from by their track layout, or search by artist and album (${files.length} track${files.length === 1 ? '' : 's'}). A typed disc ID can only be looked up in a local freedb folder.` : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : provider === 'lrclib' ? 'Look up the lyrics of these files.' : provider === 'acoustid' ? 'Identify these files by how they sound.' : 'Search for the album these files belong to.'}</p>
+        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${provider === 'local_freedb' ? 'Look up the disc these files were ripped from.' : freedb && coversOnly ? 'Search gnudb’s cover art by artist and album, or look the disc up by the track layout of the files.' : freedb ? `Look up the disc these files were ripped from by their track layout, or search by artist and album (${files.length} track${files.length === 1 ? '' : 's'}). A typed disc ID can only be looked up in a local freedb folder.` : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : provider === 'lrclib' ? 'Look up the lyrics of these files.' : provider === 'acoustid' ? 'Identify these files by how they sound.' : provider === 'beatport' || provider === 'traxsource' || options.artistTitle ? 'Search tracks or releases, then review the matching track before saving.' : 'Search for the album these files belong to.'}</p>
         <div class="ts-result-area">${resultMarkup()}</div><div class="ts-chosen">${chosenMarkup()}</div></div>
         <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-next" disabled>Next</button></div>`;
       if (web) dialog.querySelector('.ts-web-unused')?.remove();
       else if (mode || (freedb && !toc)) $<HTMLSelectElement>('#ts-mode').value = mode || freedbStart;
       if (releaseOnly) $<HTMLSelectElement>('#ts-mode').value = 'release_id';
+      if (options.artistTitle) $<HTMLSelectElement>('#ts-mode').value = 'artist_title';
+      if (!web && $<HTMLSelectElement>('#ts-mode').value === 'artist_title') $<HTMLInputElement>('#ts-artist').value = trackPrefill.artist;
       $('[data-close]').addEventListener('click',() => dialog.close());
-      dialog.querySelector('#ts-mode')?.addEventListener('change',() => { syncSearch(); (dialog.querySelector<HTMLInputElement>('#ts-text-field:not([hidden]) input') || dialog.querySelector<HTMLInputElement>('#ts-pair:not([hidden]) input') || $<HTMLButtonElement>('#ts-search')).focus(); });
+      dialog.querySelector('#ts-mode')?.addEventListener('change',() => { const artist = $<HTMLInputElement>('#ts-artist'), mode = $<HTMLSelectElement>('#ts-mode').value; if (artist.value === prefill.artist || artist.value === trackPrefill.artist) artist.value = mode === 'artist_title' ? trackPrefill.artist : prefill.artist; syncSearch(); (dialog.querySelector<HTMLInputElement>('#ts-text-field:not([hidden]) input') || dialog.querySelector<HTMLInputElement>('#ts-pair:not([hidden]) input') || $<HTMLButtonElement>('#ts-search')).focus(); });
       $('#ts-search').addEventListener('click',() => void search());
       dialog.querySelectorAll<HTMLInputElement>('.ts-search input').forEach(input => input.addEventListener('keydown',event => { if (event.key === 'Enter') { event.preventDefault(); void search(); } }));
       $('.ts-result-area').addEventListener('click',event => {
@@ -1111,7 +1258,10 @@ export class TagSourcesUI {
     };
     const renderMatches = (focus?:{index:number;selector?:string;delta?:number}) => {
       if (coversOnly) return;
-      $('.ts-match-area').innerHTML = matchMarkup(); syncReview();
+      $('.ts-match-area').innerHTML = matchMarkup();
+      const selection = dialog.querySelector<HTMLSelectElement>('#ts-use-track');
+      if (selection) { const index = slots.findIndex(Boolean); selection.value = index < 0 ? '' : String(index); }
+      syncReview();
       if (!focus) return;
       const row = `.ts-matches tr[data-index="${focus.index}"]`;
       (dialog.querySelector<HTMLElement>(focus.selector ? `${row} ${focus.selector}` : `${row} button[data-move="${focus.delta}"]:not(:disabled)`) || dialog.querySelector<HTMLButtonElement>(`${row} button[data-move]:not(:disabled)`))?.focus();
@@ -1153,6 +1303,12 @@ export class TagSourcesUI {
       release = loaded; coverIndex = 0; fieldSelection = new Set(); fieldAnchor = null;
       // The selected files' lyrics hold one track per file, in file list order.
       slots = pairFiles(loaded,(t,f) => initialSlots(t,f,suggest));
+      if (files.length === 1 && lastQuery?.mode === 'artist_title' && loaded.tracks.length > 1) slots = loaded.tracks.map(() => null);
+      if (selectedTrackId && loaded.id.startsWith('release:') && files.length === 1) {
+        const key = provider === 'beatport' ? 'BEATPORT_TRACK_ID' : 'TRAXSOURCE_TRACK_ID';
+        const index = loaded.tracks.findIndex(track => track.fields[key]?.[0] === selectedTrackId!.slice(6));
+        slots = loaded.tracks.map((_,i) => i === index ? files[0].path : null);
+      }
       trackField = trackFields().includes('TITLE') ? 'TITLE' : trackFields()[0];
       const disabled = new Set<string>(JSON.parse(storage.get(disabledKey) || '[]'));
       enabled = coversOnly ? new Set() : new Set(fieldRows(loaded).map(row => row.name).filter(field => !disabled.has(field)));
@@ -1162,9 +1318,13 @@ export class TagSourcesUI {
       dialog.innerHTML = `<header>${nameMarkup}: <span translate="no">${html(loaded.artist)} – ${html(loaded.title)}</span></header><div class="dialog-content">
         <div class="ts-review ${coversOnly ? 'ts-cover-only' : ''}">${coversOnly ? '' : fieldSection}<section class="ts-cover" aria-label="Artwork"></section></div>
         ${coversOnly ? '' : matchSection}
+        ${catalogReleaseInput(loaded) ? '<p><button id="ts-open-release">Open full release</button></p>' : ''}
+        ${files.length === 1 && loaded.tracks.length > 1 ? `<label class="field"><span>USE TRACK FOR THIS FILE</span><select id="ts-use-track" aria-label="Use track for this file"><option value="">Choose a track…</option>${loaded.tracks.map((track,i) => `<option value="${i}" ${slots[i] ? 'selected' : ''}>${html(track.position)} · ${html(track.title)}</option>`).join('')}</select></label>` : ''}
         ${previewAddress ? `<p class="ts-url"><span translate="no">${html(previewAddress)}</span> ${preview(previewAddress)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
         <div class="dialog-footer"><button id="ts-back">Back</button><button data-close>Cancel</button><button class="primary" id="ts-apply"></button></div>`;
       $('[data-close]').addEventListener('click',() => dialog.close());
+      dialog.querySelector('#ts-open-release')?.addEventListener('click',() => void loadRelease(catalogReleaseInput(loaded)!));
+      dialog.querySelector<HTMLSelectElement>('#ts-use-track')?.addEventListener('change',event => { const value = (event.target as HTMLSelectElement).value; slots = loaded.tracks.map((_,i) => value !== '' && i === Number(value) ? files[0].path : null); renderMatches(); });
       $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? freedbStart : modes.some(([mode]) => mode === 'release_id') ? 'release_id' : undefined); });
       if (!coversOnly) {
         $('#ts-all').addEventListener('click',() => toggleAll(true));
@@ -1228,6 +1388,8 @@ export class TagSourcesUI {
         clearError();
         const reason = this.host.reason(), chosenItems = items(), cover = coverChoice();
         if (reason) { error(reason); return; }
+        const selected = this.host.files();
+        if (selected.length !== files.length || files.some(file => !selected.some(current => current.path === file.path))) { error('The local file selection changed. Close this dialog and select the files again.'); return; }
         if (!chosenItems.length) { error('Match at least one file to a track.'); return; }
         if (!coversOnly) storage.set(disabledKey,JSON.stringify(fieldRows(loaded).map(row => row.name).filter(field => !enabled.has(field))));
         working = true; syncReview();
@@ -1238,7 +1400,7 @@ export class TagSourcesUI {
       $<HTMLButtonElement>('#ts-apply').focus();
     };
 
-    renderSearch();
+    renderSearch(options.artistTitle ? 'artist_title' : undefined);
     dialog.showModal();
     if (web) { const first = dialog.querySelector<HTMLInputElement>('#ts-web-0'); (first || $<HTMLButtonElement>('#ts-search')).focus(); first?.select(); }
     else if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>(provider === 'local_freedb' ? '#ts-text' : '#ts-artist')).focus();

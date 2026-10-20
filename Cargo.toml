@@ -1,4 +1,4 @@
 [workspace]
-members = ["crates/tag-core", "crates/regex-compat", "crates/document-access", "crates/library", "crates/audio-fingerprint", "src-tauri"]
-default-members = ["crates/tag-core"]
+members = ["crates/catalog-sources", "crates/tag-core", "crates/regex-compat", "crates/document-access", "crates/library", "crates/audio-fingerprint", "src-tauri"]
+default-members = ["crates/catalog-sources", "crates/tag-core"]
 resolver = "2"

@@ -2,7 +2,7 @@
 name = "opentag"
 version = "0.2.0"
 edition = "2021"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [lib]
 name = "opentag_lib"
@@ -21,6 +21,7 @@ e2e = []
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+catalog-sources = { path = "../crates/catalog-sources" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-document-access = { path = "../crates/document-access" }

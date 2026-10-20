@@ -11,7 +11,6 @@ mod compat;
 mod engine;
 mod installer;
 mod source;
-#[cfg(test)]
 mod workflow_replay;
 
 use super::http::{self, Channel};
@@ -1015,14 +1014,52 @@ pub async fn web_source_search(
     values: Vec<String>,
     ticket: u64,
 ) -> Result<WebSearchPage, WebSourceError> {
-    search_with_preparation(source.clone(), values, ticket, prepare(&app, &source)).await
+    search_with_context(
+        source.clone(),
+        values,
+        ticket,
+        prepare(&app, &source),
+        Some(&app),
+    )
+    .await
 }
 
+#[cfg(test)]
 async fn search_with_preparation(
     source: String,
     values: Vec<String>,
     ticket: u64,
     preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+) -> Result<WebSearchPage, WebSourceError> {
+    search_with_context(source, values, ticket, preparation, None).await
+}
+
+async fn source_page(
+    app: Option<&tauri::AppHandle>,
+    name: &str,
+    url: &str,
+    user_agent: Option<&str>,
+    channel: Channel,
+    ticket: u64,
+) -> Result<http::Page, String> {
+    let discogs = if Url::parse(url).is_ok_and(|u| u.host_str() == Some("api.discogs.com")) {
+        let token = match app {
+            Some(app) => super::discogs_token(app, super::Provider::Discogs).await?,
+            None => String::new(),
+        };
+        Some(super::service(super::Provider::Discogs, token))
+    } else {
+        None
+    };
+    http::web_page_with_service(name, url, user_agent, channel, ticket, discogs.as_ref()).await
+}
+
+async fn search_with_context(
+    source: String,
+    values: Vec<String>,
+    ticket: u64,
+    preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+    app: Option<&tauri::AppHandle>,
 ) -> Result<WebSearchPage, WebSourceError> {
     http::claim(Channel::Search, ticket);
     let (folder, file, vars) = preparation.await?;
@@ -1056,7 +1093,8 @@ async fn search_with_preparation(
             direct: true,
         });
     }
-    let page = http::web_page(
+    let page = source_page(
+        app,
         &file.name,
         &file.search_url(&values),
         user_agent(&file),
@@ -1119,22 +1157,35 @@ pub async fn web_source_release(
     preview_url: Option<String>,
     ticket: u64,
 ) -> Result<SourceRelease, WebSourceError> {
-    release_with_preparation(
+    release_with_context(
         source.clone(),
         url,
         preview_url,
         ticket,
         prepare(&app, &source),
+        Some(&app),
     )
     .await
 }
 
+#[cfg(test)]
 async fn release_with_preparation(
     source: String,
     url: String,
     preview_url: Option<String>,
     ticket: u64,
     preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+) -> Result<SourceRelease, WebSourceError> {
+    release_with_context(source, url, preview_url, ticket, preparation, None).await
+}
+
+async fn release_with_context(
+    source: String,
+    url: String,
+    preview_url: Option<String>,
+    ticket: u64,
+    preparation: impl std::future::Future<Output = Result<PreparedSource, String>>,
+    app: Option<&tauri::AppHandle>,
 ) -> Result<SourceRelease, WebSourceError> {
     http::claim(Channel::Release, ticket);
     let address = Url::parse(&url)
@@ -1149,7 +1200,8 @@ async fn release_with_preparation(
         None => address.clone(),
     };
     let (folder, file, vars) = preparation.await?;
-    let page = http::web_page(
+    let page = source_page(
+        app,
         &file.name,
         address.as_str(),
         user_agent(&file),

@@ -6,7 +6,7 @@
 # TagGroove
 
 [![Releases](https://img.shields.io/github/v/release/johnneerdael/TagGroove?include_prereleases&color=FF7800&label=Download)](https://github.com/johnneerdael/TagGroove/releases)
-[![MIT License](https://img.shields.io/badge/License-MIT-101922)](LICENSE)
+[![GPLv3 License](https://img.shields.io/badge/License-GPLv3-101922)](COPYING)
 
 **Tag, Organize, Enjoy.** An open source music tag editor for Windows, macOS, Linux, Android and iOS.
 
@@ -52,4 +52,4 @@ Builds run through the reviewed pull-request workflow (see `.github/CI_LOCKDOWN.
 
 ## License
 
-MIT for the independently authored application. Third-party dependencies retain their own licenses. The original Mp3tag software remains the property of its author.
+The combined application is distributed under GPL-3.0-only because its native Beatport and Traxsource adapters adapt OneTagger-derived CueRithm code. See [COPYING](COPYING) and [catalog source provenance](crates/catalog-sources/README.md). Existing independently authored MIT components retain their [MIT license](LICENSE); third-party dependencies retain their own notices. The original Mp3tag software remains the property of its author.
