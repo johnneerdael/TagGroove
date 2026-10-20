@@ -1142,7 +1142,31 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
     } else {
         generated.replace('\\', "/")
     };
-    let relative = Path::new(&generated);
+    Ok(resolve_filename_target(entry, Path::new(&generated)))
+}
+
+fn inline_filename_target(entry: &AudioEntry, name: &str) -> Result<PathBuf, String> {
+    // Inline text is a native destination, not a converter template. In
+    // particular, a backslash is an ordinary filename character on Unix.
+    #[cfg(windows)]
+    let normalized = name.replace('/', "\\");
+    #[cfg(windows)]
+    let name = normalized.as_str();
+    let relative = Path::new(name);
+    if name.trim().is_empty()
+        || name.ends_with(std::path::is_separator)
+        || name
+            .rsplit(std::path::is_separator)
+            .next()
+            .is_some_and(|leaf| matches!(leaf, "." | ".."))
+        || relative.file_name().is_none()
+    {
+        return Err("Filename evaluates to an empty string".into());
+    }
+    Ok(resolve_filename_target(entry, relative))
+}
+
+fn resolve_filename_target(entry: &AudioEntry, relative: &Path) -> PathBuf {
     let source = Path::new(&entry.path);
     let mut target = if relative.is_absolute() {
         relative.to_path_buf()
@@ -1161,7 +1185,7 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
             target = PathBuf::from(name);
         }
     }
-    Ok(target)
+    target
 }
 
 #[tauri::command]
@@ -1286,6 +1310,44 @@ fn rename_files_with_policy(
     })
 }
 
+#[tauri::command]
+async fn rename_file_from_list(
+    path: String,
+    name: String,
+) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
+    io(move || {
+        let paths = vec![path.clone()];
+        reject_provider_operation(&paths, "Rename")?;
+        // The dedicated inline route remains audio-only, even when companion
+        // handling is enabled for the reviewed converter workflow.
+        history::record("Tag → Filename", None, &paths, move || {
+            let target = settings::read_summary(Path::new(&path))
+                .and_then(|entry| inline_filename_target(&entry, &name));
+            let mut report = rename_candidates(vec![(path, target)], None)?;
+            if let Some(renamed) = report.result.renamed.first_mut() {
+                // Readback canonicalizes row identities. Publish that same
+                // identity for dot navigation and existing directory aliases.
+                let canonical = report
+                    .result
+                    .result
+                    .entries
+                    .first()
+                    .map(|entry| entry.path.clone())
+                    .or_else(|| {
+                        dunce::canonicalize(&renamed.to)
+                            .ok()
+                            .map(|path| path.to_string_lossy().into_owned())
+                    });
+                if let Some(path) = canonical {
+                    renamed.to = path;
+                }
+            }
+            Ok(report)
+        })
+    })
+    .await
+}
+
 mod diagnostics_ipc {
     #[tauri::command(rename = "execute_action_groups")]
     pub async fn execute_action_groups_with_diagnostics(
@@ -1354,109 +1416,114 @@ fn rename_planned_with_policy(
     evaluation: &evaluation::EvaluationSettings,
     associated_enabled: bool,
 ) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
-    {
-        let mut diagnostics = Vec::new();
-        let mut result = ScanResult {
-            entries: vec![],
-            errors: vec![],
-        };
-        let mut plans = vec![];
-        let mut destinations = std::collections::HashSet::new();
-        let mut associated = None;
-        let candidates = if let Some(token) = plan_token {
-            let (targets, reviewed_associated) =
-                rename_plan::consume_associated(&token, &paths, template)?;
-            if reviewed_associated.is_some() != associated_enabled {
-                return Err("The associated-file policy changed; preview again".into());
-            }
-            associated = reviewed_associated;
-            targets
-                .into_iter()
-                .map(|(path, target)| (path, Ok(target)))
-                .collect::<Vec<_>>()
-        } else {
-            if associated_enabled {
-                return Err("Preview the associated files before renaming".into());
-            }
-            paths
-                .into_iter()
-                .enumerate()
-                .map(|(index, path)| {
-                    let plan = settings::read_summary(Path::new(&path)).and_then(|entry| {
-                        rename_target_with_settings(&entry, template, index + 1, evaluation)
-                    });
-                    (path, plan)
-                })
-                .collect()
-        };
-        for (path, plan) in candidates {
-            match plan {
-                Ok(target)
-                    if destinations.insert(rename_key(&target))
-                        && (dunce::canonicalize(&path).ok().as_ref() == Some(&target)
-                            || !matches!(
-                                tag_core::operations::destination_state(Path::new(&path), &target),
-                                tag_core::operations::Destination::Taken
-                            )) =>
-                {
-                    plans.push((path, target))
-                }
-                Ok(target) => tag_core::batch_errors::push_error(
-                    &mut result.errors,
-                    &mut diagnostics,
-                    path,
-                    tag_core::batch_errors::BatchError::DestinationCollision {
-                        path: target.to_string_lossy().into_owned(),
-                    },
-                ),
-                Err(error) => result.errors.push(FileError { path, error }),
-            }
+    let mut associated = None;
+    let candidates = if let Some(token) = plan_token {
+        let (targets, reviewed_associated) =
+            rename_plan::consume_associated(&token, &paths, template)?;
+        if reviewed_associated.is_some() != associated_enabled {
+            return Err("The associated-file policy changed; preview again".into());
         }
-        let mut renamed = vec![];
-        let mut associated_renamed = vec![];
-        // A file whose destination clashes is skipped and reported; the
-        // others are still renamed.
-        for (path, target) in plans {
-            let group = associated
-                .as_ref()
-                .and_then(|plan| plan.groups.iter().find(|group| group.audio.source == path));
-            let operation = if let Some(group) = group {
-                group.execute(&mut tag_core::operations::rename_no_clobber)
-            } else if dunce::canonicalize(&path).ok().as_ref() == Some(&target) {
-                Ok(())
-            } else {
-                tag_core::operations::rename_no_clobber(Path::new(&path), &target)
-            };
-            match operation {
-                Ok(()) => {
-                    if let Some(group) = group {
-                        associated_renamed.extend(group.associated.iter().map(|item| Renamed {
-                            from: item.source.clone(),
-                            to: item.target.to_string_lossy().into_owned(),
-                        }));
-                    }
-                    let to = target.to_string_lossy().into_owned();
-                    renamed.push(Renamed {
-                        from: path,
-                        to: to.clone(),
-                    });
-                    match settings::read_summary(&target) {
-                        Ok(entry) => result.entries.push(entry),
-                        Err(error) => result.errors.push(FileError { path: to, error }),
-                    }
-                }
-                Err(error) => result.errors.push(FileError { path, error }),
-            }
+        associated = reviewed_associated;
+        targets
+            .into_iter()
+            .map(|(path, target)| (path, Ok(target)))
+            .collect::<Vec<_>>()
+    } else {
+        if associated_enabled {
+            return Err("Preview the associated files before renaming".into());
         }
-        Ok(tag_core::batch_errors::Detailed {
-            result: RenameResult {
-                result,
-                renamed,
-                associated_renamed,
-            },
-            error_diagnostics: diagnostics,
-        })
+        paths
+            .into_iter()
+            .enumerate()
+            .map(|(index, path)| {
+                let plan = settings::read_summary(Path::new(&path)).and_then(|entry| {
+                    rename_target_with_settings(&entry, template, index + 1, evaluation)
+                });
+                (path, plan)
+            })
+            .collect()
+    };
+    rename_candidates(candidates, associated)
+}
+
+fn rename_candidates(
+    candidates: Vec<(String, Result<PathBuf, String>)>,
+    associated: Option<associated_files::Plan>,
+) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
+    let mut diagnostics = Vec::new();
+    let mut result = ScanResult {
+        entries: vec![],
+        errors: vec![],
+    };
+    let mut plans = vec![];
+    let mut destinations = std::collections::HashSet::new();
+    for (path, plan) in candidates {
+        match plan {
+            Ok(target)
+                if destinations.insert(rename_key(&target))
+                    && (dunce::canonicalize(&path).ok().as_ref() == Some(&target)
+                        || !matches!(
+                            tag_core::operations::destination_state(Path::new(&path), &target),
+                            tag_core::operations::Destination::Taken
+                        )) =>
+            {
+                plans.push((path, target))
+            }
+            Ok(target) => tag_core::batch_errors::push_error(
+                &mut result.errors,
+                &mut diagnostics,
+                path,
+                tag_core::batch_errors::BatchError::DestinationCollision {
+                    path: target.to_string_lossy().into_owned(),
+                },
+            ),
+            Err(error) => result.errors.push(FileError { path, error }),
+        }
     }
+    let mut renamed = vec![];
+    let mut associated_renamed = vec![];
+    // A file whose destination clashes is skipped and reported; the
+    // others are still renamed.
+    for (path, target) in plans {
+        let group = associated
+            .as_ref()
+            .and_then(|plan| plan.groups.iter().find(|group| group.audio.source == path));
+        let operation = if let Some(group) = group {
+            group.execute(&mut tag_core::operations::rename_no_clobber)
+        } else if dunce::canonicalize(&path).ok().as_ref() == Some(&target) {
+            Ok(())
+        } else {
+            tag_core::operations::rename_no_clobber(Path::new(&path), &target)
+        };
+        match operation {
+            Ok(()) => {
+                if let Some(group) = group {
+                    associated_renamed.extend(group.associated.iter().map(|item| Renamed {
+                        from: item.source.clone(),
+                        to: item.target.to_string_lossy().into_owned(),
+                    }));
+                }
+                let to = target.to_string_lossy().into_owned();
+                renamed.push(Renamed {
+                    from: path,
+                    to: to.clone(),
+                });
+                match settings::read_summary(&target) {
+                    Ok(entry) => result.entries.push(entry),
+                    Err(error) => result.errors.push(FileError { path: to, error }),
+                }
+            }
+            Err(error) => result.errors.push(FileError { path, error }),
+        }
+    }
+    Ok(tag_core::batch_errors::Detailed {
+        result: RenameResult {
+            result,
+            renamed,
+            associated_renamed,
+        },
+        error_diagnostics: diagnostics,
+    })
 }
 
 fn export_entries(paths: &[String], output: &Path) -> Result<Vec<AudioEntry>, String> {
@@ -1623,6 +1690,7 @@ pub fn run() {
             filename_to_tags,
             diagnostics_ipc::apply_action_with_diagnostics,
             diagnostics_ipc::rename_files_with_diagnostics,
+            rename_file_from_list,
             converters::preview_filename_conversion,
             converters::apply_filename_conversion,
             converters::preview_text_import,
@@ -2938,6 +3006,165 @@ mod tests {
         let target = rename_target(&entry, "$replace(%title%,':','-')").unwrap();
         assert_eq!(target.file_name().unwrap(), "A-B.wav");
     }
+    #[test]
+    fn inline_literal_names_use_native_paths_and_keep_audio_bytes() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut cases = vec![
+            ("Album/Disc 1/Track.flac", "Album/Disc 1/Track.flac.wav"),
+            (
+                "O'Brien %title% $upper(x).WAV",
+                "O'Brien %title% $upper(x).WAV",
+            ),
+        ];
+        if cfg!(unix) {
+            cases.push((r"Björk\Live.wav", r"Björk\Live.wav"));
+            cases.push(("Artist\\", "Artist\\.wav"));
+        } else {
+            cases.push((r"Album\Disc 2\Track.wav", r"Album\Disc 2\Track.wav"));
+        }
+        for (name, expected) in cases {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let source = root.join("old.wav");
+            history::TEST_ROOTS.lock().unwrap().push(root.clone());
+            wav(&source);
+            let audio = std::fs::read(&source).unwrap();
+            std::fs::write(root.join("old.lrc"), b"lyrics").unwrap();
+            let report = tauri::async_runtime::block_on(rename_file_from_list(
+                source.to_string_lossy().into_owned(),
+                name.into(),
+            ))
+            .unwrap();
+            let target = root.join(expected);
+            assert!(report.result.result.errors.is_empty());
+            assert_eq!(Path::new(&report.result.renamed[0].to), target, "{name:?}");
+            assert_eq!(std::fs::read(&target).unwrap(), audio);
+            assert!(report.result.associated_renamed.is_empty());
+            assert_eq!(std::fs::read(root.join("old.lrc")).unwrap(), b"lyrics");
+            let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(undo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&source).unwrap(), audio);
+            assert!(!target.exists());
+            let redo = tauri::async_runtime::block_on(history::redo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(redo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&target).unwrap(), audio);
+            history::TEST_ROOTS
+                .lock()
+                .unwrap()
+                .retain(|path| path != &root);
+        }
+    }
+
+    #[test]
+    fn inline_literal_names_refuse_collisions_and_missing_leaf_without_writes() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("old.wav");
+        wav(&source);
+        let original = std::fs::read(&source).unwrap();
+        let target = root.join("existing.wav");
+        std::fs::write(&target, b"outside destination").unwrap();
+        let report = tauri::async_runtime::block_on(rename_file_from_list(
+            source.to_string_lossy().into_owned(),
+            "existing.wav".into(),
+        ))
+        .unwrap();
+        assert_eq!(report.result.result.errors.len(), 1);
+        assert!(report.result.renamed.is_empty());
+        assert!(matches!(
+            report.error_diagnostics[0].diagnostic,
+            tag_core::batch_errors::BatchError::DestinationCollision { .. }
+        ));
+        assert_eq!(std::fs::read(&target).unwrap(), b"outside destination");
+        assert_eq!(std::fs::read(&source).unwrap(), original);
+
+        let entry = settings::read_summary(&source).unwrap();
+        for name in ["", "  ", ".", "..", "Album/"] {
+            assert!(inline_filename_target(&entry, name).is_err(), "{name:?}");
+        }
+        assert!(!root.join("Album").exists());
+        assert_eq!(std::fs::read(&source).unwrap(), original);
+    }
+
+    #[test]
+    fn inline_literal_names_publish_canonical_destination_identity() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let mut names = vec!["Album/../Track.wav"];
+        if cfg!(unix) {
+            names.push("alias/Track.wav");
+        }
+        for name in names {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let source = root.join("old.wav");
+            wav(&source);
+            let original = std::fs::read(&source).unwrap();
+            history::TEST_ROOTS.lock().unwrap().push(root.clone());
+            #[cfg(unix)]
+            {
+                std::fs::create_dir(root.join("real")).unwrap();
+                std::os::unix::fs::symlink(root.join("real"), root.join("alias")).unwrap();
+            }
+            let report = tauri::async_runtime::block_on(rename_file_from_list(
+                source.to_string_lossy().into_owned(),
+                name.into(),
+            ))
+            .unwrap();
+            assert!(report.result.result.errors.is_empty());
+            let entry = &report.result.result.entries[0];
+            assert_eq!(report.result.renamed[0].to, entry.path, "{name:?}");
+            assert_eq!(
+                Path::new(&entry.path),
+                dunce::canonicalize(root.join(name)).unwrap()
+            );
+            let target = PathBuf::from(&entry.path);
+            let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(undo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&source).unwrap(), original);
+            assert!(!target.exists());
+            let redo = tauri::async_runtime::block_on(history::redo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(redo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&target).unwrap(), original);
+            history::TEST_ROOTS
+                .lock()
+                .unwrap()
+                .retain(|path| path != &root);
+        }
+    }
+
+    #[test]
+    fn inline_literal_names_reject_terminal_dot_navigation_before_extension_handling() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dunce::canonicalize(dir.path()).unwrap().join("old.wav");
+        wav(&source);
+        let entry = settings::read_summary(&source).unwrap();
+        for name in ["Album/.", "Album/..", "Album/Sub/."] {
+            assert!(inline_filename_target(&entry, name).is_err(), "{name:?}");
+        }
+        let absolute = dir.path().join("Album/.");
+        assert!(inline_filename_target(&entry, absolute.to_str().unwrap()).is_err());
+        #[cfg(unix)]
+        assert_eq!(
+            inline_filename_target(&entry, r"Album\.").unwrap(),
+            source.parent().unwrap().join(r"Album\..wav")
+        );
+        #[cfg(windows)]
+        assert!(inline_filename_target(&entry, r"Album\.").is_err());
+    }
+
     #[test]
     fn inline_audio_only_rename_ignores_enabled_companions() {
         let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());

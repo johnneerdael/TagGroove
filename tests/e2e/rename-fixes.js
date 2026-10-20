@@ -79,6 +79,33 @@
       return windows ? 'Windows cleanup and reserved name, Undo and collision refusal' : 'Unix literal characters retained, Undo and collision refusal';
     });
 
+    await step('literal inline rename keeps native paths, audio suffix, canonical identity and Undo', async () => {
+      const path = row('sine-a.mp3').dataset.path, windows = /Win/.test(navigator.platform), sep = windows ? '\\' : '/';
+      const files = async () => (await inv('scan_files', { paths: [album], recursive: true })).entries;
+      const cases = [
+        ["Inline album/Disc 1/O'Brien %title%.flac", "Inline album/Disc 1/O'Brien %title%.flac.mp3"],
+        windows ? ['Inline album\\Disc 2\\Track.mp3', 'Inline album/Disc 2/Track.mp3'] : ['AC\\DC.mp3', 'AC\\DC.mp3'],
+        ['Inline album/../Moved.MP3', 'Moved.MP3'],
+      ];
+      for (const [name, relative] of cases) {
+        const result = await inv('rename_file_from_list', { path, name });
+        if (result.errors.length) throw new Error(JSON.stringify(result.errors));
+        const expected = album + sep + (windows ? relative.replace(/\//g, '\\') : relative);
+        if (result.renamed?.[0]?.to !== expected || result.entries?.[0]?.path !== expected) throw new Error('inline receipt/readback identity mismatch');
+        const renamed = (await files()).find(entry => entry.path === expected);
+        if (renamed?.fields.TITLE?.[0] !== 'Sine A') throw new Error('inline name or metadata mismatch');
+        const undo = await inv('undo_last');
+        if (undo.errors?.length) throw new Error(JSON.stringify(undo.errors));
+        const restored = await files();
+        if (restored.find(entry => entry.path === path)?.fields.TITLE?.[0] !== 'Sine A' || restored.some(entry => entry.path === expected)) throw new Error('inline Undo did not restore the original');
+      }
+      const clash = await inv('rename_file_from_list', { path, name: 'sine-b.mp3' });
+      if (!clash.errors.length || clash.error_diagnostics?.[0]?.diagnostic?.kind !== 'destination_collision') throw new Error('inline collision was not reported');
+      const unchanged = await files();
+      if (unchanged.find(entry => entry.path === path)?.fields.TITLE?.[0] !== 'Sine A' || unchanged.find(entry => entry.filename === 'sine-b.mp3')?.fields.TITLE?.[0] !== 'Sine B') throw new Error('inline collision changed audio metadata');
+      return 'registered literal command; folders, suffix retention, native backslash, canonical receipt, Undo and collision';
+    });
+
     const casefold = album.replace(/[\\/][^\\/]+$/, '') + (album.includes('\\') ? '\\' : '/') + 'casefold';
     let folded = [];
     try { folded = await names(casefold); } catch { /* No casefolded volume on this runner. */ }
