@@ -17,6 +17,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
@@ -116,10 +117,13 @@ def acquire(spec, downloads, sources):
             verify_archive(candidate, spec["sha256"])
             shutil.copyfile(candidate, path)
     if not path.exists():
-        request = urllib.request.Request(spec["url"], headers={"User-Agent": "OpenTag-source-builder/1"})
+        urls = [spec["url"], *spec.get("mirrors", [])]
         # Retry only newly downloaded wrong bytes, never a tampered existing
-        # cache or an explicit offline source. Every attempt keeps the same pin.
+        # cache or an explicit offline source. Declared mirrors share the same
+        # pin and the same total attempt limit; bypass stale HTTP caches.
         for attempt in range(3):
+            request = urllib.request.Request(urls[attempt % len(urls)], headers={
+                "User-Agent": "OpenTag-source-builder/1", "Cache-Control": "no-cache"})
             with tempfile.NamedTemporaryFile(dir=downloads, delete=False) as temporary:
                 candidate = Path(temporary.name)
                 try:
@@ -129,8 +133,8 @@ def acquire(spec, downloads, sources):
                     verify_archive(candidate, spec["sha256"], name=spec["archive"])
                     candidate.replace(path)
                     break
-                except ArchiveChecksumMismatch:
-                    if attempt == 2:
+                except (ArchiveChecksumMismatch, urllib.error.URLError) as error:
+                    if attempt == 2 or (len(urls) == 1 and not isinstance(error, ArchiveChecksumMismatch)):
                         raise
                 finally:
                     temporary.close()

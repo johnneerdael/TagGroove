@@ -163,6 +163,58 @@ class SourceSafetyTests(unittest.TestCase):
             self.assertEqual(list(downloads.iterdir()), [])
             self.assertEqual(list(sources.iterdir()), [])
 
+    def test_bad_primary_uses_a_declared_mirror_with_the_same_archive_pin(self):
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w:gz") as archive:
+            member = tarfile.TarInfo("source/configure")
+            member.size = 8
+            archive.addfile(member, io.BytesIO(b"verified"))
+        body = payload.getvalue()
+        attempts = []
+        def primary():
+            attempts.append("primary")
+            return b"bad cached response"
+        def mirror():
+            attempts.append("mirror")
+            return body
+        for status in [200, 503]:
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as folder, source_server(primary, status) as url, source_server(mirror) as alternate:
+                attempts.clear()
+                root = Path(folder)
+                downloads, sources = root / "downloads", root / "sources"
+                downloads.mkdir()
+                sources.mkdir()
+                spec = {"archive":"source.tar.gz", "directory":"source",
+                        "sha256":hashlib.sha256(body).hexdigest(), "url":url,
+                        "mirrors":[alternate]}
+                with mock.patch.dict(os.environ, {"OPENTAG_AUDIO_SOURCE_DIR":""}), mock.patch.object(self.build.time, "sleep"):
+                    result = self.build.acquire(spec, downloads, sources)
+                self.assertEqual(attempts, ["primary", "mirror"])
+                self.assertEqual((downloads / spec["archive"]).read_bytes(), body)
+                self.assertEqual((result / "configure").read_bytes(), b"verified")
+                self.assertEqual(list(downloads.iterdir()), [downloads / spec["archive"]])
+
+    def test_bad_mirrors_share_the_three_attempt_limit_and_never_publish_bytes(self):
+        attempts = []
+        def response(name):
+            def body():
+                attempts.append(name)
+                return name.encode()
+            return body
+        with tempfile.TemporaryDirectory() as folder, source_server(response("primary")) as url, source_server(response("mirror")) as alternate:
+            root = Path(folder)
+            downloads, sources = root / "downloads", root / "sources"
+            downloads.mkdir()
+            sources.mkdir()
+            spec = {"archive":"source.tar.gz", "directory":"source",
+                    "sha256":"0" * 64, "url":url, "mirrors":[alternate]}
+            with mock.patch.dict(os.environ, {"OPENTAG_AUDIO_SOURCE_DIR":""}), mock.patch.object(self.build.time, "sleep"), self.assertRaises(ValueError) as error:
+                self.build.acquire(spec, downloads, sources)
+            self.assertEqual(attempts, ["primary", "mirror", "primary"])
+            self.assertIn(spec["sha256"], str(error.exception))
+            self.assertEqual(list(downloads.iterdir()), [])
+            self.assertEqual(list(sources.iterdir()), [])
+
     def test_tampered_existing_cache_is_not_replaced_by_a_network_retry(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

@@ -74,10 +74,12 @@ tools. Windows uses Visual Studio's MSVC toolchain plus MSYS2 Bash/Make
 `NDK_HOME` or `ANDROID_NDK_HOME`. Source builds disable external-library
 autodetection and do not link an installed Homebrew or GPL FFmpeg.
 
-Fresh source downloads that fail their pinned checksum are retried at most
-three times; the pin is unchanged on every attempt. Persistent failures name
-the archive and show expected/actual hashes. Tampered existing caches, explicit
-offline failures and HTTP errors still fail without that retry path. See the
+Fresh source downloads share a maximum of three attempts; the pin is unchanged
+on every attempt. A declared mirror can recover from wrong downloaded bytes
+or an HTTP failure, and requests bypass HTTP caches. Without a mirror, HTTP
+errors still fail immediately. Persistent checksum failures name the archive
+and show expected/actual hashes. Tampered existing caches and explicit offline
+failures never fall back to the network. See the
 [download repair evidence](verification/native-source-download-repair-2026-10-20.md).
 
 Choose an absolute owned build/cache directory without spaces with

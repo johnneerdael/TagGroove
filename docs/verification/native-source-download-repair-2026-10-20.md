@@ -19,3 +19,46 @@ The reproduced HTTP fixtures model a wrong response followed by verified bytes, 
 - Actionlint and whitespace checks passed. Independent read-only review has no concrete findings.
 
 Logs are retained as `/tmp/taggroove-native-source-download-{red,green,tooling,release}.log`. No local application build, full Rust workspace or native UI sweep was run for this Python build-tool repair. The owner authorizes direct-main workflow/build-tool fixes with an inspected-head lease. The repair itself is not a PR approval or a published release; PR64 must sync the new main, obtain its new exact-head Codex review and pass immutable validation.
+
+## Windows postmerge refusal and declared mirror recovery
+
+PR66's postmerge [run 39348564990](https://github.com/johnneerdael/TagGroove/actions/runs/39348564990)
+fails in the Windows native-integration app build, before any Windows UI suite
+runs. [Job 118387234377](https://github.com/johnneerdael/TagGroove/actions/runs/39348564990/job/118387234377)
+reports zlib 1.3.2 expected SHA-256
+`bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`,
+but receives
+`cb3b5421ce69faff276320aedcf1bc07103927496d26dd5ba710f09f2928af4e`.
+The rejected bytes were discarded, so their precise content and transport cause
+remain unknown. The full failure log is retained as
+`/tmp/taggroove-pr66-windows-native-118387234377-plain.log`.
+
+Fresh HTTPS requests with the builder's User-Agent to both the existing primary
+URL and the official [zlib archive](https://zlib.net/fossils/) return identical
+1,502,830-byte payloads matching the unchanged pin. Retained capture:
+`taggroove-zlib-source-check-aapt5tah`, including response metadata and hashes.
+That local observation does not reconstruct the failed Windows response.
+
+The follow-up repair adds the official fossils URL as zlib's declared mirror.
+New downloads send `Cache-Control: no-cache`; checksum mismatches and HTTP
+failures can rotate to a declared mirror within the same **three total
+attempts**, rather than repeating only one endpoint. Every accepted archive
+must still match the original pin before atomic cache publication or extraction.
+No-mirror HTTP failures, tampered existing caches and explicit offline failures
+retain their previous refusal behavior. Source version, hash, license and
+runtime decoder selection are unchanged. The recipe and source manifest bind
+the changed source inventory and build script.
+
+The new loopback regressions first fail against the old builder: it repeats
+the bad primary, fails on its HTTP error and never contacts the declared
+mirror. The repaired 23-test source-builder cohort passes, including recovery
+from mismatched bytes and HTTP 503, a three-attempt all-bad mirror bound,
+unchanged-pin enforcement, temporary cleanup and existing cache/offline controls.
+Independent static review has no findings. These modeled responses are not a
+new Windows build result; the repaired main build must supply that evidence.
+
+The owner-authorized repair is pushed directly to main with an inspected-head
+lease and `CI-Repair-Run: 39348564990`. The source fix does not wait for the
+remaining failed-run matrix. Release authorization still requires the referenced
+main run to become a completed failure; publication and native-integration gates
+remain enforced.
