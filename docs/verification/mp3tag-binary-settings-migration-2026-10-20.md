@@ -41,6 +41,21 @@ The legacy-key bindings and object addresses are recorded in the
 | PlShowDlg | `f25e55356aa23840bb4e104ab58ce1f3` | Confirm playlist filename |
 | PlNoFolders | `b0b41d103f16944cb184a331ae6136a9` | Do not create playlist directories |
 | ExpShowDlg | `97a81ca5caca824ab21be214338c735e` | Show export selection dialog |
+| SORTNATURAL language key | `3ec5faaa30c28a4b8ea2c470e1f7a276` | Natural sorting |
+| SELECTFILES language key | `de10ea102047ae448c2c53c4ba58d55e` | Select added files |
+| KEEPMOVEDFILES language key | `8d7feb69eab69f4883076efb11f4b20c` | Keep moved files |
+
+The three final General switches have bindings through the same shipped
+English language file described below. `_C_OPT_GEN_CHK_SORTNATURAL`,
+`_C_OPT_GEN_CHK_SELECTFILES` and `_C_OPT_GEN_CHK_KEEPMOVEDFILES` bind
+language offsets `0xba0`, `0xb90` and `0xb18` through `0x14015cbbc`.
+General Init `0x1401e3048` assigns these captions to controls `0x5bc`,
+`0x5bd` and `0x5be` using control `0x63a` minus `0x7e`, `0x7d` and
+`0x7c`. DDX `0x1401e2f6c` binds fields `0x164`, `0x160` and `0x15c`;
+Update `0x1401e3ab4` writes them to the same boolean objects. The current
+natural-sort choice has its own boolean record; the older `ListSortStyle`
+u32 is not guessed to be that choice. Exact original/native collation and
+selection-trigger outcomes remain separate qualification.
 
 The five playlist flag values are loaded by
 `CMTOptPlaylistDlg::Init` (`0x1401f3b90`, shipped debug string at
@@ -240,6 +255,12 @@ checks 928 mapped values through the actual saved JSON/browser preferences.
 Catalog tests, scoped Clippy, formatting and the strict guide build passed;
 the read-only review found no concrete issues with the message mappings or
 their documentation.
+
+The final three General bindings passed the same 11 focused binary tests,
+including all 32 boolean records and their one-hot profiles (1,120 mapped-value
+checks). Scoped Clippy, formatting and the strict guide build passed; existing
+catalog entries cover all three labels. The read-only review found no issues
+with the bindings, preservation or stated qualification limits.
 
 The mapping fixture is independently authored from static identifiers and
 codec evidence. It is not an exported private profile, a Windows runtime

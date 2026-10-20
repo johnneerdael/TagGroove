@@ -71,6 +71,7 @@ keep their current TagGroove values.
 The supported options are save tags on arrow-key/single-click selection,
 preserve modified-file timestamps, automatically select the next file after
 inline editing, selection-box completion, current directory in the title,
+natural sorting, selecting newly added files, keeping moved files in the list,
 reading subfolders, hiding the folder image as cover art, user-defined genres
 only, tag-panel visibility, filter visibility, notification-area icon visibility
 and minimizing to that icon. The Extended Tags save mode also transfers;

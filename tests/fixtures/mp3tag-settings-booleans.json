@@ -444,6 +444,53 @@
       "dialog_field": "0xc58",
       "control": "0x575",
       "label": "Confirm removing tags"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_SORTNATURAL",
+      "identifier": "3ec5faaa30c28a4b8ea2c470e1f7a276",
+      "object": "0x140ac4a70",
+      "component": "settings",
+      "path": [
+        "general",
+        "natural_sort"
+      ],
+      "inverted": false,
+      "dialog_field": "0x164",
+      "control": "0x5bc",
+      "language_offset": "0xba0",
+      "label": "Use natural sorting (1, 2, 11, …)"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_SELECTFILES",
+      "identifier": "de10ea102047ae448c2c53c4ba58d55e",
+      "object": "0x140ac2310",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "select_added"
+      ],
+      "inverted": false,
+      "dialog_field": "0x160",
+      "control": "0x5bd",
+      "language_offset": "0xb90",
+      "label": "Select files automatically when they are added to the list"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_KEEPMOVEDFILES",
+      "identifier": "8d7feb69eab69f4883076efb11f4b20c",
+      "object": "0x140ac2360",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "keep_moved"
+      ],
+      "inverted": false,
+      "dialog_field": "0x15c",
+      "control": "0x5be",
+      "language_offset": "0xb18",
+      "label": "Keep moved files in the file list"
     }
   ]
 }

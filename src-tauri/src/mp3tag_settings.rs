@@ -26,6 +26,9 @@ enum OptionKey {
     PlaylistNoFolders,
     ExportDialog,
     Message(&'static str),
+    NaturalSort,
+    SelectAdded,
+    KeepMoved,
 }
 struct Spec {
     identifier: [u8; 16],
@@ -224,6 +227,24 @@ const SPECS: &[Spec] = &[
         identifier: identifier(b"6ffacd136f47034d95660ba5e0469de8"),
         key: OptionKey::Message("confirm_remove_tags"),
         label: "Confirm removing tags",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"3ec5faaa30c28a4b8ea2c470e1f7a276"),
+        key: OptionKey::NaturalSort,
+        label: "Use natural sorting (1, 2, 11, …)",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"de10ea102047ae448c2c53c4ba58d55e"),
+        key: OptionKey::SelectAdded,
+        label: "Select files automatically when they are added to the list",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"8d7feb69eab69f4883076efb11f4b20c"),
+        key: OptionKey::KeepMoved,
+        label: "Keep moved files in the file list",
         inverted: false,
     },
 ];
@@ -807,6 +828,21 @@ impl Patch {
                     field,
                     *value,
                 )?,
+                OptionKey::NaturalSort => {
+                    settings(&mut options, directory)?.general.natural_sort = *value;
+                }
+                OptionKey::SelectAdded => page(
+                    settings(&mut options, directory)?,
+                    "general",
+                    "select_added",
+                    *value,
+                )?,
+                OptionKey::KeepMoved => page(
+                    settings(&mut options, directory)?,
+                    "general",
+                    "keep_moved",
+                    *value,
+                )?,
             }
         }
         if let Some(mode) = self.extended_mode {
@@ -873,7 +909,7 @@ mod tests {
         ))
         .unwrap();
         let options = fixture["options"].as_array().unwrap();
-        assert_eq!(options.len(), 29);
+        assert_eq!(options.len(), 32);
         let mut cases = vec![
             vec![0; options.len()],
             vec![1; options.len()],
