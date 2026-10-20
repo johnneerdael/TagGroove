@@ -71,7 +71,8 @@ def prepare(root, directory, environment):
         'Invalid notary private-key envelope')
     config = core.encoded({'bundle': {'macOS': {'signingIdentity': selected['identity'],
                                               'hardenedRuntime': True}}})
-    outputs = {'AuthKey.p8': key, 'tauri-release.json': config}
+    outputs = {'AuthKey.p8': key, 'tauri-release.json': config,
+               'xcrun': bounded(root/'scripts/macos-stapler.py', 48*1024)}
     outputs['owner.json'] = core.encoded({'owner': OWNER, 'files': {
         name: {'size': len(raw), 'sha256': sha(raw)} for name, raw in outputs.items()}})
     directory.mkdir(mode=0o700, parents=False)
@@ -81,7 +82,7 @@ def prepare(root, directory, environment):
             path = directory/name
             with path.open('xb') as target:
                 info = path.lstat();written.append((path, (info.st_dev, info.st_ino)))
-                os.chmod(path, 0o600);target.write(raw)
+                os.chmod(path, 0o700 if name == 'xcrun' else 0o600);target.write(raw)
     except (OSError, ValueError):
         for path, identity in reversed(written):
             try:info = path.lstat()
@@ -96,7 +97,7 @@ def cleanup(directory):
     if not directory.exists() and not directory.is_symlink():return
     require(directory.is_dir() and not directory.is_symlink(), 'Unsafe notary cleanup directory')
     manifest = core.unique_json(bounded(directory/'owner.json', 8192))
-    require(manifest.get('owner') == OWNER and set(manifest.get('files', {})) == {'AuthKey.p8', 'tauri-release.json'}
+    require(manifest.get('owner') == OWNER and set(manifest.get('files', {})) == {'AuthKey.p8', 'tauri-release.json', 'xcrun'}
             and {path.name for path in directory.iterdir()} == {'owner.json', *manifest['files']},
             'Unknown notary staging material; refusing cleanup')
     for name, record in manifest['files'].items():
@@ -110,7 +111,13 @@ def command(arguments):
     # Apple tools can echo credential identifiers on failure. Keep their output
     # private and expose only the operation name; never print arguments or keys.
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
-        timeout = 2100 if list(arguments[:3]) == ['xcrun', 'notarytool', 'submit'] else 120
+        operation = list(arguments[:3])
+        # Cover the wrapper's three bounded children and 15/30-second delays,
+        # with fifteen seconds of process overhead. Stapling also validates
+        # after each successful staple before returning to the packager.
+        timeout = (2100 if operation == ['xcrun', 'notarytool', 'submit'] else
+                   780 if operation == ['xcrun', 'stapler', 'staple'] else
+                   420 if operation == ['xcrun', 'stapler', 'validate'] else 120)
         result = subprocess.run(list(map(str, arguments)), stdout=output, stderr=errors, timeout=timeout)
         output.seek(0);errors.seek(0);stdout = output.read(1024*1024+1);stderr = errors.read(1024*1024+1)
     require(result.returncode == 0 and len(stdout) <= 1024*1024 and len(stderr) <= 1024*1024,

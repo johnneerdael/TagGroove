@@ -53,6 +53,7 @@ class LeanWorkflows(unittest.TestCase):
         self.assertNotIn('PRIVATE_KEY', build)
         self.assertNotIn('APPLE_CERTIFICATE', verify)
         self.assertNotIn('PRIVATE_KEY', verify)
+        self.assertIn('echo "$RUNNER_TEMP/taggroove-macos-notary" >> "$GITHUB_PATH"', prepare)
         self.assertIn('APPLE_API_KEY_PATH: ${{ runner.temp }}/taggroove-macos-notary/AuthKey.p8', build)
         self.assertIn('npm run tauri -- build --target ${{ matrix.target }} --bundles app,dmg --config "$RUNNER_TEMP/taggroove-macos-notary/tauri-release.json" --ci', build)
         self.assertIn('--github-output "$GITHUB_OUTPUT"', verify)
@@ -156,7 +157,7 @@ class LeanWorkflows(unittest.TestCase):
         self.assertIn("runs-on: ubuntu-24.04", tooling)
         for check in ("npm run test:ui", "cargo test --workspace --locked",
                       "cargo fmt --all -- --check", "cargo clippy --workspace --all-targets --locked -- -D warnings",
-                      "npx tsc --noEmit", "python -m mkdocs build --strict"):
+                      "npx tsc --noEmit", "python -m mkdocs build --strict", "-p 'test_macos_*.py'"):
             self.assertIn(check, tooling)
         self.assertNotIn("node --test tests/release.test.mjs", source)
         for build in ("tauri build", "android build", "e2e-native.sh", "docs-screenshots.sh", "matrix:", "secrets.", "cache:"):

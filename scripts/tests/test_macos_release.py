@@ -24,6 +24,8 @@ class MacOSRelease(unittest.TestCase):
 
     def fixture(self, root):
         config = {'productName': 'TagGroove', 'identifier': 'org.opentag.editor', 'version': '0.1.0'}
+        wrapper = root/'scripts/macos-stapler.py';wrapper.parent.mkdir(parents=True, exist_ok=True)
+        wrapper.write_bytes((SCRIPT.parent/'macos-stapler.py').read_bytes())
         for name, data in [('src-tauri/tauri.conf.json', config), ('src-tauri/macos/signing-policy.json',
                            {'schema': 1, 'team_id': '6DF93UDRBJ', 'identity': IDENTITY})]:
             path = root/name;path.parent.mkdir(parents=True, exist_ok=True);path.write_text(json.dumps(data))
@@ -45,6 +47,8 @@ class MacOSRelease(unittest.TestCase):
             self.assertEqual((directory/'AuthKey.p8').read_text(), env['APPLE_NOTARY_PRIVATE_KEY'])
             self.assertEqual((directory/'AuthKey.p8').stat().st_mode & 0o777, 0o600)
             self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
+            self.assertTrue((directory/'xcrun').is_file(), 'Missing checked stapler before DMG creation')
+            self.assertEqual((directory/'xcrun').stat().st_mode & 0o777, 0o700)
             config = json.loads((directory/'tauri-release.json').read_bytes())['bundle']['macOS']
             self.assertEqual(config, {'signingIdentity': IDENTITY, 'hardenedRuntime': True})
             with self.assertRaises(ValueError):m.prepare(root, directory, env)
@@ -97,6 +101,15 @@ class MacOSRelease(unittest.TestCase):
             path = Path(folder)/'tool.py'
             path.write_text('import sys\nprint(\'{"status":"Accepted"}\')\nprint("fixture diagnostic",file=sys.stderr)\n')
             self.assertEqual(json.loads(m.command([sys.executable, path])), {'status': 'Accepted'})
+
+    def test_outer_apple_tool_timeout_covers_the_complete_bounded_ticket_retry_budget(self):
+        m=self.module()
+        for args,budget in [(['xcrun','stapler','validate','fixture.app'],405),
+                            (['xcrun','stapler','staple','fixture.dmg'],765)]:
+            with self.subTest(args=args),patch.object(m.subprocess,'run',return_value=m.subprocess.CompletedProcess(args,0)) as run:
+                m.command(args)
+            self.assertGreaterEqual(run.call_args.kwargs['timeout'],budget+15)
+            self.assertLessEqual(run.call_args.kwargs['timeout'],budget+30)
 
     def test_verification_step_reports_only_fixed_stage_and_never_private_failure_details(self):
         m = self.module()

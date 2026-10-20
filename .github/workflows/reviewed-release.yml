@@ -225,7 +225,9 @@ jobs:
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_PRIVATE_KEY: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY }}
-        run: python scripts/macos-release.py prepare --directory "$RUNNER_TEMP/taggroove-macos-notary"
+        run: |
+          python scripts/macos-release.py prepare --directory "$RUNNER_TEMP/taggroove-macos-notary"
+          echo "$RUNNER_TEMP/taggroove-macos-notary" >> "$GITHUB_PATH"
       - name: Build signed and notarized macOS packages
         if: runner.os == 'macOS'
         env:

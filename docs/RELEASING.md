@@ -122,6 +122,17 @@ failed stage to diagnose a refused package; the final error remains generic
 and tool output, arguments, credential values and private-key paths stay private.
 These diagnostics do not relax a signing, notarization or publication check.
 
+The [pinned Tauri stapling helper](https://github.com/tauri-apps/tauri/blob/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-macos-sign/src/lib.rs)
+launches `stapler` without checking its exit status. CI stages a private `xcrun`
+wrapper so that each staple attempt also validates the ticket before returning
+success, while Tauri is still waiting to package the app into its DMG. Ticket
+service failures receive at most three attempts with 15/30-second delays.
+Revocation, missing input and usage errors refuse immediately; persistently
+invalid tickets still refuse. Read-only ticket checks receive the same bounded
+service retries. All other SDK/compiler/notary operations pass through to
+`/usr/bin/xcrun`. Final signature, ticket, Gatekeeper and DMG-to-app checks remain
+mandatory, including when Tauri ignores an exhausted stapling failure.
+
 Each builder uploads its packages, `manifest-<platform>.json`, and `native-<platform>.json` as workflow artifacts. The native sidecar binds the installed static libraries, headers, configuration, source recipe and patch evidence to the release commit, version and Rust target. A fresh per-run native build directory prevents a restored Rust cache from silently substituting a missing or older native prefix. Each Linux builder also uploads its `linux-source-<platform>.json` and captured source/repository objects. The source job receives these two captures and the seven native sidecars, rather than downloading the application packages again.
 
 The final publisher requires all seven platform manifests, their exact native sidecars, the original 13 package filenames/formats, and exactly one `TagGroove-v<version>-sources.tar.xz`. The Git-bound Linux recipe additionally requires both Linux capture sidecars; their full bytes must match those inside the verified source archive, and each captured AppImage hash/size must match its package. It verifies commit/version/target identities, rejects unexpected files or duplicate formats, and streams every public asset through SHA256. It publishes 16 assets: 13 application packages, the corresponding-source archive, `release-manifest.json`, and `SHA256SUMS`. The Linux sidecars and source objects are retained inside the source archive. The checksum list includes the packages, source archive and release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, native and Linux evidence hashes, byte sizes and hashes.
