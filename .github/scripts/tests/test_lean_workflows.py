@@ -15,6 +15,46 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
+    def test_macos_signing_is_scoped_and_verified_before_collection(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        desktop = job(source, 'desktop')
+        def step(title):
+            self.assertIn('      - name: '+title+'\n', desktop)
+            return desktop.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        prepare = step('Prepare private macOS signing inputs')
+        build = step('Build signed and notarized macOS packages')
+        verify = step('Verify notarized macOS packages and bind their bytes')
+        cleanup = step('Remove private macOS signing inputs')
+        for item in [prepare, build, verify]:
+            self.assertIn("if: runner.os == 'macOS'", item)
+        self.assertIn("if: always() && runner.os == 'macOS'", cleanup)
+        self.assertIn('macos-release.py cleanup --directory "$RUNNER_TEMP/taggroove-macos-notary"', cleanup)
+        self.assertNotIn('secrets.', cleanup)
+        for name in ['APPLE_CERTIFICATE', 'APPLE_CERTIFICATE_PASSWORD', 'APPLE_NOTARY_ISSUER_ID',
+                     'APPLE_NOTARY_KEY_ID', 'APPLE_NOTARY_PRIVATE_KEY']:
+            self.assertIn('secrets.'+name, prepare)
+        self.assertNotIn('PRIVATE_KEY', build)
+        self.assertNotIn('APPLE_CERTIFICATE', verify)
+        self.assertNotIn('PRIVATE_KEY', verify)
+        self.assertIn('APPLE_API_KEY_PATH: ${{ runner.temp }}/taggroove-macos-notary/AuthKey.p8', build)
+        self.assertIn('npm run tauri -- build --target ${{ matrix.target }} --bundles app,dmg --config "$RUNNER_TEMP/taggroove-macos-notary/tauri-release.json" --ci', build)
+        self.assertIn('--github-output "$GITHUB_OUTPUT"', verify)
+        self.assertIn('--source-commit "$RELEASE_COMMIT"', verify)
+        self.assertIn("if: runner.os != 'macOS'", step('Build desktop packages'))
+        self.assertEqual(desktop.count('npm run tauri -- build '), 1)
+        self.assertLess(desktop.index('name: Prepare private macOS signing inputs'), desktop.index('name: Build signed and notarized macOS packages'))
+        self.assertLess(desktop.index('name: Build signed and notarized macOS packages'), desktop.index('name: Verify notarized macOS packages and bind their bytes'))
+        self.assertLess(desktop.index('name: Verify notarized macOS packages and bind their bytes'), desktop.index('node scripts/release.mjs collect-desktop'))
+        self.assertIn('steps.macos.outputs.artifact_paths', step('Name and hash desktop artifacts'))
+        self.assertIn('name: macos-signing-${{ matrix.platform }}', desktop)
+        self.assertIn('path: release-assets/macos-signing-${{ matrix.platform }}.json', desktop)
+        sources = job(source, 'corresponding-source')
+        self.assertIn('pattern: macos-signing-*', sources)
+        self.assertIn('path: macos-evidence', sources)
+        self.assertEqual(sources.count('--macos-evidence macos-evidence'), 2)
+        for name in ['android', 'ios', 'corresponding-source', 'publish']:
+            self.assertNotIn('secrets.APPLE_', job(source, name))
+
     def test_linux_packager_inputs_are_pinned_before_the_single_application_build(self):
         block = job((WORKFLOWS / 'reviewed-release.yml').read_text(), 'desktop')
         title = 'Prepare pinned Linux packaging inputs'

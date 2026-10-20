@@ -75,21 +75,30 @@ Every PR must contain substantive `## Release notes` describing the final public
 
 The publisher collects the public note sections from merged PRs on the first-parent range since the previous published release. It includes intervening docs-only merges, deduplicates PRs and links their source. Draft or unpublished tags do not truncate the range. Later PRs without the required section, invalid placeholders and GitHub API failures stop publication rather than falling back to commit titles. PRs at or before the full SHA in `.github/release-notes-baseline` may use a sanitized historical description; direct commits retain their actual subject and explanation. The collector treats PR text as data and never executes it.
 
-The download table, signing status (Windows and Linux packages are unsigned, macOS builds are ad-hoc signed and not notarized) and mobile preview limitations follow the collected notes. CI validates structure and placeholders; reviewers remain responsible for factual prose and scope. The Linux publish job uses Python 3.12 and read access to PR metadata alongside its existing release permission. Existing versioning, artifact, signature and checksum rules remain enforced.
+The download table, signing status and mobile preview limitations follow the collected notes. New Mac releases require the pinned Developer ID identity and notarization receipts; older releases through the inspected v0.2.56 baseline remain ad-hoc signed and not notarized. Windows and Linux packages remain unsigned. CI validates structure and placeholders; reviewers remain responsible for factual prose and scope. The Linux publish job uses Python 3.12 and read access to PR metadata alongside its existing release permission. Existing versioning, artifact, signature and checksum rules remain enforced.
 
 ## Required build outputs
 
 | Build | Runner | Assets and status |
 | --- | --- | --- |
 | Windows x64 | `windows-2022` | NSIS installer; unsigned, no Authenticode certificate |
-| macOS Apple Silicon | `macos-15` | DMG and app archive; ad-hoc signed, not notarized |
-| macOS Intel | `macos-15-intel` | DMG and app archive; ad-hoc signed, not notarized |
+| macOS Apple Silicon | `macos-15` | DMG and app archive; new pipeline requires Developer ID signatures and notarization; actual new-artifact qualification pending |
+| macOS Intel | `macos-15-intel` | DMG and app archive; same signing/notarization gates; actual new-artifact qualification pending |
 | Linux x64 | `ubuntu-24.04` | AppImage, DEB, RPM; unsigned |
 | Linux arm64 | `ubuntu-24.04-arm` | AppImage, DEB, RPM; unsigned |
 | Android arm64 UI preview | `ubuntu-24.04` | Release APK signed with the persistent TagGroove application key; document editing/save-back still in progress |
 | iOS arm64 simulator UI preview | `macos-15` | Unsigned debug `.app` ZIP for the simulator; document editing/save-back still in progress; not an iPhone/iPad installer or App Store package |
 
 Approved PR validation runs frontend and Rust unit tests, formatting and Clippy on Linux. Main runs the native UI and Android integration suites, builds versioned packages and checks bundled metadata; it does not rerun pre-merge unit tests or lint. Tauri's [GitHub pipeline guidance](https://v2.tauri.app/distribute/pipelines/github/) and [tauri-action v1](https://github.com/tauri-apps/tauri-action/tree/v1) provide the build path. The action receives no release ID or tag name: it builds only. Its `artifactPaths` output feeds the collection script. The collector supplies a tested tar fallback for `.app` directories if the action does not create their app archives.
+
+Mac release jobs use the Tauri CLI with a private signing override; other desktop
+jobs keep the build-only action. The [Mac signing helper](../scripts/macos-release.py)
+creates the collected app archive after verification and notarizes/staples the
+DMG explicitly. Both signing receipts bind the actual packages to the release
+and source policy; they travel with the corresponding-source asset and are
+checked again before publication. Local development/native tests retain ad-hoc
+signing. See the [source/test receipt](verification/macos-release-signing-2026-10-20.md)
+for credential handling, checks and unqualified native results.
 
 Native build tools are installed explicitly before compilation: Python 3.12, CMake, Make and the target C/C++ toolchain, plus NASM for x86 assembly. Windows exposes the MSVC developer environment, binds `OPENTAG_MSYS2` to the setup action's actual installation after verifying Bash and Make, verifies the NASM executable, and adds its installation directory to `PATH`; Apple and Linux jobs install the matching tools through their existing package managers. Android and iOS retain their existing NDK/SDK and simulator targets. These are build prerequisites and do not add runtime programs to the application.
 

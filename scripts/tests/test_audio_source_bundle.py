@@ -55,7 +55,7 @@ def cargo_vendor_fixture():
 
 
 def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice_material=False, runtime_material=None,
-            extra_files=None):
+            extra_files=None, macos_signing=False):
     """Make a real Git source binding, four local upstream archives and seven fake builds."""
     root = Path(root)
     app, archives, evidence = [root / name for name in ("app", "archives", "evidence")]
@@ -80,6 +80,10 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice
     if cargo_config is not None:
         files[".cargo/config.toml"] = cargo_config
     files.update(extra_files or {})
+    if macos_signing:
+        files['src-tauri/macos/signing-policy.json'] = (SCRIPT.parents[1]/'src-tauri/macos/signing-policy.json').read_text()
+        config = json.loads(files['src-tauri/tauri.conf.json']);config['identifier'] = 'org.opentag.editor'
+        files['src-tauri/tauri.conf.json'] = json.dumps(config)+'\n'
     if runtime_material is not None:
         runtime_spec, runtime_files = runtime_material
         files['scripts/notices/linux-runtime-material.json'] = json.dumps(runtime_spec)+'\n'
@@ -179,6 +183,20 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice
     result = {"root": root, "app": app, "archives": archives, "evidence": evidence,
               "vendor": vendor, "dist": dist, "commit": commit}
     if runtime_material is not None:result['runtime_archives'] = runtime_archives
+    if macos_signing:
+        selected = json.loads(files['src-tauri/macos/signing-policy.json'])
+        macos = root/'macos-evidence';macos.mkdir()
+        for platform in ['macos-arm64', 'macos-x64']:
+            receipt = {'schema': 1, 'platform': platform, 'target': TARGETS[platform], 'source_commit': commit,
+                'version': '0.1.0', 'identity': selected['identity'], 'team_id': selected['team_id'],
+                'identifier': 'org.opentag.editor', 'policy_sha256': digest(files['src-tauri/macos/signing-policy.json'].encode()),
+                'app_cdhash': 'a'*40, 'checks': {name: True for name in
+                    ['codesign', 'hardened_runtime', 'stapler', 'gatekeeper', 'dmg_app_binding']},
+                'dmg_notarization': {'status': 'Accepted', 'id': '11111111-2222-4333-8444-555555555555'},
+                'artifacts': {suffix: {'size': len(raw), 'sha256': digest(raw)} for suffix in ['.dmg', '.app.tar.gz']
+                              for raw in [f'fixture {platform} {suffix}'.encode()]}}
+            (macos/f'macos-signing-{platform}.json').write_bytes((json.dumps(receipt)+'\n').encode())
+        result['macos_evidence'] = macos
     return result
 
 
@@ -186,7 +204,8 @@ def build(f, output=None, version="0.1.0"):
     output = output or f["root"] / f"TagGroove-v{version}-sources.tar.xz"
     load_builder().build_bundle(f["app"], f["commit"], version, output,
                                f["evidence"], f["archives"], f["vendor"], f["dist"],
-                               **({'linux_runtime_sources': f['runtime_archives']} if 'runtime_archives' in f else {}))
+                               **({'linux_runtime_sources': f['runtime_archives']} if 'runtime_archives' in f else {}),
+                               **({'macos_evidence': f['macos_evidence']} if 'macos_evidence' in f else {}))
     return output
 
 
@@ -209,7 +228,7 @@ def rewrite_bundle(path, change, rehash=False):
             archive.addfile(info, io.BytesIO(data) if data is not None else None)
 
 
-def linux_distribution_fixture(root, builder):
+def linux_distribution_fixture(root, builder, macos_signing=False):
     path = Path(__file__).with_name('test_linux_distribution_capture.py')
     spec = importlib.util.spec_from_file_location('distribution_fixture', path)
     helpers = importlib.util.module_from_spec(spec);spec.loader.exec_module(helpers)
@@ -226,7 +245,7 @@ def linux_distribution_fixture(root, builder):
     extra = {'src-tauri/tauri.conf.json': json.dumps(config)+'\n',
              'scripts/notices/linux-packager-recipes.json': json.dumps(capture.RECIPES)+'\n'}
     extra.update({row['source_file']: (source_root/row['source_file']).read_text() for row in capture.RECIPES['sources']})
-    f = fixture(root, runtime_material=(runtime_spec, runtime_files), extra_files=extra)
+    f = fixture(root, runtime_material=(runtime_spec, runtime_files), extra_files=extra, macos_signing=macos_signing)
     evidence = f['root']/'linux-evidence'
     config_raw = builder.stamped('src-tauri/tauri.conf.json', (f['app']/'src-tauri/tauri.conf.json').read_bytes(), '0.1.0')
     with patch.object(capture.material, 'UBUNTU_ARCHIVE_SIGNER', signer), \
@@ -245,11 +264,32 @@ def linux_distribution_fixture(root, builder):
         output = f['root']/'complete.tar.xz'
         result = builder.build_bundle(f['app'], f['commit'], '0.1.0', output,
             f['evidence'], f['archives'], f['vendor'], f['dist'],
-            linux_runtime_sources=f['runtime_archives'], linux_evidence=evidence)
+            linux_runtime_sources=f['runtime_archives'], linux_evidence=evidence, macos_evidence=f.get('macos_evidence'))
     return f, capture, signer, output
 
 
 class SourceBundleTests(unittest.TestCase):
+    def test_signed_mac_source_receipts_are_required_and_bound_to_git_policy_and_external_artifacts(self):
+        self.assertIn('macos_evidence', inspect.signature(self.builder.build_bundle).parameters,
+                      'Source publication has no macOS signing evidence input')
+        f = fixture(self.f['root']/'mac-signing', macos_signing=True);output = build(f)
+        manifest = self.builder.verify_bundle(output, f['commit'], '0.1.0', macos_evidence=f['macos_evidence'])
+        self.assertEqual(set(manifest['macos_signing']), {'macos-arm64', 'macos-x64'})
+        sidecar = f['macos_evidence']/'macos-signing-macos-x64.json';original = sidecar.read_bytes()
+        sidecar.write_bytes(original+b'\n')
+        with self.assertRaisesRegex(ValueError, 'differs from built packages'):
+            self.builder.verify_bundle(output, f['commit'], '0.1.0', macos_evidence=f['macos_evidence'])
+        sidecar.write_bytes(original)
+        def changed(name, raw):
+            if name.endswith('/macos-signing/targets/macos-arm64.json'):
+                receipt = json.loads(raw);receipt['team_id'] = 'OTHERTEAM1';return json.dumps(receipt).encode()
+            return raw
+        rewrite_bundle(output, changed, rehash=True)
+        with self.assertRaisesRegex(ValueError, 'signing policy'):
+            self.builder.verify_bundle(output, f['commit'], '0.1.0')
+        sidecar.unlink()
+        with self.assertRaises((OSError, ValueError)):build(f, f['root']/'missing-mac.tar.xz')
+
     @unittest.skipUnless(shutil.which('gpgv'), 'GnuPG signature verifier required')
     def test_two_target_distribution_bundle_binds_sidecars_summary_and_exact_object_set(self):
         f, capture, signer, output = linux_distribution_fixture(self.f['root']/'two-linux-targets', self.builder)
@@ -610,8 +650,9 @@ class SourceBundleTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == '--release-linux-fixture':
-        f, capture, signer, path = linux_distribution_fixture(Path(sys.argv[2]), load_builder())
+    if len(sys.argv) == 3 and sys.argv[1] in ('--release-linux-fixture', '--release-complete-fixture'):
+        f, capture, signer, path = linux_distribution_fixture(Path(sys.argv[2]), load_builder(),
+                                                             macos_signing=sys.argv[1] == '--release-complete-fixture')
         verifier = f['root']/'fixture-python'
         # Run the production verifier with only the trusted signer substituted
         # for this generated test repository. Never install this into CI or app code.
@@ -627,7 +668,12 @@ except (OSError,ValueError,KeyError) as error:sys.exit(str(error))
 ''')
         verifier.chmod(0o755)
         print(json.dumps({'commit': f['commit'], 'bundle': str(path), 'evidence': str(f['evidence']),
-                          'linux_evidence': str(f['root']/'linux-evidence'), 'python': str(verifier)}))
+                          'linux_evidence': str(f['root']/'linux-evidence'), 'python': str(verifier),
+                          **({'macos_evidence': str(f['macos_evidence'])} if 'macos_evidence' in f else {})}))
+    elif len(sys.argv) == 3 and sys.argv[1] == '--release-signed-fixture':
+        f = fixture(sys.argv[2], macos_signing=True);path = build(f)
+        print(json.dumps({'commit': f['commit'], 'bundle': str(path), 'evidence': str(f['evidence']),
+                          'macos_evidence': str(f['macos_evidence'])}))
     elif len(sys.argv) == 3 and sys.argv[1] == "--release-fixture":
         f = fixture(sys.argv[2])
         path = build(f)

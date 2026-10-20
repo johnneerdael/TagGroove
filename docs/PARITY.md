@@ -63,8 +63,8 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 C63 now represents [edited Windows action-filename protection](verification/action-filename-protection-2026-10-20.md), including source-backed cleanup and portable regressions. L54 leaves this intake; exact original Windows/runtime qualification remains with C63 and L79. C64 additionally represents [literal inline filename/folder destinations](verification/inline-filename-paths-2026-10-20.md); L47a retains only external-rename discovery on Refresh. There are **48 active IDs** and **14 separate qualification identities**.
 
 The current P1 working branch has local implementation and focused evidence for
-L07, L22a, L32, L47a, L47c, L57b, L73, L76, N03 and N05. L71 signing remains
-the implementation remainder. These ten IDs await a covering batch PR before
+L07, L22a, L32, L47a, L47c, L57b, L71, L73, L76, N03 and N05. All eleven
+local P1 implementations await a covering batch PR before
 leaving this intake; local checks do not establish GitHub review, merge, native
 acceptance or release publication. Their rows below distinguish that checkpoint
 from behavior still missing in the working branch.
@@ -112,7 +112,7 @@ from behavior still missing in the working branch.
 | L65 | Settings research | Establish meaning/equivalents for ConvFTFShowDlg, ConvFTTShowDlg, ConvTFFShowDlg, ConvTTFShowDlg, ConvReplaceShowDlg, ToolOverwriteDefault, CoverPopup and HideID3Bar; binary strings alone do not specify behavior. | [Scope and evidence](research/remaining-gaps.md#l65) |
 | L66 | Settings research | Determine whether ID3LeadingZeros denotes a global switch beyond the implemented numbering-wizard option. | [Scope and evidence](research/remaining-gaps.md#l66) |
 | L70 | File opening | Add Windows/Linux association declarations and qualify installed file opening and upgrade continuity; stable Windows installer identity is already configured. | [Scope and evidence](research/remaining-gaps.md#l70) |
-| L71 | Distribution | Qualify Windows signing, macOS signing/notarization and physical iOS distribution; current release packages are unsigned on Windows, ad-hoc on macOS and simulator-only on iOS. Physical iOS native-library compilation is implemented; it supplies no signed IPA, notarization or device-runtime evidence. | [Scope and evidence](research/remaining-gaps.md#l71) |
+| L71 | Distribution | Working-branch Mac release gates require pinned Developer ID signatures, app/DMG notarization, stapled tickets and source/package-bound receipts. Batch PR/review/CI/merge and actual native/published acceptance remain. Windows signing is owner-deferred; physical iOS distribution remains separate P3 work. Older published packages are unchanged. | [Scope and evidence](research/remaining-gaps.md#l71) |
 | L72 | iOS documents | Implement/qualify provider picker, document access and save-back; runtime document access currently enables Android only. | [Scope and evidence](research/remaining-gaps.md#l72) |
 | L73 | Extended Tags | Working-branch Save tags writes the displayed selection; Keep changes stages it. Independent navigation modes, failed/partial rename retry and save-time editing guards have focused coverage. Batch PR/review/CI/merge and original/native input acceptance remain. | [Scope and evidence](research/remaining-gaps.md#l73) |
 | L74 | Provider documents | Implement/qualify provider playlist loading/creation, CSV/export and Undo/Redo. Read-policy implementation and pending-artwork copy are represented separately; their PRs do not enable these operations. | [Scope and evidence](research/remaining-gaps.md#l74) |

@@ -22,9 +22,9 @@ as implementation work. The 14 qualification identities below are separate.
 Unmerged P1 batch work is recorded separately from these main-based counts:
 [L47a/L73 implementation and focused checks](../verification/file-tracking-and-extended-save-2026-10-20.md)
 and the [L07 native column schema/mapping audit](../verification/mp3tag-column-schema-2026-10-20.md).
-Ten P1 scopes now have local implementation and focused evidence: L07, L22a,
-L32, L47a, L47c, L57b, L73, L76, N03 and N05. L71 signing is the remaining
-implementation. Their intake identities remain here until the batch has a
+All eleven P1 scopes now have local implementation and focused evidence: L07,
+L22a, L32, L47a, L47c, L57b, L71, L73, L76, N03 and N05. Their intake
+identities remain here until the batch has a
 covering PR; review, merge and actual package/native/publication evidence are
 separate requirements.
 
@@ -142,7 +142,7 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L65](../research/remaining-gaps.md#l65) | P3 | Unknown original settings | Specialized preference users | Several original setting names have no established meaning; a missing equivalent is not yet a proven missing feature. | R / low | Mac static caller/key study; original toggle/restart when needed |
 | [L66](../research/remaining-gaps.md#l66) | P3 | Unknown numbering setting | Numbering users | A possible global leading-zero switch is unresolved; the numbering-wizard option already works. | R / low | Mac config/binary study; original numbering outcomes |
 | [L70](../research/remaining-gaps.md#l70) | P2 | Missing packaging subset | Windows/Linux installed users | Association declarations are missing; stable Windows installer identity already exists and manual opening works. | S–M local; native M / medium | Mac-authored config; Windows/Linux installed opening/upgrade/uninstall |
-| [L71](../research/remaining-gaps.md#l71) | P1 desktop; P3 iOS | Missing release integration/qualification | New desktop installations | Recorded packages are unsigned/ad-hoc; installation trust and iOS distribution need real signing/artifact evidence. | R → L desktop / medium | Mac certificates/account/artifact work; Windows signing and physical iOS elsewhere |
+| [L71](../research/remaining-gaps.md#l71) | P1 desktop; P3 iOS | Missing release integration/qualification | New desktop installations | Working-branch Mac gates require pinned Developer ID signatures, app/DMG notarization and exact source/package receipts. Batch review/merge and actual native/publication evidence remain; Windows signing is deferred and physical iOS is separate P3 work. | R → L desktop / medium | Mac certificates/account/artifact work; Windows signing and physical iOS elsewhere |
 | [L72](../research/remaining-gaps.md#l72) | P3 | Missing mobile capability | iOS users | The Android provider route does not supply an iOS picker, grants or save-back. | XL / low | Mac bridge/simulator contracts; physical iOS/cloud-provider tests |
 | [L73](../research/remaining-gaps.md#l73) | P1 | Unknown save interaction | Extended Tags users | Working-branch Save tags writes the displayed selection and Keep changes stages it; independent navigation and retry guards have focused coverage. Batch review/merge and native/original acceptance remain. | R / medium | Mac native edit/navigation/cancel checks; Windows reference timing |
 | [L74](../research/remaining-gaps.md#l74) | P3 | Missing mobile capabilities | Provider power users | Provider playlist load/create, CSV/export and Undo/Redo are not enabled by existing read/copy support. | XL / medium | Mac orchestration/UI; Android/iOS provider publication/replay |
@@ -190,8 +190,8 @@ The represented implementation records also retain bounded local acceptance:
 ## Recommended sequence after PR64
 
 The current owner instruction is to finish the eleven P1 intake scopes in one
-reviewed batch before starting P2 work. Ten scopes have local implementation;
-L71 signing remains. The baseline ordering below informs later work, rather than
+reviewed batch before starting P2 work. All eleven scopes now have local
+implementation. The baseline ordering below informs later work, rather than
 assigning those implemented scopes again. After this batch, select one coherent
 user outcome, define its acceptance and keep unrelated features in the ledger.
 
