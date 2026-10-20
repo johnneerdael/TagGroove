@@ -221,7 +221,9 @@ total disc count**, **Next disc on change of directory** and **Reset track
 counter on next disc** preferences also transfer. Each source switch changes
 only its matching remembered choice. Existing start values, minimum digits,
 entered totals and unrelated preferences stay as they were; missing source
-switches do not import the original application's defaults.
+switches do not import the original application's defaults. TagGroove's wizard
+always stages track numbers; an original profile's disabled track-number mode
+has no equivalent toggle here. Review the wizard's Preview before staging.
 
 The two **change of field** choices transfer when their source enabled switch
 and usable field name are both present. Unicode names are preserved. An explicit

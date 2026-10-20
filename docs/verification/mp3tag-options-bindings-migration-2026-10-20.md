@@ -1,8 +1,9 @@
 # Native Options and remaining named bindings
 
 This working-branch L57b extension implements twenty further source-bound
-records. A source-surface disposition is still required before claiming L57b
-local implementation complete; native/original acceptance remains separate.
+records. The [source-surface disposition](mp3tag-profile-migration-disposition-2026-10-20.md)
+now verifies local implementation of the approved bounded mapping scope;
+native/original acceptance and batch integration remain separate.
 The [earlier crosswalk](mp3tag-options-migration-crosswalk-2026-10-20.md) is a
 frozen audit, with the superseding decisions recorded here.
 
