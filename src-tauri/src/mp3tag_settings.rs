@@ -118,14 +118,21 @@ const SPECS: &[Spec] = &[
         inverted: false,
     },
 ];
+const EXTENDED_MODE: [u8; 16] = identifier(b"16ba6ee64495f544a1f46ad5ed57b876");
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Setting {
     pub label: String,
-    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
 }
 #[derive(Clone)]
-pub struct Patch(BTreeMap<OptionKey, bool>);
+pub struct Patch {
+    booleans: BTreeMap<OptionKey, bool>,
+    extended_mode: Option<&'static str>,
+}
 pub struct Import {
     pub patch: Patch,
     pub settings: Vec<Setting>,
@@ -134,6 +141,7 @@ pub struct Import {
 pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut position = 0usize;
     let mut values = BTreeMap::new();
+    let mut extended_mode = None;
     let mut unknown = 0usize;
     while position < bytes.len() {
         let header_end = position
@@ -157,15 +165,30 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 .ok_or("Binary boolean setting has no value")?
                 != 0;
             values.insert(spec.key, value ^ spec.inverted);
+        } else if header[..16] == EXTENDED_MODE {
+            // The native reader consumes a little-endian dword. Its save
+            // handler saves for 1, ignores for 2 and prompts for any other value.
+            let raw = u32::from_le_bytes(
+                payload
+                    .get(..4)
+                    .ok_or("Binary extended-tag save mode is incomplete")?
+                    .try_into()
+                    .unwrap(),
+            );
+            extended_mode = Some(match raw {
+                1 => "save",
+                2 => "ignore",
+                _ => "ask",
+            });
         } else {
             unknown += 1;
         }
         position = end;
     }
-    if values.is_empty() {
+    if values.is_empty() && extended_mode.is_none() {
         return Err("The file contains no supported portable binary settings.".into());
     }
-    let settings = values
+    let mut settings: Vec<Setting> = values
         .iter()
         .map(|(key, enabled)| Setting {
             label: SPECS
@@ -174,11 +197,29 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 .unwrap()
                 .label
                 .into(),
-            enabled: *enabled,
+            enabled: Some(*enabled),
+            value: None,
         })
         .collect();
+    if let Some(mode) = extended_mode {
+        settings.push(Setting {
+            label: "Save mode at extended tag dialog".into(),
+            enabled: None,
+            value: Some(
+                match mode {
+                    "save" => "Save changes",
+                    "ignore" => "Ignore changes",
+                    _ => "Ask",
+                }
+                .into(),
+            ),
+        });
+    }
     Ok(Import {
-        patch: Patch(values),
+        patch: Patch {
+            booleans: values,
+            extended_mode,
+        },
         settings,
         warnings: if unknown == 0 {
             Vec::new()
@@ -219,7 +260,7 @@ fn page(
     settings: &mut crate::settings::Settings,
     id: &str,
     key: &str,
-    value: bool,
+    value: impl Into<serde_json::Value>,
 ) -> Result<(), String> {
     settings
         .pages
@@ -237,7 +278,7 @@ impl Patch {
         let mut options = None;
         let mut tag_panel = None;
         let mut preferences = BTreeMap::new();
-        for (key, value) in &self.0 {
+        for (key, value) in &self.booleans {
             match key {
                 OptionKey::SaveOnMove => page(
                     settings(&mut options, directory)?,
@@ -298,6 +339,14 @@ impl Patch {
                     *value,
                 )?,
             }
+        }
+        if let Some(mode) = self.extended_mode {
+            page(
+                settings(&mut options, directory)?,
+                "tags",
+                "extended_save_mode",
+                mode,
+            )?;
         }
         if let Some(options) = options {
             crate::settings::save(&directory.join("settings.json"), &options)?;
@@ -384,7 +433,7 @@ mod tests {
         .concat();
         let parsed = parse(&bytes).unwrap();
         assert_eq!(parsed.settings.len(), 1);
-        assert!(parsed.settings[0].enabled);
+        assert_eq!(parsed.settings[0].enabled, Some(true));
         assert_eq!(parsed.warnings.len(), 1);
         assert!(!parsed.warnings[0].contains("unknown payload"));
         assert!(parse(&record(&[0x99; 16], b"unknown payload")).is_err());
@@ -398,5 +447,41 @@ mod tests {
         std::fs::write(&path, b"invalid current options").unwrap();
         assert!(parsed.patch.apply(temp.path()).is_err());
         assert_eq!(std::fs::read(path).unwrap(), b"invalid current options");
+    }
+    #[test]
+    fn binary_settings_extended_mode_matches_native_u32_branches() {
+        let id = native_id("16ba6ee64495f544a1f46ad5ed57b876");
+        for (raw, expected, label) in [
+            (0u32, "ask", "Ask"),
+            (1, "save", "Save changes"),
+            (2, "ignore", "Ignore changes"),
+            (3, "ask", "Ask"),
+            (u32::MAX, "ask", "Ask"),
+        ] {
+            let parsed = parse(&record(&id, &raw.to_le_bytes())).unwrap();
+            let preview = serde_json::to_value(&parsed.settings).unwrap();
+            assert_eq!(preview[0]["label"], "Save mode at extended tag dialog");
+            assert_eq!(preview[0]["value"], label);
+            assert!(preview[0].get("enabled").is_none());
+            let temp = tempfile::tempdir().unwrap();
+            parsed.patch.apply(temp.path()).unwrap();
+            let settings = crate::settings::load(&temp.path().join("settings.json")).0;
+            assert_eq!(settings.pages["tags"]["extended_save_mode"], expected);
+        }
+        for length in 0..4 {
+            assert!(parse(&record(&id, &vec![0; length])).is_err());
+        }
+        // Extra payload bytes are skipped; later records replace earlier ones.
+        let parsed =
+            parse(&[record(&id, &[1, 0, 0, 0, 9]), record(&id, &[2, 0, 0, 0])].concat()).unwrap();
+        assert_eq!(parsed.settings.len(), 1);
+        let temp = tempfile::tempdir().unwrap();
+        parsed.patch.apply(temp.path()).unwrap();
+        assert_eq!(
+            crate::settings::load(&temp.path().join("settings.json"))
+                .0
+                .pages["tags"]["extended_save_mode"],
+            "ignore"
+        );
     }
 }

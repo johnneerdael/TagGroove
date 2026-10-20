@@ -36,6 +36,28 @@ The legacy-key bindings and object addresses are recorded in the
 | TrayIconShow | `07a26324a1f7d84782538bb89e2a57e8` | Notification icon |
 | TrayIconMinimize | `d5c6e9f135cd614aa8f3d9f513f774f1` | Minimize to icon |
 
+### Extended Tags save mode
+
+The `TagExtMode` object at `0x140ac35d0` has raw identifier
+`16ba6ee64495f544a1f46ad5ed57b876` and a 32-bit value at `0x140ac3610`.
+The legacy-key load at `0x140250243` reaches setter `0x14001d030`
+through the object reference at `0x14025027f`. Reader `0x1400756f4`
+and writer `0x140075724` consume/emit four little-endian bytes.
+
+The consumer at `0x14026ac2c` identifies itself through the shipped debug
+string `CMTViewTagsDlg::SaveMetaData`. Comparisons at `0x14026ac6d`
+and `0x14026ac72` select Ignore for 2 and Save for 1. Other values
+prompt; only answer 6 takes the Save branch. That branch calls
+`0x14017acf8`, identified by its debug string as
+`CMTMainFrame::HandleFileSaveWithWait`, at `0x14026ad7c`.
+The importer therefore maps 1 to `save`, 2 to `ignore`, and every other
+u32 to `ask`, independently of the general AutoSave flag. The preview
+shows the named choice instead of treating this setting as an On/Off switch.
+
+The focused mode regression covers 0, 1, 2, 3 and `u32::MAX`, short payload
+refusals, extension bytes and last-record precedence. This establishes the
+static mapping and local importer behavior; original UI execution is deferred.
+
 ## Implementation and focused evidence
 
 `src-tauri/src/mp3tag_settings.rs` bounds-checks every header and payload,

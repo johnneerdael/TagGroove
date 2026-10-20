@@ -63,7 +63,8 @@ values are suggestions and do not write audio tags during setup import.
 ### Review portable settings
 
 For a supported `mp3tag.cfg`, the **Portable settings** item lists the actual
-options found in that file and the On/Off values that TagGroove will use.
+options found in that file and the values that TagGroove will use: On/Off for
+switches, and Ask, Save changes or Ignore changes for Extended Tags navigation.
 Selecting the item imports all its listed options together. Unlisted options
 keep their current TagGroove values.
 
@@ -72,7 +73,10 @@ preserve modified-file timestamps, automatically select the next file after
 inline editing, selection-box completion, current directory in the title,
 reading subfolders, hiding the folder image as cover art, user-defined genres
 only, tag-panel visibility, filter visibility, notification-area icon visibility
-and minimizing to that icon. Notification-area behavior depends on the desktop
+and minimizing to that icon. The Extended Tags save mode also transfers;
+it controls what happens when you navigate away from an edited file in that
+dialog. It is independent of saving on ordinary file-list selection.
+Notification-area behavior depends on the desktop
 platform. These are preferences, not a transfer of the original window layout.
 
 For example, if the preview says **Show filter: Off**, importing it hides the
