@@ -7,6 +7,8 @@ src-tauri/gen/** linguist-generated
 # NSIS fixture hashes and production-source extraction require stable LF bytes.
 *.nsi text eol=lf
 *.nsh text eol=lf
+# The generated installer copy is checked byte-for-byte on every host.
+THIRD_PARTY_NOTICES.rtf text eol=lf
 
 # Native recipe and imported-source byte hashes must survive Windows checkout.
 scripts/audio-deps/** text eol=lf

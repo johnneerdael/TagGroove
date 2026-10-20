@@ -31,7 +31,7 @@
     "publisher": "TagGroove",
     "homepage": "https://github.com/johnneerdael/TagGroove",
     "license": "MIT AND LGPL-2.1-or-later AND BSD-3-Clause AND Zlib AND bzip2-1.0.6 AND BSL-1.0",
-    "licenseFile": "../THIRD_PARTY_NOTICES.md",
+    "licenseFile": "../THIRD_PARTY_NOTICES.rtf",
     "category": "Music",
     "icon": [
       "icons/32x32.png",

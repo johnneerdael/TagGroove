@@ -156,6 +156,14 @@ runtime `PATH`. This is one qualified host control, rather than evidence for
 all seven release targets. The complete release source asset still requires
 all seven actual native manifests.
 
+Keep `THIRD_PARTY_NOTICES.md` as the canonical UTF-8 notice text. After changing
+it, regenerate the installer copy with `python3 scripts/installer-license.py`.
+The bundle uses `THIRD_PARTY_NOTICES.rtf` so copyright characters and literal
+braces/backslashes remain readable across the Windows license-page paths.
+`python3 scripts/installer-license.py --check` refuses a stale generated copy;
+the installer-notice tests also verify text preservation. Do not transliterate
+or remove characters from upstream license text to satisfy an ASCII guard.
+
 For maintainers, collect each finished native prefix and assemble the source asset with:
 
 ```sh
