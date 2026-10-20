@@ -10,13 +10,15 @@ export function rankSourceRows<T extends {path:string}>(rows:readonly T[],order:
   return [...rows].sort((a,b)=>(ranks.get(a.path)??Infinity)-(ranks.get(b.path)??Infinity));
 }
 export type SourceRootKind='file'|'directory'|'unknown';
+export type SourceRootInfo={kind:SourceRootKind;resolved:string|null};
 /** Tool and keep-moved folder context for original, unexpanded input roots. */
-export function sourceFolders(roots:readonly string[],kinds:Readonly<Record<string,SourceRootKind>>):string[]{
+export function sourceFolders(roots:readonly string[],kinds:Readonly<Record<string,SourceRootKind>>,resolved:Readonly<Record<string,string>>={}):string[]{
   return roots.flatMap(root=>{
-    if(kinds[root]==='directory')return [root];
+    const path=resolved[root]??root;
+    if(kinds[root]==='directory')return [path];
     if(kinds[root]!=='file')return [];
-    const folder=root.replace(/[\\/][^\\/]*$/,'');
+    const folder=path.replace(path.startsWith('/')&&!path.startsWith('//')?/\/[^/]*$/:/[\\/][^\\/]*$/,'');
     // Root separators distinguish an absolute root from a file or drive-relative path.
-    return [!folder||/^[A-Za-z]:$/.test(folder)?root.slice(0,folder.length+1):folder];
+    return [!folder||/^[A-Za-z]:$/.test(folder)?path.slice(0,folder.length+1):folder];
   });
 }

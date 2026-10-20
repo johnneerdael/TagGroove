@@ -16,6 +16,12 @@ cases remain locally pending.
 Authoring host checked on 2026-10-19: macOS 15.8, arm64. Each evidence root
 retains its own source and executable identity; earlier runs keep those pins.
 
+The subsequent [path-alias repair](source-root-aliases-2026-10-20.md) changes
+loading and restoration again. The replay below remains evidence for its
+explicit `e4017801dd923b65e1e5e2fc0ece58706374b60d` production baseline; it is
+not native proof of the alias-aware implementation. Local UI replay is not
+repeated for that repair; postmerge native CI is the next integration layer.
+
 <a id="focused-merged-source-replay"></a>
 
 ## Focused merged-source replay — 2026-10-20

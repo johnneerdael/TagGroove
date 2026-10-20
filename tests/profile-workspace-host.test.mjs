@@ -11,10 +11,10 @@ const javascript=ts.transpileModule(`${helpers}
 const restore=${callback.getText(parsed)};return{restore,state:()=>({paths:[...entries.keys()],selected:[...selected],roots:listRoots,location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null})};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
 function host(batch){
   const entries=new Map([['/currently-open.flac',{path:'/currently-open.flac'}]]),selected=new Set(['/currently-open.flac']),calls=[];
-  const invoke=async(command,args)=>{calls.push([command,args]);if(command==='classify_source_paths')return args.paths.map(path=>path.endsWith('.m3u8')?'file':'directory');return batch;};
+  const invoke=async(command,args)=>{calls.push([command,args]);if(command==='classify_source_paths')return args.paths.map(path=>({kind:path.endsWith('.m3u8')?'file':'directory',resolved:path}));return batch;};
   const render=()=>{},changedData=()=>{},rowFile=path=>path;
   const clearWorkspace=()=>{entries.clear();selected.clear();};const accept=batch=>batch.entries.forEach(entry=>entries.set(entry.path,entry));
-  const run=new Function('entries','selected','invoke','render','changedData','rowFile','clearWorkspace','accept','isPlaylistPath',`let status='',listRoots=[],listRootKinds={},location='',locationIsData=false,filter='',filterDraft,anchor,loadedPlaylist;${javascript}`);
+  const run=new Function('entries','selected','invoke','render','changedData','rowFile','clearWorkspace','accept','isPlaylistPath',`let status='',listRoots=[],listRootKinds={},listRootResolved={},location='',locationIsData=false,filter='',filterDraft,anchor,loadedPlaylist;${javascript}`);
   return{...run(entries,selected,invoke,render,changedData,rowFile,clearWorkspace,accept,path=>path.endsWith('.m3u8')),calls};
 }
 const workspace=paths=>({paths,selected:[paths.at(-1)],roots:['/Music'],location:'/Music',location_is_data:true,filter:'ARTIST HAS Practice',filter_draft:'draft filter',anchor:paths.at(-1),playlist:'/Music/practice.m3u8'});

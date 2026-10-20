@@ -18,19 +18,33 @@ pub enum SourceRootKind {
     Unknown,
 }
 
+#[derive(Debug, Serialize)]
+pub struct SourceRootInfo {
+    kind: SourceRootKind,
+    resolved: Option<String>,
+}
+
 #[tauri::command]
-pub async fn classify_source_paths(paths: Vec<String>) -> Result<Vec<SourceRootKind>, String> {
+pub async fn classify_source_paths(paths: Vec<String>) -> Result<Vec<SourceRootInfo>, String> {
     crate::io(move || {
         crate::reject_provider_operation(&paths, "Playlist and folder sources")?;
         Ok(paths
             .iter()
             .map(|path| {
-                match std::fs::metadata(path) {
+                let kind = match std::fs::metadata(path) {
                     Ok(metadata) if metadata.is_dir() => SourceRootKind::Directory,
                     Ok(metadata) if metadata.is_file() => SourceRootKind::File,
                     // Keep unreadable/missing roots unknown. The reader or scanner reports its error.
                     _ => SourceRootKind::Unknown,
-                }
+                };
+                let resolved = if kind == SourceRootKind::Unknown {
+                    None
+                } else {
+                    dunce::canonicalize(path)
+                        .ok()
+                        .and_then(|path| path.to_str().map(str::to_owned))
+                };
+                SourceRootInfo { kind, resolved }
             })
             .collect())
     })
@@ -450,13 +464,55 @@ mod tests {
         );
         expected.push(SourceRootKind::Unknown);
         assert_eq!(
-            tauri::async_runtime::block_on(classify_source_paths(paths)).unwrap(),
+            tauri::async_runtime::block_on(classify_source_paths(paths))
+                .unwrap()
+                .into_iter()
+                .map(|info| info.kind)
+                .collect::<Vec<_>>(),
             expected
         );
         assert!(tauri::async_runtime::block_on(classify_source_paths(vec![
             "content://provider/root.cue".into()
         ]))
         .is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn source_root_metadata_tracks_aliases_without_replacing_requested_paths() {
+        let temp = tempfile::tempdir().unwrap();
+        let actual = temp.path().join("actual");
+        std::fs::create_dir(&actual).unwrap();
+        let audio = actual.join("one.wav");
+        std::fs::write(&audio, b"metadata fixture").unwrap();
+        let alias = temp.path().join("alias.m3u");
+        std::os::unix::fs::symlink(&actual, &alias).unwrap();
+        let requested = vec![
+            alias.to_string_lossy().into_owned(),
+            alias.join("one.wav").to_string_lossy().into_owned(),
+            temp.path()
+                .join("missing.wav")
+                .to_string_lossy()
+                .into_owned(),
+        ];
+        let metadata = serde_json::to_value(
+            tauri::async_runtime::block_on(classify_source_paths(requested.clone())).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            metadata[0]["resolved"],
+            serde_json::json!(dunce::canonicalize(&actual).unwrap().to_str().unwrap())
+        );
+        assert_eq!(metadata[0]["kind"], serde_json::json!("directory"));
+        assert_eq!(
+            metadata[1]["resolved"],
+            serde_json::json!(dunce::canonicalize(&audio).unwrap().to_str().unwrap())
+        );
+        assert_eq!(metadata[1]["kind"], serde_json::json!("file"));
+        assert_eq!(metadata[2]["resolved"], serde_json::Value::Null);
+        assert_eq!(metadata[2]["kind"], serde_json::json!("unknown"));
+        assert_eq!(std::fs::read_link(&alias).unwrap(), actual);
+        assert_eq!(requested[0], alias.to_string_lossy());
     }
 
     fn fixture(names: &[&str]) -> (tempfile::TempDir, Vec<String>) {

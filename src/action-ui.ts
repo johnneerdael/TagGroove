@@ -131,7 +131,7 @@ export function menuSegments(name:string):{label:string;mnemonic:string|null}[]{
 }
 export function resolvePathChanges(paths:string[],renamed:{from:string;to:string}[],directories:{from:string;to:string}[]):Map<string,string>{
   const exact=new Map(renamed.map(rename=>[rename.from,rename.to]));
-  const rebase=(path:string)=>directories.reduce((current,move)=>{const from=move.from.replace(/[\\/]+$/,''),to=move.to.replace(/[\\/]+$/,'');if(current===from)return to;if(current.startsWith(from)&&(current[from.length]==='/'||current[from.length]==='\\'))return to+current.slice(from.length);return current;},path);
+  const rebase=(path:string)=>directories.reduce((current,move)=>{const posix=move.from.startsWith('/')&&!move.from.startsWith('//'),trailing=posix?/\/+$/:/[\\/]+$/,from=move.from.replace(trailing,''),to=move.to.replace(trailing,'');if(current===from)return to;if(current.startsWith(from)&&(current[from.length]==='/'||!posix&&current[from.length]==='\\'))return to+current.slice(from.length);return current;},path);
   return new Map(paths.map(path=>[path,exact.get(path)||rebase(path)] as [string,string]).filter(([from,to])=>from!==to));
 }
 /** List folders after folder renames that changed only the letter case: on case-insensitive volumes they are still the listed folders. */

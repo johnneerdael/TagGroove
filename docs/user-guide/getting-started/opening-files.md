@@ -128,6 +128,11 @@ these suffixes is scanned as a folder, rather than read as a playlist. Refresh
 keeps that distinction. A missing or unreadable path can still report an error;
 its suffix alone does not prove that it is a readable playlist.
 
+Local symbolic links can also lead to files or folders. TagGroove keeps the
+path you opened for Refresh and checks its current resolved location for
+folder membership and relative tool paths. This does not grant access to an
+unreadable target or turn a local link into a document-provider permission.
+
 ## Understand platform access
 
 Desktop folder loading describes local filesystem paths. In a document-provider

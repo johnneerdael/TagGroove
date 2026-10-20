@@ -65,6 +65,13 @@ test('moved files stay listed only inside the listed folders',()=>{
   assert.equal(general.insideFolders('/other/b.mp3',['/music','/other']),true);
 });
 
+test('folder boundaries preserve literal POSIX backslashes',()=>{
+  assert.equal(general.insideFolders('/physical/root\\sibling/song.wav',['/physical/root']),false);
+  assert.equal(general.insideFolders('/physical/root\\/song.wav',['/physical/root\\']),true);
+  assert.equal(general.insideFolders('/physical/root/song.wav',['/physical/root\\']),false);
+  assert.equal(general.insideFolders('D:\\physical\\song.wav',['D:\\physical']),true);
+});
+
 test('update messages and release notes after an update',()=>{
   const release={version:'0.2.0',name:'TagGroove 0.2.0',url:'https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.0',prerelease:false,published:null};
   assert.match(general.updateMessage({current:'0.1.0',latest:release,newer:true}).text,/TagGroove 0\.2\.0 \(0\.2\.0\) is available\. You have TagGroove 0\.1\.0/);

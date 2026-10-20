@@ -893,7 +893,7 @@ test('actual playlist expansion retains independently indexed diagnostics while 
   const roots=['/Music/first.m3u','/Music/ordinary.wav','/Music/second.cue'],filesystemKinds=new Map(roots.map(path=>[path,'file'])),commands=[];
   const ui=new PlaylistUI({invoke:async(command,args)=>{
     commands.push(command);
-    if(command==='classify_source_paths'){assert.deepEqual(args.paths,roots);return args.paths.map(path=>{assert.ok(filesystemKinds.has(path));return filesystemKinds.get(path);});}
+    if(command==='classify_source_paths'){assert.deepEqual(args.paths,roots);return args.paths.map(path=>{assert.ok(filesystemKinds.has(path));return{kind:filesystemKinds.get(path),resolved:path};});}
     assert.equal(command,'read_playlist');calls.push(args.path);return normalizeBatchDiagnostics(replies[calls.length-1],true);
   }});
   const expanded=await ui.expand(roots);

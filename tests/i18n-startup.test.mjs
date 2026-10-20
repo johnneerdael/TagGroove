@@ -56,7 +56,7 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
     if(command==='classify_source_paths'){
       assert.ok(settings.done&&catalogs.done,'filesystem classification waits for settings and language catalogs');
       host.classificationRecords.push(structuredClone(args));
-      return args.paths.map(path=>{assert.ok(filesystemKinds.has(path),`Missing filesystem fixture: ${path}`);return filesystemKinds.get(path);});
+      return args.paths.map(path=>{assert.ok(filesystemKinds.has(path),`Missing filesystem fixture: ${path}`);return{kind:filesystemKinds.get(path),resolved:path};});
     }
     if(command==='scan_files'){
       host.scan.push(args.paths);host.scanRecords.push(args);
