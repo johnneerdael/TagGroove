@@ -37,6 +37,9 @@ VERSION_FILES = {"package.json", "package-lock.json", "Cargo.lock", "src-tauri/C
                  "src-tauri/tauri.conf.json", "src-tauri/gen/apple/project.yml",
                  "src-tauri/gen/apple/opentag_iOS/Info.plist",
                  "src-tauri/gen/apple/opentag.xcodeproj/project.pbxproj"}
+MAX_ARCHIVE_BYTES = 4 * 1024**3
+MAX_ARCHIVE_MEMBER_BYTES = 512 * 1024 * 1024
+MAX_ARCHIVE_FILES = 100000
 
 
 def sha(data):
@@ -46,6 +49,19 @@ def sha(data):
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def archive_budget(sizes, *, count=0, total=0):
+    """Apply identical expanded-size/member/count limits before writing and reading."""
+    for size in sizes:
+        require(type(size) is int and 0 <= size <= MAX_ARCHIVE_MEMBER_BYTES,
+                f"Source archive member bytes {size} exceed bounds 0..{MAX_ARCHIVE_MEMBER_BYTES}")
+        count += 1;total += size
+        require(total <= MAX_ARCHIVE_BYTES,
+                f"Source archive expanded bytes {total} exceed {MAX_ARCHIVE_BYTES}")
+        require(count <= MAX_ARCHIVE_FILES,
+                f"Source archive member count {count} exceeds {MAX_ARCHIVE_FILES}")
+    return count, total
 
 
 def load(data):
@@ -618,17 +634,24 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
                 "files": {name: {"size": len(data), "sha256": sha(data), "mode": modes.get(name, 0o644)} for name, data in sorted(files.items())}}
     if linux_targets:manifest['linux_distribution'] = linux_targets
     if macos_targets:manifest['macos_signing'] = macos_targets
+    manifest_raw = encode(manifest)
+    count, total = archive_budget(len(data) for data in files.values())
+    count, total = archive_budget([len(manifest_raw)], count=count, total=total)
+    print(f"Source archive preflight: {count} members, {total} expanded bytes (limit {MAX_ARCHIVE_BYTES})", file=sys.stderr, flush=True)
     verify_contents(files, manifest, commit, version, native_evidence, linux_evidence, macos_evidence)
     prefix = "TagGroove-v" + version + "-sources/"
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     try:
-        with tarfile.open(temporary, "w:xz") as archive:
-            for name, data in sorted({**files, "source-manifest.json": encode(manifest)}.items()):
+        with tarfile.open(temporary, "w:xz", preset=1) as archive:
+            for name, data in sorted({**files, "source-manifest.json": manifest_raw}.items()):
                 info = tarfile.TarInfo(prefix + safe(name))
                 info.size = len(data)
                 info.mode = modes.get(name, 0o644)
                 archive.addfile(info, io.BytesIO(data))
+        # Independent verification reloads the archive; do not retain another
+        # complete expanded copy while it checks the same multi-GiB sources.
+        files.clear()
         verify_bundle(temporary, commit, version, native_evidence, linux_evidence, macos_evidence)
         temporary.replace(output)
     finally:
@@ -639,15 +662,13 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
 def verify_bundle(path, commit, version, native_evidence=None, linux_evidence=None, macos_evidence=None):
     identity(commit, version)
     prefix = "TagGroove-v" + version + "-sources/"
-    files, modes, total = {}, {}, 0
+    files, modes, total, count = {}, {}, 0, 0
     with tarfile.open(path, "r:xz") as archive:
         for item in archive:
             require(item.name.startswith(prefix) and item.isfile(), "Unsafe source archive member")
             name = safe(item.name[len(prefix):])
             require(name not in files, "Duplicate source archive member")
-            total += item.size
-            require(item.size <= 512 * 1024 * 1024 and total <= 2 * 1024**3 and len(files) < 100000,
-                    "Source archive exceeds verification bounds")
+            count, total = archive_budget([item.size], count=count, total=total)
             require(item.mode in (0o644, 0o755), "Unexpected source archive file mode")
             modes[name] = item.mode
             files[name] = archive.extractfile(item).read()
