@@ -1163,7 +1163,77 @@ fn inline_filename_target(entry: &AudioEntry, name: &str) -> Result<PathBuf, Str
     {
         return Err("Filename evaluates to an empty string".into());
     }
-    Ok(resolve_filename_target(entry, relative))
+    let target = resolve_filename_target(entry, relative);
+    normalize_inline_filename_parent(&target)
+}
+
+fn normalize_inline_filename_parent(target: &Path) -> Result<PathBuf, String> {
+    use std::path::Component;
+    // Resolve existing directories before interpreting `..`: a symlink's
+    // parent belongs to its real target, not its authored lexical location.
+    // Missing components remain prospective, so discarded paths are never
+    // passed to the rename operation's parent-directory creation.
+    let mut components = target
+        .parent()
+        .unwrap_or(Path::new("."))
+        .components()
+        .peekable();
+    let mut resolved = PathBuf::new();
+    while matches!(
+        components.peek(),
+        Some(Component::Prefix(_) | Component::RootDir)
+    ) {
+        resolved.push(components.next().unwrap().as_os_str());
+    }
+    let mut resolved = dunce::canonicalize(if resolved.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        &resolved
+    })
+    .map_err(|error| error.to_string())?;
+    let mut missing: usize = 0;
+    for component in components {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                resolved.pop();
+                missing = missing.saturating_sub(1);
+            }
+            Component::Normal(name) => {
+                let candidate = resolved.join(name);
+                if missing == 0 {
+                    match std::fs::symlink_metadata(&candidate) {
+                        Ok(_) => {
+                            if !std::fs::metadata(&candidate)
+                                .map_err(|error| error.to_string())?
+                                .is_dir()
+                            {
+                                return Err(std::io::Error::from(
+                                    std::io::ErrorKind::NotADirectory,
+                                )
+                                .to_string());
+                            }
+                            resolved = dunce::canonicalize(&candidate)
+                                .map_err(|error| error.to_string())?;
+                            continue;
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(error) => return Err(error.to_string()),
+                    }
+                }
+                resolved = candidate;
+                missing += 1;
+            }
+            Component::Prefix(_) | Component::RootDir => unreachable!(),
+        }
+    }
+    // Preserve the authored final leaf, including a case-only rename.
+    resolved.push(
+        target
+            .file_name()
+            .ok_or("Filename evaluates to an empty string")?,
+    );
+    Ok(resolved)
 }
 
 fn resolve_filename_target(entry: &AudioEntry, relative: &Path) -> PathBuf {
@@ -3094,6 +3164,163 @@ mod tests {
     }
 
     #[test]
+    fn inline_command_preserves_case_only_leaf_and_undo_bytes() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("old.wav");
+        wav(&source);
+        let original = std::fs::read(&source).unwrap();
+        history::TEST_ROOTS.lock().unwrap().push(root.clone());
+        let report = tauri::async_runtime::block_on(rename_file_from_list(
+            source.to_string_lossy().into_owned(),
+            "OLD.WAV".into(),
+        ))
+        .unwrap();
+        assert!(report.result.result.errors.is_empty());
+        assert_eq!(
+            Path::new(&report.result.renamed[0].to).file_name().unwrap(),
+            "OLD.WAV"
+        );
+        assert_eq!(std::fs::read(root.join("OLD.WAV")).unwrap(), original);
+        assert!(std::fs::read_dir(&root)
+            .unwrap()
+            .any(|entry| entry.unwrap().file_name() == "OLD.WAV"));
+        assert!(!std::fs::read_dir(&root)
+            .unwrap()
+            .any(|entry| entry.unwrap().file_name() == "old.wav"));
+        let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
+        assert_eq!(
+            serde_json::to_value(undo).unwrap()["errors"],
+            serde_json::json!([])
+        );
+        assert_eq!(std::fs::read(&source).unwrap(), original);
+        assert!(std::fs::read_dir(&root)
+            .unwrap()
+            .any(|entry| entry.unwrap().file_name() == "old.wav"));
+        assert!(!std::fs::read_dir(&root)
+            .unwrap()
+            .any(|entry| entry.unwrap().file_name() == "OLD.WAV"));
+        history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .retain(|path| path != &root);
+    }
+
+    #[test]
+    fn inline_dot_navigation_does_not_create_discarded_missing_parents() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for (name, discarded) in [
+            ("Album/../Track.wav", "Album"),
+            ("A/B/../../Track.wav", "A"),
+        ] {
+            for collision in [false, true] {
+                let dir = tempfile::tempdir().unwrap();
+                let root = dunce::canonicalize(dir.path()).unwrap();
+                let source = root.join("old.wav");
+                let target = root.join("Track.wav");
+                wav(&source);
+                let original = std::fs::read(&source).unwrap();
+                history::TEST_ROOTS.lock().unwrap().push(root.clone());
+                if collision {
+                    std::fs::write(&target, b"outside destination").unwrap();
+                }
+                let report = tauri::async_runtime::block_on(rename_file_from_list(
+                    source.to_string_lossy().into_owned(),
+                    name.into(),
+                ))
+                .unwrap();
+                assert!(
+                    !root.join(discarded).exists(),
+                    "{name:?}, collision={collision}"
+                );
+                if collision {
+                    assert_eq!(report.result.result.errors.len(), 1);
+                    assert!(report.result.renamed.is_empty());
+                    assert_eq!(std::fs::read(&target).unwrap(), b"outside destination");
+                    assert_eq!(std::fs::read(&source).unwrap(), original);
+                } else {
+                    assert!(report.result.result.errors.is_empty());
+                    assert_eq!(Path::new(&report.result.renamed[0].to), target);
+                    assert_eq!(std::fs::read(&target).unwrap(), original);
+                    let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
+                    assert_eq!(
+                        serde_json::to_value(undo).unwrap()["errors"],
+                        serde_json::json!([])
+                    );
+                    assert_eq!(std::fs::read(&source).unwrap(), original);
+                    assert!(!target.exists());
+                    assert!(!root.join(discarded).exists());
+                }
+                history::TEST_ROOTS
+                    .lock()
+                    .unwrap()
+                    .retain(|path| path != &root);
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inline_dot_navigation_resolves_symlinks_and_refuses_invalid_parents_without_writes() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("old.wav");
+        wav(&source);
+        let original = std::fs::read(&source).unwrap();
+        history::TEST_ROOTS.lock().unwrap().push(root.clone());
+        std::fs::create_dir_all(root.join("real/child")).unwrap();
+        std::os::unix::fs::symlink(root.join("real/child"), root.join("alias")).unwrap();
+        std::fs::write(root.join("Track.wav"), b"lexical sibling").unwrap();
+        let report = tauri::async_runtime::block_on(rename_file_from_list(
+            source.to_string_lossy().into_owned(),
+            "alias/../Track.wav".into(),
+        ))
+        .unwrap();
+        assert!(report.result.result.errors.is_empty());
+        assert_eq!(
+            Path::new(&report.result.renamed[0].to),
+            root.join("real/Track.wav")
+        );
+        assert_eq!(
+            std::fs::read(root.join("real/Track.wav")).unwrap(),
+            original
+        );
+        assert_eq!(
+            std::fs::read(root.join("Track.wav")).unwrap(),
+            b"lexical sibling"
+        );
+        let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
+        assert_eq!(
+            serde_json::to_value(undo).unwrap()["errors"],
+            serde_json::json!([])
+        );
+        std::fs::write(root.join("file"), b"ordinary parent file").unwrap();
+        std::os::unix::fs::symlink(root.join("missing"), root.join("dangling")).unwrap();
+        for name in ["file/../New/Track.wav", "dangling/../New/Track.wav"] {
+            let report = tauri::async_runtime::block_on(rename_file_from_list(
+                source.to_string_lossy().into_owned(),
+                name.into(),
+            ))
+            .unwrap();
+            assert_eq!(report.result.result.errors.len(), 1, "{name:?}");
+            assert!(report.result.renamed.is_empty());
+            assert_eq!(std::fs::read(&source).unwrap(), original);
+            assert_eq!(
+                std::fs::read(root.join("file")).unwrap(),
+                b"ordinary parent file"
+            );
+            assert!(!root.join("New").exists());
+            assert!(!root.join("missing").exists());
+        }
+        history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .retain(|path| path != &root);
+    }
+
+    #[test]
     fn inline_literal_names_publish_canonical_destination_identity() {
         let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let mut names = vec!["Album/../Track.wav"];
@@ -3120,10 +3347,12 @@ mod tests {
             assert!(report.result.result.errors.is_empty());
             let entry = &report.result.result.entries[0];
             assert_eq!(report.result.renamed[0].to, entry.path, "{name:?}");
-            assert_eq!(
-                Path::new(&entry.path),
-                dunce::canonicalize(root.join(name)).unwrap()
-            );
+            let expected = if name == "Album/../Track.wav" {
+                root.join("Track.wav")
+            } else {
+                root.join("real/Track.wav")
+            };
+            assert_eq!(Path::new(&entry.path), expected);
             let target = PathBuf::from(&entry.path);
             let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
             assert_eq!(

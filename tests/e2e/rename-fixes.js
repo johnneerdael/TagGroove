@@ -85,7 +85,7 @@
       const cases = [
         ["Inline album/Disc 1/O'Brien %title%.flac", "Inline album/Disc 1/O'Brien %title%.flac.mp3"],
         windows ? ['Inline album\\Disc 2\\Track.mp3', 'Inline album/Disc 2/Track.mp3'] : ['AC\\DC.mp3', 'AC\\DC.mp3'],
-        ['Inline album/../Moved.MP3', 'Moved.MP3'],
+        ['Discarded inline parent/../Moved.MP3', 'Moved.MP3'],
       ];
       for (const [name, relative] of cases) {
         const result = await inv('rename_file_from_list', { path, name });
@@ -94,13 +94,19 @@
         if (result.renamed?.[0]?.to !== expected || result.entries?.[0]?.path !== expected) throw new Error('inline receipt/readback identity mismatch');
         const renamed = (await files()).find(entry => entry.path === expected);
         if (renamed?.fields.TITLE?.[0] !== 'Sine A') throw new Error('inline name or metadata mismatch');
+        if (name.startsWith('Discarded inline parent/')) {
+          const unused = await inv('classify_source_paths', { paths: [album + sep + 'Discarded inline parent'] });
+          if (unused[0]?.kind !== 'unknown') throw new Error('inline dot navigation created a discarded folder');
+        }
         const undo = await inv('undo_last');
         if (undo.errors?.length) throw new Error(JSON.stringify(undo.errors));
         const restored = await files();
         if (restored.find(entry => entry.path === path)?.fields.TITLE?.[0] !== 'Sine A' || restored.some(entry => entry.path === expected)) throw new Error('inline Undo did not restore the original');
       }
-      const clash = await inv('rename_file_from_list', { path, name: 'sine-b.mp3' });
+      const clash = await inv('rename_file_from_list', { path, name: 'Discarded collision parent/../sine-b.mp3' });
       if (!clash.errors.length || clash.error_diagnostics?.[0]?.diagnostic?.kind !== 'destination_collision') throw new Error('inline collision was not reported');
+      const unused = await inv('classify_source_paths', { paths: [album + sep + 'Discarded collision parent'] });
+      if (unused[0]?.kind !== 'unknown') throw new Error('inline collision created a discarded folder');
       const unchanged = await files();
       if (unchanged.find(entry => entry.path === path)?.fields.TITLE?.[0] !== 'Sine A' || unchanged.find(entry => entry.filename === 'sine-b.mp3')?.fields.TITLE?.[0] !== 'Sine B') throw new Error('inline collision changed audio metadata');
       return 'registered literal command; folders, suffix retention, native backslash, canonical receipt, Undo and collision';
