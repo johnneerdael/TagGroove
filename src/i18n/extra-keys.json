@@ -141,5 +141,9 @@
  "{error}; completed group copies were removed",
  "{error}; incomplete copy was removed",
  "{error}; copy cleanup incomplete: {cleanup}",
- "Copy could not be verified"
+ "Copy could not be verified",
+ "Numbering: Leading zeros for tracknumbers",
+ "Numbering: Leading zeros for discnumbers",
+ "Tag field mappings: replace current list",
+ "Tag field mapping"
 ]

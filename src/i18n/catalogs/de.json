@@ -3613,5 +3613,14 @@
  "{error}; incomplete copy was removed": "{error}; die unvollständige Kopie wurde entfernt",
  "{error}; copy cleanup incomplete: {cleanup}": "{error}; die Bereinigung der Kopie ist unvollständig: {cleanup}",
  "Copy could not be verified": "Die Kopie konnte nicht überprüft werden",
- "Off by default. Applies to Tag → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Other converters and action-driven renames do not use this option.": "Standardmäßig deaktiviert. Gilt für Tag → Dateiname, Dateien verschieben nach und Dateien kopieren nach. Prüfe vor dem Anwenden die Pfade der zugehörigen Dateien. Nur Dateien mit genau demselben Basisnamen und der Erweiterung .lrc oder .cdg folgen den Audiodateien. Beim Kopieren bleiben die Originale erhalten; es gibt dafür keinen Rückgängig-Schritt. Andere Konverter und aktionsgesteuertes Umbenennen verwenden diese Option nicht."
+ "Off by default. Applies to Tag → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Other converters and action-driven renames do not use this option.": "Standardmäßig deaktiviert. Gilt für Tag → Dateiname, Dateien verschieben nach und Dateien kopieren nach. Prüfe vor dem Anwenden die Pfade der zugehörigen Dateien. Nur Dateien mit genau demselben Basisnamen und der Erweiterung .lrc oder .cdg folgen den Audiodateien. Beim Kopieren bleiben die Originale erhalten; es gibt dafür keinen Rückgängig-Schritt. Andere Konverter und aktionsgesteuertes Umbenennen verwenden diese Option nicht.",
+ "A binary field-mapping field exceeds 4 MB.": "Ein binäres Feld der Feldzuordnung ist größer als 4 MB.",
+ "A binary field-mapping field is not valid UTF-8.": "Ein binäres Feld der Feldzuordnung ist kein gültiges UTF-8.",
+ "A binary field-mapping list exceeds 4096 rows.": "Eine binäre Feldzuordnungsliste enthält mehr als 4096 Zeilen.",
+ "Binary field-mapping length overflow": "Längenüberlauf bei binären Feldzuordnungen",
+ "Binary field-mapping list is incomplete": "Die binäre Feldzuordnungsliste ist unvollständig",
+ "Numbering: Leading zeros for tracknumbers": "Nummerierung: Führende Nullen für Tracknummern",
+ "Numbering: Leading zeros for discnumbers": "Nummerierung: Führende Nullen für Discnummern",
+ "Tag field mappings: replace current list": "Tag-Feldzuordnungen: aktuelle Liste ersetzen",
+ "Tag field mapping": "Tag-Feldzuordnung"
 }

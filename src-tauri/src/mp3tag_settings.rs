@@ -35,6 +35,7 @@ enum OptionKey {
     ExportMultiple,
     Numbering(&'static str),
     NumberingFieldEnabled(&'static str),
+    NumberingPadding(&'static str),
 }
 struct Spec {
     identifier: [u8; 16],
@@ -61,6 +62,18 @@ const fn identifier(text: &[u8; 32]) -> [u8; 16] {
 // Raw byte identifiers, with no UUID byte-order conversion. Bound to the
 // 3.36.1 static reader/object/serializer evidence in the migration receipt.
 const SPECS: &[Spec] = &[
+    Spec {
+        identifier: identifier(b"81e9cd2aac92e14e9c71cf21ae4e0510"),
+        key: OptionKey::NumberingPadding("track_digits"),
+        label: "Numbering: Leading zeros for tracknumbers",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"e4d56fdc8c9b154c99e8c0adf4f25b22"),
+        key: OptionKey::NumberingPadding("disc_digits"),
+        label: "Numbering: Leading zeros for discnumbers",
+        inverted: false,
+    },
     Spec {
         identifier: identifier(b"2da5f759503fa947932b7e5310a032fa"),
         key: OptionKey::NumberingFieldEnabled("next_disc_on_field"),
@@ -364,6 +377,7 @@ enum TextKey {
     ExportFilename,
     NumberingNextField,
     NumberingResetField,
+    CoverDirectory,
 }
 const NUMBERING_FIELDS: [(&str, TextKey); 2] = [
     ("next_disc_on_field", TextKey::NumberingNextField),
@@ -375,6 +389,11 @@ struct TextSpec {
     label: &'static str,
 }
 const TEXT_SPECS: &[TextSpec] = &[
+    TextSpec {
+        identifier: identifier(b"a7a810227a5a8d4db511e77851eb10dd"),
+        key: TextKey::CoverDirectory,
+        label: "Default folder for Add cover",
+    },
     TextSpec {
         identifier: identifier(b"36d2f91d9589434ea5669328ab6b9486"),
         key: TextKey::NumberingNextField,
@@ -589,6 +608,7 @@ const MASK_SPECS: &[MaskSpec] = &[
         ],
     },
 ];
+const MAPPINGS: [u8; 16] = identifier(b"41a00ac0f0ccf14f924a133d5bd6e0e7");
 const EXPORT_BOM: [u8; 16] = identifier(b"759de112c0072d48b5650c2fbec586a8");
 const TAG_ENCODING: [u8; 16] = identifier(b"025280d33d85d942b0a8699eb8a0b3d2");
 const TEXT_LIMIT: usize = 4 * 1024 * 1024;
@@ -615,11 +635,87 @@ pub struct Patch {
     tag_encoding: Option<&'static str>,
     grid: Option<&'static str>,
     export_bom: Option<bool>,
+    mappings: Option<Vec<tag_core::UserFieldMapping>>,
 }
 pub struct Import {
     pub patch: Patch,
     pub settings: Vec<Setting>,
     pub warnings: Vec<String>,
+}
+struct MappingList {
+    rules: Vec<tag_core::UserFieldMapping>,
+    reserved: bool,
+    extension: bool,
+}
+fn mapping_u32(bytes: &[u8], position: &mut usize) -> Result<u32, String> {
+    let end = position
+        .checked_add(4)
+        .ok_or("Binary field-mapping length overflow")?;
+    let value = bytes
+        .get(*position..end)
+        .ok_or("Binary field-mapping list is incomplete")?;
+    *position = end;
+    Ok(u32::from_le_bytes(value.try_into().unwrap()))
+}
+fn parse_mappings(bytes: &[u8]) -> Result<MappingList, String> {
+    let mut position = 0;
+    let count = mapping_u32(bytes, &mut position)? as usize;
+    if count > 4096 {
+        return Err("A binary field-mapping list exceeds 4096 rows.".into());
+    }
+    let mut rules = Vec::with_capacity(count);
+    let mut reserved = false;
+    for _ in 0..count {
+        let mut fields: [String; 3] = Default::default();
+        // The native list codec always frames five strings, although Mapping
+        // load/save uses only the first three. Never decode reserved payloads.
+        for output in fields.iter_mut().map(Some).chain([None, None]) {
+            let length = mapping_u32(bytes, &mut position)? as usize;
+            if length > TEXT_LIMIT {
+                return Err("A binary field-mapping field exceeds 4 MB.".into());
+            }
+            let end = position
+                .checked_add(length)
+                .ok_or("Binary field-mapping length overflow")?;
+            let field = bytes
+                .get(position..end)
+                .ok_or("Binary field-mapping list is incomplete")?;
+            position = end;
+            if let Some(output) = output {
+                let value = field.split(|byte| *byte == 0).next().unwrap();
+                *output = std::str::from_utf8(value)
+                    .map_err(|_| "A binary field-mapping field is not valid UTF-8.")?
+                    .to_owned();
+            } else {
+                reserved |= !field.is_empty();
+            }
+        }
+        let [tag_type, source, target] = fields;
+        rules.push(tag_core::UserFieldMapping {
+            tag_type,
+            source,
+            target,
+        });
+    }
+    Ok(MappingList {
+        rules,
+        reserved,
+        extension: position != bytes.len(),
+    })
+}
+fn portable_cover_directory(value: &str) -> bool {
+    // The chooser trims evaluated output; classify the same leading text but
+    // preserve the accepted authored expression without rewriting it.
+    let candidate = value.trim();
+    let scheme = candidate.split_once(':').is_some_and(|(name, _)| {
+        let mut bytes = name.bytes();
+        bytes.next().is_some_and(|byte| byte.is_ascii_alphabetic())
+            && bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.'))
+    });
+    !scheme
+        && !candidate.starts_with('/')
+        && !candidate.contains('\\')
+        && tag_core::CompiledTemplate::compile(value).is_ok()
 }
 pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut position = 0usize;
@@ -627,6 +723,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut extended_mode = None;
     let mut grid_raw = None;
     let mut export_bom = None;
+    let mut mappings_raw = None;
     let mut text = BTreeMap::new();
     let mut masks = BTreeMap::new();
     let mut tag_encoding_raw = None;
@@ -653,6 +750,8 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 .ok_or("Binary boolean setting has no value")?
                 != 0;
             values.insert(spec.key, value ^ spec.inverted);
+        } else if header[..16] == MAPPINGS {
+            mappings_raw = Some(parse_mappings(payload)?);
         } else if header[..16] == EXPORT_BOM {
             export_bom = Some(
                 u32::from_le_bytes(
@@ -725,6 +824,26 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
         position = end;
     }
     let mut warnings = Vec::new();
+    let mappings = mappings_raw.and_then(|list| {
+        if tag_core::validate_user_mappings(&list.rules).is_err() {
+            warnings.push("The incoming field-mapping list is unsupported or conflicting; the entire current list is kept.".into());
+            return None;
+        }
+        if list.reserved { warnings.push("Nonempty reserved mapping fields are not imported; only the supported type, source and target fields transfer.".into()); }
+        if list.extension { warnings.push("Trailing field-mapping extension bytes are not imported.".into()); }
+        Some(list.rules)
+    });
+    for field in ["track_digits", "disc_digits"] {
+        let key = OptionKey::NumberingPadding(field);
+        if values.get(&key) == Some(&true) {
+            values.remove(&key);
+            warnings.push(if field == "track_digits" {
+                "Dynamic track leading-zero padding is not imported; the current minimum digits are kept."
+            } else {
+                "Dynamic disc leading-zero padding is not imported; the current minimum digits are kept."
+            }.into());
+        }
+    }
     let grid = match grid_raw {
         Some(0) => Some("off"),
         Some(1) => Some("alternate"),
@@ -739,6 +858,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     };
     text.retain(|key,value| {
         let reason = match key {
+            TextKey::CoverDirectory if !portable_cover_directory(value) => Some("The host-specific or invalid cover-art directory is not imported; the current folder preference is kept."),
             TextKey::CommentLanguage if value.len()!=3 || !value.bytes().all(|byte|byte.is_ascii_alphabetic()) => Some("The invalid comment language is not imported; the current language is kept."),
             TextKey::RestrictExtensions if crate::settings::parse_extensions(value).is_err() => Some("The invalid incoming-file restriction is not imported; the current restriction is kept."),
             TextKey::FolderSeparator if tag_core::validate_folder_separator(value).is_err() => Some("The invalid folder-separator replacement is not imported; the current replacement is kept."),
@@ -846,6 +966,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
         && tag_encoding.is_none()
         && grid.is_none()
         && export_bom.is_none()
+        && mappings.is_none()
     {
         if !warnings.is_empty() {
             return Err(warnings.join(" "));
@@ -866,6 +987,23 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             verbatim: false,
         })
         .collect();
+    if let Some(rules) = &mappings {
+        settings.push(Setting {
+            label: "Tag field mappings: replace current list".into(),
+            enabled: None,
+            value: Some(rules.len().to_string()),
+            verbatim: false,
+        });
+        settings.extend(rules.iter().map(|rule| Setting {
+            label: "Tag field mapping".into(),
+            enabled: None,
+            value: Some(format!(
+                "{}: {} → {}",
+                rule.tag_type, rule.source, rule.target
+            )),
+            verbatim: true,
+        }));
+    }
     if let Some(enabled) = export_bom {
         settings.push(Setting {
             label: "Write export byte order mark (BOM)".into(),
@@ -953,6 +1091,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             tag_encoding,
             grid,
             export_bom,
+            mappings,
         },
         settings,
         warnings,
@@ -1065,7 +1204,9 @@ impl Patch {
         let mut numbering = if self.booleans.keys().any(|key| {
             matches!(
                 key,
-                OptionKey::Numbering(_) | OptionKey::NumberingFieldEnabled(_)
+                OptionKey::Numbering(_)
+                    | OptionKey::NumberingFieldEnabled(_)
+                    | OptionKey::NumberingPadding(_)
             )
         }) {
             let saved = current
@@ -1086,6 +1227,9 @@ impl Patch {
                 // Applied only to the final in-memory export library after
                 // template collision decisions, never via a stale disk snapshot.
                 OptionKey::ExportAppend | OptionKey::ExportMultiple => {}
+                OptionKey::NumberingPadding(field) => {
+                    numbering.as_mut().unwrap()[*field] = 1.into();
+                }
                 OptionKey::Numbering(field) => {
                     numbering.as_mut().unwrap()[*field] = (*value).into();
                 }
@@ -1264,6 +1408,12 @@ impl Patch {
                 | TextKey::ExportFilename
                 | TextKey::NumberingNextField
                 | TextKey::NumberingResetField => {}
+                TextKey::CoverDirectory => page(
+                    settings(&mut options, directory)?,
+                    "directories",
+                    "cover_art",
+                    value.as_str(),
+                )?,
                 TextKey::PlaylistFilename => page(
                     settings(&mut options, directory)?,
                     "playlist",
@@ -1289,6 +1439,9 @@ impl Patch {
                     settings(&mut options, directory)?.files.folder_separator = value.clone()
                 }
             }
+        }
+        if let Some(rules) = &self.mappings {
+            settings(&mut options, directory)?.tags.mappings = rules.clone();
         }
         if !self.masks.is_empty() || self.tag_encoding.is_some() {
             let options = settings(&mut options, directory)?;
@@ -1382,6 +1535,222 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+    fn mapping_error(bytes: &[u8]) -> String {
+        match parse(bytes) {
+            Err(error) => error,
+            Ok(_) => panic!("invalid mapping record accepted"),
+        }
+    }
+    fn mapping_payload(rows: &[[&[u8]; 5]]) -> Vec<u8> {
+        let mut bytes = (rows.len() as u32).to_le_bytes().to_vec();
+        for row in rows {
+            for field in row {
+                bytes.extend((field.len() as u32).to_le_bytes());
+                bytes.extend_from_slice(field);
+            }
+        }
+        bytes
+    }
+    #[test]
+    fn native_mapping_list_decodes_all_five_fields_and_preserves_order() {
+        let payload = mapping_payload(&[
+            [b"VorbisComment", b"DATE\0\xff", b"YEAR", b"", b""],
+            [
+                b"MP4",
+                "©nam".as_bytes(),
+                "TITEL🎵".as_bytes(),
+                &[255],
+                b"unused",
+            ],
+        ]);
+        let parsed = parse(&record(
+            &native_id("41a00ac0f0ccf14f924a133d5bd6e0e7"),
+            &payload,
+        ))
+        .unwrap();
+        assert_eq!(parsed.settings.len(), 3);
+        assert!(parsed
+            .warnings
+            .iter()
+            .any(|w| w.contains("reserved mapping")));
+        let temp = tempfile::tempdir().unwrap();
+        parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
+        let settings = crate::settings::load(&temp.path().join("settings.json")).0;
+        assert_eq!(
+            serde_json::to_value(&settings.tags.mappings).unwrap(),
+            json!([
+                {"tag_type":"VorbisComment","source":"DATE","target":"YEAR"},
+                {"tag_type":"MP4","source":"©nam","target":"TITEL🎵"}
+            ])
+        );
+        assert!(parsed.settings.iter().skip(1).all(|row| row.verbatim));
+    }
+    #[test]
+    fn native_mapping_list_clear_and_last_record_override_are_explicit() {
+        let id = native_id("41a00ac0f0ccf14f924a133d5bd6e0e7");
+        let original = record(
+            &id,
+            &mapping_payload(&[[b"VorbisComment", b"DATE", b"YEAR", b"", b""]]),
+        );
+        let clear = record(&id, &0u32.to_le_bytes());
+        let parsed = parse(&[original, clear].concat()).unwrap();
+        assert_eq!(parsed.settings.len(), 1);
+        assert_eq!(parsed.settings[0].value.as_deref(), Some("0"));
+        let temp = tempfile::tempdir().unwrap();
+        let mut settings = crate::settings::Settings::default();
+        settings.tags.mappings = vec![tag_core::UserFieldMapping {
+            tag_type: "APEv2".into(),
+            source: "OLD".into(),
+            target: "VALUE".into(),
+        }];
+        crate::settings::save(&temp.path().join("settings.json"), &settings).unwrap();
+        parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
+        assert!(crate::settings::load(&temp.path().join("settings.json"))
+            .0
+            .tags
+            .mappings
+            .is_empty());
+    }
+    #[test]
+    fn native_mapping_list_refuses_truncation_utf8_and_declared_bounds() {
+        let id = native_id("41a00ac0f0ccf14f924a133d5bd6e0e7");
+        let valid = mapping_payload(&[[b"VorbisComment", b"DATE", b"YEAR", b"", b""]]);
+        for end in 0..valid.len() {
+            assert!(parse(&record(&id, &valid[..end])).is_err(), "prefix{end}");
+        }
+        assert!(mapping_error(&record(&id, &4097u32.to_le_bytes())).contains("4096"));
+        let too_long = [1u32.to_le_bytes(), ((TEXT_LIMIT + 1) as u32).to_le_bytes()].concat();
+        assert!(mapping_error(&record(&id, &too_long)).contains("4 MB"));
+        let malformed = mapping_payload(&[[b"VorbisComment", &[255], b"YEAR", b"", b""]]);
+        assert!(mapping_error(&record(&id, &malformed)).contains("UTF-8"));
+    }
+    #[test]
+    fn native_mapping_unsupported_or_conflicting_final_list_keeps_all_current_rules() {
+        let id = native_id("41a00ac0f0ccf14f924a133d5bd6e0e7");
+        for payload in [
+            mapping_payload(&[[b"FutureTag", b"DATE", b"YEAR", b"", b""]]),
+            mapping_payload(&[
+                [b"APEv2", b"X", b"Y", b"", b""],
+                [b"APEv2", b"X", b"Z", b"", b""],
+            ]),
+        ] {
+            let bytes = [
+                record(&id, &0u32.to_le_bytes()),
+                record(&id, &payload),
+                record(&native_id("a17772f7656a2b4fb710657ed41cb01d"), &[0]),
+            ]
+            .concat();
+            let parsed = parse(&bytes).unwrap();
+            assert_eq!(parsed.settings.len(), 1);
+            assert!(parsed.warnings.iter().any(|w| w.contains("mapping list")));
+            assert!(!parsed.warnings.iter().any(|w| w.contains("FutureTag")));
+            let temp = tempfile::tempdir().unwrap();
+            let mut settings = crate::settings::Settings::default();
+            settings.tags.mappings = vec![tag_core::UserFieldMapping {
+                tag_type: "APEv2".into(),
+                source: "KEEP".into(),
+                target: "ME".into(),
+            }];
+            crate::settings::save(&temp.path().join("settings.json"), &settings).unwrap();
+            parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
+            assert_eq!(
+                crate::settings::load(&temp.path().join("settings.json"))
+                    .0
+                    .tags
+                    .mappings,
+                settings.tags.mappings
+            );
+        }
+    }
+    #[test]
+    fn native_cover_directory_and_supported_padding_values_are_portable() {
+        for directory in [
+            "",
+            "Scans",
+            "../Artwork",
+            "%_folderpath%Scans",
+            "$if2(%artist%,Unknown)/Art",
+        ] {
+            let bytes = [
+                record(
+                    &native_id("a7a810227a5a8d4db511e77851eb10dd"),
+                    directory.as_bytes(),
+                ),
+                record(&native_id("81e9cd2aac92e14e9c71cf21ae4e0510"), &[0]),
+                record(&native_id("e4d56fdc8c9b154c99e8c0adf4f25b22"), &[0]),
+            ]
+            .concat();
+            let parsed = parse(&bytes).unwrap();
+            assert_eq!(parsed.settings.len(), 3);
+            let temp = tempfile::tempdir().unwrap();
+            let current = BTreeMap::from([(
+                "opentag.numbering".into(),
+                json!({"track_digits":4,"disc_digits":3,"track_start":8}).to_string(),
+            )]);
+            let preferences = parsed.patch.apply(temp.path(), &current).unwrap();
+            let numbering: serde_json::Value =
+                serde_json::from_str(&preferences["opentag.numbering"]).unwrap();
+            assert_eq!(
+                numbering,
+                json!({"track_digits":1,"disc_digits":1,"track_start":8})
+            );
+            assert_eq!(
+                crate::settings::load(&temp.path().join("settings.json"))
+                    .0
+                    .pages["directories"]["cover_art"],
+                directory
+            );
+        }
+    }
+    #[test]
+    fn native_cover_host_paths_and_dynamic_padding_are_skipped_with_fixed_warnings() {
+        for directory in [
+            "C:\\Users\\Private\\Art",
+            "\\\\server\\share\\Art",
+            "/other/host/Art",
+            " /other/host/Art ",
+            " C:/Other/Art ",
+            "file:/Other/Art",
+            " file:/Other/Art ",
+            "$if(",
+        ] {
+            let bytes = [
+                record(
+                    &native_id("a7a810227a5a8d4db511e77851eb10dd"),
+                    directory.as_bytes(),
+                ),
+                record(&native_id("81e9cd2aac92e14e9c71cf21ae4e0510"), &[255]),
+                record(&native_id("e4d56fdc8c9b154c99e8c0adf4f25b22"), &[1]),
+                record(&native_id("a17772f7656a2b4fb710657ed41cb01d"), &[0]),
+            ]
+            .concat();
+            let parsed = parse(&bytes).unwrap();
+            assert_eq!(parsed.settings.len(), 1);
+            assert!(parsed
+                .warnings
+                .iter()
+                .any(|w| w.contains("cover-art directory")));
+            assert!(
+                parsed
+                    .warnings
+                    .iter()
+                    .filter(|w| w.contains("leading-zero"))
+                    .count()
+                    == 2
+            );
+            assert!(!parsed.warnings.iter().any(|w| w.contains(directory)));
+            let temp = tempfile::tempdir().unwrap();
+            assert!(parsed
+                .patch
+                .apply(temp.path(), &BTreeMap::new())
+                .unwrap()
+                .is_empty());
+            assert!(!crate::settings::load(&temp.path().join("settings.json"))
+                .0
+                .pages
+                .contains_key("directories"));
         }
     }
     #[test]

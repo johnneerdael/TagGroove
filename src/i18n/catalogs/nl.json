@@ -3600,5 +3600,14 @@
  "{error}; incomplete copy was removed": "{error}; de onvolledige kopie is verwijderd",
  "{error}; copy cleanup incomplete: {cleanup}": "{error}; het opruimen van de kopie is onvolledig: {cleanup}",
  "Copy could not be verified": "De kopie kon niet worden gecontroleerd",
- "Off by default. Applies to Tag → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Other converters and action-driven renames do not use this option.": "Standaard uitgeschakeld. Geldt voor Tag → Bestandsnaam, Bestanden verplaatsen naar en Bestanden kopiëren naar. Controleer de paden van de bijbehorende bestanden voordat je doorgaat. Alleen bestanden met exact dezelfde basisnaam en de extensie .lrc of .cdg volgen de audio. Kopiëren behoudt de originelen en heeft geen overdrachtsstap voor Ongedaan maken. Andere converters en hernoemen via acties gebruiken deze optie niet."
+ "Off by default. Applies to Tag → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Other converters and action-driven renames do not use this option.": "Standaard uitgeschakeld. Geldt voor Tag → Bestandsnaam, Bestanden verplaatsen naar en Bestanden kopiëren naar. Controleer de paden van de bijbehorende bestanden voordat je doorgaat. Alleen bestanden met exact dezelfde basisnaam en de extensie .lrc of .cdg volgen de audio. Kopiëren behoudt de originelen en heeft geen overdrachtsstap voor Ongedaan maken. Andere converters en hernoemen via acties gebruiken deze optie niet.",
+ "A binary field-mapping field exceeds 4 MB.": "Een binair veld in de veldtoewijzingen is groter dan 4 MB.",
+ "A binary field-mapping field is not valid UTF-8.": "Een binair veld in de veldtoewijzingen is geen geldige UTF-8.",
+ "A binary field-mapping list exceeds 4096 rows.": "Een binaire lijst met veldtoewijzingen bevat meer dan 4096 regels.",
+ "Binary field-mapping length overflow": "Lengteoverloop in binaire veldtoewijzingen",
+ "Binary field-mapping list is incomplete": "De binaire lijst met veldtoewijzingen is onvolledig",
+ "Numbering: Leading zeros for tracknumbers": "Nummering: voorloopnullen voor tracknummers",
+ "Numbering: Leading zeros for discnumbers": "Nummering: voorloopnullen voor schijfnummers",
+ "Tag field mappings: replace current list": "Tagveldtoewijzingen: huidige lijst vervangen",
+ "Tag field mapping": "Tagveldtoewijzing"
 }

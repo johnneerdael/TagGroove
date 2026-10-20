@@ -187,6 +187,35 @@ Importing these choices never runs the template or writes an export file.
 If **Show export selection dialog** is off, inspect the active template and
 output filename before your first export.
 
+The **Options → Tags → Mapping** list also transfers. The preview shows the
+number of rules and each ordered **tag type: source → target** triple. An
+explicit source list **replaces the entire current mapping list**; it is not
+merged with existing rules. An explicitly empty list clears current custom
+mappings. If the source has no mapping-list record, your current list stays.
+The supported tag types are `APEv2`, `ID3v2`, `MP4`, `VorbisComment` and `WMA`.
+For example, `VorbisComment: DATE → YEAR` retains that exact rule in its
+original position. Field names are shown literally, including Unicode.
+
+An unsupported tag type or conflicting source rules keep the entire current
+list with a warning. No valid-looking subset replaces it silently. Nonempty
+reserved fields and trailing extension bytes are skipped with diagnostics;
+the source file is unchanged. Each list is limited to 4096 rows and each raw
+field to 4 MB; malformed framing or UTF-8 in the three public fields refuses
+that binary settings file. After import, review **Options → Tags → Mapping**
+before your next tag edit. Import does not read or rewrite audio with the new
+rules.
+
+**Default folder for Add cover** transfers as an explicitly empty value, a
+relative folder such as `Scans` or `../Artwork`, or a supported file-derived
+expression such as `%_folderpath%Scans`. Its authored text is preserved. Import
+does not evaluate the expression, create folders or probe their contents.
+The later Add cover chooser uses the expression for the selected file and
+retains its existing fallback behavior. Static absolute/drive/URI prefixes,
+including surrounding whitespace, and backslash syntax are skipped with a
+warning under the portable-only import policy. This also applies on Windows;
+host-specific paths are not silently reused on a different machine. Script
+branches are not evaluated to discover their eventual paths during import.
+
 The numbering wizard's **Save total track count**, **Disc numbers**, **Save
 total disc count**, **Next disc on change of directory** and **Reset track
 counter on next disc** preferences also transfer. Each source switch changes
@@ -212,9 +241,12 @@ If current saved numbering preferences are invalid, importing numbering stops
 before publishing any setup changes. With files selected, open Auto-numbering, review its options,
 and stage a reviewed sequence to remember valid choices before inspecting the
 profile again. Staged tag changes still require **Save tags** to write audio.
-Native dynamic leading-zero options and the Windows last-codepage chooser
-index are not mapped onto fixed minimum digits or an unrelated codepage; review
-those choices manually. A raw chooser index depends on the original Windows
+An explicit **Leading zeros: Off** for tracks or discs sets only that counter's
+**Minimum digits** to `1`. **On** uses dynamic widths in the original application;
+it is skipped with a warning and keeps your current fixed minimum digits.
+It is not guessed as a fixed width of `2`. The Windows last-codepage chooser
+index is also not mapped onto an unrelated codepage; review those choices
+manually. A raw chooser index depends on the original Windows
 locale list and cannot identify a portable codepage by itself.
 
 For example, if the preview says **Show filter: Off**, importing it hides the

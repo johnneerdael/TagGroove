@@ -2348,6 +2348,112 @@ mod tests {
         }
     }
     #[test]
+    fn native_profile_mapping_cover_directory_and_padding_restore_exactly() {
+        let _guard = TESTS.lock().unwrap();
+        for clear in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(directory.path());
+            let mut prior = crate::settings::Settings::default();
+            prior.general.natural_sort = false;
+            prior.tags.mappings = vec![tag_core::UserFieldMapping {
+                tag_type: "APEv2".into(),
+                source: "BEFORE".into(),
+                target: "KEPT".into(),
+            }];
+            prior.pages.insert(
+                "directories".into(),
+                serde_json::json!({"cover_art":"Before","unrelated":true}),
+            );
+            crate::settings::save(&directory.path().join("settings.json"), &prior).unwrap();
+            let mut current = window();
+            current.preferences.insert(
+                "opentag.numbering".into(),
+                serde_json::json!({"track_start":9,"track_digits":4,"disc_digits":3}).to_string(),
+            );
+            let before = native(directory.path()).unwrap();
+            let rows = if clear {
+                Vec::new()
+            } else {
+                vec![
+                    ("VorbisComment", "DATE", "YEAR"),
+                    ("WMA", "MOOD", "STIMMUNG🎵"),
+                ]
+            };
+            let mut mappings = (rows.len() as u32).to_le_bytes().to_vec();
+            for (kind, from, to) in &rows {
+                for field in [kind, from, to, &"", &""] {
+                    mappings.extend((field.len() as u32).to_le_bytes());
+                    mappings.extend(field.as_bytes());
+                }
+            }
+            let cover = if clear { "" } else { "%_folderpath%Scans" };
+            let bytes = export_setting_records(&[
+                ("41a00ac0f0ccf14f924a133d5bd6e0e7", &mappings),
+                ("a7a810227a5a8d4db511e77851eb10dd", cover.as_bytes()),
+                ("81e9cd2aac92e14e9c71cf21ae4e0510", &[0]),
+                ("e4d56fdc8c9b154c99e8c0adf4f25b22", &[0]),
+            ]);
+            std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+            let original = input(source.path()).unwrap();
+            let preview = make_preview(
+                directory.path(),
+                source.path().to_str().unwrap(),
+                current.clone(),
+            )
+            .unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported, "{:?}", item.warnings);
+            assert_eq!(item.settings.len(), 4 + rows.len());
+            let applied = apply(
+                directory.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current.clone(),
+            )
+            .unwrap();
+            let options: crate::settings::Settings = serde_json::from_slice(
+                &std::fs::read(directory.path().join("settings.json")).unwrap(),
+            )
+            .unwrap();
+            let actual: Vec<_> = options
+                .tags
+                .mappings
+                .iter()
+                .map(|row| {
+                    (
+                        row.tag_type.as_str(),
+                        row.source.as_str(),
+                        row.target.as_str(),
+                    )
+                })
+                .collect();
+            assert_eq!(actual, rows);
+            assert_eq!(options.pages["directories"]["cover_art"], cover);
+            assert_eq!(options.pages["directories"]["unrelated"], true);
+            assert!(!options.general.natural_sort);
+            let pending = applied.pending.unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(
+                    &pending.window.preferences["opentag.numbering"]
+                )
+                .unwrap(),
+                serde_json::json!({"track_start":9,"track_digits":1,"disc_digits":1})
+            );
+            status(directory.path(), Some(&pending.id), None, None).unwrap();
+            status(directory.path(), None, Some(&pending.id), None).unwrap();
+            let restored = restore(directory.path(), pending.window).unwrap();
+            assert_eq!(restored.pending.unwrap().window, current);
+            assert_eq!(native(directory.path()).unwrap(), before);
+            assert_eq!(input(source.path()).unwrap(), original);
+        }
+    }
+    #[test]
     fn binary_numbering_switches_overlay_present_records_and_restore_browser_memory() {
         let _guard = TESTS.lock().unwrap();
         let mappings = [

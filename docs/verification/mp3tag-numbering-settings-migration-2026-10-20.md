@@ -64,16 +64,16 @@ uses case-insensitive ASCII matching against tag fields; this work does not
 create a new path-expression or Unicode normalization engine.
 
 `_DIRECTORY` and other underscore pseudo fields are not ordinary tag fields and
-are not substituted with the separate next-directory option. Native dynamic
-leading-zero settings remain L66; fixed digit counts are not equivalent for
-larger sequences. Track-disabled behavior has no target toggle. LastCodepage
+are not substituted with the separate next-directory option. The later [mapping/cover/padding slice](mp3tag-mapping-cover-settings-migration-2026-10-20.md)
+imports explicit leading-zero Off as one minimum digit; dynamic On remains L66,
+since fixed digit counts are not equivalent for larger sequences. Track-disabled behavior has no target toggle. LastCodepage
 (`719e4c7cd5ad814cba6915241b1d50d1`) is the Windows chooser row index, not LCID or
 codepage. These choices remain skipped; their final migration dispositions still
 need review. The original chooser order is host/locale dependent. Broader
 unsupported codecs remain L56b. Original/native import/restart/restore remains
 C12/C27/L78/L79 and is not replaced by the tests below.
 
-The combined adapters now recognize 68 portable native records, producing at
+At this slice the combined adapters recognized 68 portable native records, producing at
 most 79 preview options (48 byte booleans, 17 packed switches, three choices,
 ten text values and one u32-derived BOM switch). Disabled or invalid pairs can
 produce fewer rows. This arithmetic is not a completeness proof.
