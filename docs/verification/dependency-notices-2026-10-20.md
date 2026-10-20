@@ -128,3 +128,34 @@ The source tree and generated payload are not proof that a new package has
 been published. The historical v0.2.56 artifacts remain separate baseline
 evidence. Final release binding, native GPL-policy repair, JVM/installer-helper
 material and actual postmerge package inspection remain required L76 work.
+
+## Main 15ca9ab source-recipe evidence refresh
+
+The cache-free `dependency-notices.py --check` and existing JavaScript
+source-binding regression both refused the inventory after main
+`15ca9ab3e09bba9e886b8b0c72fcde3a67f3a37b` changed zlib's preferred download
+URL and retained its original URLs as mirrors. Comparing the complete input
+map found only `scripts/audio-deps/sources.json` stale. Its version `1.3.2`
+and pinned archive SHA-256
+`bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`
+were unchanged. This was missing evidence regeneration, not a collector or
+release-version normalization defect.
+
+Captured fresh offline Cargo metadata with `--collect-metadata` into
+`/tmp/taggroove-main-15ca-dependency-metadata`; all seven target memberships
+match the committed inventory exactly. Regenerated through `--generate`
+using those snapshots, the checksum-bound Cargo registry cache and the four
+exact locked NPM tarballs. Full `--check --verify-material` replay with the
+same metadata verifies 448 components and 302 distinct texts. Every component
+record, target membership, dependency version, source URL, archive pin, VCS
+record, supplemental provenance and notice text is identical; only the source
+recipe fingerprint changes from `1deed6f1...` to `46d04767...`. The rendered
+dependency, common and installer RTF payloads remain byte-identical.
+
+The existing source-binding JavaScript regression failed before regeneration
+and passes afterward. Existing Python coverage already exercises stale source
+and graph refusal, release-stamp normalization and archive tampering; no new
+test or generator change was needed. Eleven focused Python cases and the
+three dependency-notice JavaScript cases pass. No application, Gradle or
+native UI build ran. This refresh proves current source/material consistency;
+hosted packaging and runtime inspection remain separate release evidence.

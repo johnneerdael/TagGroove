@@ -100,6 +100,15 @@ checked again before publication. Local development/native tests retain ad-hoc
 signing. See the [source/test receipt](verification/macos-release-signing-2026-10-20.md)
 for credential handling, checks and unqualified native results.
 
+Before any platform build or native integration, authorized release preparation
+authenticates the three Actions `APPLE_NOTARY_*` secrets with one read-only
+Notary API request. The dependency-free Node helper checks a five-minute token,
+rejects redirects and limits the request to 15 seconds. It reads no submission
+body and logs no credential values. Authentication failure stops the matrix;
+updating credentials and retrying preparation does not require another source
+commit. Already-published releases skip this check. Authentication success still
+requires actual app/DMG notarization and all later publication checks.
+
 Native build tools are installed explicitly before compilation: Python 3.12, CMake, Make and the target C/C++ toolchain, plus NASM for x86 assembly. Windows exposes the MSVC developer environment, binds `OPENTAG_MSYS2` to the setup action's actual installation after verifying Bash and Make, verifies the NASM executable, and adds its installation directory to `PATH`; Apple and Linux jobs install the matching tools through their existing package managers. Android and iOS retain their existing NDK/SDK and simulator targets. These are build prerequisites and do not add runtime programs to the application.
 
 Trusted PR validation runs the workflow from `main`. Land build-tool prerequisites before a feature that needs them: a PR cannot bootstrap its first validation using changes to its own workflow. A runner inventory that does not list a tool is not proof of a live command failure; explicit installation provides the prerequisite without relying on a transitive package.

@@ -77,6 +77,13 @@ jobs:
           RELEASE_BRANCH: ${{ github.event.repository.default_branch }}
           DRY_RUN: 'false'
         run: node scripts/release.mjs prepare
+      - name: Validate Apple notarization credentials before platform builds
+        if: steps.plan.outputs.skip != 'true'
+        env:
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_PRIVATE_KEY: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY }}
+        run: node scripts/notary-preflight.mjs
 
   native-validation:
     name: Native UI and Android integration

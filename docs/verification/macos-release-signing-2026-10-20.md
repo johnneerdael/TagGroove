@@ -16,14 +16,17 @@ values belong in this receipt, the repository, command arguments or logs.
 
 `scripts/macos-release.py prepare` requires all credentials, writes the notary
 key with mode0600 inside a mode0700 directory outside the checkout, and creates
-a Tauri override for the pinned identity, hardened runtime and mandatory stapling.
+a Tauri override for the pinned identity and hardened runtime. Later package
+verification requires app and DMG stapling.
 Missing/invalid credential structure refuses before building. A failed partial
 write removes newly created private staging. Guarded cleanup runs regardless of
 later job success and refuses unknown or changed staging material.
 
 The normal source configuration retains its ad-hoc signing identity for local
-development/native tests. Signing secrets are scoped to Mac release steps;
-non-Mac builders and premerge validation receive none of these credentials.
+development/native tests. The signing certificate/password stay scoped to Mac
+release steps. The three Notary API credentials also reach the authorized
+release-preparation probe; non-Mac application builders and premerge validation
+receive none of these credentials.
 
 Certificate import is performed by the pinned CLI itself. Its
 [bundler keychain entry point](https://github.com/tauri-apps/tauri/blob/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle/macos/sign.rs#L18-L35)
@@ -100,3 +103,29 @@ and preparation; no PR review or premerge proof is manufactured.
 Android integration job 118857168337 separately failed while downloading and
 unzipping NDK 28.2.13676358, before executing tests. Its root cause beyond the
 reported ZIP read error is unproven; the fresh repair run retries SDK acquisition.
+
+## Authentication failure and inexpensive preflight
+
+Release 39493635854 Mac arm64 job 118873127605 compiled and signed the app,
+then Apple refused app notarization with HTTP 401. The pinned CLI mapping
+matches the workflow. A separate read-only probe used the same Codespaces
+secrets: the P-256 key parsed and its JWT signature verified locally, but both
+the Notary history and App Store Connect apps endpoints returned HTTP 401.
+The credential combination is therefore rejected independently of Tauri.
+No key, identifier, token or submission data was printed or saved locally.
+The temporary two-core Codespace was deleted and the owner was asked to verify
+and update the three secrets; credential validity remains required.
+
+The release preparation job now invokes scripts/notary-preflight.mjs before
+its dependent platform matrix. It uses Node built-in crypto/fetch only, a
+five-minute ES256 token and one fixed GET to Apple's documented history
+endpoint, with redirect rejection and a 15-second deadline. Responses are
+aborted after headers and bodies remain unread. All non-200 outcomes refuse,
+with sanitized output. Published-release skips remain intact. This probe does
+not replace actual notarization, package signatures, native integration or
+publication proof.
+
+All eleven focused helper cases and 138 GitHub workflow/tooling cases pass;
+independent source review has no actionable findings. Local tests ran on Node
+26; reviewed API usage is compatible with the workflow's Node 24, whose hosted
+execution remains a separate check.

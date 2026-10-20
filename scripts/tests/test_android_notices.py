@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -167,6 +168,53 @@ class AndroidNoticesTests(unittest.TestCase):
             p.write_bytes(b'changed')
             with self.assertRaises(ValueError):
                 m.collect(root, graph, cache)
+
+    def test_committed_inventory_survives_release_stamp_but_refuses_changed_sources(self):
+        m = self.module()
+        repository = SCRIPT.parent.parent
+        data = json.loads((repository / m.INVENTORY).read_text())
+        canonical = json.loads((repository / m.MATERIAL).read_text())['canonical_license']['source_file']
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in {*m.source_inputs(repository), 'src-tauri/tauri.conf.json', canonical}:
+                if name == 'android-plugin-set':
+                    continue
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(repository / name, target)
+            # Plugin registration is checked separately from the build scripts.
+            target = root / 'src-tauri/src/lib.rs'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(repository / 'src-tauri/src/lib.rs', target)
+            before = m.source_inputs(root)
+            command = ('import {stampVersion} from ' + json.dumps((repository / 'scripts/release.mjs').as_uri()) +
+                       '; await stampVersion(process.argv[1], "0.2.60");')
+            subprocess.run(['node', '--input-type=module', '-e', command, str(root)], check=True,
+                           capture_output=True, text=True)
+            self.assertEqual(m.source_inputs(root), before)
+            m.validate_inventory(root, data)
+            def changed_recipe(raw):
+                recipe = json.loads(raw)
+                recipe['components']['zlib']['url'] = 'https://example.invalid/changed-zlib.tar.gz'
+                return m.encoded(recipe)
+
+            changes = {
+                'scripts/audio-deps/sources.json': changed_recipe,
+                'Cargo.lock': lambda raw: re.sub(rb'(checksum = ")([a-f0-9])',
+                                                lambda match: match[1] + (b'0' if match[2] != b'0' else b'1'), raw, count=1),
+                'crates/document-access/android/build.gradle.kts': lambda raw: raw + b'\nimplementation("unexpected:dependency:1")\n',
+                'scripts/android-notices.py': lambda raw: raw + b'\n# changed collector\n',
+            }
+            for name, change in changes.items():
+                with self.subTest(source=name):
+                    path = root / name
+                    original = path.read_bytes()
+                    altered = change(original)
+                    self.assertNotEqual(altered, original)
+                    path.write_bytes(altered)
+                    with self.assertRaisesRegex(ValueError, 'Stale Android notice source inputs'):
+                        m.validate_inventory(root, data)
+                    path.write_bytes(original)
 
     def test_cli_attaches_current_payload_and_refuses_detached_outputs(self):
         m = self.module()

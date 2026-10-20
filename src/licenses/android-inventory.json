@@ -2358,7 +2358,7 @@
     "package-lock.json": "c30e0ba323aa28d24ac5cd9fbd512afc4fe348a54be1340ec449f15c519b091a",
     "package.json": "8883ff1769db0149d420f9468f3039bc227fc777a2342273050e7a215eea479c",
     "scripts/android-notices.py": "fbe79ffd0c6548eaf6c34dafa2b6a98440ddca20e130fcdad91569acad3d2967",
-    "scripts/audio-deps/sources.json": "1deed6f1d9bd7300971c8e36b94bbc47abc1f1ec2d117b43e3a9171606b68c8e",
+    "scripts/audio-deps/sources.json": "46d04767d23cd18830b122c98d2a1b4e4d1aba3c3fd44ca1f721369e1830d619",
     "scripts/dependency-notices.py": "6da21e2461181a382895ca3a777da097996927bb3f1c5f6720bff4adef4fd27d",
     "scripts/notices/android-material.json": "bfc15dd31dd4742b0321e9af55ff50236376210651d95e6edc2498f303c1c5c4",
     "scripts/notices/android-runtime-report.init.gradle": "c302472a2a9f9e1741d5e439d0a7df6bc53fb964acf17b1046608094de60420f",

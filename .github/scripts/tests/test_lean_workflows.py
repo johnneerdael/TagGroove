@@ -15,6 +15,23 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
+    def test_notary_authentication_precedes_all_platform_builds(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        prepare = job(source, 'prepare')
+        title = 'Validate Apple notarization credentials before platform builds'
+        self.assertIn('needs: authorize', prepare)
+        self.assertIn('      - name: '+title+'\n', prepare)
+        step = prepare.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: steps.plan.outputs.skip != 'true'", step)
+        self.assertIn('run: node scripts/notary-preflight.mjs', step)
+        for name in ['APPLE_NOTARY_ISSUER_ID', 'APPLE_NOTARY_KEY_ID', 'APPLE_NOTARY_PRIVATE_KEY']:
+            self.assertIn(name+': ${{ secrets.'+name+' }}', step)
+        self.assertNotIn('APPLE_CERTIFICATE', step)
+        self.assertLess(prepare.index('name: Resolve immutable release plan'), prepare.index('name: '+title))
+        for name in ['desktop', 'android', 'ios']:
+            self.assertIn('needs: prepare', job(source, name))
+        self.assertIn('needs: [authorize, prepare]', job(source, 'native-validation'))
+
     def test_macos_signing_is_scoped_and_verified_before_collection(self):
         source = (WORKFLOWS / 'reviewed-release.yml').read_text()
         desktop = job(source, 'desktop')

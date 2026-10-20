@@ -10,7 +10,7 @@ The dispatched workflow repeats authorization against the exact current main/hea
 
 Conflicting PRs and pending test-merge calculations remain blocked without dispatching application jobs. When the reviewed source contains `mkdocs.yml`, validation also runs the pinned guide toolchain, publication tests, writing-plan check and strict documentation build. This build has no Pages upload or deployment permissions.
 
-On a main push, `reviewed-release.yml` is dispatched only for a uniquely associated merged PR with clean final-head Codex review and successful trusted validation proof. The published source must have the exact validated parents and tree. The release workflow verifies this before building/signing and again before publication. Owner-authorized direct-main failed-build repairs use a distinct path: a single-parent commit directly after the failed release source must carry `CI-Repair-Run: <failed-run-id>`. The gate requires that exact completed failed trusted main release run with successful authorization and preparation, main ancestry and no associated merged PR, and rechecks this evidence before publication. This does not supply PR review proof. Direct main containment/bootstrap commits without this evidence authorize no release. Existing platform, version, signature, checksum and complete-asset checks remain in the new release workflow.
+On a main push, `reviewed-release.yml` is dispatched only for a uniquely associated merged PR with clean final-head Codex review and successful trusted validation proof. The published source must have the exact validated parents and tree. The release workflow verifies this before building/signing and again before publication. Owner-authorized direct-main failed-build repairs use a distinct path: a single-parent commit directly after the failed release source must carry `CI-Repair-Run: <failed-run-id>`. If the failed run used a later controller commit, a repair may instead preserve that exact controller parent only after a complete bounded comparison proves the intervening changes stay within `.github/` and `docs/`; application changes, cross-boundary renames and truncated evidence refuse. The gate requires that exact completed failed trusted main release run with successful authorization and preparation, main ancestry and no associated merged PR, and rechecks this evidence before publication. This does not supply PR review proof. Direct main containment/bootstrap commits without this evidence authorize no release. Existing platform, version, signature, checksum and complete-asset checks remain in the new release workflow.
 
 Enable only the controller, metadata signal, review-metadata invalidation, reviewed PR workflow, reusable pre-merge checks, post-merge native integration and reviewed release paths after installation. Require `Codex review` and `Reviewed PR builds` plus applicable checks through main branch protection/rulesets. Run a manual metadata recheck with:
 
@@ -48,6 +48,14 @@ The former automatic docs and screenshot workflow files are removed; their
 legacy IDs remain disabled.
 
 ## Test and build execution split
+
+After source authorization and immutable version planning, release preparation
+performs a bounded read-only Apple Notary authentication check before any
+platform or native-integration job starts. Only that preparation step and Mac
+release steps receive the Notary API secrets. Failure stops costly application
+work; already-published versions skip the probe. The probe never submits
+software, reads submission bodies or substitutes for later notarization,
+signature, native-integration and source/publication verification.
 
 After clean review, `_reviewed-build.yml` runs unit tests, TypeScript checks, formatting, Clippy, tooling and strict guide checks on one Linux worker. It produces no application packages and runs no native UI or Android integration. The legacy `Reviewed PR builds` status name remains for protection compatibility.
 

@@ -93,3 +93,38 @@ The native policy repair still needs rebuilt target evidence, decoder
 integration and application closure/symbol checks. Installer helper material
 and other native subcomponent audits remain L76 work. No application/native UI
 test was run for this slice.
+
+## Release 39493635854 source-recipe repair
+
+Android job `118873127144` built its signed APK and successfully captured the
+runtime metadata, then refused the bundled inventory with
+`Stale Android notice source inputs`. Comparing all 29 inventory input
+fingerprints against main `15ca9ab3e09bba9e886b8b0c72fcde3a67f3a37b` isolated
+one difference: `scripts/audio-deps/sources.json`. That commit changed zlib's
+preferred download URL and retained its original URLs as mirrors; version
+`1.3.2`, archive SHA-256
+`bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`,
+and all notice material remained unchanged. All 20 Android resolution graph
+fingerprints still matched. The strict source check correctly detected an
+inventory that had not been regenerated after the recipe edit.
+
+Regenerated through `android-notices.py --generate` with the committed
+resolution snapshot and the actual Maven cache, then ran `--check --metadata`
+with `--verify-material`. This revalidated the selected graph, all 65 artifact
+identities and bytes, POM chains, and eight notice texts. The only inventory
+change is the source recipe fingerprint, from `1deed6f1...` to `46d04767...`;
+rendered payloads, archive pins and resolution inputs are identical. No
+collector, workflow or normalization rule changed. This reused the existing
+source-bound graph and did not claim a fresh local Gradle capture.
+
+The existing cache-free JavaScript check reproduced the failure before
+regeneration and passes afterward. A new Python regression also failed with
+the original inventory. It copies the current source inputs into an isolated
+temporary tree, runs the real release stamper for `0.2.60`, and proves that
+the normalized inputs stay identical and the inventory remains valid. It
+then changes the source recipe URL, a locked dependency checksum, Android
+module code and collector code independently; each change still refuses the
+inventory. Nine focused Python cases and both Android notice JavaScript
+cases pass. No application build or native UI test was run for this repair;
+fresh hosted capture, complete APK/native evidence and runtime inspection
+remain release requirements.
