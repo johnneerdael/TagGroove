@@ -90,3 +90,13 @@ layout is the goal.
 - [Regular expressions](../reference/regular-expressions.md)
 - [Tag → Filename](tag-to-filename.md)
 - [Converters](index.md)
+
+## Filename changes with companion files
+
+When the associated-files option is enabled, using `_FILENAME` here carries
+matching `.lrc`/`.cdg` files through the same guarded filename effect as actions.
+Tag → Tag runs immediately; it does not show a companion destination preview.
+Use a reviewed filename converter to inspect exact paths before applying.
+See [associated files](../guides/associated-files.md#actions-and-tag-tag) for
+membership checks, collision/rollback errors and recorded history. Inline
+filename editing remains audio-only.

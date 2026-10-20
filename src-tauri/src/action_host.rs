@@ -26,6 +26,7 @@ pub struct ActionResult {
     #[serde(flatten)]
     pub result: ScanResult,
     pub renamed: Vec<PathChange>,
+    pub associated_renamed: Vec<PathChange>,
     pub moved_directories: Vec<PathChange>,
     /// Playlist and export files written by the actions.
     pub outputs: Vec<String>,
@@ -540,6 +541,7 @@ struct NativeHost<'a> {
     inputs: Vec<PathBuf>,
     /// Playlists and export files written, for opening after export.
     outputs: Vec<String>,
+    companions: crate::action_companions::Prepared,
 }
 impl NativeHost<'_> {
     fn resolve(&self, path: &Path) -> PathBuf {
@@ -593,6 +595,9 @@ impl NativeHost<'_> {
             .map_err(|error| error.to_string())
     }
     fn flush_diagnostic(&self, state: &mut ActionState) -> Result<AudioEntry, ErrorCause> {
+        if self.companions.audio_uncertain(&self.identity(state).0) {
+            return Err(ErrorCause::owned("An earlier audio rollback is incomplete; inspect the reported paths before continuing"));
+        }
         self.synchronize(state).map_err(ErrorCause::owned_text)?;
         let path = state_path(state).map_err(ErrorCause::owned_text)?;
         let original = crate::settings::read_summary_diagnostic(&path)?;
@@ -773,8 +778,61 @@ impl NativeHost<'_> {
                         }
                     }
                 }
-                tag_core::operations::rename_no_clobber_cause(&path, &target)?;
-                let entry = crate::settings::read_summary_diagnostic(&target)?;
+                let entry = if self.companions.active() {
+                    target = normalized_rename_target(&target).map_err(ErrorCause::owned_text)?;
+                    let original = self.identity(state).0;
+                    let before = self.companions.current_audio(&original).map(Path::to_owned);
+                    let mut readback = None;
+                    let moved = self.companions.rename(&original, &path, &target, &mut || {
+                        readback = Some(crate::settings::read_summary_diagnostic(&target)?);
+                        Ok(())
+                    });
+                    if let Err(error) = moved {
+                        if let Some(current) = self
+                            .companions
+                            .current_audio(&original)
+                            .filter(|current| Some(*current) != before.as_deref())
+                        {
+                            let index = state
+                                .context
+                                .get("_COUNTER")
+                                .and_then(|values| values.first())
+                                .and_then(|value| value.parse::<usize>().ok())
+                                .unwrap_or(1);
+                            if let Some(input) = self.inputs.get_mut(index.saturating_sub(1)) {
+                                *input = current.to_owned();
+                            }
+                            state.context.insert(
+                                "_PATH".into(),
+                                vec![current.to_string_lossy().into_owned()],
+                            );
+                        }
+                        return Err(error);
+                    }
+                    readback.ok_or_else(|| {
+                        ErrorCause::owned("The action rename completed without an audio readback")
+                    })?
+                } else {
+                    if path != target {
+                        let physical = normalized_output_path_diagnostic(&path)?;
+                        let source_directory = physical
+                            .parent()
+                            .ok_or_else(|| ErrorCause::owned("Source has no parent directory"))?
+                            .to_owned();
+                        let inputs = [(self.identity(state).0, physical)];
+                        self.companions.guard_operation(
+                            &source_directory,
+                            &target,
+                            &inputs,
+                            &mut |_, _| {
+                                tag_core::operations::rename_no_clobber_cause(&path, &target)
+                            },
+                        )?;
+                    } else {
+                        tag_core::operations::rename_no_clobber_cause(&path, &target)?;
+                    }
+                    crate::settings::read_summary_diagnostic(&target)?
+                };
                 let index: usize = state
                     .context
                     .get("_COUNTER")
@@ -801,12 +859,37 @@ impl NativeHost<'_> {
                         return Err(ErrorCause::owned("Cannot move a directory inside itself"));
                     }
                     let from = normalized_output_diagnostic(source)?;
-                    tag_core::operations::rename_directory_no_clobber_diagnostic(source, &target)?;
+                    let from_physical = normalized_output_path_diagnostic(source)?;
+                    let inputs = self
+                        .identities
+                        .iter()
+                        .zip(&self.inputs)
+                        .map(|(original, path)| {
+                            Ok((
+                                original.clone(),
+                                normalized_output_path_diagnostic(&self.resolve(path))?,
+                            ))
+                        })
+                        .collect::<Result<Vec<_>, ErrorCause>>()?;
+                    self.companions.guard_operation(
+                        &from_physical,
+                        &target,
+                        &inputs,
+                        &mut |_, _| {
+                            tag_core::operations::rename_directory_no_clobber_diagnostic(
+                                source, &target,
+                            )
+                        },
+                    )?;
                     self.directories.push(PathChange {
                         from: source.to_string_lossy().into_owned(),
                         to: target.to_string_lossy().into_owned(),
                     });
-                    self.move_cover_outputs(&from, &normalized_output_diagnostic(&target)?);
+                    let to = normalized_output_diagnostic(&target)?;
+                    let to_physical = normalized_output_path_diagnostic(&target)?;
+                    self.companions
+                        .moved_directory(&from_physical, &to_physical);
+                    self.move_cover_outputs(&from, &to);
                 }
                 self.synchronize(state).map_err(ErrorCause::owned_text)?;
             }
@@ -1430,6 +1513,7 @@ pub fn execute_with_side_file_epochs(
     .result
 }
 
+#[cfg(test)]
 pub fn execute_diagnostic(
     paths: &[String],
     groups: &[ActionGroup],
@@ -1438,10 +1522,61 @@ pub fn execute_diagnostic(
     execute_with_side_file_epochs_diagnostic(paths, groups, settings, &mut |_, _| Ok(()))
 }
 
+pub(crate) fn execute_companion_policy(
+    paths: &[String],
+    groups: &[ActionGroup],
+    settings: EvaluationSettings,
+    enabled: bool,
+    before_replace: &mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>,
+) -> Detailed<ActionResult> {
+    match crate::action_companions::Prepared::prepare(paths, groups, enabled) {
+        Ok(prepared) => execute_prepared(paths, groups, settings, prepared, before_replace),
+        Err(error) => {
+            let mut result = ScanResult::default();
+            let mut error_diagnostics = Vec::new();
+            for path in paths {
+                push_error(
+                    &mut result.errors,
+                    &mut error_diagnostics,
+                    path.clone(),
+                    BatchError::ActionValidation {
+                        group: "Associated files".into(),
+                        cause: ErrorCause::owned_text(error.clone()),
+                    },
+                );
+            }
+            Detailed {
+                result: ActionResult {
+                    result,
+                    renamed: vec![],
+                    associated_renamed: vec![],
+                    moved_directories: vec![],
+                    outputs: vec![],
+                },
+                error_diagnostics,
+            }
+        }
+    }
+}
 pub fn execute_with_side_file_epochs_diagnostic(
     paths: &[String],
     groups: &[ActionGroup],
     settings: EvaluationSettings,
+    before_replace: &mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>,
+) -> Detailed<ActionResult> {
+    execute_companion_policy(
+        paths,
+        groups,
+        settings,
+        crate::associated_files::enabled(),
+        before_replace,
+    )
+}
+pub(crate) fn execute_prepared(
+    paths: &[String],
+    groups: &[ActionGroup],
+    settings: EvaluationSettings,
+    companions: crate::action_companions::Prepared,
     before_replace: &mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>,
 ) -> Detailed<ActionResult> {
     let mut result = ScanResult::default();
@@ -1478,6 +1613,7 @@ pub fn execute_with_side_file_epochs_diagnostic(
         inputs: initial.iter().map(PathBuf::from).collect(),
         initial_fields: states.iter().map(|s| s.fields.clone()).collect(),
         outputs: Vec::new(),
+        companions,
     };
     let mut failed = HashSet::new();
     let mut preflight = None;
@@ -1627,6 +1763,7 @@ pub fn execute_with_side_file_epochs_diagnostic(
         result: ActionResult {
             result,
             renamed,
+            associated_renamed: host.companions.changes(),
             moved_directories: host.directories,
             outputs: host.outputs,
         },
@@ -1638,6 +1775,430 @@ pub fn execute_with_side_file_epochs_diagnostic(
 mod tests {
     use super::*;
 
+    fn companion_action_run(
+        paths: &[PathBuf],
+        actions: Vec<ActionSpec>,
+        enabled: bool,
+    ) -> Detailed<ActionResult> {
+        execute_companion_policy(
+            &paths
+                .iter()
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            &[ActionGroup {
+                name: "Companions".into(),
+                enabled: true,
+                actions,
+            }],
+            EvaluationSettings::default(),
+            enabled,
+            &mut |_, _| Ok(()),
+        )
+    }
+    fn filename_action(name: &str) -> ActionSpec {
+        ActionSpec::FormatValue {
+            field: "_FILENAME".into(),
+            template: name.into(),
+        }
+    }
+    fn directory_action(name: &str) -> ActionSpec {
+        ActionSpec::FormatValue {
+            field: "_DIRECTORY".into(),
+            template: name.into(),
+        }
+    }
+    #[test]
+    fn companion_actions_follow_repeated_renames_after_own_metadata_writes() {
+        for enabled in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let path = fixture(&root, "old.wav");
+            for (name, bytes) in [
+                ("old.lrc", b"lyric".as_slice()),
+                ("old.CDG", b"karaoke"),
+                ("old.en.lrc", b"suffix"),
+                ("old.txt", b"text"),
+            ] {
+                fs::write(root.join(name), bytes).unwrap();
+            }
+            let report = companion_action_run(
+                std::slice::from_ref(&path),
+                vec![
+                    ActionSpec::FormatValue {
+                        field: "TITLE".into(),
+                        template: "Changed title".into(),
+                    },
+                    filename_action("middle"),
+                    ActionSpec::Replace {
+                        field: "_FILENAME".into(),
+                        from: "middle".into(),
+                        to: "final".into(),
+                        whole_word: false,
+                        case_sensitive: true,
+                    },
+                    ActionSpec::CaseConversion {
+                        field: "_FILENAME".into(),
+                        mode: CaseMode::Upper,
+                        word_separators: String::new(),
+                    },
+                ],
+                enabled,
+            );
+            assert!(
+                report.result.errors.is_empty(),
+                "{:?}",
+                report.result.errors
+            );
+            assert_eq!(report.result.entries[0].fields["TITLE"], ["Changed title"]);
+            assert!(root.join("FINAL.wav").exists());
+            for (old, new, bytes) in [
+                ("old.lrc", "FINAL.lrc", b"lyric".as_slice()),
+                ("old.CDG", "FINAL.CDG", b"karaoke"),
+            ] {
+                assert_eq!(
+                    fs::read(root.join(if enabled { new } else { old })).unwrap(),
+                    bytes
+                );
+                assert!(!root.join(if enabled { old } else { new }).exists());
+            }
+            assert_eq!(fs::read(root.join("old.en.lrc")).unwrap(), b"suffix");
+            assert_eq!(fs::read(root.join("old.txt")).unwrap(), b"text");
+            assert_eq!(
+                serde_json::to_value(&report.result).unwrap()["associated_renamed"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                if enabled { 2 } else { 0 }
+            );
+        }
+    }
+    #[test]
+    fn companion_actions_rebase_file_and_directory_epochs_without_double_moves() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let album = root.join("Original");
+        fs::create_dir(&album).unwrap();
+        let path = fixture(&album, "old.wav");
+        fs::write(album.join("old.lrc"), b"lyric").unwrap();
+        let report = companion_action_run(
+            &[path],
+            vec![
+                filename_action("middle"),
+                directory_action("Moved"),
+                filename_action("final"),
+                directory_action("Last"),
+            ],
+            true,
+        );
+        assert!(
+            report.result.errors.is_empty(),
+            "{:?}",
+            report.result.errors
+        );
+        assert!(root.join("Last/final.wav").exists());
+        assert_eq!(fs::read(root.join("Last/final.lrc")).unwrap(), b"lyric");
+        assert!(!album.exists() && !root.join("Moved").exists());
+        let wire = serde_json::to_value(&report.result).unwrap();
+        assert_eq!(
+            wire["associated_renamed"],
+            serde_json::json!([{"from":album.join("old.lrc").to_string_lossy(),"to":root.join("Last/final.lrc").to_string_lossy()}])
+        );
+    }
+    #[test]
+    fn companion_actions_share_directory_moves_across_selected_audio_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let album = root.join("Original");
+        fs::create_dir(&album).unwrap();
+        let a = titled(&album, "one.wav", "First");
+        let b = titled(&album, "two.wav", "Second");
+        fs::write(album.join("one.lrc"), b"lyric").unwrap();
+        fs::write(album.join("two.CDG"), b"karaoke").unwrap();
+        let report = companion_action_run(
+            &[a, b],
+            vec![directory_action("Moved"), filename_action("%title%")],
+            true,
+        );
+        assert!(
+            report.result.errors.is_empty(),
+            "{:?}",
+            report.result.errors
+        );
+        assert_eq!(report.result.moved_directories.len(), 1);
+        assert_eq!(fs::read(root.join("Moved/First.lrc")).unwrap(), b"lyric");
+        assert_eq!(fs::read(root.join("Moved/Second.CDG")).unwrap(), b"karaoke");
+        assert_eq!(report.result.entries.len(), 2);
+    }
+    #[test]
+    fn companion_actions_collision_refuses_group_and_keeps_later_metadata_action() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let path = fixture(&root, "old.wav");
+        fs::write(root.join("old.lrc"), b"lyric").unwrap();
+        fs::write(root.join("new.lrc"), b"Outside occupant").unwrap();
+        let report = companion_action_run(
+            std::slice::from_ref(&path),
+            vec![
+                filename_action("new"),
+                ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "After warning".into(),
+                },
+            ],
+            true,
+        );
+        assert!(!report.result.errors.is_empty());
+        assert!(path.exists() && !root.join("new.wav").exists());
+        assert_eq!(report.result.entries[0].fields["TITLE"], ["After warning"]);
+        assert_eq!(fs::read(root.join("old.lrc")).unwrap(), b"lyric");
+        assert_eq!(fs::read(root.join("new.lrc")).unwrap(), b"Outside occupant");
+    }
+    #[test]
+    fn companion_actions_guess_and_regex_filename_effects_share_the_same_move_seam() {
+        for action in [
+            ActionSpec::GuessValues {
+                source: "after".into(),
+                pattern: "%_filename%".into(),
+            },
+            ActionSpec::RegexReplace {
+                field: "_FILENAME".into(),
+                pattern: "^old\\.wav$".into(),
+                replacement: "after.wav".into(),
+                case_sensitive: true,
+            },
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = fixture(dir.path(), "old.wav");
+            fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+            let report = companion_action_run(&[path], vec![action], true);
+            assert!(
+                report.result.errors.is_empty(),
+                "{:?}",
+                report.result.errors
+            );
+            assert_eq!(fs::read(dir.path().join("after.lrc")).unwrap(), b"lyric");
+            assert!(dir.path().join("after.wav").exists());
+        }
+    }
+    #[test]
+    fn companion_actions_prepared_membership_rejects_new_deleted_hidden_edits_and_replacements() {
+        for change in ["new", "deleted", "hidden", "replacement"] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = fixture(dir.path(), "old.wav");
+            let lyric = path.with_extension("lrc");
+            fs::write(&lyric, b"first").unwrap();
+            let paths = vec![path.to_string_lossy().into_owned()];
+            let groups = [ActionGroup {
+                name: "Prepared".into(),
+                enabled: true,
+                actions: vec![
+                    filename_action("new"),
+                    ActionSpec::FormatValue {
+                        field: "TITLE".into(),
+                        template: "After warning".into(),
+                    },
+                ],
+            }];
+            let prepared =
+                crate::action_companions::Prepared::prepare(&paths, &groups, true).unwrap();
+            assert!(prepared.history_sources(&paths).contains(
+                &dunce::canonicalize(&lyric)
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            ));
+            let modified = fs::metadata(&lyric).unwrap().modified().unwrap();
+            match change {
+                "new" => fs::write(path.with_extension("CDG"), b"new").unwrap(),
+                "deleted" => fs::remove_file(&lyric).unwrap(),
+                "replacement" => {
+                    fs::rename(&lyric, dir.path().join("retained")).unwrap();
+                    fs::write(&lyric, b"first").unwrap();
+                    fs::File::options()
+                        .write(true)
+                        .open(&lyric)
+                        .unwrap()
+                        .set_times(fs::FileTimes::new().set_modified(modified))
+                        .unwrap();
+                }
+                _ => {
+                    fs::write(&lyric, b"other").unwrap();
+                    fs::File::options()
+                        .write(true)
+                        .open(&lyric)
+                        .unwrap()
+                        .set_times(fs::FileTimes::new().set_modified(modified))
+                        .unwrap();
+                }
+            }
+            let report = execute_prepared(
+                &paths,
+                &groups,
+                EvaluationSettings::default(),
+                prepared,
+                &mut |_, _| Ok(()),
+            );
+            assert!(!report.result.errors.is_empty(), "{change}");
+            assert!(path.exists() && !dir.path().join("new.wav").exists());
+            assert_eq!(report.result.entries[0].fields["TITLE"], ["After warning"]);
+            if change == "hidden" {
+                assert_eq!(fs::read(&lyric).unwrap(), b"other");
+            }
+        }
+    }
+    #[test]
+    fn companion_actions_metadata_only_groups_do_not_enumerate_unrelated_companion_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), "old.wav");
+        fs::create_dir(path.with_extension("lrc")).unwrap();
+        let report = companion_action_run(
+            std::slice::from_ref(&path),
+            vec![ActionSpec::FormatValue {
+                field: "TITLE".into(),
+                template: "Metadata only".into(),
+            }],
+            true,
+        );
+        assert!(
+            report.result.errors.is_empty(),
+            "{:?}",
+            report.result.errors
+        );
+        assert_eq!(report.result.entries[0].fields["TITLE"], ["Metadata only"]);
+        assert!(path.with_extension("lrc").is_dir());
+    }
+    #[test]
+    fn companion_actions_case_only_directory_rebase_preserves_physical_spelling() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let album = root.join("MixedAlbum");
+        fs::create_dir(&album).unwrap();
+        let path = fixture(&album, "old.wav");
+        fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+        let report = companion_action_run(
+            &[path],
+            vec![directory_action("mIXEDaLBUM"), filename_action("Final")],
+            true,
+        );
+        assert!(
+            report.result.errors.is_empty(),
+            "{:?}",
+            report.result.errors
+        );
+        let moved = root.join("mIXEDaLBUM");
+        assert_eq!(fs::read(moved.join("Final.lrc")).unwrap(), b"lyric");
+        assert_eq!(
+            report.result.associated_renamed[0].to,
+            moved.join("Final.lrc").to_string_lossy()
+        );
+    }
+    #[test]
+    fn companion_actions_partial_directory_failure_blocks_io_for_every_affected_input() {
+        for (enabled, rename_file) in [(false, false), (true, false), (true, true)] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let album = root.join("Album");
+            fs::create_dir(&album).unwrap();
+            let paths = [fixture(&album, "one.wav"), fixture(&album, "two.wav")];
+            for path in &paths {
+                fs::write(path.with_extension("lrc"), b"lyric").unwrap();
+            }
+            let keys = paths
+                .iter()
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect::<Vec<_>>();
+            let groups = [ActionGroup {
+                name: "Partial directory".into(),
+                enabled: true,
+                actions: if rename_file {
+                    vec![directory_action("Moved"), filename_action("Final")]
+                } else {
+                    vec![directory_action("Moved")]
+                },
+            }];
+            let mut prepared =
+                crate::action_companions::Prepared::prepare(&keys, &groups, enabled).unwrap();
+            let mut states = paths
+                .iter()
+                .enumerate()
+                .map(|(index, path)| {
+                    let entry = crate::settings::read_summary(path).unwrap();
+                    ActionState {
+                        fields: entry.fields.clone(),
+                        context: technical_fields(&entry, index + 1),
+                    }
+                })
+                .collect::<Vec<_>>();
+            let retained = root.join("Retained-original");
+            let inputs = keys
+                .iter()
+                .cloned()
+                .zip(paths.iter().cloned())
+                .collect::<Vec<_>>();
+            let result = prepared.guard_operation(
+                &album,
+                &root.join("Moved"),
+                &inputs,
+                &mut |source, target| {
+                    fs::rename(source, &retained).unwrap();
+                    fs::create_dir(source).unwrap();
+                    for path in &paths {
+                        let audio = fixture(source, path.file_name().unwrap().to_str().unwrap());
+                        tag_core::write_fields(
+                            &audio,
+                            &Fields::from([("TITLE".into(), vec!["Outside occupant".into()])]),
+                        )
+                        .unwrap();
+                    }
+                    Err(ErrorCause::Rename {
+                        value: Box::new(tag_core::operations::RenameFailure::AliasRollback {
+                            source: source.to_string_lossy().into_owned(),
+                            destination: target.to_string_lossy().into_owned(),
+                            error: "Injected partial directory failure".into(),
+                            rollback: format!("Retained at {}", retained.display()),
+                        }),
+                    })
+                },
+            );
+            assert!(result.is_err());
+            let outside = paths
+                .iter()
+                .map(|path| fs::read(path).unwrap())
+                .collect::<Vec<_>>();
+            let mut capture = |_: &Path, _: usize| Ok(());
+            let host = NativeHost {
+                settings: EvaluationSettings::default(),
+                directories: Vec::new(),
+                exported_covers: Default::default(),
+                written_covers: Default::default(),
+                captured_covers: HashSet::new(),
+                before_replace: &mut capture,
+                identities: keys,
+                initial_fields: states.iter().map(|state| state.fields.clone()).collect(),
+                inputs: paths.to_vec(),
+                outputs: Vec::new(),
+                companions: prepared,
+            };
+            for (index, state) in states.iter_mut().enumerate() {
+                state
+                    .fields
+                    .insert("TITLE".into(), vec!["Must not overwrite".into()]);
+                let flushed = host.flush_diagnostic(state);
+                assert!(
+                    fs::read(&paths[index]).unwrap() == outside[index],
+                    "outside replacement was overwritten"
+                );
+                assert!(flushed.is_err());
+                assert_eq!(
+                    fs::read(
+                        retained.join(paths[index].with_extension("lrc").file_name().unwrap())
+                    )
+                    .unwrap(),
+                    b"lyric"
+                );
+            }
+        }
+    }
     #[test]
     fn windows_edited_action_filename_removes_invalid_characters_after_extension_handling() {
         for (input, extension, includes_extension, expected) in [

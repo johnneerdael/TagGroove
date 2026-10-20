@@ -24,6 +24,11 @@ Unmerged P1 batch work is recorded separately from these main-based counts:
 and the [L07 native column schema/mapping audit](../verification/mp3tag-column-schema-2026-10-20.md).
 Their intake identities remain here until the batch has a covering PR.
 
+[L22a's action/Tag → Tag extension](../verification/associated-action-renames-2026-10-20.md)
+finishes its approved local companion-route implementation after Copy and
+Filename → Filename. Inline keeps its established audio-only policy; original
+and native qualification remain separate. Batch review/CI/merge are pending.
+
 [L57b field-value migration](../verification/mp3tag-field-values-migration-2026-10-20.md)
 now has a separately verified working-branch implementation for legacy panel
 values and `usrfieldvalues.ini`. General global/binary settings remain open;
@@ -101,7 +106,7 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L18](../research/remaining-gaps.md#l18) | P3 | Missing mobile capability | Mobile action users | Provider documents cannot execute action groups; a validator is not an execution engine. | XL / medium | Mac portable host/UI; Android/iOS device save-back |
 | [L19](../research/remaining-gaps.md#l19) | P2 | Unknown compatibility | Converter users | A different explicit suffix can produce song.flac.mp3; original suffix policy is unqualified. | R / high | Mac suffix analysis; Windows reference preview/apply |
 | [L20](../research/remaining-gaps.md#l20) | P2 | Limited feature; contract unknown | Text-import users | Positional record-count mismatch refuses; keyed skip/unlisted-file support already works. | R / medium | Mac import analysis; Windows reference pairing policy |
-| [L22a](../research/remaining-gaps.md#l22a) | P1 | Limited feature; contract unknown | Libraries with lyrics/sidecars | Working-branch Copy and Filename → Filename now carry reviewed companions with their own copy/whole-batch rollback contracts. Action-driven routes remain outside the flow. Inline/reference semantics remain explicit. | R / medium | Mac route analysis/code; reference and cross-volume checks |
+| [L22a](../research/remaining-gaps.md#l22a) | P1 | Local implementation; qualification pending | Libraries with lyrics/sidecars | Working-branch Copy and Filename → Filename review plus immediate action/Tag → Tag companions complete the approved local routes. Batch review/merge remain. Inline retains its established audio-only policy; original/native outcomes remain qualification. | R / medium | Batch review/CI/merge; L22b/L78/L79 reference and native acceptance |
 | [L24](../research/remaining-gaps.md#l24) | P2 | Limited guarded format | Nero/MP4 chapter libraries | Some indx/cover layouts and rewrites are unsupported; guarded refusals preserve originals. | R → L–XL / low | Mac atom/rewrite work; original and player acceptance |
 | [L25](../research/remaining-gaps.md#l25) | P3 | Limited chapter capability | Chapter/audiobook libraries | Chapter URLs/pictures are not exposed and chapter-row playlist commands refuse. | R → L / medium | Mac metadata/UI; original playlist serialization and players |
 | [L26](../research/remaining-gaps.md#l26) | P2 | Limited guarded format | Unusual ID3/ADTS libraries | Broader envelope/frame transformations and ADTS probing remain unsupported; ordinary named unsync cases work. | R → L–XL / low | Mac fixtures/parser/writer; original generated carriers |

@@ -220,6 +220,7 @@ impl Changes for ActionResult {
     fn renamed(&self) -> Vec<(String, String)> {
         self.renamed
             .iter()
+            .chain(&self.associated_renamed)
             .map(|r| (r.from.clone(), r.to.clone()))
             .collect()
     }
@@ -542,11 +543,20 @@ pub async fn convert_tag_to_tag_diagnostic(
             enabled: true,
             actions: vec![tag_core::actions::ActionSpec::FormatValue { field, template }],
         };
-        record("Tag → Tag", None, &paths, || {
-            Ok(crate::action_host::execute_diagnostic(
+        let groups = [group];
+        let companions = crate::action_companions::Prepared::prepare(
+            &paths,
+            &groups,
+            crate::associated_files::enabled(),
+        )?;
+        let captured = companions.history_sources(&paths);
+        record("Tag → Tag", None, &captured, || {
+            Ok(crate::action_host::execute_prepared(
                 &paths,
-                &[group],
+                &groups,
                 settings,
+                companions,
+                &mut |_, _| Ok(()),
             ))
         })
     })
@@ -2096,6 +2106,104 @@ mod tests {
         assert_eq!(std::fs::read(&karaoke).unwrap(), b"karaoke");
     }
 
+    #[test]
+    fn action_companions_history_tracks_filename_directory_epochs_and_cover_outputs() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let _isolated = IsolatedHistory::new(&root);
+        let album = root.join("Album");
+        std::fs::create_dir(&album).unwrap();
+        let audio = album.join("old.wav");
+        wav(&audio, "Title");
+        let lyric = audio.with_extension("lrc");
+        std::fs::write(&lyric, b"lyric").unwrap();
+        let image_path = root.join("input.png");
+        let mut image = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        let image = image.into_inner();
+        std::fs::write(&image_path, &image).unwrap();
+        tag_core::add_cover(&audio, &image_path).unwrap();
+        let original = std::fs::read(&audio).unwrap();
+        let format = |field: &str, template: &str| tag_core::actions::ActionSpec::FormatValue {
+            field: field.into(),
+            template: template.into(),
+        };
+        let groups = [tag_core::actions::ActionGroup {
+            name: "Companion epochs".into(),
+            enabled: true,
+            actions: vec![
+                format("_FILENAME", "middle"),
+                tag_core::actions::ActionSpec::ExportCover {
+                    filename_template: "cover".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                },
+                format("_DIRECTORY", "Moved"),
+                format("_FILENAME", "final"),
+                tag_core::actions::ActionSpec::ExportCover {
+                    filename_template: "later".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                },
+            ],
+        }];
+        let paths = vec![audio.to_string_lossy().into_owned()];
+        let prepared = crate::action_companions::Prepared::prepare(&paths, &groups, true).unwrap();
+        let captured = prepared.history_sources(&paths);
+        assert!(captured.contains(&lyric.to_string_lossy().into_owned()));
+        let result = record_with_side_file_epochs_diagnostic(
+            "Companion epochs",
+            None,
+            &captured,
+            |capture| {
+                Ok(crate::action_host::execute_prepared(
+                    &paths,
+                    &groups,
+                    crate::evaluation::EvaluationSettings::default(),
+                    prepared,
+                    capture,
+                ))
+            },
+        )
+        .unwrap();
+        assert!(
+            result.result.errors.is_empty(),
+            "{:?}",
+            result.result.errors
+        );
+        assert_eq!(result.result.associated_renamed.len(), 1);
+        let moved = root.join("Moved");
+        assert_eq!(std::fs::read(moved.join("final.wav")).unwrap(), original);
+        assert_eq!(std::fs::read(moved.join("final.lrc")).unwrap(), b"lyric");
+        assert_eq!(std::fs::read(moved.join("cover.png")).unwrap(), image);
+        assert_eq!(std::fs::read(moved.join("later.png")).unwrap(), image);
+        let undone = run(undo_last());
+        assert!(
+            undone.result.errors.is_empty(),
+            "{:?}",
+            undone.result.errors
+        );
+        assert_eq!(undone.result.entries.len(), 1);
+        assert_eq!(std::fs::read(&audio).unwrap(), original);
+        assert_eq!(std::fs::read(&lyric).unwrap(), b"lyric");
+        assert!(
+            !moved.exists()
+                && !album.join("cover.png").exists()
+                && !album.join("later.png").exists()
+        );
+        let redone = run(redo_last());
+        assert!(
+            redone.result.errors.is_empty(),
+            "{:?}",
+            redone.result.errors
+        );
+        assert_eq!(std::fs::read(moved.join("final.lrc")).unwrap(), b"lyric");
+        assert_eq!(std::fs::read(moved.join("final.wav")).unwrap(), original);
+        assert_eq!(std::fs::read(moved.join("later.png")).unwrap(), image);
+    }
     #[test]
     fn companion_moves_and_case_only_renames_undo_without_audio_parse_errors() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());

@@ -229,3 +229,18 @@ field value.
 - [Replace](replace.md)
 - [Replace with Regular Expression](replace-regexp.md)
 - [Move guest artists to titles](../cookbook/feat-artists-to-title.md)
+
+## Keep lyrics and karaoke beside renamed audio
+
+With **Options → Files → Move or copy matching .lrc and .cdg files with audio**
+enabled, action-driven filename changes carry exact-basename companions. This
+also covers case conversion, replacement, regex replacement and Guess Values
+when they produce a filename change. Companions retain their extension spelling.
+Repeated file/directory changes share the command's frozen membership and the
+recorded action history.
+
+Actions run immediately; they do not show the converters' reviewed companion
+destination list. Membership/content or destination conflicts refuse the
+affected rename and report a warning. Earlier metadata changes and successful
+actions can remain. See [associated files](../guides/associated-files.md#actions-and-tag-tag)
+for rollback, uncertain-path refusal and Undo/Redo behavior.

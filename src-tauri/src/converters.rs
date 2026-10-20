@@ -1,4 +1,5 @@
 //! Reviewed converter plans with frozen payloads and whole-batch rollback.
+use crate::associated_files::CreatedDirectories;
 use crate::evaluation::{ColumnSpec, EvaluationSettings};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -738,76 +739,6 @@ struct CompletedMove {
     source_parent: tag_core::file_copy::DirectoryIdentity,
     target_parent: tag_core::file_copy::DirectoryIdentity,
 }
-#[derive(Default)]
-struct CreatedDirectories(Vec<(PathBuf, Option<tag_core::file_copy::DirectoryIdentity>)>);
-impl CreatedDirectories {
-    fn validate(&self) -> Result<(), String> {
-        for (path, expected) in &self.0 {
-            if expected.as_ref() != Some(&tag_core::file_copy::DirectoryIdentity::read(path)?) {
-                return Err("A created destination folder changed; retained its contents".into());
-            }
-        }
-        Ok(())
-    }
-    fn prepare(&mut self, target: &Path) -> Result<(), String> {
-        self.validate()?;
-        let mut missing = Vec::new();
-        let mut path = target
-            .parent()
-            .ok_or("Destination has no parent directory")?;
-        loop {
-            match fs::symlink_metadata(path) {
-                Ok(metadata) if metadata.is_dir() => break,
-                Ok(_) => return Err("Destination parent is not a regular directory".into()),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    missing.push(path.to_owned());
-                    path = path
-                        .parent()
-                        .ok_or("Destination has no existing ancestor")?;
-                }
-                Err(error) => return Err(error.to_string()),
-            }
-        }
-        for path in missing.into_iter().rev() {
-            match fs::create_dir(&path) {
-                Ok(()) => {
-                    self.0.push((path.clone(), None));
-                    let identity = tag_core::file_copy::DirectoryIdentity::read(&path)?;
-                    self.0.last_mut().unwrap().1 = Some(identity);
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                    // Another writer created it: validate as a directory, never own it.
-                    tag_core::file_copy::DirectoryIdentity::read(&path)?;
-                }
-                Err(error) => return Err(error.to_string()),
-            }
-        }
-        Ok(())
-    }
-    fn cleanup(self) -> Vec<RollbackItem> {
-        self.0
-            .into_iter()
-            .rev()
-            .filter_map(|(path, identity)| {
-                let result = (|| {
-                    let current = tag_core::file_copy::DirectoryIdentity::read(&path)?;
-                    if identity.as_ref() != Some(&current) {
-                        return Err(
-                            "A created destination folder changed; retained its contents"
-                                .to_owned(),
-                        );
-                    }
-                    fs::remove_dir(&path).map_err(|error| error.to_string())
-                })();
-                result.err().map(|error| RollbackItem {
-                    path: path.to_string_lossy().into_owned(),
-                    error: ConverterMessage::External(error),
-                    recovery: None,
-                })
-            })
-            .collect()
-    }
-}
 fn move_converter_member(
     source: &Path,
     target: &Path,
@@ -969,7 +900,16 @@ pub(crate) fn apply_filename_policy(
                 });
             }
         }
-        rollback.extend(directories.cleanup());
+        rollback.extend(
+            directories
+                .cleanup()
+                .into_iter()
+                .map(|(path, error)| RollbackItem {
+                    path: path.to_string_lossy().into_owned(),
+                    error: ConverterMessage::External(error),
+                    recovery: None,
+                }),
+        );
         return Err(ConverterError::Rollback {
             converter_rollback: Box::new(RollbackFailure {
                 operation: RollbackOperation::Rename,

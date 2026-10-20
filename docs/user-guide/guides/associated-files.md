@@ -32,13 +32,50 @@ rejected. Two audio files sharing one companion, such as `Song.mp3` and
 `Song.flac`, are ambiguous and reject the reviewed plan.
 
 Companions do not become editable audio rows. The option currently affects
-**Tag → Filename**, **Filename → Filename**, **Move files to** and **Copy files
-to**. Inline filename editing, Tag → Tag and action-driven renames keep their existing
-behavior. Move those companions separately when using one of those commands.
+**Tag → Filename**, **Filename → Filename**, **Move files to**, **Copy files
+to**, **Tag → Tag** filename changes and filename changes made by actions.
+Inline filename editing remains audio-only. Move companions separately when
+using an inline edit; that command does not enroll them through this option.
+
+## Actions and Tag → Tag
+
+Actions and **Tag → Tag** keep their existing immediate execution flow. They
+freeze companion membership at command start and check each computed move,
+but do **not** show a companion destination preview before each action. Use
+one of the reviewed filename converters when you want to inspect exact paths
+before applying them. Turning the option off leaves companions at their paths
+when an action changes the audio filename.
+
+With the option on, a chain such as `old.wav → middle.wav → final.wav` carries
+`old.lrc → middle.lrc → final.lrc`. Metadata changes earlier in that action
+group are saved normally. If the group then renames the containing directory,
+the companions follow as directory contents; they are tracked at the new path
+rather than moved a second time. Other files in a directory also follow a
+whole-directory move, as before, regardless of this companion option.
+
+Only groups that can change filenames prepare companion membership. A
+metadata-only action does not inspect unrelated `.lrc`/`.cdg` entries. A new,
+missing, replaced or edited companion after preparation refuses the affected
+rename. A destination collision also refuses it. The ordinary action warning
+flow continues with eligible later actions; this does not roll back the entire
+action group or earlier metadata changes.
+
+Each filename effect attempts to reverse its own completed companion/audio
+moves if a member or audio readback fails. Changed files and occupied original
+names remain protected. Incomplete companion rollback prevents later filename
+or directory effects from adopting uncertain paths in the same run. If a native
+failure leaves the audio location or identity unprovable, subsequent host I/O
+for that input stops. Inspect the reported retained/recovery paths before
+retrying. Unknown native staging paths are not guessed as successful moves.
+
+Recorded actions and Tag → Tag changes include companion paths in their
+existing history step. Undo/Redo can refuse an externally changed member while
+reversing eligible others; read every error. Empty destination folders can
+remain. Copy still has no transfer Undo.
 
 ## Review, failures and undo
 
-The reviewed plan freezes companion membership and destinations. Changed or
+For converters and transfers, the reviewed plan freezes companion membership and destinations. Changed or
 missing files, a newly appearing companion, a changed policy, an occupied name,
 or an expired preview requires another review. Names that differ only in letter
 case are treated conservatively to avoid portable collisions. Rename cycles are

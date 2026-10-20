@@ -138,7 +138,7 @@ for(const page of [
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Associated files',controls:[
       {kind:'checkbox',path:'pages.files.associated_files',label:'Move or copy matching .lrc and .cdg files with audio'},
-      {kind:'note',text:'Off by default. Applies to Tag → Filename, Filename → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Inline edits, Tag → Tag and action-driven renames do not use this option.'}]},
+      {kind:'note',text:'Off by default. Includes exact-basename .lrc and .cdg files in Tag → Filename, Filename → Filename, Move files to, Copy files to, Tag → Tag and action-driven filename renames. Converters and transfers show companion paths for review. Actions and Tag → Tag run immediately with frozen membership and per-effect checks. Copy keeps originals and has no transfer Undo. Inline filename edits remain audio-only.'}]},
     {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
       {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},
     {kind:'group',label:'Rename files from tags',controls:[{kind:'text',path:'files.folder_separator',label:'Replace folder separator in tag values with',placeholder:'Nothing: remove separators',maxLength:16},

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
+mod action_companions;
 mod action_host;
 mod associated_files;
 mod columns;
@@ -287,14 +288,23 @@ async fn execute_action_groups_diagnostic(
             [group] => format!("Action {}", group.name),
             ref enabled => format!("Actions ({} groups)", enabled.len()),
         };
-        history::record_with_side_file_epochs_diagnostic(&label, None, &paths, |before_replace| {
-            Ok(action_host::execute_with_side_file_epochs_diagnostic(
-                &paths,
-                &groups,
-                settings,
-                before_replace,
-            ))
-        })
+        let companions =
+            action_companions::Prepared::prepare(&paths, &groups, associated_files::enabled())?;
+        let captured = companions.history_sources(&paths);
+        history::record_with_side_file_epochs_diagnostic(
+            &label,
+            None,
+            &captured,
+            |before_replace| {
+                Ok(action_host::execute_prepared(
+                    &paths,
+                    &groups,
+                    settings,
+                    companions,
+                    before_replace,
+                ))
+            },
+        )
     })
     .await
 }
@@ -1097,15 +1107,20 @@ async fn apply_action_diagnostic(
     };
     io(move || {
         reject_provider_operation(&paths, "Actions")?;
+        let groups = [group];
+        let companions =
+            action_companions::Prepared::prepare(&paths, &groups, associated_files::enabled())?;
+        let captured = companions.history_sources(&paths);
         history::record_with_side_file_epochs_diagnostic(
             "Quick action",
             None,
-            &paths,
+            &captured,
             |before_replace| {
-                Ok(action_host::execute_with_side_file_epochs_diagnostic(
+                Ok(action_host::execute_prepared(
                     &paths,
-                    &[group],
+                    &groups,
                     settings,
+                    companions,
                     before_replace,
                 ))
             },

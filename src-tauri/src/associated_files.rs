@@ -6,7 +6,6 @@ use std::{
     collections::HashSet,
     io::Read,
     path::{Path, PathBuf},
-    time::SystemTime,
 };
 
 /// Saved policy; absent on older profiles and false by default.
@@ -21,28 +20,18 @@ pub fn enabled() -> bool {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Snapshot {
-    len: u64,
-    modified: Option<SystemTime>,
-    #[cfg(unix)]
-    identity: (u64, u64),
+    identity: tag_core::file_copy::FileIdentity,
     digest: Option<[u8; 32]>,
 }
 impl Snapshot {
     fn read(path: &Path, hash: bool) -> Result<Self, String> {
-        let metadata =
-            std::fs::symlink_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        if !metadata.is_file() {
-            return Err(format!(
-                "{}: only regular files can be moved",
-                path.display()
-            ));
-        }
+        let identity = tag_core::file_copy::FileIdentity::read(path)?;
         let digest = if hash {
-            let mut input = std::fs::File::open(path).map_err(|e| e.to_string())?;
+            let mut input = std::fs::File::open(path).map_err(|error| error.to_string())?;
             let mut digest = Sha256::new();
             let mut buffer = [0; 64 * 1024];
             loop {
-                let count = input.read(&mut buffer).map_err(|e| e.to_string())?;
+                let count = input.read(&mut buffer).map_err(|error| error.to_string())?;
                 if count == 0 {
                     break;
                 }
@@ -52,16 +41,16 @@ impl Snapshot {
         } else {
             None
         };
-        #[cfg(unix)]
-        use std::os::unix::fs::MetadataExt;
-        Ok(Self {
-            len: metadata.len(),
-            modified: metadata.modified().ok(),
-            #[cfg(unix)]
-            identity: (metadata.dev(), metadata.ino()),
-            digest,
-        })
+        if tag_core::file_copy::FileIdentity::read(path)? != identity {
+            return Err("A companion-operation source changed while being inspected".into());
+        }
+        Ok(Self { identity, digest })
     }
+}
+pub(crate) fn hash_file(path: &Path) -> Result<[u8; 32], String> {
+    Snapshot::read(path, true)?
+        .digest
+        .ok_or_else(|| "File has no content digest".into())
 }
 #[derive(Clone, Debug)]
 pub struct Item {
@@ -81,6 +70,22 @@ impl Item {
     pub(crate) fn content_hash(&self) -> Option<[u8; 32]> {
         self.snapshot.digest
     }
+    pub(crate) fn native_identity(&self) -> tag_core::file_copy::FileIdentity {
+        self.snapshot.identity
+    }
+
+    pub(crate) fn follow_move(
+        &mut self,
+        path: PathBuf,
+        identity: Option<tag_core::file_copy::FileIdentity>,
+    ) {
+        self.source = path.to_string_lossy().into_owned();
+        self.target = path;
+        if let Some(identity) = identity {
+            self.snapshot.identity = identity;
+        }
+    }
+
     pub(crate) fn validate(&self) -> Result<(), String> {
         self.validate_source(self.snapshot.digest.is_some())
     }
@@ -125,7 +130,7 @@ pub fn is_companion(path: &Path) -> bool {
         .and_then(|ext| ext.to_str())
         .is_some_and(|ext| ext.eq_ignore_ascii_case("lrc") || ext.eq_ignore_ascii_case("cdg"))
 }
-fn companions(source: &Path) -> Result<Vec<PathBuf>, String> {
+pub(crate) fn companions(source: &Path) -> Result<Vec<PathBuf>, String> {
     let parent = source.parent().ok_or("The source has no folder")?;
     let stem = source.file_stem().ok_or("The source has no basename")?;
     let mut paths = Vec::new();
@@ -183,13 +188,21 @@ fn target_free(source: &Path, target: &Path) -> Result<(), String> {
 }
 impl Plan {
     pub fn new(audio: Vec<(String, PathBuf)>, enabled: bool) -> Result<Self, String> {
-        Self::build(audio, enabled, false)
+        Self::build(audio, enabled, false, false)
     }
     /// Copy receipts also bind full audio bytes and the existing target folder.
     pub fn for_copy(audio: Vec<(String, PathBuf)>, enabled: bool) -> Result<Self, String> {
-        Self::build(audio, enabled, true)
+        Self::build(audio, enabled, true, true)
     }
-    fn build(audio: Vec<(String, PathBuf)>, enabled: bool, copy: bool) -> Result<Self, String> {
+    pub(crate) fn for_action(audio: Vec<(String, PathBuf)>) -> Result<Self, String> {
+        Self::build(audio, true, false, true)
+    }
+    fn build(
+        audio: Vec<(String, PathBuf)>,
+        enabled: bool,
+        copy: bool,
+        hash_audio: bool,
+    ) -> Result<Self, String> {
         let mut groups = Vec::new();
         let mut sources = HashSet::new();
         let mut targets = HashSet::new();
@@ -216,7 +229,7 @@ impl Plan {
             } else {
                 None
             };
-            let audio = Item::new(source, target, copy)?;
+            let audio = Item::new(source, target, hash_audio)?;
             for item in std::iter::once(&audio).chain(&associated) {
                 if !sources.insert(key(Path::new(&item.source))) {
                     return Err(format!(
@@ -400,6 +413,75 @@ impl Group {
             completed.push(item);
         }
         Ok(())
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct CreatedDirectories(
+    Vec<(PathBuf, Option<tag_core::file_copy::DirectoryIdentity>)>,
+);
+impl CreatedDirectories {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        for (path, expected) in &self.0 {
+            if expected.as_ref() != Some(&tag_core::file_copy::DirectoryIdentity::read(path)?) {
+                return Err("A created destination folder changed; retained its contents".into());
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn prepare(&mut self, target: &Path) -> Result<(), String> {
+        self.validate()?;
+        let mut missing = Vec::new();
+        let mut path = target
+            .parent()
+            .ok_or("Destination has no parent directory")?;
+        loop {
+            match std::fs::symlink_metadata(path) {
+                Ok(metadata) if metadata.is_dir() => break,
+                Ok(_) => return Err("Destination parent is not a regular directory".into()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    missing.push(path.to_owned());
+                    path = path
+                        .parent()
+                        .ok_or("Destination has no existing ancestor")?;
+                }
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+        for path in missing.into_iter().rev() {
+            match std::fs::create_dir(&path) {
+                Ok(()) => {
+                    self.0.push((path.clone(), None));
+                    let identity = tag_core::file_copy::DirectoryIdentity::read(&path)?;
+                    self.0.last_mut().unwrap().1 = Some(identity);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    // Another writer created it: validate as a directory, never own it.
+                    tag_core::file_copy::DirectoryIdentity::read(&path)?;
+                }
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn cleanup(self) -> Vec<(PathBuf, String)> {
+        self.0
+            .into_iter()
+            .rev()
+            .filter_map(|(path, identity)| {
+                let result = (|| {
+                    let current = tag_core::file_copy::DirectoryIdentity::read(&path)?;
+                    if identity.as_ref() != Some(&current) {
+                        return Err(
+                            "A created destination folder changed; retained its contents"
+                                .to_owned(),
+                        );
+                    }
+                    std::fs::remove_dir(&path).map_err(|error| error.to_string())
+                })();
+                result.err().map(|error| (path, error))
+            })
+            .collect()
     }
 }
 
