@@ -338,6 +338,42 @@
         "adpcm_psxc",
         "ahx"
       ]
+    },
+    {
+      "component": "ffmpeg",
+      "file": "patches/ffmpeg-no-gpl-libavcodec-aarch64-Makefile.patch",
+      "sha256": "3d0bf15ceb4cd6bbb53135f14b9a2e407a380cc9a25e6501d97b0281c28ab307",
+      "target": "libavcodec/aarch64/Makefile",
+      "original_sha256": "867469fecca030c7c7f9e9e283163bada7f7536a20f000a0495c9d89bc6ff5e4",
+      "patched_sha256": "42f9a3946ce3fef8d87efa3ff45daa311dc75935f295f0dd271817a05492a68c",
+      "purpose": "Exclude GPL-header AArch64 AC3/CRC paths from the no-GPL profile while retaining generic implementations and other SIMD"
+    },
+    {
+      "component": "ffmpeg",
+      "file": "patches/ffmpeg-no-gpl-libavutil-aarch64-Makefile.patch",
+      "sha256": "0adeeae0addcc92b767ba807d6c52a6dc3960730c2efdefbe95e43b0d2b75a2f",
+      "target": "libavutil/aarch64/Makefile",
+      "original_sha256": "c9bbc4b818be60746550f1450fbb55f885cfdddcbd8bd86e8a91e1fb336615d9",
+      "patched_sha256": "5949c06850712c9ea6a0df92a3d5c121577a41604c575c4d98caf3e14eb79024",
+      "purpose": "Exclude GPL-header AArch64 AC3/CRC paths from the no-GPL profile while retaining generic implementations and other SIMD"
+    },
+    {
+      "component": "ffmpeg",
+      "file": "patches/ffmpeg-no-gpl-libavcodec-ac3dsp-c.patch",
+      "sha256": "4b8a4ca4d8d2a9f2af57ab1bc9c687d4d2b26230d04652072efaa2feeb367d4b",
+      "target": "libavcodec/ac3dsp.c",
+      "original_sha256": "1ef4157d7ee164ca7e11fcb4e1079d0550a923ecd5b00104af3875f97b7a8bce",
+      "patched_sha256": "2cecf1fca669901499e67560dbe0e8ac4efb65f3aae2e81ba5427d17c0eecdce",
+      "purpose": "Exclude GPL-header AArch64 AC3/CRC paths from the no-GPL profile while retaining generic implementations and other SIMD"
+    },
+    {
+      "component": "ffmpeg",
+      "file": "patches/ffmpeg-no-gpl-libavutil-crc-c.patch",
+      "sha256": "25e17f383041370bb2018473b18c838013812393efb232c5ef7b4217c56163c9",
+      "target": "libavutil/crc.c",
+      "original_sha256": "fbcab458ebddda14d121333622525cb0547c1d428645e9286534690c48366ad5",
+      "patched_sha256": "066b4e75a8a0a0245fa008c38ee3ddc30c6839b12937b7f12c72a8116cc2b0e6",
+      "purpose": "Exclude GPL-header AArch64 AC3/CRC paths from the no-GPL profile while retaining generic implementations and other SIMD"
     }
   ]
 }

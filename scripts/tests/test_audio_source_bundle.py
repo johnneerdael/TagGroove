@@ -1,5 +1,6 @@
 """Corresponding-source integrity and offline-layout tests, using tiny local archives."""
 import hashlib
+import difflib
 import base64
 import importlib.util
 import io
@@ -66,7 +67,7 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
         "src-tauri/gen/apple/opentag_iOS/Info.plist": '<plist><key>CFBundleShortVersionString</key><string>0.1.0</string><key>CFBundleVersion</key><string>0.1.0</string></plist>\n',
         "scripts/audio-deps/build.py": "# tiny source recipe fixture, never executed\n",
         "scripts/audio-deps/bzip2/CMakeLists.txt": "# fixture\n",
-        "scripts/audio-deps/patches/ffmpeg.patch": "# source patch fixture\n",
+        "scripts/audio-deps/ffmpeg_policy.py": "# tiny policy source fixture, never executed\n",
         "LICENSE": "Application license fixture\n",
     }
     if cargo_config is not None:
@@ -88,13 +89,23 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
                 info = tarfile.TarInfo("ffmpeg-1/libavcodec/pcm.c")
                 info.size = len(source)
                 handle.addfile(info, io.BytesIO(source))
+                source = b"#if ARCH_AARCH64\ncrc_arch();\n#endif\n"
+                info = tarfile.TarInfo("ffmpeg-1/libavutil/crc.c")
+                info.size = len(source)
+                handle.addfile(info, io.BytesIO(source))
         components[name] = {"version": "1", "url": f"https://example.invalid/{archive.name}",
                             "archive": archive.name, "sha256": digest(archive.read_bytes()),
                             "directory": f"{name}-1", "license": "test-only", "license_files": ["LICENSE"]}
-    patches = [{"file": "patches/ffmpeg.patch", "sha256": digest(files["scripts/audio-deps/patches/ffmpeg.patch"].encode()),
-                "component": "ffmpeg", "target": "configure",
-                "original_sha256": original_sha or digest(b"original upstream configure\n"),
-                "patched_sha256": patched_sha or digest(b"patched upstream configure\n")}]
+    patches = []
+    for target, old, new, filename in [
+        ('configure', 'original upstream configure\n', 'patched upstream configure\n', 'patches/ffmpeg.patch'),
+        ('libavutil/crc.c', '#if ARCH_AARCH64\ncrc_arch();\n#endif\n',
+         '#if ARCH_AARCH64 && CONFIG_GPL\ncrc_arch();\n#endif\n', 'patches/crc.patch')]:
+        diff = ''.join(difflib.unified_diff(old.splitlines(True), new.splitlines(True), 'a/' + target, 'b/' + target))
+        files['scripts/audio-deps/' + filename] = diff
+        patches.append({'file': filename, 'sha256': digest(diff.encode()), 'component': 'ffmpeg', 'target': target,
+                        'original_sha256': original_sha if target == 'configure' and original_sha else digest(old.encode()),
+                        'patched_sha256': patched_sha if target == 'configure' and patched_sha else digest(new.encode())})
     inventory = {"format": 1, "components": components, "patches": patches,
                  "ffmpeg": {"decoders": ["pcm_s16le"], "demuxers": ["wav"]}}
     files["scripts/audio-deps/sources.json"] = json.dumps(inventory, indent=2) + "\n"
@@ -120,9 +131,11 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
                     "ffmpeg-components.h": b"#define CONFIG_PCM_S16LE_DECODER 1\n#define CONFIG_WAV_DEMUXER 1\n#define CONFIG_AHX_PARSER 0\n",
                     "notices/chromaprint/LICENSE": b"license\n",
                     "ffmpeg-patched-configure": b"patched upstream configure\n",
+                    "ffmpeg-patched/libavutil/crc.c": b"#if ARCH_AARCH64 && CONFIG_GPL\ncrc_arch();\n#endif\n",
                     "ffmpeg-generated/config.h": b"generated config fixture\n",
                     "ffmpeg-generated-closure.json": (json.dumps({"config.h": digest(b"generated config fixture\n")}) + "\n").encode(),
-                    "ffmpeg-source-closure.json": (json.dumps({"libavcodec/pcm.d": {"libavcodec/pcm.c": digest(b"pcm source fixture\n")}}) + "\n").encode()}
+                    "ffmpeg-source-closure.json": (json.dumps({"libavcodec/pcm.d": {"libavcodec/pcm.c": digest(b"pcm source fixture\n")},
+                        "libavutil/crc.d": {"libavutil/crc.c": digest(b"#if ARCH_AARCH64 && CONFIG_GPL\ncrc_arch();\n#endif\n")}}) + "\n").encode()}
         for name, data in payloads.items():
             path = prefix / name
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -17,5 +17,7 @@ src/licenses/supplements/** -text linguist-vendored whitespace=-blank-at-eol
 
 # Native recipe and imported-source byte hashes must survive Windows checkout.
 scripts/audio-deps/** text eol=lf
+# A unified-diff context line for an empty source line is one literal space.
+scripts/audio-deps/patches/*.patch whitespace=-blank-at-eol
 crates/audio-fingerprint/native/** text eol=lf
 crates/audio-fingerprint/tests/fixtures/carriers/** -text

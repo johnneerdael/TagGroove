@@ -18,7 +18,7 @@ headers, despite the recorded `CONFIG_GPL=0` setting:
 - `libavcodec/aarch64/ac3dsp_neon.S`
 - `libavutil/aarch64/crc.S`
 
-The current AArch64 Makefiles select AC3 DSP objects through AC3DSP/NEON and
+The published upstream AArch64 Makefiles select AC3 DSP objects through AC3DSP/NEON and
 the CRC object through ARMV8. Those entries do not additionally require GPL.
 The C dispatch code likewise reaches those architecture implementations.
 The project explicitly promises a no-GPL native profile, so configuration
@@ -58,5 +58,57 @@ files themselves need no rewriting or relabeling. Patch/input/closure
 verification must retain and reconstruct every modified file, including the
 Makefiles outside compiler dependency lists. Actual rebuilt native wrappers
 and AArch64 artifacts must then demonstrate excluded source/object/routine
-families, retained generic behavior and unchanged format coverage. That work
-is not certified by this audit or by the prior no-GPL configure flag.
+families, retained generic behavior and unchanged format coverage. That release
+work is not certified by this audit or by the prior no-GPL configure flag.
+
+## Working-branch repair and focused evidence
+
+The four additional patches in [`sources.json`](../../scripts/audio-deps/sources.json)
+implement those guards. Every original, patch and result has a pinned SHA-256.
+The shared [replayer](../../scripts/audio-deps/ffmpeg_policy.py) accepts only the
+five reviewed targets, rejects duplicate targets/files and applies exact hunk
+positions and context without shell execution or fuzz. All five patches replay
+exactly from the verified official archive, including the existing configure
+opt-in. The decoder, parser and demuxer lists are unchanged.
+
+The builder retains every patched source file and Makefile in its hashed
+prefix. The corresponding-source verifier reconstructs each result from the
+original archive and tracked diff, compares retained bytes and verifies modified
+compiler inputs against the reconstructed source. The helper itself belongs to
+the native recipe hash. Both collection and verification reject the three
+confirmed GPL source paths in a no-GPL compiler closure; configuration flags
+alone cannot admit them.
+
+Focused local evidence:
+
+- Six policy tests cover exact replay, original/patch/output tampering,
+  unknown/duplicate targets, non-configure builder application and prohibited
+  compiler sources. Twenty-two source-bundle tests pass with configure and
+  changed-C fixtures across all seven simulated targets. These tiny fixtures
+  are not actual seven-target builds.
+- GNU Make evaluated the actual original/patched AArch64 Makefiles for eight
+  GPL/AC3DSP combinations. Only the intended three objects disappear with GPL
+  disabled; all other evaluated object groups remain equal.
+- The [focused C probe](../../scripts/audio-deps/tests/no-gpl-fallback.c) compiles
+  the actual patched CRC/AC3 DSP sources and original AC3 tables using retained,
+  hash-verified native generated headers. It links a manifest-hash-verified
+  cached utility library, rather than rebuilding the complete backend.
+  Eight CRC families, four alignments and four lengths give 128 independent
+  bitwise-reference vectors, also checked through custom-table initialization
+  and split streaming. Five generic AC3 operations cover exponent minima,
+  float conversion, exponent extraction and integer/float butterfly sums.
+  All pass. The resulting focused executable has none of the nine prohibited
+  routines. This does not prove complete AC3/EAC3 decoding or performance.
+
+Independent source review found no actionable issues for this repair. No
+application UI replay was run. The historical v0.2.56 artifact remains the
+baseline described above. New wrappers, AArch64 application symbol/closure
+inspection, native decoder integration and actual package notice delivery
+remain required before L76 can close.
+
+The required release-tooling checks also pass: 126 GitHub tooling cases,
+28 release cases (plus two dependency-notice cases), and actionlint using only
+the existing documented `queue` syntax exception for actionlint 1.7.12.
+Dependency material replay still verifies 448 components and 302 texts after
+refreshing the native source-pin fingerprint. Ledger consistency and whitespace
+checks pass. No remote CI or package publication is represented by these checks.

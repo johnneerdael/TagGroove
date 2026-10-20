@@ -4,6 +4,7 @@ import argparse
 import base64
 import difflib
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -15,6 +16,10 @@ import tarfile
 import tempfile
 import tomllib
 import urllib.request
+
+_policy_spec = importlib.util.spec_from_file_location('ffmpeg_policy', Path(__file__).resolve().parent / 'audio-deps/ffmpeg_policy.py')
+policy = importlib.util.module_from_spec(_policy_spec)
+_policy_spec.loader.exec_module(policy)
 
 TARGETS = {
     "windows-x64": "x86_64-pc-windows-msvc",
@@ -99,6 +104,7 @@ def compiler_closure(wrapper, native):
     if decoders & gated_adpcm:
         required.add("libavcodec/adpcm.c")
     require(required.issubset(sources), "Compiler source closure omits enabled LGPL audio implementation")
+    policy.verify_no_gpl_sources(sources)
     return sources
 
 
@@ -333,7 +339,7 @@ def add_directory(files, source, prefix, modes):
             modes[name] = 0o755 if path.stat().st_mode & 0o111 else 0o644
 
 
-def verify_upstream_closure(archive, directory, expected):
+def verify_upstream_closure(archive, directory, expected, patched_sources=None):
     # A streaming pass avoids repeatedly seeking/re-decompressing a large xz archive.
     found = set()
     prefix = safe(directory) + "/"
@@ -344,7 +350,12 @@ def verify_upstream_closure(archive, directory, expected):
             name = member.name[len(prefix):]
             if name in expected:
                 require(name not in found and member.isfile(), "Invalid or duplicate compiler source archive entry")
-                require(sha(handle.extractfile(member).read()) == expected[name],
+                original = handle.extractfile(member).read()
+                patched = (patched_sources or {}).get(name)
+                if patched is not None:
+                    entry, diff = patched
+                    original = policy.apply_patch(entry, original, diff)
+                require(sha(original) == expected[name],
                         "Compiler source closure differs from pinned upstream archive")
                 found.add(name)
     require(found == set(expected), "Compiler source closure file missing from pinned upstream archive")
@@ -389,12 +400,17 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
                 member = handle.getmember(component["directory"] + "/" + license_name)
                 require(member.isfile(), "License must be a regular upstream file")
                 require(handle.extractfile(member).read() == files[f"native/licenses/{name}/{license_name}"], "License bytes differ")
+    policy.validate_patches(inventory.get("patches", []))
+    patched_sources, patched_outputs = {}, {}
     for patch in inventory.get("patches", []):
         component = inventory["components"][patch["component"]]
         with tarfile.open(fileobj=io.BytesIO(files["native/archives/" + component["archive"]]), mode="r:*") as handle:
             member = handle.getmember(component["directory"] + "/" + safe(patch["target"]))
-            require(member.isfile() and sha(handle.extractfile(member).read()) == patch["original_sha256"],
-                    "Patch original upstream file hash differs")
+            require(member.isfile(), "Patch original must be a regular upstream file")
+            original = handle.extractfile(member).read()
+            diff = files["app/scripts/audio-deps/" + safe(patch["file"])]
+            patched_outputs[patch["target"]] = policy.apply_patch(patch, original, diff)
+            patched_sources[patch["target"]] = (patch, diff)
     closure_sources = {}
     for platform, target in TARGETS.items():
         path = "native/targets/" + platform + ".json"
@@ -407,20 +423,19 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
             require(name not in closure_sources or closure_sources[name] == digest, "Cross-target compiler source closure differs")
             closure_sources[name] = digest
         inputs = native["build_inputs"]
-        required_inputs = {"build.py", "sources.json", "bzip2/CMakeLists.txt"} | {patch["file"] for patch in inventory.get("patches", [])}
+        required_inputs = {"build.py", "sources.json", "ffmpeg_policy.py", "bzip2/CMakeLists.txt"} | {patch["file"] for patch in inventory.get("patches", [])}
         require(set(inputs) == required_inputs, "Native recipe inputs are incomplete or unexpected")
         for name, digest in inputs.items():
             safe(name)
             require(sha(files["app/scripts/audio-deps/" + name]) == digest, "Native recipe/source input differs")
         for patch in native.get("patch_metadata", []):
             require(inputs.get(patch["file"]) == patch["sha256"], "Native patch source hash differs")
-            require(patch["component"] == "ffmpeg" and patch["target"] == "configure", "Unexpected native patch target")
-            patched = base64.b64decode(wrapper["files"]["ffmpeg-patched-configure"]["base64"], validate=True)
-            require(sha(patched) == patch["patched_sha256"], "Applied native patch output hash differs")
+            patched = base64.b64decode(wrapper["files"][policy.patched_path(patch["target"])]["base64"], validate=True)
+            require(patched == patched_outputs[patch["target"]], "Applied native patch output differs from exact replay")
         if native_evidence is not None:
             require((Path(native_evidence) / f"native-{platform}.json").read_bytes() == raw, "Native target evidence differs from built packages")
     ffmpeg = inventory["components"]["ffmpeg"]
-    verify_upstream_closure(files["native/archives/" + ffmpeg["archive"]], ffmpeg["directory"], closure_sources)
+    verify_upstream_closure(files["native/archives/" + ffmpeg["archive"]], ffmpeg["directory"], closure_sources, patched_sources)
     vendor = {name.removeprefix("app/vendor/"): data for name, data in files.items() if name.startswith("app/vendor/")}
     expected_files.update(name for name in files if name.startswith(("app/vendor/", "app/dist/")))
     require(set(files) == expected_files, "Untracked or unexpected source archive file")

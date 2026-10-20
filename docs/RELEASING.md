@@ -114,6 +114,8 @@ Every release includes `TagGroove-v<version>-sources.tar.xz` with:
 - Exact native build manifests and non-library prefix evidence for all seven targets: installed headers, configuration, notices, patch output and FFmpeg upstream/generated source-closure metadata. The original archives supply the complete upstream source, including files outside that compiled closure.
 - The original Git commit object, reconstructed tree/blob identities, original pre-stamp files and an actual version-stamp diff. The extracted tree needs no `.git` directory to build.
 
+FFmpeg patches are replayed against original archive bytes with exact context and original/patch/result hashes. Retain every patched C file and Makefile, including files outside compiler dependency lists. The no-GPL compiler closure rejects the three confirmed AArch64 AC3/CRC source families described in the [policy audit](verification/ffmpeg-native-policy-audit-2026-10-20.md). Modified compiler inputs must match reconstructed patched source. This source safeguard still requires actual rebuilt target evidence and native decoder integration.
+
 The source job vendors Cargo dependencies, builds the stamped frontend, and verifies the complete archive before upload. Publication independently checks it again against the native sidecars from the package jobs. A missing archive, wrong commit/version, changed source blob, mismatched upstream archive/license/patch, empty or incorrect compiler source-closure hashes, incomplete target set or mismatched native recipe blocks publication. Verification reads archive data using the checked-out verifier; it never executes code from downloaded artifacts.
 
 To verify a downloaded source asset, use the verifier from a trusted checkout of the release commit:

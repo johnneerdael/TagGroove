@@ -1,0 +1,12 @@
+--- a/libavutil/aarch64/Makefile
++++ b/libavutil/aarch64/Makefile
+@@ -2,7 +2,9 @@
+         aarch64/float_dsp_init.o                                      \
+         aarch64/tx_float_init.o                                       \
+ 
++ifeq ($(CONFIG_GPL),yes)
+ ARMV8-OBJS += aarch64/crc.o
++endif
+ 
+ NEON-OBJS += aarch64/float_dsp_neon.o                                 \
+              aarch64/tx_float_neon.o                                  \
