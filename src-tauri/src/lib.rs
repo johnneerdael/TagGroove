@@ -27,6 +27,7 @@ mod locale_format;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod mp3tag_columns;
+mod mp3tag_field_values;
 mod mp3tag_tag_panel;
 mod playlists;
 mod profile_migration;

@@ -57,14 +57,31 @@ pub fn decode(bytes: &[u8]) -> String {
 
 /// Sections in file order, each with its lower-case keys and raw values.
 pub(crate) fn sections(text: &str) -> Vec<(String, Vec<(String, String)>)> {
+    sections_raw(text)
+        .into_iter()
+        .map(|(section, keys)| {
+            (
+                section,
+                keys.into_iter()
+                    .map(|(key, value)| (key, value.trim().to_owned()))
+                    .collect(),
+            )
+        })
+        .collect()
+}
+
+/// Preserve values for native lists whose spaces and vertical tabs are data.
+pub(crate) fn sections_raw(text: &str) -> Vec<(String, Vec<(String, String)>)> {
     let mut result: Vec<(String, Vec<(String, String)>)> = Vec::new();
     for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with(';') || line.starts_with('#') && !line.contains('=')
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.starts_with(';')
+            || trimmed.starts_with('#') && !trimmed.contains('=')
         {
             continue;
         }
-        if let Some(name) = line
+        if let Some(name) = trimmed
             .strip_prefix('[')
             .and_then(|rest| rest.strip_suffix(']'))
         {
@@ -74,7 +91,7 @@ pub(crate) fn sections(text: &str) -> Vec<(String, Vec<(String, String)>)> {
         {
             section
                 .1
-                .push((key.trim().to_ascii_lowercase(), value.trim().to_string()));
+                .push((key.trim().to_ascii_lowercase(), value.to_string()));
         }
     }
     result

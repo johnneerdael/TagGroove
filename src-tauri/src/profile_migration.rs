@@ -464,7 +464,11 @@ pub(crate) fn write_stage(root: &Path, files: &Files) -> Result<(), String> {
 #[derive(Clone)]
 enum Candidate {
     Columns(crate::columns::Layout),
-    Panel(crate::tag_panel::Layout),
+    Panel(
+        crate::tag_panel::Layout,
+        crate::mp3tag_field_values::ImportedFieldValues,
+    ),
+    FieldValues(crate::mp3tag_field_values::ImportedFieldValues),
     Actions(tag_core::actions::ActionGroup),
     Export(crate::exports::Configuration),
 }
@@ -621,6 +625,13 @@ fn inspect(
                     ));
                 }
                 Ok(Some(Candidate::Columns(parsed.result.layout)))
+            } else if lower.rsplit('/').next() == Some("usrfieldvalues.ini") {
+                item.kind = "field_values".into();
+                item.collision = directory.join("tag-panel.json").exists();
+                let parsed =
+                    crate::mp3tag_field_values::parse(&crate::mp3tag_columns::decode(bytes))?;
+                item.warnings = parsed.skipped;
+                Ok(Some(Candidate::FieldValues(parsed.values)))
             } else if lower.rsplit('/').next() == Some("usrfields.ini")
                 || (lower.split('/').any(|part| part == "panels") && lower.ends_with(".ini"))
             {
@@ -631,7 +642,7 @@ fn inspect(
                 )
                 .map_err(|e| e.to_string())?;
                 item.warnings = parsed.skipped;
-                Ok(Some(Candidate::Panel(parsed.panel)))
+                Ok(Some(Candidate::Panel(parsed.panel, parsed.field_values)))
             } else if lower.ends_with(".mta") {
                 item.kind = "actions".into();
                 let mut parsed = crate::action_host::import_group_diagnostic(
@@ -1147,7 +1158,7 @@ fn apply(
     {
         return Err("Select supported setup items from the current preview.".into());
     }
-    for kind in ["columns", "panel"] {
+    for kind in ["columns", "panel", "field_values"] {
         if plan
             .items
             .iter()
@@ -1155,7 +1166,10 @@ fn apply(
             .count()
             > 1
         {
-            return Err("Select at most one column layout and one tag-panel layout.".into());
+            return Err(
+                "Select at most one column layout, one tag-panel layout and one field-values file."
+                    .into(),
+            );
         }
     }
     // Target keep/replace policy cannot disambiguate two incoming definitions.
@@ -1190,12 +1204,16 @@ fn apply(
             Candidate::Columns(layout) => {
                 crate::columns::save(&stage.path().join("columns.json"), layout)?
             }
-            Candidate::Panel(layout) => {
+            Candidate::Panel(layout, values) => {
                 let path = stage.path().join("tag-panel.json");
                 let mut panel = crate::tag_panel::load(&path)?;
                 panel.panel = layout.clone();
+                values.apply(&mut panel.field_values);
                 crate::tag_panel::save(&path, &panel)?;
             }
+            // Apply the dedicated modern file after legacy panel settings,
+            // independently of checkbox/selection order.
+            Candidate::FieldValues(_) => {}
             Candidate::Actions(group) => {
                 if let Some(index) = actions
                     .groups
@@ -1236,6 +1254,14 @@ fn apply(
     }
     if report.imported.is_empty() {
         return Err("No setup items would change; review the collision choices.".into());
+    }
+    for name in selected {
+        if let Candidate::FieldValues(values) = &plan.candidates[name] {
+            let path = stage.path().join("tag-panel.json");
+            let mut panel = crate::tag_panel::load(&path)?;
+            values.apply(&mut panel.field_values);
+            crate::tag_panel::save(&path, &panel)?;
+        }
     }
     if actions_changed {
         crate::action_host::save_library(&stage.path().join("actions.json"), &actions)?;
@@ -1956,6 +1982,83 @@ mod tests {
         assert!(!state.restorable);
         assert!(!directory.join(STORE).exists());
     }
+    #[test]
+    fn field_value_migration_modern_values_override_legacy_in_either_selection_order() {
+        let _guard = TESTS.lock().unwrap();
+        for modern_first in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let before = native(dir.path()).unwrap();
+            std::fs::write(source.path().join("usrfields.ini"), "[#0]\nvalue=GENRE\ncustom_values=Legacy\nprefer_tag=0\n[#1]\nvalue=ARTIST\ncustom_values= Legacy artist \nprefer_tag=0\n").unwrap();
+            std::fs::write(
+                source.path().join("usrfieldvalues.ini"),
+                "[#0]\nfield=GENRE\ncustom_values=Modern\nprefer_tag=1\n",
+            )
+            .unwrap();
+            let original_source = input(source.path()).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            let mut selected = vec!["usrfields.ini".into(), "usrfieldvalues.ini".into()];
+            if modern_first {
+                selected.reverse();
+            }
+            apply(dir.path(), &preview.token, &selected, true, window()).unwrap();
+            let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+            assert_eq!(panel.field_values.lists["GENRE"], ["Modern"]);
+            assert_eq!(panel.field_values.lists["ARTIST"], [" Legacy artist "]);
+            assert!(panel.field_values.prefer_tag_fields["GENRE"]);
+            assert!(!panel.field_values.prefer_tag_fields["ARTIST"]);
+            assert_eq!(panel.panel.fields.len(), 2);
+            restore(dir.path(), window()).unwrap();
+            assert_eq!(native(dir.path()).unwrap(), before);
+            assert_eq!(input(source.path()).unwrap(), original_source);
+        }
+    }
+
+    #[test]
+    fn field_value_migration_imports_the_native_field_values_file_and_restores_it() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let before = native(dir.path()).unwrap();
+        std::fs::write(source.path().join("usrfieldvalues.ini"), "[#0]\nfield=GENRE\ncustom_values=Electronic\u{b}Jazz\nprefer_tag=0\nversion=1\n[#1]\nfield=COMPOSER\ncustom_values=Bach\nprefer_tag=1\nversion=1\n").unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        assert!(
+            preview.items[0].supported,
+            "{:?}",
+            preview.items[0].warnings
+        );
+        let applied = apply(
+            dir.path(),
+            &preview.token,
+            &["usrfieldvalues.ini".into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        assert_eq!(applied.report.unwrap().imported, ["usrfieldvalues.ini"]);
+        let restored = serde_json::to_value(
+            crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            restored["field_values"]["lists"]["GENRE"],
+            serde_json::json!(["Electronic", "Jazz"])
+        );
+        assert_eq!(
+            restored["field_values"]["prefer_tag_fields"]["GENRE"],
+            false
+        );
+        assert_eq!(
+            restored["field_values"]["prefer_tag_fields"]["COMPOSER"],
+            true
+        );
+        restore(dir.path(), window()).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+    }
+
     #[test]
     fn populated_folder_preview_import_restart_and_full_content_restore() {
         let _guard = TESTS.lock().unwrap();

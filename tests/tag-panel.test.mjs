@@ -89,9 +89,9 @@ test('reordering returns a new layout and rejects bad indexes',()=>{
  assert.throws(()=>moveField(layout,0,99),/range/);
 });
 
-test('custom value lists normalize, round-trip and stay immutable',()=>{
- assert.deepEqual(parseValueList('\uFEFFRock\r\n\r\n  Jazz \nRock\n'),['Rock','Jazz']);
- assert.deepEqual(parseValueList('Rock\r\n\r\n  Jazz \nRock\n'),['Rock','Jazz']);
+test('editor lists preserve literal lines; normalized imports and additions stay immutable',()=>{
+ assert.deepEqual(parseValueList('\uFEFFRock\r\n\r\n  Jazz \nRock\n'),['\uFEFFRock','  Jazz ','Rock']);
+ assert.deepEqual(parseValueList('Rock\r\n\r\n  Jazz \nRock\n'),['Rock','  Jazz ']);
  const settings=defaultSettings(),added=withCustomValue(settings,'genre',' Shoegaze ');
  assert.deepEqual(added.field_values.lists,{GENRE:['Shoegaze']});assert.deepEqual(settings.field_values.lists,{});
  assert.deepEqual(withCustomValue(added,'GENRE','Shoegaze').field_values.lists.GENRE,['Shoegaze']);

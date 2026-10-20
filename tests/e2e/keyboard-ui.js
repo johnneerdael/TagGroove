@@ -344,6 +344,33 @@
       return 'cut + paste restores ARTIST, copy + paste';
     });
 
+    await step('Field values preserve literal entries and per-field preferences through native persistence', async () => {
+      const before = (await inv('load_tag_panel')).field_values;
+      const openValues = async () => { op('field-values').click(); return waitFor(() => document.querySelector('dialog.field-values-dialog[open]'), 3000, 'field values'); };
+      const field = (dlg, name, values, preference) => {
+        const key = dlg.querySelector('#fv-field'); key.value = name; key.dispatchEvent(new Event('change', { bubbles: true }));
+        dlg.querySelector('#fv-values').value = values.join('\n');
+        dlg.querySelector('#fv-prefer-field').value = preference === undefined ? 'global' : preference ? 'tags' : 'custom';
+      };
+      try {
+        let dlg = await openValues(); field(dlg, 'COMPOSER', [' Bach ', 'Mozart'], true);
+        dlg.querySelector('#fv-ok').click(); await waitFor(() => !dlg.open, 5000, 'saved field values');
+        dlg = await openValues(); field(dlg, 'ARTIST', ['Custom artist'], false);
+        dlg.querySelector('#fv-prefer').checked = true; dlg.querySelector('#fv-ok').click();
+        await waitFor(() => !dlg.open, 5000, 'saved independent field preference');
+        const actual = (await inv('load_tag_panel')).field_values;
+        if (JSON.stringify(actual.lists.COMPOSER) !== JSON.stringify([' Bach ', 'Mozart'])) throw new Error('literal field values changed');
+        if (actual.prefer_tag_fields?.COMPOSER !== true || actual.prefer_tag_fields?.ARTIST !== false || actual.prefer_tag_values !== true) throw new Error('field/global preferences did not round-trip independently');
+        return 'literal spaces and independent true/false preferences persisted';
+      } finally {
+        await closeDialogs(); const dlg = await openValues();
+        for (const name of ['COMPOSER', 'ARTIST']) field(dlg, name, before.lists[name] || [], before.prefer_tag_fields?.[name]);
+        dlg.querySelector('#fv-prefer').checked = before.prefer_tag_values;
+        dlg.querySelector('#fv-only-genres').checked = before.only_user_genres;
+        dlg.querySelector('#fv-ok').click(); await waitFor(() => !dlg.open, 5000, 'field values restored');
+      }
+    });
+
     await step('Tag Panel: right-click opens the panel menu at the pointer; it hides and shows fields', async () => {
       await clickRow('sine-a.mp3');
       const title = document.querySelector('.editor .panel-title');

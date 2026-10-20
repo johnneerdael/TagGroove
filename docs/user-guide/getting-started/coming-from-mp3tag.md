@@ -41,7 +41,8 @@ inspecting the setup; the importer never silently truncates it.
 | Profile component | What the guided importer does |
 | --- | --- |
 | `columns.ini` or INI presets under a `columns` directory | Preview the existing column importer result; choose at most one layout to replace the active layout. Unsupported expressions/columns are reported. |
-| `usrfields.ini` or INI presets under `panels` | Preview supported tag-panel controls; choose at most one layout. Preserve existing TagGroove field-value lists; report unsupported source controls/custom-value options. |
+| `usrfields.ini` or INI presets under `panels` | Preview supported tag-panel controls and legacy custom-value settings; choose at most one layout. Preserve unrelated TagGroove lists and report unsupported entries. |
+| `usrfieldvalues.ini` | Import custom suggestions and per-field preference choices; choose at most one file. Replace matching entries after confirmation while preserving unrelated lists and global defaults. |
 | `.mta` action groups | Reuse the existing MTA importer and retain unresolved actions with their diagnostics. Imported groups remain disabled until reviewed. |
 | `.mte` export templates | Decode with the existing export importer and retain the template/name. Importing never executes the template. |
 | `.src`, `.inc`, `.settings` source collections | Report them separately. Use [Install tag sources](../tag-sources/web-sources.md) for complete source bundles, then qualify a real lookup. |
@@ -52,6 +53,10 @@ layouts. For existing action-group/export-template names, choose **Keep current
 items** or **Replace current items**. A replacement export retains its existing
 TagGroove identity and physical filename. Partial imports keep their warnings;
 an unresolved action does not silently become another action type.
+
+When both a legacy panel and `usrfieldvalues.ini` provide a field-value entry,
+the dedicated file takes precedence. Review those selections together. Field
+values are suggestions and do not write audio tags during setup import.
 
 For example, a profile might contain two valid columns and a third with a
 malformed expression, a panel with Title and Comment plus an unsupported technical

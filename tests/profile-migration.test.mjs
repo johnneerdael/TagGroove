@@ -57,6 +57,20 @@ test('folder and ZIP routes expose unsupported files and pass reviewed selection
     }finally{p.close();}
   }
 });
+test('field-values inventory is selectable and permits only one dedicated values file',async()=>{
+  const p=page();try{
+    const original=p.host.invoke;
+    p.host.invoke=async(command,args)=>command==='profile_migration_preview'?{token:'preview',source_hash:'fixture-hash',items:[
+      {file:'first/usrfieldvalues.ini',kind:'field_values',name:'first',warnings:[],collision:true,supported:true},
+      {file:'second/usrfieldvalues.ini',kind:'field_values',name:'second',warnings:[],collision:true,supported:true},
+    ]}:original(command,args);
+    const running=new ProfileMigrationUI(p.host).open();await settle();p.window.document.querySelector('[data-folder]').click();await settle();
+    const dialog=p.window.document.querySelector('dialog');assert.match(dialog.textContent,/Field values/);assert.match(dialog.textContent,/takes precedence/);
+    dialog.querySelector('[data-item="0"]').click();dialog.querySelector('[data-item="1"]').click();assert.equal(dialog.querySelector('[data-item="0"]').checked,false);
+    dialog.querySelector('[data-apply]').click();await running;
+    assert.deepEqual(p.calls.find(([name])=>name==='profile_migration_apply')[1].selected,['second/usrfieldvalues.ini']);
+  }finally{p.close();}
+});
 test('a rejected mutation keeps recovery visible, pauses stale history writes and requires a reload before continuing',async()=>{
   const p=page();try{
     const original=p.host.invoke;p.host.invoke=async(command,args)=>{if(command==='profile_migration_apply'){p.calls.push([command,args]);throw new Error('controlled publication failure; snapshot retained');}return original(command,args);};

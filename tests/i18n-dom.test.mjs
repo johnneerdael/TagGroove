@@ -300,7 +300,7 @@ test('real keep-field selection preserves field syntax and each loaded value whi
 test('tag-panel validation keeps technical field keys raw while shortcut labels retain their locale',()=>{
   const messages=['{key}: at most 5000 custom values are supported.','{key}: custom values must be nonempty single lines.','{key}: remove duplicate custom values.'];
   const custom={ARTIST:'Performer',...Object.fromEntries(messages.map(key=>[key,`Field ${key}`])),'@keys':{Ctrl:'Control'}};
-  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [index,values] of [Array.from({length:5001},(_,i)=>String(i)),[' padded'],['same','same']].entries()){
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [index,values] of [Array.from({length:5001},(_,i)=>String(i)),['bad\tvalue'],['same','same']].entries()){
     const p=page();try{const settings=defaultPanelSettings();settings.field_values.lists.ARTIST=values;p.body.textContent=settingsError(settings);const t=p.translate(locale,catalog);assert.equal(p.body.textContent,t.t(messages[index],{key:'ARTIST'}));assert.equal(t.translate('Ctrl S'),locale==='de'?'Strg S':locale==='en'?'Control S':'Ctrl S');}finally{p.close();}
   }
 });

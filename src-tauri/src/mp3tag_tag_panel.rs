@@ -12,10 +12,9 @@
 //!   (2, 3, 4, 6, 8, 9 or 12); older files use 1–4 for full, normal, small and smaller;
 //! - `default`: the default value (`< keep >`, `< blank >` or text).
 //!
-//! Older files can also carry per-field `custom_values` and `prefer_tag`, which
-//! TagGroove keeps in Field Values; those are reported instead of imported.
+//! Legacy per-field `custom_values` and `prefer_tag` become Field Values settings.
 use crate::import_diagnostics::ImportFailure;
-use crate::mp3tag_columns::{flag, lookup, sections};
+use crate::mp3tag_columns::{flag, lookup};
 use crate::tag_panel::{
     field_id, text, validate_layout, Control, Layout, PanelField, Size, DIRECTORY, KEEP,
     MAX_FIELDS, SEPARATOR,
@@ -27,6 +26,7 @@ use tag_core::batch_errors::{ErrorCause, IndexedCause};
 #[derive(Debug, Serialize)]
 pub struct TagPanelImport {
     pub panel: Layout,
+    pub field_values: crate::mp3tag_field_values::ImportedFieldValues,
     /// Entries or settings left out, with the reason.
     pub skipped: Vec<String>,
     /// Companions of `skipped` that keep the entry and the reason apart, so a
@@ -88,20 +88,37 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
 /// Like `parse`, but a file that yields no field fails with the retained
 /// causes, so the outer message and each reason translate on their own.
 pub fn parse_diagnostic(text_value: &str) -> Result<TagPanelImport, ImportFailure> {
-    let mut found: Vec<(usize, Vec<(String, String)>)> = sections(text_value)
-        .into_iter()
-        .enumerate()
-        .filter_map(|(position, (section, keys))| {
-            let index = section.strip_prefix('#')?.trim().parse::<usize>().ok();
-            Some((index.unwrap_or(usize::MAX - 1_000_000 + position), keys))
-        })
-        .collect();
+    let mut found: Vec<(usize, Vec<(String, String)>)> =
+        crate::mp3tag_columns::sections_raw(text_value)
+            .into_iter()
+            .map(|(section, keys)| {
+                (
+                    section,
+                    keys.into_iter()
+                        .map(|(key, value)| {
+                            let value = if key == "custom_values" {
+                                value
+                            } else {
+                                value.trim().to_owned()
+                            };
+                            (key, value)
+                        })
+                        .collect(),
+                )
+            })
+            .enumerate()
+            .filter_map(|(position, (section, keys))| {
+                let index = section.strip_prefix('#')?.trim().parse::<usize>().ok();
+                Some((index.unwrap_or(usize::MAX - 1_000_000 + position), keys))
+            })
+            .collect();
     // Sections are numbered; a file edited by hand may list them out of order.
     found.sort_by_key(|(index, _)| *index);
     let mut fields = Vec::new();
     let mut skipped = Vec::new();
     let mut skipped_diagnostics = Vec::new();
     let mut used = HashSet::new();
+    let mut field_values = crate::mp3tag_field_values::ImportedFieldValues::default();
     for (index, keys) in found {
         let Some(raw_field) = lookup(&keys, &["value", "field"]) else {
             continue;
@@ -198,23 +215,14 @@ pub fn parse_diagnostic(text_value: &str) -> Result<TagPanelImport, ImportFailur
             );
             continue;
         }
-        if lookup(&keys, &["custom_values"]).is_some_and(|v| !v.trim().is_empty()) {
-            skip(
+        match crate::mp3tag_field_values::from_keys(&id, &keys, false) {
+            Ok(values) => field_values.extend(values),
+            Err(reason) => skip(
                 &mut skipped,
                 &mut skipped_diagnostics,
                 &entry,
-                ErrorCause::owned("its custom values were not imported; add them in Field values"),
-            );
-        }
-        if lookup(&keys, &["prefer_tag"]).and_then(flag) == Some(true) {
-            skip(
-                &mut skipped,
-                &mut skipped_diagnostics,
-                &entry,
-                ErrorCause::owned(
-                    "\"prefer values from tags\" is one setting for all fields in Field values",
-                ),
-            );
+                ErrorCause::owned_text(reason),
+            ),
         }
         fields.push(PanelField {
             name,
@@ -253,6 +261,7 @@ pub fn parse_diagnostic(text_value: &str) -> Result<TagPanelImport, ImportFailur
     validate_layout(&panel).map_err(ImportFailure::Plain)?;
     Ok(TagPanelImport {
         panel,
+        field_values,
         skipped,
         skipped_diagnostics,
     })
@@ -280,6 +289,20 @@ pub async fn import_mp3tag_tag_panel(path: String) -> Result<TagPanelImport, Imp
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn field_value_migration_keeps_native_delimiters_and_each_fields_preference() {
+        let text = "[#0]\nname=Artist\nvalue=ARTIST\ncustom_values= Alice \u{b}A|B\u{b}東京\nprefer_tag=0\n[#1]\nvalue=COMPOSER\ncustom_values=Bach\u{b}Mozart\n";
+        let parsed = parse(text).unwrap();
+        let wire = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(
+            wire["field_values"]["lists"]["ARTIST"],
+            serde_json::json!([" Alice ", "A|B", "東京"])
+        );
+        assert_eq!(wire["field_values"]["prefer_tag_fields"]["ARTIST"], false);
+        assert_eq!(wire["field_values"]["prefer_tag_fields"]["COMPOSER"], true);
+        assert!(parsed.skipped.is_empty());
+    }
 
     // Written by hand in the documented key layout; no Mp3tag file is used.
     const CURRENT: &str = "[#0]\r\nname=Tit&le\r\nvalue=TITLE\r\nsize=12\r\nenabled=1\r\ndefault=< keep >\r\nmultiline=0\r\nversion=1\r\n\
@@ -347,10 +370,10 @@ mod tests {
     }
 
     #[test]
-    fn older_files_use_the_four_legacy_sizes_and_report_custom_values() {
+    fn older_files_use_the_four_legacy_sizes_and_import_custom_values() {
         let text = "[#0]\nname=Artist\nvalue=ARTIST\nsize=1\n[#1]\nname=Year\nvalue=YEAR\nsize=2\n\
             [#2]\nname=Disc\nvalue=DISCNUMBER\nsize=3\n[#3]\nname=BPM\nvalue=BPM\nsize=4\n\
-            [#4]\nname=Genre\nvalue=GENRE\ncustom_values=Rock|Jazz\nprefer_tag=1\n[#5]\nvalue=ISRC\n";
+            [#4]\nname=Genre\nvalue=GENRE\ncustom_values=Rock\u{b}Jazz\nprefer_tag=1\n[#5]\nvalue=ISRC\n";
         let import = parse(text).unwrap();
         let sizes: Vec<_> = import.panel.fields.iter().map(|f| f.size).collect();
         assert_eq!(
@@ -366,8 +389,9 @@ mod tests {
         );
         // A field without a label shows its field name.
         assert_eq!(import.panel.fields[5].name, "ISRC");
-        assert_eq!(import.skipped.len(), 2);
-        assert!(import.skipped.iter().all(|s| s.contains("Genre")));
+        assert!(import.skipped.is_empty());
+        assert_eq!(import.field_values.lists["GENRE"], ["Rock", "Jazz"]);
+        assert!(import.field_values.prefer_tag_fields["GENRE"]);
     }
 
     #[test]
@@ -406,19 +430,15 @@ mod tests {
 
     #[test]
     fn skipped_entries_keep_the_authored_entry_apart_from_the_owned_reason() {
-        let text = "[#0]\nname=Genre\nvalue=GENRE\ncustom_values=Rock|Jazz\nprefer_tag=1\n\
+        let text = "[#0]\nname=Genre\nvalue=GENRE\ncustom_values=Rock\tJazz\nprefer_tag=1\n\
             [#1]\nname=Mood\nvalue=GENRE\n";
         let import = parse(text).unwrap();
-        assert_eq!(import.skipped.len(), 3, "{:?}", import.skipped);
-        assert_eq!(import.skipped_diagnostics.len(), 3);
+        assert_eq!(import.skipped.len(), 2, "{:?}", import.skipped);
+        assert_eq!(import.skipped_diagnostics.len(), 2);
         let expected = [
             (
                 "Field 0 (Genre)",
-                "its custom values were not imported; add them in Field values",
-            ),
-            (
-                "Field 0 (Genre)",
-                "\"prefer values from tags\" is one setting for all fields in Field values",
+                "Custom value contains control characters",
             ),
             ("Field 1 (Mood)", "{id} is already on the panel"),
         ];
@@ -442,10 +462,11 @@ mod tests {
             };
             assert_eq!(key, "{value}: {error}");
             assert_eq!(params["value"], entry, "the authored entry stays verbatim");
-            let ErrorCause::Owned { key, .. } = &children["error"] else {
-                panic!("{:?}", children["error"]);
-            };
-            assert_eq!(key, reason, "only the reason is an owned message");
+            match &children["error"] {
+                ErrorCause::Owned { key, .. } => assert_eq!(key, reason),
+                ErrorCause::OwnedText { value } => assert_eq!(value, reason),
+                other => panic!("the reason must remain owned: {other:?}"),
+            }
         }
     }
 

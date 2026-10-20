@@ -3,7 +3,8 @@ export type Control='text'|'check'|'multiline';
 export type Size='full'|'larger'|'large'|'medium'|'normal'|'small'|'smaller'|'tiny';
 export type PanelField={name:string;field:string;type:Control;size:Size;rows:number;default_value:string;visible:boolean};
 export type PanelLayout={fields:PanelField[];show_panel:boolean;show_cover:boolean};
-export type FieldValues={lists:Record<string,string[]>;only_user_genres:boolean;prefer_tag_values:boolean};
+export type FieldValues={lists:Record<string,string[]>;only_user_genres:boolean;prefer_tag_values:boolean;prefer_tag_fields?:Record<string,boolean>};
+export type ImportedFieldValues={lists:Record<string,string[]>;prefer_tag_fields:Record<string,boolean>};
 export type TagPanelSettings={version:number;panel:PanelLayout;field_values:FieldValues};
 export type ComboOption={kind:'keep'|'blank'|'value'|'browse';value:string;values?:readonly string[];group:'special'|'selection'|'custom'|'genre'|'directory'};
 export const KEEP='< keep >',BLANK='< blank >',DIRECTORY='_DIRECTORY',SEPARATOR='_SEPARATOR';
@@ -56,14 +57,26 @@ export function settingsError(settings:TagPanelSettings):string|null{
   for(const [key,values] of Object.entries(settings.field_values.lists)){
     const error=fieldError(key,false);if(error)return error;
     if(values.length>5000)return`${key}: at most 5000 custom values are supported.`;
-    if(values.some(value=>!value.trim()||value.trim()!==value||controlCharacters(value)))return`${key}: custom values must be nonempty single lines.`;
+    if(values.some(value=>!value||controlCharacters(value)))return`${key}: custom values must be nonempty single lines.`;
     if(new Set(values).size!==values.length)return`${key}: remove duplicate custom values.`;
+  }
+  for(const [key,value] of Object.entries(settings.field_values.prefer_tag_fields??{})){
+    const error=fieldError(key,false);if(error)return error;
+    if(typeof value!=='boolean')return'Field-value preferences must be true or false.';
   }
   return null;
 }
+/** Native imports replace only their named fields; unrelated lists/defaults remain intact. */
+export function withImportedFieldValues(settings:TagPanelSettings,values?:ImportedFieldValues):TagPanelSettings{
+  const next=clone(settings);if(!values)return next;
+  next.field_values.lists={...next.field_values.lists,...clone(values.lists)};
+  if(Object.keys(values.prefer_tag_fields).length)next.field_values.prefer_tag_fields={...next.field_values.prefer_tag_fields,...values.prefer_tag_fields};
+  return next;
+}
 /** Trim, drop empty lines and exact duplicates, keep the user's order. */
 export function normalizeValues(values:string[]):string[]{return[...new Set(values.map(value=>value.trim()).filter(Boolean))];}
-export const parseValueList=(text:string)=>normalizeValues(text.split(/\r?\n/));
+/** Editor lines are literal; omit only empty lines and exact duplicates. */
+export const parseValueList=(text:string)=>[...new Set(text.split(/\r?\n/).filter(value=>value.length>0))];
 export function withCustomValue(settings:TagPanelSettings,field:string,value:string):TagPanelSettings{
   const key=normalizeField(field),text=value.trim(),result=clone(settings);
   if(!text||/[\r\n]/.test(text))throw new Error('Enter a single-line value to add it to the custom values.');
@@ -157,7 +170,7 @@ export function directoryOptions(directories:string[]):ComboOption[]{
 }
 
 /** Fields of an Mp3tag tag panel configuration, with the entries that were left out. */
-export type Mp3tagPanelImport={panel:PanelLayout;skipped:string[];skipped_diagnostics?:unknown};
+export type Mp3tagPanelImport={panel:PanelLayout;field_values?:ImportedFieldValues;skipped:string[];skipped_diagnostics?:unknown};
 export type TagPanelHost={
   /** Translate new popup content before reading layout dimensions. */
   translateNow?:(root:HTMLElement)=>void;
@@ -351,7 +364,7 @@ export class TagPanel {
       if(!origin||origin.field!==field.field||origin.observed!==observed){origin={field:field.field,values:values.map(panelValueArray),observed};this.valueOrigins.set(index,origin);}
       values=origin.values;
     }
-    return comboOptions({field:field.field,values,custom:fv.lists[field.field],onlyUserGenres:fv.only_user_genres,preferTagValues:fv.prefer_tag_values});
+    return comboOptions({field:field.field,values,custom:fv.lists[field.field],onlyUserGenres:fv.only_user_genres,preferTagValues:fv.prefer_tag_fields?.[field.field]??fv.prefer_tag_values});
   }
   private openList(input:HTMLInputElement|HTMLTextAreaElement,step=0){
     this.closeList();this.suggestions.forEach(list=>list.close());
@@ -427,6 +440,7 @@ export class TagPanel {
   configure(importMp3tag=false){
     if(this.dialogOpen)return;
     let layout=clone(this.settings.panel),current=layout.fields.length?0:-1,working=false;
+    let importedValues:ImportedFieldValues|undefined;
     const dialog=this.dialog('Customize tag panel','tag-panel-dialog',`<p>Choose the fields shown on the tag panel. Unchecked fields are hidden. Use &amp; in a name to set its Alt shortcut letter; ${DIRECTORY} adds a folder switcher and ${SEPARATOR} starts a new row (a new column when the panel is docked above or below the file list).</p><div class="panel-config"><div><div class="panel-config-list" role="listbox" aria-label="Tag panel fields" tabindex="0"></div><div class="group-buttons"><button type="button" id="tp-new">New</button><button type="button" id="tp-remove">Remove</button><button type="button" id="tp-up" aria-label="Move up">Move up</button><button type="button" id="tp-down" aria-label="Move down">Move down</button><button type="button" id="tp-reset">Restore defaults</button></div></div><div class="panel-config-editor"></div></div><label class="action-check"><input type="checkbox" id="tp-cover"> Display cover art</label><div class="tp-import-report" role="status"></div><datalist id="tp-fields">${COMMON_FIELDS.map(field=>`<option value="${field}">`).join('')}</datalist><datalist id="tp-defaults"><option value="${KEEP}"><option value="${BLANK}"></datalist>`,
       `<button type="button" id="tp-save-file">Save configuration…</button><button type="button" id="tp-load-file">Load configuration…</button>${this.host.importMp3tag?'<button type="button" id="tp-import-mp3tag">Import Mp3tag configuration…</button>':''}<button type="button" data-close>Cancel</button><button type="button" class="primary" id="tp-ok">OK</button>`);
     const list=dialog.querySelector<HTMLElement>('.panel-config-list')!,editor=dialog.querySelector<HTMLElement>('.panel-config-editor')!,cover=dialog.querySelector<HTMLInputElement>('#tp-cover')!;
@@ -466,24 +480,26 @@ export class TagPanel {
     on('tp-remove',()=>{if(current<0)return;layout.fields.splice(current,1);select(Math.min(current,layout.fields.length-1));});
     on('tp-up',()=>{if(current>0){layout=moveField(layout,current,current-1);select(current-1);}});
     on('tp-down',()=>{if(current>=0&&current<layout.fields.length-1){layout=moveField(layout,current,current+1);select(current+1);}});
-    on('tp-reset',()=>{layout={...defaultLayout(),show_panel:layout.show_panel};current=0;renderAll();});
+    on('tp-reset',()=>{layout={...defaultLayout(),show_panel:layout.show_panel};importedValues=undefined;current=0;renderAll();});
     cover.addEventListener('change',()=>{layout.show_cover=cover.checked;});
     const perform=async(work:()=>Promise<void>)=>{
       if(working)return;working=true;dialog.querySelector('.dialog-error')?.remove();dialog.querySelectorAll<HTMLButtonElement>('.dialog-footer button').forEach(button=>button.disabled=true);
       try{await work();}catch(error){if(dialog.open)TagPanel.error(dialog,error,this.host.batchError);}finally{working=false;if(dialog.open){dialog.querySelectorAll<HTMLButtonElement>('.dialog-footer button').forEach(button=>button.disabled=false);renderList();}}
     };
     on('tp-save-file',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);const path=await this.host.pickSave('layout','tag-panel.json');if(path)await this.host.exportLayout(path,layout);}));
-    on('tp-load-file',()=>void perform(async()=>{const path=await this.host.pickOpen('layout');if(!path)return;layout={...await this.host.importLayout(path),show_panel:layout.show_panel};current=layout.fields.length?0:-1;if(dialog.open)renderAll();}));
+    on('tp-load-file',()=>void perform(async()=>{const path=await this.host.pickOpen('layout');if(!path)return;layout={...await this.host.importLayout(path),show_panel:layout.show_panel};importedValues=undefined;current=layout.fields.length?0:-1;if(dialog.open)renderAll();}));
     // Mp3tag's own file (usrfields.ini or a saved configuration): the fields replace the list for review; OK saves them.
     const importMp3tagFile=()=>void perform(async()=>{
       const read=this.host.importMp3tag;if(!read)return;const path=await this.host.pickOpen('mp3tag');if(!path)return;
       const imported=await read(path);if(!dialog.open)return;
+      importedValues=imported.field_values;
       layout={...imported.panel,show_panel:layout.show_panel,show_cover:layout.show_cover};current=layout.fields.length?0:-1;renderAll();
       const report=dialog.querySelector<HTMLElement>('.tp-import-report')!,count=imported.panel.fields.filter(field=>field.field!==SEPARATOR).length;
-      report.innerHTML=`<p>Imported ${count} field${count===1?'':'s'} from the Mp3tag configuration. Press OK to use them.</p>${imported.skipped.length?`<p>Not imported:</p><ul translate="no">${(this.host.skippedLines?.(imported)??imported.skipped).map(entry=>`<li>${html(entry)}</li>`).join('')}</ul>`:''}`;
+      const total=Object.keys(importedValues?.prefer_tag_fields??{}).length;
+      report.innerHTML=`<p>Imported ${count} field${count===1?'':'s'} from the Mp3tag configuration. Press OK to use them.</p>${total?`<p>Field-value settings: ${total} field${total===1?'':'s'}. Imported entries replace matching saved lists and preferences when you choose OK.</p>`:''}${imported.skipped.length?`<p>Not imported:</p><ul translate="no">${(this.host.skippedLines?.(imported)??imported.skipped).map(entry=>`<li>${html(entry)}</li>`).join('')}</ul>`:''}`;
     });
     if(this.host.importMp3tag)on('tp-import-mp3tag',importMp3tagFile);
-    on('tp-ok',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);await this.persist({...clone(this.settings),panel:clone(layout)},'Tag panel configuration saved.');dialog.close();}));
+    on('tp-ok',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);await this.persist(withImportedFieldValues({...clone(this.settings),panel:clone(layout)},importedValues),'Tag panel configuration saved.');dialog.close();}));
     dialog.addEventListener('cancel',event=>{if(working)event.preventDefault();});
     dialog.querySelector('[data-close]')!.addEventListener('click',()=>dialog.close());
     renderAll();list.focus();
@@ -492,16 +508,21 @@ export class TagPanel {
   /** Options → Field Values: per-field custom value lists, genre options, import/export. */
   fieldValues(initialField?:string){
     if(this.dialogOpen)return;
-    const lists=clone(this.settings.field_values.lists),fv=this.settings.field_values;
+    const lists=clone(this.settings.field_values.lists),fv=this.settings.field_values,preferences=clone(fv.prefer_tag_fields??{});
     const panelFields=this.settings.panel.fields.map(field=>field.field).filter(field=>!field.startsWith('_'));
-    let current=normalizeField(initialField||Object.keys(lists)[0]||'GENRE'),working=false;
-    const dialog=this.dialog('Field values','field-values-dialog',`<p>Custom values appear in the tag panel’s drop-down lists. Enter one value per line. Press Shift+Enter in a tag panel field to add its value here.</p><div class="field-pair"><label class="field"><span>Field</span><input id="fv-field" list="fv-fields" autocapitalize="characters" spellcheck="false"></label><div class="field"><span>Fields with custom values</span><select id="fv-used" aria-label="Fields with custom values"></select></div></div><datalist id="fv-fields">${[...new Set([...panelFields,...COMMON_FIELDS.filter(field=>!field.startsWith('_'))])].map(field=>`<option value="${html(field)}">`).join('')}</datalist><label class="field"><span id="fv-label">Custom field values</span><textarea id="fv-values" rows="10" spellcheck="false" aria-labelledby="fv-label"></textarea></label><div class="group-buttons"><button type="button" id="fv-sort">Sort A–Z</button><button type="button" id="fv-import">Import…</button><button type="button" id="fv-export">Export…</button></div><label class="action-check"><input type="checkbox" id="fv-only-genres" ${fv.only_user_genres?'checked':''}> Show only user-defined genres</label><label class="action-check"><input type="checkbox" id="fv-prefer" ${fv.prefer_tag_values?'checked':''}> Prefer values from tags in list at tag panel</label><p>User-defined genres are the custom values of the GENRE field. They cannot be stored in ID3v1 tags.</p>`,
+    let current=normalizeField(initialField||Object.keys(lists)[0]||'GENRE'),working=false,shown='';
+    const dialog=this.dialog('Field values','field-values-dialog',`<p>Custom values appear in the tag panel’s drop-down lists. Enter one value per line. Press Shift+Enter in a tag panel field to add its value here.</p><div class="field-pair"><label class="field"><span>Field</span><input id="fv-field" list="fv-fields" autocapitalize="characters" spellcheck="false"></label><div class="field"><span>Configured fields</span><select id="fv-used" aria-label="Configured fields"></select></div></div><datalist id="fv-fields">${[...new Set([...panelFields,...COMMON_FIELDS.filter(field=>!field.startsWith('_'))])].map(field=>`<option value="${html(field)}">`).join('')}</datalist><label class="field"><span id="fv-label">Custom field values</span><textarea id="fv-values" rows="10" spellcheck="false" aria-labelledby="fv-label"></textarea></label><label class="field"><span>Values offered for this field</span><select id="fv-prefer-field"><option value="global">Use global preference</option><option value="tags">Prefer values from tags</option><option value="custom">Include custom values</option></select></label><div class="group-buttons"><button type="button" id="fv-sort">Sort A–Z</button><button type="button" id="fv-import">Import…</button><button type="button" id="fv-export">Export…</button></div><label class="action-check"><input type="checkbox" id="fv-only-genres" ${fv.only_user_genres?'checked':''}> Show only user-defined genres</label><label class="action-check"><input type="checkbox" id="fv-prefer" ${fv.prefer_tag_values?'checked':''}> Prefer values from tags in list at tag panel</label><p>Field-specific choices override this default.</p><p>User-defined genres are the custom values of the GENRE field. They cannot be stored in ID3v1 tags.</p>`,
       '<button type="button" data-close>Cancel</button><button type="button" class="primary" id="fv-ok">OK</button>');
     const fieldInput=dialog.querySelector<HTMLInputElement>('#fv-field')!,used=dialog.querySelector<HTMLSelectElement>('#fv-used')!,values=dialog.querySelector<HTMLTextAreaElement>('#fv-values')!;
-    const capture=()=>{lists[current]=parseValueList(values.value);};
+    const preference=dialog.querySelector<HTMLSelectElement>('#fv-prefer-field')!;
+    const capture=()=>{
+      if(values.value!==shown)lists[current]=parseValueList(values.value);
+      if(preference.value==='global')delete preferences[current];else preferences[current]=preference.value==='tags';
+    };
     const show=()=>{
-      fieldInput.value=current;values.value=(lists[current]||[]).join('\n');
-      const keys=Object.keys(lists).filter(key=>lists[key].length||key===current).sort();
+      fieldInput.value=current;values.value=(lists[current]||[]).join('\n');shown=values.value;
+      preference.value=preferences[current]===undefined?'global':preferences[current]?'tags':'custom';
+      const keys=[...new Set([...Object.keys(lists),...Object.keys(preferences),current])].filter(key=>lists[key]?.length||preferences[key]!==undefined||key===current).sort();
       used.innerHTML=keys.map(key=>`<option value="${html(key)}" ${key===current?'selected':''}>${html(key)} (${lists[key]?.length||0})</option>`).join('');
     };
     const switchTo=(field:string)=>{const next=normalizeField(field);if(!next||next===current)return;capture();current=next;show();};
@@ -513,12 +534,14 @@ export class TagPanel {
       try{await work();}catch(error){if(dialog.open)TagPanel.error(dialog,error,this.host.batchError);}finally{working=false;dialog.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.disabled=false);}
     };
     const on=(id:string,handler:()=>void)=>dialog.querySelector(`#${id}`)!.addEventListener('click',handler);
-    on('fv-sort',()=>{capture();lists[current]=[...lists[current]].sort(collator.compare);show();});
-    on('fv-import',()=>void perform(async()=>{capture();const path=await this.host.pickOpen('list');if(!path)return;const imported=await this.host.importList(path);lists[current]=normalizeValues([...lists[current],...imported]);if(dialog.open)show();}));
-    on('fv-export',()=>void perform(async()=>{capture();const path=await this.host.pickSave('list',`${current.toLowerCase()}.txt`);if(path)await this.host.exportList(path,lists[current]);}));
+    on('fv-sort',()=>{capture();lists[current]=[...lists[current]??[]].sort(collator.compare);show();});
+    on('fv-import',()=>void perform(async()=>{capture();const path=await this.host.pickOpen('list');if(!path)return;const imported=await this.host.importList(path);lists[current]=[...new Set([...lists[current]??[],...normalizeValues(imported)])];if(dialog.open)show();}));
+    on('fv-export',()=>void perform(async()=>{capture();const path=await this.host.pickSave('list',`${current.toLowerCase()}.txt`);if(path)await this.host.exportList(path,lists[current]??[]);}));
     on('fv-ok',()=>void perform(async()=>{
       capture();
-      const next=withLists(this.settings,lists);next.field_values.only_user_genres=dialog.querySelector<HTMLInputElement>('#fv-only-genres')!.checked;next.field_values.prefer_tag_values=dialog.querySelector<HTMLInputElement>('#fv-prefer')!.checked;
+      const next=clone(this.settings);next.field_values.lists=Object.fromEntries(Object.entries(lists).filter(([,values])=>values.length));
+      if(Object.keys(preferences).length)next.field_values.prefer_tag_fields=preferences;else delete next.field_values.prefer_tag_fields;
+      next.field_values.only_user_genres=dialog.querySelector<HTMLInputElement>('#fv-only-genres')!.checked;next.field_values.prefer_tag_values=dialog.querySelector<HTMLInputElement>('#fv-prefer')!.checked;
       await this.persist(next,'Field values saved.');dialog.close();
     }));
     dialog.addEventListener('cancel',event=>{if(working)event.preventDefault();});
