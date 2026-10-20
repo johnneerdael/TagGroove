@@ -2750,7 +2750,6 @@
  "Staged image lock failed": "Voorbereide afbeelding kon niet worden vergrendeld",
  "Undo history lock failed": "Ongedaanmaakgeschiedenis kon niet worden vergrendeld",
  "json_foreach_counter outside json_foreach": "json_foreach_counter buiten json_foreach",
- "json_foreach_end without a running json_foreach": "json_foreach_end zonder actieve json_foreach",
  "json_foreach_end without json_foreach": "json_foreach_end zonder json_foreach",
  "completed": "voltooid",
  "original backup retained at {path}": "Originele reservekopie behouden op {path}",
@@ -3555,5 +3554,10 @@
  "Ask about unsaved changes": "Vragen naar niet-opgeslagen wijzigingen",
  "Ask before importing cover art": "Vragen vóór het importeren van hoesafbeeldingen",
  "Confirm removing tags": "Verwijderen van tags bevestigen",
- "Column layout was not applied. Finish saving or resolve pending edits, then try again.": "De kolomindeling is niet toegepast. Rond het opslaan af of los de openstaande bewerkingen op en probeer het opnieuw."
+ "Column layout was not applied. Finish saving or resolve pending edits, then try again.": "De kolomindeling is niet toegepast. Rond het opslaan af of los de openstaande bewerkingen op en probeer het opnieuw.",
+ "DecOutput cannot split a UTF-16 surrogate in an output name": "DecOutput kan geen UTF-16-surrogaatpaar in een uitvoernaam splitsen",
+ "NO EXTERN HANDLER": "GEEN EXTERN-HANDLER",
+ "the output name is larger than 16 MB": "de uitvoernaam is groter dan 16 MB",
+ "script file output exceeds 64 files or 16 MB": "de bestandsuitvoer van het script overschrijdt 64 bestanden of 16 MB",
+ "{value} without a running json_foreach": "{value} zonder een actieve json_foreach"
 }

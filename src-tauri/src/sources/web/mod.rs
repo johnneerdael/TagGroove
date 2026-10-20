@@ -363,13 +363,26 @@ fn debug_name(name: &str) -> String {
 /// Write debug files to `<sources>/debug`; returns that folder when any were written.
 fn write_debug(folder: &Path, files: &[engine::DebugFile]) -> Option<PathBuf> {
     let _guard = installer::LOCK.lock().ok()?;
+    let root = std::fs::symlink_metadata(folder).ok()?;
+    if !root.is_dir() || root.is_symlink() {
+        return None;
+    }
     installer::recover(folder).ok()?;
     if files.is_empty() {
         return None;
     }
     let directory = folder.join("debug");
+    match std::fs::create_dir(&directory) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(_) => return None,
+    }
     let mut written = false;
     for file in files {
+        let metadata = std::fs::symlink_metadata(&directory).ok()?;
+        if !metadata.is_dir() || metadata.is_symlink() {
+            return None;
+        }
         let path = directory.join(debug_name(&file.name));
         written |= crate::action_host::atomic_output(&path, file.content.as_bytes(), false).is_ok();
     }
@@ -2079,6 +2092,100 @@ mod tests {
             "x"
         );
         assert!(write_debug(dir.path(), &[]).is_none());
+    }
+
+    #[test]
+    fn native3361_capability_preflight_uses_commands_not_declared_versions() {
+        let text="[Name]=Native capability\n[MinAppVersionWin]=99.0\n[ParserScriptAlbum]=...\nOnError \"fallback\"\nExit\nSaveData \"never-written.txt\"\n";
+        let file = source::load("Native.src", &|_| Ok(text.into())).unwrap();
+        assert_eq!(file.min_app_version_win, "99.0");
+        validate_scripts(&file).unwrap();
+        let invalid = format!("{text}UnknownNativeCommand\n");
+        let file = source::load("Native.src", &|_| Ok(invalid.clone())).unwrap();
+        assert!(validate_scripts(&file)
+            .unwrap_err()
+            .contains("UnknownNativeCommand"));
+    }
+
+    #[test]
+    fn native3361_file_commands_write_real_confined_files_and_continue_on_write_failure() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("sources");
+        std::fs::create_dir(&folder).unwrap();
+        let text="Replace \"original\" \"changed\"\nSaveData \"../saved.txt\"\nOutputTo \"ALBUM\"\nSay \"partial\"\nOnError \"fallback\" \"C:\\outside\\failed.txt\"\nFindLine \"absent\"\nSay \"unreachable\"";
+        let block = Block {
+            file: "Fixture.src".into(),
+            lines: text
+                .lines()
+                .enumerate()
+                .map(|(i, line)| (i + 1, line.into()))
+                .collect(),
+        };
+        let page = http::Page {
+            url: Url::parse("https://source-fixture.invalid/album").unwrap(),
+            text: "original\nsecond".into(),
+        };
+        let outputs = execute(
+            &folder,
+            "Fixture.src",
+            &block,
+            "album",
+            &page,
+            engine::Environment::default(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(outputs["ALBUM"], "fallback");
+        assert_eq!(
+            std::fs::read(folder.join("debug/saved.txt")).unwrap(),
+            b"changed\r\nsecond\r\n"
+        );
+        assert_eq!(
+            std::fs::read(folder.join("debug/failed.txt")).unwrap(),
+            b"partial"
+        );
+        assert!(!root.path().join("saved.txt").exists());
+        // A directory at the destination cannot be replaced with a file. Its
+        // failed diagnostic write must not erase the recovered album output.
+        std::fs::remove_file(folder.join("debug/saved.txt")).unwrap();
+        std::fs::create_dir(folder.join("debug/saved.txt")).unwrap();
+        assert_eq!(
+            execute(
+                &folder,
+                "Fixture.src",
+                &block,
+                "album",
+                &page,
+                engine::Environment::default(),
+                false
+            )
+            .unwrap()["ALBUM"],
+            "fallback"
+        );
+        assert!(folder.join("debug/saved.txt").is_dir());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native3361_script_file_output_refuses_redirected_debug_directories() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("sources");
+        std::fs::create_dir(&folder).unwrap();
+        let outside = root.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        symlink(&outside, folder.join("debug")).unwrap();
+        let files = [engine::DebugFile {
+            name: "../not-outside.txt".into(),
+            content: "private diagnostic".into(),
+        }];
+        assert!(write_debug(&folder, &files).is_none());
+        assert!(!outside.join("not-outside.txt").exists());
+        std::fs::remove_file(folder.join("debug")).unwrap();
+        let alias = root.path().join("source-alias");
+        symlink(&folder, &alias).unwrap();
+        assert!(write_debug(&alias, &files).is_none());
+        assert!(!folder.join("debug/not-outside.txt").exists());
     }
 
     /// A local HTTP server answering each path with fixed content.

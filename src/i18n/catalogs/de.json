@@ -2763,7 +2763,6 @@
  "Staged image lock failed": "Vorgemerktes Bild konnte nicht gesperrt werden",
  "Undo history lock failed": "Rückgängig-Verlauf konnte nicht gesperrt werden",
  "json_foreach_counter outside json_foreach": "json_foreach_counter außerhalb von json_foreach",
- "json_foreach_end without a running json_foreach": "json_foreach_end ohne laufendes json_foreach",
  "json_foreach_end without json_foreach": "json_foreach_end ohne json_foreach",
  "completed": "abgeschlossen",
  "original backup retained at {path}": "Originalsicherung aufbewahrt unter {path}",
@@ -3568,5 +3567,10 @@
  "Ask about unsaved changes": "Bei ungespeicherten Änderungen nachfragen",
  "Ask before importing cover art": "Vor dem Importieren von Coverbildern nachfragen",
  "Confirm removing tags": "Entfernen von Tags bestätigen",
- "Column layout was not applied. Finish saving or resolve pending edits, then try again.": "Das Spaltenlayout wurde nicht angewendet. Schließen Sie das Speichern ab oder klären Sie die ausstehenden Änderungen und versuchen Sie es erneut."
+ "Column layout was not applied. Finish saving or resolve pending edits, then try again.": "Das Spaltenlayout wurde nicht angewendet. Schließen Sie das Speichern ab oder klären Sie die ausstehenden Änderungen und versuchen Sie es erneut.",
+ "DecOutput cannot split a UTF-16 surrogate in an output name": "DecOutput kann kein UTF-16-Surrogatpaar in einem Ausgabenamen aufteilen",
+ "NO EXTERN HANDLER": "KEIN EXTERN-HANDLER",
+ "the output name is larger than 16 MB": "der Ausgabename ist größer als 16 MB",
+ "script file output exceeds 64 files or 16 MB": "die Dateiausgabe des Skripts überschreitet 64 Dateien oder 16 MB",
+ "{value} without a running json_foreach": "{value} ohne eine laufende json_foreach"
 }
