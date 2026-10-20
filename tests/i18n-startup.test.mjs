@@ -20,7 +20,7 @@ const result=await build({root,configFile:false,logLevel:'silent',plugins:[{name
 const code=(Array.isArray(result)?result.flatMap(build=>build.output):result.output).find(output=>output.type==='chunk').code,url='data:text/javascript;base64,'+Buffer.from(code+'\n//# sourceURL=taggroove-startup-fixture.mjs').toString('base64');
 let serial=0;
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
-async function until(predicate){for(let i=0;i<200;i++){if(predicate())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail('Boot condition did not settle');}
+async function until(predicate){for(let i=0;i<200;i++){if(predicate())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail(`Boot condition did not settle: ${globalThis.document.querySelector('.errors')?.textContent??''}; native calls: ${globalThis.__BOOT_HOST__.calls.join(', ')}`);}
 function deferred(){let resolve,reject,done=false;const promise=new Promise((yes,no)=>{resolve=value=>{done=true;yes(value);};reject=error=>{done=true;no(error);};});return{promise,resolve,reject,get done(){return done;}};}
 async function boot({native=true,remembered='fr',choice=remembered,preferred=['en-US'],updateCheck=false,platformFailure=false,subfolders=true,profile=null,initialLaunches=[],rejectExtraProfileReads=false}={}){
   const window=new Window({url:'http://localhost:1420'});
@@ -29,7 +29,7 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
   window.document.documentElement.lang='en';window.document.body.innerHTML='<div id="app"></div>';window.localStorage.setItem('opentag.language',remembered);window.localStorage.setItem('opentag.last-version','0.2.0');
   const settings=deferred(),catalogs=deferred(),directories=deferred(),calls=[],events=new Map(),titles=[],paints=[];
   const filesystemKinds=new Map([['/','directory'],['/launch','directory'],['/fallback','directory'],['/A.flac','file'],['/B.flac','file'],['/Help.mp3','file']]);
-  const recovery=profile?{id:'profile-receipt',attempted:profile.attempted??false,failed:profile.failed??false,window:{version:1,preferences:{'opentag.language':remembered},workspace:{paths:['/A.flac'],selected:['/A.flac'],roots:['/'],location:'/',location_is_data:true,filter:'',filter_draft:null,anchor:'/A.flac',playlist:null}}}:null;let pending=recovery,profileReads=0;
+  const recovery=profile?{id:'profile-receipt',attempted:profile.attempted??false,failed:profile.failed??false,window:{version:1,preferences:{'opentag.language':remembered},workspace:{paths:['/A.flac'],selected:['/A.flac'],roots:['/'],location:'/',location_is_data:true,filter:'',filter_draft:null,anchor:'/A.flac',playlist:null}}}:null;let pending=recovery,profileReads=0,sourceSerial=0;
   const host={native,calls,events,picks:[],profileCalls:[],reloads:0,restoreCalls:[],get pending(){return pending;},drag:undefined,settings,catalogs,directories,defaults:undefined,scan:[],scanRecords:[],scanErrors:[],classificationRecords:[],launches:structuredClone(initialLaunches),nativeWindow:{setTitle:async title=>titles.push(title),setTheme:async()=>{},onCloseRequested:async()=>()=>{},isMaximized:async()=>false,isMinimized:async()=>false},invoke:async(command,args,factories)=>{
     calls.push(command);host.defaults=factories;
     if(command==='profile_migration_status'){
@@ -53,6 +53,13 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
     if(command==='web_sources_list')return{folder:'',sources:[],settings:[],problems:[]};
     if(command==='load_directory_state')return directories.promise;
     if(command==='take_launch_requests')return host.launches.splice(0);
+    if(command==='begin_source_tracking')return 'startup-source-session';
+    if(command==='prepare_source_roots'){
+      assert.equal(args.session,'startup-source-session');
+      const sources=args.paths.map(path=>{assert.ok(filesystemKinds.has(path),`Missing source fixture: ${path}`);return{path,token:`startup-source-${++sourceSerial}`,error:null};});
+      return{key:`startup-preparation-${++sourceSerial}`,sources,acquired:sources.map(source=>source.token)};
+    }
+    if(command==='release_source_roots'){assert.equal(args.session,'startup-source-session');return;}
     if(command==='classify_source_paths'){
       assert.ok(settings.done&&catalogs.done,'filesystem classification waits for settings and language catalogs');
       host.classificationRecords.push(structuredClone(args));
