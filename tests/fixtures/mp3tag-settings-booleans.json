@@ -1,0 +1,178 @@
+{
+  "subject": "Mp3tag Windows3.36.1 x64",
+  "sha256": "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911",
+  "authority": "Static shipped-artifact identifiers and codecs; target not executed. Fixtures are authored independently, not exported private settings.",
+  "record_format": {
+    "identifier_bytes": 16,
+    "length_bytes": 4,
+    "length_endian": "little",
+    "boolean_payload_bytes": 1
+  },
+  "reader": "0x14030339c",
+  "writer": "0x1403035c0",
+  "boolean_reader": "0x140075640",
+  "boolean_writer": "0x140075670",
+  "options": [
+    {
+      "native_key": "AutoSave",
+      "identifier": "8840da8e2956d74da1853b63f6df9037",
+      "object": "0x140ac3440",
+      "legacy_key_instruction": "140250423",
+      "legacy_setter_instruction": "14025046a",
+      "component": "settings",
+      "path": [
+        "pages",
+        "tags",
+        "save_on_move"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "NoImageFromFolder",
+      "identifier": "ee0051ba892b9941bce4471869a8f2d0",
+      "object": "0x140ac3580",
+      "legacy_key_instruction": "1402501f4",
+      "legacy_setter_instruction": "14025023e",
+      "component": "settings",
+      "path": [
+        "pages",
+        "tags",
+        "no_folder_image"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "KeepFileTime",
+      "identifier": "c43475eedd175e42b0d89661bd66f42d",
+      "object": "0x140ac3490",
+      "legacy_key_instruction": "1402503d7",
+      "legacy_setter_instruction": "14025041e",
+      "component": "settings",
+      "path": [
+        "tags",
+        "preserve_modified_time"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "JumpOnEdit",
+      "identifier": "53fe21e50af824458cf74de7edade298",
+      "object": "0x140ac3b70",
+      "legacy_key_instruction": "1402505eb",
+      "legacy_setter_instruction": "140250635",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "auto_select_next"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "UseAutoComplete",
+      "identifier": "a17772f7656a2b4fb710657ed41cb01d",
+      "object": "0x140ac57e0",
+      "legacy_key_instruction": "1402506d1",
+      "legacy_setter_instruction": "14025071b",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "autocomplete"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "TitleShowFolderPath",
+      "identifier": "6317969e3cb5424781aab010efedb4a2",
+      "object": "0x140ac5920",
+      "legacy_key_instruction": "14025063a",
+      "legacy_setter_instruction": "140250681",
+      "component": "settings",
+      "path": [
+        "general",
+        "show_directory_in_title"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "Recurse",
+      "identifier": "fbb012dd766b664493dff2ac5f006238",
+      "object": "0x140ac3030",
+      "legacy_key_instruction": "1402508a4",
+      "legacy_setter_instruction": "1402508ee",
+      "component": "settings",
+      "path": [
+        "directories",
+        "subfolders"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "HideStandardGenres",
+      "identifier": "a635489304121948aceaf4ad079f3fa1",
+      "object": "0x140ac27c0",
+      "legacy_key_instruction": "14024f27a",
+      "legacy_setter_instruction": "14024f2c4",
+      "component": "panel",
+      "path": [
+        "field_values",
+        "only_user_genres"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "HideID3Bar",
+      "identifier": "a0f6c4c7dcd9b44fb7d973852061f2cb",
+      "object": "0x140ac3b20",
+      "legacy_key_instruction": "14025046f",
+      "legacy_setter_instruction": "1402504b6",
+      "component": "panel",
+      "path": [
+        "panel",
+        "show_panel"
+      ],
+      "inverted": true
+    },
+    {
+      "native_key": "HideFilterBar",
+      "identifier": "86fd6bff815ed0488b445b271955c35c",
+      "object": "0x140ac3ad0",
+      "legacy_key_instruction": "1402504bb",
+      "legacy_setter_instruction": "140250502",
+      "component": "preferences",
+      "path": [
+        "opentag.filter-shown"
+      ],
+      "inverted": true
+    },
+    {
+      "native_key": "TrayIconShow",
+      "identifier": "07a26324a1f7d84782538bb89e2a57e8",
+      "object": "0x140ac36c0",
+      "legacy_key_instruction": "140250507",
+      "legacy_setter_instruction": "14025054e",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "tray_icon"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "TrayIconMinimize",
+      "identifier": "d5c6e9f135cd614aa8f3d9f513f774f1",
+      "object": "0x140ac3a80",
+      "legacy_key_instruction": "140250553",
+      "legacy_setter_instruction": "14025059a",
+      "component": "settings",
+      "path": [
+        "pages",
+        "general",
+        "minimize_to_tray"
+      ],
+      "inverted": false
+    }
+  ]
+}

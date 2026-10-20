@@ -12,7 +12,8 @@ write audio tags.
    Keep a separate original copy outside the TagGroove configuration folder.
    The selected folder or ZIP must neither contain nor be inside that folder;
    overlapping locations are rejected before recovery or import can write.
-   The importer does not infer undocumented binary/global settings from their filenames.
+   For `mp3tag.cfg`, only the confirmed options listed below are imported;
+   other binary settings are reported without guessing their meaning.
 2. Save or close edited action-group dialogs. Save pending audio/artwork edits,
    or explicitly discard them when prompted. Configuration restoration cannot
    recover discarded in-memory audio edits.
@@ -43,10 +44,11 @@ inspecting the setup; the importer never silently truncates it.
 | `columns.ini` or INI presets under a `columns` directory | Preview the existing column importer result; choose at most one layout to replace the active layout. Unsupported expressions/columns are reported. |
 | `usrfields.ini` or INI presets under `panels` | Preview supported tag-panel controls and legacy custom-value settings; choose at most one layout. Preserve unrelated TagGroove lists and report unsupported entries. |
 | `usrfieldvalues.ini` | Import custom suggestions and per-field preference choices; choose at most one file. Replace matching entries after confirmation while preserving unrelated lists and global defaults. |
+| `mp3tag.cfg` | Preview supported portable settings as On/Off choices; choose at most one file. Import only the listed options and report the number of unmapped records. |
 | `.mta` action groups | Reuse the existing MTA importer and retain unresolved actions with their diagnostics. Imported groups remain disabled until reviewed. |
 | `.mte` export templates | Decode with the existing export importer and retain the template/name. Importing never executes the template. |
 | `.src`, `.inc`, `.settings` source collections | Report them separately. Use [Install tag sources](../tag-sources/web-sources.md) for complete source bundles, then qualify a real lookup. |
-| Other/global/binary files | List them as unsupported; leave their original bytes untouched. No silent guessed mapping is applied. |
+| Other files and unmapped binary records | Leave their original bytes untouched. No silent guessed mapping is applied. |
 
 Select the intended items. Selected column/panel layouts replace their active
 layouts. For existing action-group/export-template names, choose **Keep current
@@ -57,6 +59,31 @@ an unresolved action does not silently become another action type.
 When both a legacy panel and `usrfieldvalues.ini` provide a field-value entry,
 the dedicated file takes precedence. Review those selections together. Field
 values are suggestions and do not write audio tags during setup import.
+
+### Review portable settings
+
+For a supported `mp3tag.cfg`, the **Portable settings** item lists the actual
+options found in that file and the On/Off values that TagGroove will use.
+Selecting the item imports all its listed options together. Unlisted options
+keep their current TagGroove values.
+
+The supported options are save tags on arrow-key/single-click selection,
+preserve modified-file timestamps, automatically select the next file after
+inline editing, selection-box completion, current directory in the title,
+reading subfolders, hiding the folder image as cover art, user-defined genres
+only, tag-panel visibility, filter visibility, notification-area icon visibility
+and minimizing to that icon. Notification-area behavior depends on the desktop
+platform. These are preferences, not a transfer of the original window layout.
+
+For example, if the preview says **Show filter: Off**, importing it hides the
+filter after setup reload. Check that value before proceeding if you use the
+filter every day. The previous value remains available through **Restore setup**.
+
+Unmapped records can include other preferences and private account data. Their
+payloads are not copied into TagGroove, and the source file is never rewritten.
+A file with no supported settings, or an incomplete record, cannot be selected.
+If the existing saved TagGroove settings are invalid, importing these options
+refuses rather than replacing the rest of the setup with defaults.
 
 For example, a profile might contain two valid columns and a third with a
 malformed expression, a panel with Title and Comment plus an unsupported technical
@@ -171,7 +198,7 @@ installed resources backed up independently.
 
 The populated automated fixture is independently authored. It exercises the
 supported formats and negative/recovery cases; it is not a captured original
-Mp3tag profile or a Windows differential comparison. Global/binary settings,
+Mp3tag profile or a Windows differential comparison. Remaining global/binary settings,
 unsupported mappings, native desktop picker/restart interaction, and any real
 profile-specific differences still need separate evidence. No complete R02 or
 full-parity claim follows from this import workflow.

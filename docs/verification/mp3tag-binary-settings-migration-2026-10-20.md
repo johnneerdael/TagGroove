@@ -1,0 +1,64 @@
+# Confirmed portable binary settings migration
+
+This working-branch slice advances L57b; it does not close the entire profile
+migration scope. The companion [field-value migration receipt](mp3tag-field-values-migration-2026-10-20.md)
+covers the independently implemented text files.
+
+## Static source and record contract
+
+The subject is the shipped Windows Mp3tag 3.36.1 x64 executable, SHA-256
+`484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`.
+The executable was inspected statically; it was not executed.
+
+The `mp3tag.cfg` load/save callers at `0x140073300` and `0x1400733d8`
+reach the record reader `0x14030339c` and writer `0x1403035c0`.
+Each record contains 16 raw identifier bytes, a little-endian unsigned 32-bit
+payload length and that many payload bytes. Identifiers undergo no UUID byte
+order conversion. The boolean reader `0x140075640` consumes one byte; writer
+`0x140075670` emits one byte. Nonzero means true. The envelope skips remaining
+payload bytes. Objects contain the identifier at offsets `+8` and `+0x28`,
+with the value at `+0x40`; the legacy setter `0x14003bf14` writes that value.
+The legacy-key bindings and object addresses are recorded in the
+[authored mapping fixture](../../tests/fixtures/mp3tag-settings-booleans.json).
+
+| Native key | Raw identifier | TagGroove option |
+| --- | --- | --- |
+| AutoSave | `8840da8e2956d74da1853b63f6df9037` | Save on arrow-key/single-click selection |
+| NoImageFromFolder | `ee0051ba892b9941bce4471869a8f2d0` | Do not show folder image |
+| KeepFileTime | `c43475eedd175e42b0d89661bd66f42d` | Preserve modified time |
+| JumpOnEdit | `53fe21e50af824458cf74de7edade298` | Select next after inline edit |
+| UseAutoComplete | `a17772f7656a2b4fb710657ed41cb01d` | Selection-box completion |
+| TitleShowFolderPath | `6317969e3cb5424781aab010efedb4a2` | Directory in title |
+| Recurse | `fbb012dd766b664493dff2ac5f006238` | Read subfolders |
+| HideStandardGenres | `a635489304121948aceaf4ad079f3fa1` | User genres only |
+| HideID3Bar | `a0f6c4c7dcd9b44fb7d973852061f2cb` | Show panel, inverted |
+| HideFilterBar | `86fd6bff815ed0488b445b271955c35c` | Show filter, inverted |
+| TrayIconShow | `07a26324a1f7d84782538bb89e2a57e8` | Notification icon |
+| TrayIconMinimize | `d5c6e9f135cd614aa8f3d9f513f774f1` | Minimize to icon |
+
+## Implementation and focused evidence
+
+`src-tauri/src/mp3tag_settings.rs` bounds-checks every header and payload,
+skips unknown records without copying payload data, and applies the last
+occurrence of a supported identifier. Only confirmed mappings enter the
+unpublished setup stage. Existing settings are deserialized and validated
+before modification. Panel values and browser filter visibility participate
+in the existing durable setup publication and Restore mechanism.
+
+`binary_settings_migration` passed five focused Rust cases: all 12 mappings
+with raw values 0, 1 and 255; truncated/oversized records; unknown and duplicate
+records with extension bytes; refusal of invalid current settings; and real
+preview/apply/Restore filesystem transactions preserving unrelated values and
+original source bytes. The focused frontend preview case also passed, showing
+listed On/Off values and cancellation without applying the setup.
+
+The profile transaction regression cohort passed 29 tests, with one subprocess
+worker intentionally ignored; 52 focused profile-host and translation checks
+passed. TypeScript, scoped Clippy, formatting and the strict user-guide build
+also passed. These cohorts overlap and are not additive feature counts.
+
+The mapping fixture is independently authored from static identifiers and
+codec evidence. It is not an exported private profile, a Windows runtime
+comparison, or proof of the original application's acceptance of generated
+files. Other binary setting types/mappings and cross-platform native acceptance
+remain open. No original app or local native UI replay was run for this slice.

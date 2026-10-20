@@ -469,6 +469,7 @@ enum Candidate {
         crate::mp3tag_field_values::ImportedFieldValues,
     ),
     FieldValues(crate::mp3tag_field_values::ImportedFieldValues),
+    Settings(crate::mp3tag_settings::Patch),
     Actions(tag_core::actions::ActionGroup),
     Export(crate::exports::Configuration),
 }
@@ -480,6 +481,8 @@ pub struct Item {
     pub warnings: Vec<String>,
     pub collision: bool,
     pub supported: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub settings: Vec<crate::mp3tag_settings::Setting>,
 }
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct SourceIdentity {
@@ -589,6 +592,7 @@ fn inspect(
             warnings: Vec::new(),
             collision: false,
             supported: false,
+            settings: Vec::new(),
         };
         let result: Result<Option<Candidate>, String> = (|| {
             if matches!(lower.rsplit('.').next(), Some("ini" | "mta" | "mte"))
@@ -625,6 +629,14 @@ fn inspect(
                     ));
                 }
                 Ok(Some(Candidate::Columns(parsed.result.layout)))
+            } else if lower.rsplit('/').next() == Some("mp3tag.cfg") {
+                item.kind = "settings".into();
+                item.collision = directory.join("settings.json").exists()
+                    || directory.join("tag-panel.json").exists();
+                let parsed = crate::mp3tag_settings::parse(bytes)?;
+                item.settings = parsed.settings;
+                item.warnings = parsed.warnings;
+                Ok(Some(Candidate::Settings(parsed.patch)))
             } else if lower.rsplit('/').next() == Some("usrfieldvalues.ini") {
                 item.kind = "field_values".into();
                 item.collision = directory.join("tag-panel.json").exists();
@@ -1158,7 +1170,7 @@ fn apply(
     {
         return Err("Select supported setup items from the current preview.".into());
     }
-    for kind in ["columns", "panel", "field_values"] {
+    for kind in ["columns", "panel", "field_values", "settings"] {
         if plan
             .items
             .iter()
@@ -1167,7 +1179,7 @@ fn apply(
             > 1
         {
             return Err(
-                "Select at most one column layout, one tag-panel layout and one field-values file."
+                "Select at most one column layout, one tag-panel layout, one field-values file and one binary settings file."
                     .into(),
             );
         }
@@ -1214,6 +1226,7 @@ fn apply(
             // Apply the dedicated modern file after legacy panel settings,
             // independently of checkbox/selection order.
             Candidate::FieldValues(_) => {}
+            Candidate::Settings(_) => {}
             Candidate::Actions(group) => {
                 if let Some(index) = actions
                     .groups
@@ -1263,6 +1276,14 @@ fn apply(
             crate::tag_panel::save(&path, &panel)?;
         }
     }
+    let mut after_window = window.clone();
+    for name in selected {
+        if let Candidate::Settings(settings) = &plan.candidates[name] {
+            after_window
+                .preferences
+                .extend(settings.apply(stage.path())?);
+        }
+    }
     if actions_changed {
         crate::action_host::save_library(&stage.path().join("actions.json"), &actions)?;
     }
@@ -1270,7 +1291,7 @@ fn apply(
         crate::exports::save(&stage.path().join("exports.json"), &exports)?;
     }
     let after = native(stage.path())?;
-    publish_configuration(directory, before, after, window.clone(), window, report)
+    publish_configuration(directory, before, after, window, after_window, report)
 }
 
 /// One journal/replacement/receipt engine shared by profile import and portable backup.
@@ -1982,6 +2003,73 @@ mod tests {
         assert!(!state.restorable);
         assert!(!directory.join(STORE).exists());
     }
+    #[test]
+    fn binary_settings_migration_previews_applies_and_restores_confirmed_flags() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let before = native(dir.path()).unwrap();
+        let mut bytes = Vec::new();
+        for (identifier, value) in [
+            ("8840da8e2956d74da1853b63f6df9037", 1u8), // Native AutoSave
+            ("a17772f7656a2b4fb710657ed41cb01d", 0),   // Native UseAutoComplete
+            ("a635489304121948aceaf4ad079f3fa1", 1),   // Native HideStandardGenres
+            ("86fd6bff815ed0488b445b271955c35c", 0),   // Native HideFilterBar
+        ] {
+            for index in (0..identifier.len()).step_by(2) {
+                bytes.push(u8::from_str_radix(&identifier[index..index + 2], 16).unwrap());
+            }
+            bytes.extend(1u32.to_le_bytes());
+            bytes.push(value);
+        }
+        let unmapped = b"unmapped-private-payload-stays";
+        bytes.extend([0x99; 16]);
+        bytes.extend((unmapped.len() as u32).to_le_bytes());
+        bytes.extend(unmapped);
+        let input_path = source.path().join("mp3tag.cfg");
+        std::fs::write(&input_path, &bytes).unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        assert!(
+            preview.items[0].supported,
+            "{:?}",
+            preview.items[0].warnings
+        );
+        let wire = serde_json::to_value(&preview).unwrap();
+        assert_eq!(wire["items"][0]["settings"].as_array().unwrap().len(), 4);
+        assert_eq!(
+            native(dir.path()).unwrap(),
+            before,
+            "preview must not publish anything"
+        );
+        let result = apply(
+            dir.path(),
+            &preview.token,
+            &["mp3tag.cfg".into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        let settings = crate::settings::load(&dir.path().join("settings.json")).0;
+        assert_eq!(settings.pages["tags"]["save_on_move"], true);
+        assert_eq!(settings.pages["general"]["autocomplete"], false);
+        let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        assert!(panel.field_values.only_user_genres);
+        assert_eq!(panel.field_values.lists["GENRE"], ["Before genre"]);
+        assert_eq!(
+            result.pending.unwrap().window.preferences["opentag.filter-shown"],
+            "true"
+        );
+        assert!(
+            !String::from_utf8(std::fs::read(dir.path().join("settings.json")).unwrap())
+                .unwrap()
+                .contains("unmapped-private")
+        );
+        restore(dir.path(), window()).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert_eq!(std::fs::read(input_path).unwrap(), bytes);
+    }
+
     #[test]
     fn field_value_migration_modern_values_override_legacy_in_either_selection_order() {
         let _guard = TESTS.lock().unwrap();

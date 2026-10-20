@@ -90,5 +90,6 @@
  "history could not retain its side-file intent: {error}",
  "history has an interrupted or unsaved operation",
  "side-file undo snapshots could not be retained",
- "undo directory identities could not be retained: {error}"
+ "undo directory identities could not be retained: {error}",
+ "{unknown} unmapped binary setting records are not imported; their source file is unchanged."
 ]

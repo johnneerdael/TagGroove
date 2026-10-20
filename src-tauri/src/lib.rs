@@ -28,6 +28,7 @@ mod locale_format;
 mod managed_actions;
 mod mp3tag_columns;
 mod mp3tag_field_values;
+mod mp3tag_settings;
 mod mp3tag_tag_panel;
 mod playlists;
 mod profile_migration;

@@ -71,6 +71,19 @@ test('field-values inventory is selectable and permits only one dedicated values
     assert.deepEqual(p.calls.find(([name])=>name==='profile_migration_apply')[1].selected,['second/usrfieldvalues.ini']);
   }finally{p.close();}
 });
+test('binary settings preview shows confirmed values before any settings are applied',async()=>{
+  const p=page();try{
+    const original=p.host.invoke;
+    p.host.invoke=async(command,args)=>command==='profile_migration_preview'?{token:'preview',source_hash:'fixture-hash',items:[{
+      file:'mp3tag.cfg',kind:'settings',name:'settings',warnings:['Unmapped binary records are not imported.'],collision:true,supported:true,
+      settings:[{label:'Auto-completion at selection boxes',enabled:false},{label:'Save tags when using arrow keys or a single mouse click',enabled:true}],
+    }]}:original(command,args);
+    const running=new ProfileMigrationUI(p.host).open();await settle();p.window.document.querySelector('[data-folder]').click();await settle();
+    const dialog=p.window.document.querySelector('dialog');assert.match(dialog.textContent,/Auto-completion at selection boxes/);assert.match(dialog.textContent,/Off/);assert.match(dialog.textContent,/On/);
+    assert.equal(dialog.querySelector('[data-apply]').disabled,true);assert.ok(!p.calls.some(([name])=>name==='profile_migration_apply'));
+    dialog.querySelector('[data-cancel]').click();await running;assert.ok(!p.calls.some(([name])=>name==='pause'));
+  }finally{p.close();}
+});
 test('a rejected mutation keeps recovery visible, pauses stale history writes and requires a reload before continuing',async()=>{
   const p=page();try{
     const original=p.host.invoke;p.host.invoke=async(command,args)=>{if(command==='profile_migration_apply'){p.calls.push([command,args]);throw new Error('controlled publication failure; snapshot retained');}return original(command,args);};
