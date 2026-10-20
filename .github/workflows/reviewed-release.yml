@@ -200,6 +200,9 @@ jobs:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --ci
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: false
+      - name: Verify Windows installer helper notice bindings
+        if: runner.os == 'Windows'
+        run: python scripts/component-notices.py --check --built-platform windows
       - name: Check macOS document types (Finder Open With)
         if: runner.os == 'macOS'
         run: |
@@ -309,6 +312,7 @@ jobs:
         run: |
           python scripts/android-notices.py --capture "$RUNNER_TEMP/taggroove-android-runtime.json"
           python scripts/android-notices.py --check --metadata "$RUNNER_TEMP/taggroove-android-runtime.json" --verify-material --maven-cache "$HOME/.gradle/caches/modules-2/files-2.1"
+          python scripts/component-notices.py --check --built-platform android --ndk "$NDK_HOME"
       - uses: actions/upload-artifact@v4
         with:
           name: android-runtime-notice-evidence

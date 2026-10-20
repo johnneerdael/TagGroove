@@ -18,6 +18,9 @@ and notices** for the component/version index and its referenced license text.
 **Android/JVM licenses and notices** contains the Android library inventory,
 including notices supplied with bundled parser libraries. Both lists are
 available offline.
+**Native runtime and installer notices** includes additional audio-codec,
+Android C++ runtime and Windows installer notices. These lists preserve the
+supplier's copyright and license wording.
 Copyright and license text keeps its original language when the dialog's
 controls and headings are translated. **Sources and releases** leads to the release downloads and the
 corresponding-source archive with rebuild and relink instructions. On Android

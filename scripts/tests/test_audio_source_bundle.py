@@ -14,6 +14,10 @@ import unittest
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "audio-source-bundle.py"
+PCM_NOTICE = b'/* Copyright fixture supplier. Permission is hereby granted. */\n'
+PCM_SOURCE = PCM_NOTICE + b'pcm source fixture\n'
+CRC_ORIGINAL = b'/* GNU Lesser General Public License */\n#if ARCH_AARCH64\ncrc_arch();\n#endif\n'
+CRC_PATCHED = CRC_ORIGINAL.replace(b'#if ARCH_AARCH64', b'#if ARCH_AARCH64 && CONFIG_GPL')
 TARGETS = {
     "windows-x64": "x86_64-pc-windows-msvc",
     "macos-arm64": "aarch64-apple-darwin",
@@ -48,7 +52,7 @@ def cargo_vendor_fixture():
     return lock, vendor
 
 
-def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
+def fixture(root, original_sha=None, patched_sha=None, cargo_config=None, notice_material=False):
     """Make a real Git source binding, four local upstream archives and seven fake builds."""
     root = Path(root)
     app, archives, evidence = [root / name for name in ("app", "archives", "evidence")]
@@ -85,11 +89,11 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
                 info = tarfile.TarInfo("ffmpeg-1/configure")
                 info.size = len(configure)
                 handle.addfile(info, io.BytesIO(configure))
-                source = b"pcm source fixture\n"
+                source = PCM_SOURCE
                 info = tarfile.TarInfo("ffmpeg-1/libavcodec/pcm.c")
                 info.size = len(source)
                 handle.addfile(info, io.BytesIO(source))
-                source = b"#if ARCH_AARCH64\ncrc_arch();\n#endif\n"
+                source = CRC_ORIGINAL
                 info = tarfile.TarInfo("ffmpeg-1/libavutil/crc.c")
                 info.size = len(source)
                 handle.addfile(info, io.BytesIO(source))
@@ -99,8 +103,7 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
     patches = []
     for target, old, new, filename in [
         ('configure', 'original upstream configure\n', 'patched upstream configure\n', 'patches/ffmpeg.patch'),
-        ('libavutil/crc.c', '#if ARCH_AARCH64\ncrc_arch();\n#endif\n',
-         '#if ARCH_AARCH64 && CONFIG_GPL\ncrc_arch();\n#endif\n', 'patches/crc.patch')]:
+        ('libavutil/crc.c', CRC_ORIGINAL.decode(), CRC_PATCHED.decode(), 'patches/crc.patch')]:
         diff = ''.join(difflib.unified_diff(old.splitlines(True), new.splitlines(True), 'a/' + target, 'b/' + target))
         files['scripts/audio-deps/' + filename] = diff
         patches.append({'file': filename, 'sha256': digest(diff.encode()), 'component': 'ffmpeg', 'target': target,
@@ -109,6 +112,13 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
     inventory = {"format": 1, "components": components, "patches": patches,
                  "ffmpeg": {"decoders": ["pcm_s16le"], "demuxers": ["wav"]}}
     files["scripts/audio-deps/sources.json"] = json.dumps(inventory, indent=2) + "\n"
+    if notice_material:
+        materials = {'pcm': {'source_file': 'src/licenses/pcm.txt', 'sha256': digest(PCM_NOTICE), 'origin': {
+            'kind': 'tar_slice', 'member': 'ffmpeg-1/libavcodec/pcm.c', 'source_sha256': digest(PCM_SOURCE),
+            'offset': 0, 'length': len(PCM_NOTICE), 'sha256': digest(PCM_NOTICE)}}}
+        files['scripts/notices/component-material.json'] = json.dumps({
+            'bindings': {'ffmpeg': components['ffmpeg']}, 'materials': {} if notice_material == 'missing' else materials}) + '\n'
+        files['src/licenses/pcm.txt'] = PCM_NOTICE.decode()
     for name, data in files.items():
         path = app / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -131,11 +141,11 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
                     "ffmpeg-components.h": b"#define CONFIG_PCM_S16LE_DECODER 1\n#define CONFIG_WAV_DEMUXER 1\n#define CONFIG_AHX_PARSER 0\n",
                     "notices/chromaprint/LICENSE": b"license\n",
                     "ffmpeg-patched-configure": b"patched upstream configure\n",
-                    "ffmpeg-patched/libavutil/crc.c": b"#if ARCH_AARCH64 && CONFIG_GPL\ncrc_arch();\n#endif\n",
+                    "ffmpeg-patched/libavutil/crc.c": CRC_PATCHED,
                     "ffmpeg-generated/config.h": b"generated config fixture\n",
                     "ffmpeg-generated-closure.json": (json.dumps({"config.h": digest(b"generated config fixture\n")}) + "\n").encode(),
-                    "ffmpeg-source-closure.json": (json.dumps({"libavcodec/pcm.d": {"libavcodec/pcm.c": digest(b"pcm source fixture\n")},
-                        "libavutil/crc.d": {"libavutil/crc.c": digest(b"#if ARCH_AARCH64 && CONFIG_GPL\ncrc_arch();\n#endif\n")}}) + "\n").encode()}
+                    "ffmpeg-source-closure.json": (json.dumps({"libavcodec/pcm.d": {"libavcodec/pcm.c": digest(PCM_SOURCE)},
+                        "libavutil/crc.d": {"libavutil/crc.c": digest(CRC_PATCHED)}}) + "\n").encode()}
         for name, data in payloads.items():
             path = prefix / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,6 +193,14 @@ def rewrite_bundle(path, change, rehash=False):
 
 
 class SourceBundleTests(unittest.TestCase):
+    def test_source_publication_requires_bound_compiler_supplier_notices(self):
+        complete = fixture(self.f['root'] / 'notice-complete', notice_material=True)
+        path = build(complete)
+        self.builder.verify_bundle(path, complete['commit'], '0.1.0')
+        incomplete = fixture(self.f['root'] / 'notice-missing', notice_material='missing')
+        with self.assertRaisesRegex(ValueError, 'Unmapped native source notice'):
+            build(incomplete)
+
     def setUp(self):
         self.assertTrue(SCRIPT.is_file(), "Corresponding-source builder is required")
         self.temp = tempfile.TemporaryDirectory(prefix="opentag-source-test-")

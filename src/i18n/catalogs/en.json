@@ -1644,6 +1644,7 @@
  "Name": "Name",
  "Native cover geometry with this quality cannot be represented by the legacy MTA schema": "Native cover geometry with this quality cannot be represented by the legacy MTA schema",
  "Native locale has no qualified portable ANSI codepage": "Native locale has no qualified portable ANSI codepage",
+ "Native runtime and installer notices": "Native runtime and installer notices",
  "Native source metadata exceeds the MTA limit": "Native source metadata exceeds the MTA limit",
  "Native source type does not match its action": "Native source type does not match its action",
  "Native storage root must be absolute": "Native storage root must be absolute",

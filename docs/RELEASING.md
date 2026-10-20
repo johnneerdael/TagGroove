@@ -200,6 +200,23 @@ selection after its normal APK build, then checks exact runtime archive hashes
 and replays material before package collection. It retains the metadata as a
 separate workflow artifact, outside the strict public release asset set.
 
+The native/installer supplement is described by
+`scripts/notices/component-material.json` and rendered in `THIRD_PARTY_NATIVE.md`.
+Run `python3 scripts/component-notices.py --check` without caches to check its
+source pins, retained notice bytes and generated native/common/RTF files.
+Regenerate with `--generate`; `--upstream /path/to/material` additionally replays
+the pinned FFmpeg source and NSIS toolchain archives. The source verifier checks
+supplier notice blocks throughout the actual compiler closure, including inner
+Boost-derived grants, rather than inspecting only each file's first comment.
+
+After normal packaging, Windows uses `--check --built-platform windows` to read
+the installer with 7-Zip and require the exact known helper set and hashes.
+Android uses `--check --built-platform android --ndk "$NDK_HOME"` to match the
+bundled C++ runtime against its pin and selected NDK, including its notice
+material. Neither path executes the application or installer. See the
+[native/installer receipt](verification/native-installer-notices-2026-10-20.md)
+for the supplier, candidate-membership and actual-release limits.
+
 For maintainers, collect each finished native prefix and assemble the source asset with:
 
 ```sh

@@ -9,6 +9,7 @@ import licenseBoost from '../crates/regex-compat/vendor/boost-regex/LICENSE_1_0.
 import licenseDotnet from './licenses/dotnet-runtime-MIT.txt?raw';
 import dependencyNotices from '../THIRD_PARTY_DEPENDENCIES.md?raw';
 import androidNotices from '../THIRD_PARTY_ANDROID.md?raw';
+import nativeNotices from '../THIRD_PARTY_NATIVE.md?raw';
 export const audioLicenses = [
   {title:"Chromaprint 1.6.2 — license and notices",text:license0},
   {title:"KissFFT — copyright notices",text:license1},
@@ -21,4 +22,5 @@ export const audioLicenses = [
   {title:"Locale data (.NET runtime v10.0.0) — MIT license",text:licenseDotnet},
   {title:"Dependency licenses and notices",text:dependencyNotices},
   {title:"Android/JVM licenses and notices",text:androidNotices},
+  {title:"Native runtime and installer notices",text:nativeNotices},
 ];

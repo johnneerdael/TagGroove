@@ -9,6 +9,11 @@ const base=new URL('../',import.meta.url);
 const read=name=>readFile(new URL(name,base),'utf8');
 const python=process.env.PYTHON||(process.platform==='win32'?'python':'python3');
 
+test('native runtime and installer material stays attached without archive caches',()=>{
+  const checked=spawnSync(python,['scripts/component-notices.py','--check'],{encoding:'utf8'});
+  assert.equal(checked.status,0,checked.error?.message||checked.stderr||checked.stdout);
+});
+
 test('the dependency inventory and common/offline payload stay bound to source pins',async()=>{
   assert.ok(existsSync(new URL('src/licenses/dependency-inventory.json',base)),'No version-bound dependency notice inventory is bundled');
   const checked=spawnSync(python,['scripts/dependency-notices.py','--check'],{encoding:'utf8'});

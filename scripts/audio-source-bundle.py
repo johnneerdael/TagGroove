@@ -436,6 +436,15 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
             require((Path(native_evidence) / f"native-{platform}.json").read_bytes() == raw, "Native target evidence differs from built packages")
     ffmpeg = inventory["components"]["ffmpeg"]
     verify_upstream_closure(files["native/archives/" + ffmpeg["archive"]], ffmpeg["directory"], closure_sources, patched_sources)
+    notice_path = "app/scripts/notices/component-material.json"
+    if notice_path in files:
+        notice_spec = importlib.util.spec_from_file_location("component_notices", Path(__file__).with_name("component-notices.py"))
+        notices = importlib.util.module_from_spec(notice_spec)
+        notice_spec.loader.exec_module(notices)
+        notice_data = load(files[notice_path])
+        require(notice_data["bindings"]["ffmpeg"] == ffmpeg, "Native notice source pins differ")
+        notices.verify_ffmpeg_coverage(notice_data, files["native/archives/" + ffmpeg["archive"]],
+                                       ffmpeg["directory"], closure_sources, lambda name: files["app/" + safe(name)])
     vendor = {name.removeprefix("app/vendor/"): data for name, data in files.items() if name.startswith("app/vendor/")}
     expected_files.update(name for name in files if name.startswith(("app/vendor/", "app/dist/")))
     require(set(files) == expected_files, "Untracked or unexpected source archive file")

@@ -25,6 +25,17 @@ class LeanWorkflows(unittest.TestCase):
         self.assertLess(verify, collect)
         self.assertNotIn('release-assets/android-runtime', block)
         self.assertIn('name: android-runtime-notice-evidence', block)
+        runtime = block.index('python scripts/component-notices.py --check --built-platform android --ndk "$NDK_HOME"')
+        self.assertLess(verify, runtime)
+        self.assertLess(runtime, collect)
+
+    def test_windows_helper_notices_are_checked_after_build_before_collection(self):
+        block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "desktop")
+        step = block.split('      - name: Verify Windows installer helper notice bindings\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: runner.os == 'Windows'", step)
+        self.assertIn('python scripts/component-notices.py --check --built-platform windows', step)
+        self.assertLess(block.index('name: Build desktop packages'), block.index('name: Verify Windows installer helper notice bindings'))
+        self.assertLess(block.index('name: Verify Windows installer helper notice bindings'), block.index('node scripts/release.mjs collect-desktop'))
 
     def test_premerge_runs_checks_on_one_linux_worker_without_app_builds(self):
         source = (WORKFLOWS / "_reviewed-build.yml").read_text()
