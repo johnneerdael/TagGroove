@@ -14,6 +14,7 @@ use std::fmt;
 const STEP_LIMIT: usize = 2_000_000;
 /// Total size of all output buffers.
 const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
+const CURRENT_PREVIEW_OUTPUT: &str = "CURRENTPREVIEW";
 /// Cumulative bytes appended by retained-line joins during one run.
 const JOIN_GROWTH_LIMIT: usize = 16 * 1024 * 1024;
 /// Debug files without an explicit size limit stop growing at this size.
@@ -600,7 +601,7 @@ fn format_value(
 impl<'a> Machine<'a> {
     fn new(input: &'a str, env: &'a Environment<'a>) -> Self {
         let outputs = env.current_preview.map_or_else(BTreeMap::new, |preview| {
-            BTreeMap::from([("CURRENTPREVIEW".into(), preview.to_owned())])
+            BTreeMap::from([(CURRENT_PREVIEW_OUTPUT.into(), preview.to_owned())])
         });
         Machine {
             env,
@@ -610,7 +611,9 @@ impl<'a> Machine<'a> {
             pos: 0,
             outputs,
             current: DEFAULT_OUTPUT.into(),
-            size: env.current_preview.map_or(0, str::len),
+            size: env.current_preview.map_or(0, |preview| {
+                preview.len().saturating_add(CURRENT_PREVIEW_OUTPUT.len())
+            }),
             joined_bytes: 0,
             trim: true,
             json: None,
@@ -1609,10 +1612,9 @@ fn excerpt_tail(text: &str) -> String {
 
 /// Run `script` over `input`.
 pub fn run(script: &Script, input: &str, env: &Environment<'_>) -> Outcome {
-    if env
-        .current_preview
-        .is_some_and(|value| value.len() > OUTPUT_LIMIT)
-    {
+    if env.current_preview.is_some_and(|value| {
+        value.len().saturating_add(CURRENT_PREVIEW_OUTPUT.len()) > OUTPUT_LIMIT
+    }) {
         return Outcome {
             result: Err(ScriptError {
                 line: 0,
@@ -2412,6 +2414,46 @@ mod tests {
         };
         let error = run(&script(""), "", &env).result.unwrap_err();
         assert!(error.message.contains("16 MB"));
+    }
+
+    #[test]
+    fn album_preview_seed_name_counts_before_any_script_command() {
+        let seed = "x".repeat(OUTPUT_LIMIT - "CURRENTPREVIEW".len() + 1);
+        let env = Environment {
+            current_preview: Some(&seed),
+            ..Default::default()
+        };
+        let outcome = run(&script(""), "", &env);
+        assert!(outcome.files.is_empty());
+        let error = outcome.result.err().expect("seed name must count");
+        assert_eq!(error.line, 0);
+        assert_eq!(error.command, "CurrentPreview");
+        assert!(error.message.contains("16 MB"));
+    }
+
+    #[test]
+    fn album_preview_seed_exact_limit_retains_name_after_clearing() {
+        let seed = "x".repeat(OUTPUT_LIMIT - "CURRENTPREVIEW".len());
+        let env = Environment {
+            current_preview: Some(&seed),
+            ..Default::default()
+        };
+        assert!(run(&script(""), "", &env).result.is_ok());
+        let mut machine = Machine::new("", &env);
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        assert!(one_step(&mut machine, "Say \"\"")
+            .unwrap_err()
+            .contains("16 MB"));
+        assert_eq!(machine.outputs["CURRENTPREVIEW"], seed);
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        one_step(&mut machine, "Set \"CurrentPreview\"").unwrap();
+        assert_eq!(machine.size, "CURRENTPREVIEW".len());
+        let remaining = "y".repeat(OUTPUT_LIMIT - "CURRENTPREVIEW".len() - DEFAULT_OUTPUT.len());
+        machine.say(&remaining).unwrap();
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        assert!(machine.say("!").unwrap_err().contains("16 MB"));
+        assert_eq!(machine.outputs[DEFAULT_OUTPUT], remaining);
+        assert_eq!(machine.outputs["CURRENTPREVIEW"], "");
     }
 
     #[test]

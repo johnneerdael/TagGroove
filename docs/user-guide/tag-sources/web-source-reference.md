@@ -2491,6 +2491,8 @@ Replacing a value with `Set` or the nonempty second argument of `OutputTo`
 releases the previous value's bytes; appending with `Say` still consumes space.
 Other buffers and retained buffer names continue to count. A refused change
 leaves the previous value and output destination intact.
+The initial `CurrentPreview` value and its buffer name count before the first
+command runs, including when the script is empty.
 SaveData/error dumps have the separate file-request/byte limits above. JoinLines and JoinUntil also
 share a 16 MiB budget for bytes appended during one run. Every copy counts,
 including repeated joins and overlapping retained lines; changing or replacing

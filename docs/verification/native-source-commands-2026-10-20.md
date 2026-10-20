@@ -133,3 +133,9 @@ The shared limit still includes other buffers and retained names; clearing a
 value releases its bytes and later appends remain bounded. All 54 focused
 engine/guide tests, focused Clippy and strict guide rendering pass locally.
 No original application or native UI ran for this repair.
+
+Follow-up finding 4329373359 identified the initial CurrentPreview name missing
+from that total. Initialization and its pre-copy limit now include both seed
+name and value. Two additional regressions fail before the fix: one byte beyond
+the combined limit must refuse at line zero, while an exact-limit seed must
+retain its name charge after clearing and leave later appends bounded.
