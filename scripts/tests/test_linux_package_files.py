@@ -144,6 +144,35 @@ else:
                 m.replay_packaging(b'\x7fELF|debug|rpath=|payload=code', b'\x7fELF|rpath=$ORIGIN|payload=code', tools, pins, expected_rpath='$ORIGIN')
             self.assertFalse((root/'executed').exists())
 
+    def test_application_replay_patches_only_tauris_first_bundle_marker_without_stripping(self):
+        m = self.module()
+        self.assertTrue(callable(getattr(m, 'replay_application', None)), 'Missing AppImage application replay')
+        with tempfile.TemporaryDirectory() as folder:
+            tools, pins = self.tools(Path(folder))
+            marker = b'__TAURI_BUNDLE_TYPE_VAR_UNK'
+            original = b'\x7fELF|debug|rpath=|payload=' + marker + b'|second=' + marker
+            packaged = original.replace(marker, b'__TAURI_BUNDLE_TYPE_VAR_APP', 1).replace(b'rpath=|', b'rpath=$ORIGIN/../lib|')
+            result = m.replay_application(original, packaged, tools, pins)
+            self.assertEqual(result['steps'], ['tauri-appimage-marker', 'set-rpath'])
+            self.assertEqual(result['sha256'], digest(packaged))
+            for changed in [packaged.replace(b'|debug', b''), packaged.replace(b'|second='+marker, b'|second=changed'),
+                            packaged.replace(b'$ORIGIN/../lib', b'/tmp/untrusted')]:
+                with self.subTest(changed=changed), self.assertRaises(ValueError):
+                    m.replay_application(original, changed, tools, pins)
+            with self.assertRaises(ValueError):m.replay_application(original.replace(marker, b'no-marker'), packaged, tools, pins)
+
+    def test_preexisting_gtk_inputs_are_not_stripped_during_rpath_replay(self):
+        m = self.module()
+        with tempfile.TemporaryDirectory() as folder:
+            tools, pins = self.tools(Path(folder))
+            original = b'\x7fELF|debug|rpath=|payload=existing-module'
+            packaged = original.replace(b'rpath=|', b'rpath=$ORIGIN|')
+            result = m.replay_packaging(original, packaged, tools, pins, expected_rpath='$ORIGIN', strip_input=False)
+            self.assertEqual(result['steps'], ['set-rpath'])
+            with self.assertRaises(ValueError):
+                m.replay_packaging(original, packaged.replace(b'|debug', b''), tools, pins,
+                                   expected_rpath='$ORIGIN', strip_input=False)
+
     def test_webkit_path_rewrite_requires_explicit_recipe_and_exact_final_bytes(self):
         m = self.module()
         with tempfile.TemporaryDirectory() as folder:

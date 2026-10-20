@@ -70,6 +70,16 @@
       "source_url": "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy/07333c6e942c7d71782b66be924c5d867f9dfdfc/src/core/appdir.cpp",
       "commit": "07333c6e942c7d71782b66be924c5d867f9dfdfc",
       "upstream_path": "src/core/appdir.cpp"
+    },
+    {
+      "id": "tauri-bundle",
+      "source_file": "src/licenses/linux-packager/recipes/bundle.rs",
+      "sha256": "91c8387ccb2e52388cdcfeccfd23f69dac5439aba397d464b1d5446153fdc82e",
+      "size": 13889,
+      "git_blob_sha1": "e6709eb590ac17925a50e5393215d020269c6f59",
+      "source_url": "https://raw.githubusercontent.com/tauri-apps/tauri/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-bundler/src/bundle.rs",
+      "commit": "5b23c82ea5ba6b9aec420dd71f60493edc486aa9",
+      "upstream_path": "crates/tauri-bundler/src/bundle.rs"
     }
   ]
 }

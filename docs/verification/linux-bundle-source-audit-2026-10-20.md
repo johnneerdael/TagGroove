@@ -149,6 +149,15 @@ with pinned strip/patchelf tools and recipe-derived arguments; the packaged file
 cannot choose its own RPATH. The capture retains the selected distribution
 sources, patches, packaging instructions and repository proofs.
 
+The application route replays the pinned Tauri `bundle.rs` first-match
+`__TAURI_BUNDLE_TYPE_VAR_UNK` to `__TAURI_BUNDLE_TYPE_VAR_APP` patch before
+comparing bytes. Tauri restores the original build executable after each
+bundle, so that unmodified executable is retained as the replay input. The
+existing-file branches of linuxdeploy change RPATH without stripping the
+application or copied GTK/WebKit modules; newly deployed top-level libraries
+retain the pinned strip policy. The marker patch is confined to the application
+route, and every other byte must still match the complete replay output.
+
 Both target manifests and digest-addressed objects enter the corresponding-source
 archive. Offline verification reauthenticates repository/source selections,
 checks every retained object and compares captured configuration, recipes and

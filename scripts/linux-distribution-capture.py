@@ -239,6 +239,11 @@ def verify_replay(record, raw, objects, required, path):
     replay=record['replay'];steps=replay['steps']
     require(record.get('observation')==OBSERVATION and replay['sha256']==sha(raw) and replay['size']==len(raw),
             'Missing full-byte builder replay observation')
+    if record['kind']=='application-build':
+        require(path=='usr/bin/taggroove' and steps in [['tauri-appimage-marker'],
+                ['tauri-appimage-marker','set-rpath']], 'Unknown application packaging transformation')
+        original=packages.appimage_application_input(original)
+        steps=steps[1:]
     require(steps in [[],['strip'],['set-rpath'],['strip','set-rpath'],['webkit-relative-usr'],
                       ['strip','webkit-relative-usr'],['set-rpath','webkit-relative-usr'],
                       ['strip','set-rpath','webkit-relative-usr']], 'Unknown packaging transformation observation')
@@ -248,6 +253,8 @@ def verify_replay(record, raw, objects, required, path):
         require(replay.get('expected_rpath')==expected_rpath(path,original),'ELF observation RPATH differs from builder recipe')
         require('webkit-relative-usr' not in steps or Path(path).name.startswith('libwebkit'),
                 'WebKit transformation attached to another file family')
+        require('strip' not in steps or posixpath.dirname(path)=='usr/lib',
+                'Stripping attached to a preexisting AppImage member')
 
 
 def cache_inputs(path,files):
@@ -597,7 +604,8 @@ def capture(root, platform, source_commit, version, image, inspector, tools, too
             else:
                 try:
                     replay=packages.replay_packaging(original,raw,tools,tool_pins,
-                        webkit_relative_usr=Path(path).name.startswith('libwebkit'),expected_rpath=expected_rpath(path,original))
+                        webkit_relative_usr=Path(path).name.startswith('libwebkit'),expected_rpath=expected_rpath(path,original),
+                        strip_input=posixpath.dirname(path)=='usr/lib')
                 except ValueError:continue
                 replay['expected_rpath']=expected_rpath(path,original)
             key=(json.dumps(binding,sort_keys=True),member['path'],sha(original))
@@ -619,7 +627,7 @@ def capture(root, platform, source_commit, version, image, inspector, tools, too
             if not original_path.is_file():original_path=root/'target/release/taggroove'
             require(original_path.is_file(),'Missing own application build input')
             original=original_path.read_bytes()
-            replay=packages.replay_packaging(original,raw,tools,tool_pins,expected_rpath=expected_rpath(path))
+            replay=packages.replay_application(original,raw,tools,tool_pins)
             replay['expected_rpath']=expected_rpath(path)
             files[path]={'kind':'application-build',**record,'original':reference(original,objects),
                          'source_commit':source_commit,'replay':replay,'observation':OBSERVATION}

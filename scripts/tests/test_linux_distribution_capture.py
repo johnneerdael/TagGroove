@@ -130,9 +130,10 @@ class LinuxDistributionCapture(unittest.TestCase):
         records={name:{'kind':'generated-builder',**ref(raw)} for name,raw in generated.items()}
         supplier=runtime_elf();prefix=bytearray(supplier);prefix[352:368]=b'0123456789abcdef';launcher=b'launcher bytes'
         records['AppRun.wrapped']={'kind':'runtime-launcher',**ref(launcher)}
-        own=b'\x7fELF independently built app'
-        records['usr/bin/taggroove']={'kind':'application-build',**ref(own),'original':ref(own),
-            'source_commit':'a'*40,'replay':{'steps':[],'sha256':sha(own),'size':len(own)},
+        unpatched=b'\x7fELF independently built app __TAURI_BUNDLE_TYPE_VAR_UNK'
+        own=unpatched.replace(b'__TAURI_BUNDLE_TYPE_VAR_UNK',b'__TAURI_BUNDLE_TYPE_VAR_APP',1)
+        records['usr/bin/taggroove']={'kind':'application-build',**ref(own),'original':ref(unpatched),
+            'source_commit':'a'*40,'replay':{'steps':['tauri-appimage-marker'],'sha256':sha(own),'size':len(own)},
             'observation':'builder-observed-full-byte-equality'}
         original=b'authenticated original member'
         records['usr/lib/example.so']={'kind':'distribution-file',**ref(original),'binding':0,
@@ -199,6 +200,25 @@ class LinuxDistributionCapture(unittest.TestCase):
                            'usr/share/doc/alias/copyright','x86_64-linux-gnu')
         self.assertEqual({row['package'] for row in found},{'alias','base'})
 
+    def test_marker_observation_is_application_only_and_cannot_hide_other_byte_changes(self):
+        m=self.module()
+        original=b'\x7fELF|__TAURI_BUNDLE_TYPE_VAR_UNK|real-code'
+        packaged=original.replace(b'_UNK',b'_APP')
+        objects={sha(original):original}
+        record={'kind':'application-build','original':{'sha256':sha(original),'size':len(original)},
+                'replay':{'steps':['tauri-appimage-marker'],'sha256':sha(packaged),'size':len(packaged)},
+                'observation':m.OBSERVATION}
+        m.verify_replay(record,packaged,objects,set(),'usr/bin/taggroove')
+        for steps in [[],['tauri-appimage-marker','strip'],['strip','tauri-appimage-marker']]:
+            with self.subTest(steps=steps),self.assertRaises(ValueError):
+                m.verify_replay({**record,'replay':{**record['replay'],'steps':steps}},packaged,objects,set(),'usr/bin/taggroove')
+        with self.assertRaises(ValueError):
+            m.verify_replay({**record,'kind':'distribution-file'},packaged,objects,set(),'usr/lib/libexample.so')
+        changed=packaged.replace(b'real-code',b'evil-code')
+        with self.assertRaises(ValueError):
+            m.verify_replay({**record,'replay':{**record['replay'],'sha256':sha(changed),'size':len(changed)}},
+                            changed,objects,set(),'usr/bin/taggroove')
+
     @unittest.skipUnless(shutil.which('gpgv'), 'GnuPG signature verifier required')
     def test_capture_qualifies_actual_file_bytes_and_refuses_unknown_colliding_or_wrong_members(self):
         m=self.module();base,objects,runtime_spec,signer=self.fixture(m)
@@ -218,7 +238,8 @@ class LinuxDistributionCapture(unittest.TestCase):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes((ROOT/name).read_bytes())
             path=root/'scripts/notices/linux-runtime-material.json';path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(runtime_spec))
             runtime_path=root/'target/linux-source-tools/amd64/runtime';runtime_path.parent.mkdir(parents=True);runtime_path.write_bytes(runtime_elf())
-            own=root/'target/x86_64-unknown-linux-gnu/release/taggroove';own.parent.mkdir(parents=True);own.write_bytes(raw_files['usr/bin/taggroove'])
+            own=root/'target/x86_64-unknown-linux-gnu/release/taggroove';own.parent.mkdir(parents=True)
+            own.write_bytes(objects[base['files']['usr/bin/taggroove']['original']['sha256']])
             def snapshots(_architecture):
                 return [m.material.RepositorySnapshot('amd64','noble-updates',source['repository-keyring.gpg'],fetch)]
             def members(_raw,_selected,requested):return {name:{'path':name,'bytes':original} for name in requested}

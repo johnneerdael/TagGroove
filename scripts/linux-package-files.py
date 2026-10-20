@@ -137,7 +137,24 @@ def run_packaging_tool(tool, arguments):
     return result.returncode, stdout, stderr
 
 
-def replay_packaging(original, packaged, tools, pins, *, expected_rpath=None, webkit_relative_usr=False):
+def appimage_application_input(original):
+    """Reproduce pinned Tauri bundle.rs's first-match, fixed-length marker patch."""
+    token = b'__TAURI_BUNDLE_TYPE_VAR_UNK'
+    require(original.startswith(b'\x7fELF') and token in original, 'Missing original Tauri application bundle marker')
+    return original.replace(token, b'__TAURI_BUNDLE_TYPE_VAR_APP', 1)
+
+
+def replay_application(original, packaged, tools, pins):
+    # bundle.rs restores target/release's original binary after packaging.
+    # linuxdeploy's existing usr/bin branch sets RPATH without queuing strip.
+    result = replay_packaging(appimage_application_input(original), packaged, tools, pins,
+                              expected_rpath='$ORIGIN/../lib', strip_input=False)
+    result['steps'].insert(0, 'tauri-appimage-marker')
+    return result
+
+
+def replay_packaging(original, packaged, tools, pins, *, expected_rpath=None, webkit_relative_usr=False,
+                     strip_input=True):
     """Accept unchanged bytes or reproduce linuxdeploy's strip/RPATH operations.
 
     This does not normalize away code, symbols, sections or arbitrary metadata.
@@ -164,7 +181,7 @@ def replay_packaging(original, packaged, tools, pins, *, expected_rpath=None, we
         original_rpath = stdout.decode('utf-8').strip() if status == 0 else ''
         # Match linuxdeploy 07333c6: avoid stripping existing relative-RPATH
         # binaries, strip other inputs first, then set their final RPATH.
-        if not original_rpath.startswith('$'):
+        if strip_input and not original_rpath.startswith('$'):
             status, _stdout, stderr = run_packaging_tool(tools['strip'], [source])
             require(status == 0 or b'Not enough room for program headers' in stderr,
                     'Unable to reproduce distribution stripping')
