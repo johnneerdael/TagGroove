@@ -81,11 +81,40 @@ evidence, priority Markdown/CSV and OS disposition tables agree on 48 active
 IDs, 63 represented scopes and the unchanged 14 qualifications. Final source
 and documentation/native-case reviews have no concrete findings.
 
-The compiled `src-tauri/src/action_host.rs` SHA-256 remains
+At the initial implementation checkpoint, the compiled
+`src-tauri/src/action_host.rs` SHA-256 was
 `fe1f4f10c89cc2f7fa72ef2759bac8273520887243c71d2577395a7477c786a1`.
-The original GREEN binding matches the current file after the metadata-only
-commit-message change and build-tool rebase; no application behavior was
-re-pinned from an older executable.
+That GREEN binding survived the metadata-only commit-message change and
+build-tool rebase. The review correction below has its own source binding;
+the earlier result does not certify the corrected source.
+
+## Codex review correction: console device names
+
+GitHub Codex finding `4320508676` identified the missing bare `CONIN$` and
+`CONOUT$` aliases. The helper now substitutes these names case-insensitively
+after cleanup, including an alias exposed by character removal or trailing
+space/dot cleanup. It preserves extension-bearing console names and the
+existing extension-first order for literal Replace.
+
+Microsoft's [DOS device-name API documentation](https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlisdosdevicename_u)
+lists both aliases. The extension distinction follows a pinned Chromium
+[implementation](https://chromium.googlesource.com/chromiumos/platform/libchrome/+/789b9d2e9820890544fa3c60d42251569d5004bc/base/files/file_util.cc)
+and its [allowed/disallowed filename tests](https://chromium.googlesource.com/chromiumos/platform/libchrome/+/789b9d2e9820890544fa3c60d42251569d5004bc/base/files/file_util_unittest.cc):
+bare aliases are disallowed, while `conin$.txt` and `conout$.log` are allowed.
+This is a conservative filename policy supported by primary source tests,
+not a Windows runtime observation or proof for every namespace/version.
+
+The new nine-vector regression first fails on unchanged `CONIN$`
+(`taggroove-l54-console-alias-red-36lb3j08`): three existing tests pass and
+the new test fails. After the correction, the same filter passes four tests
+with 34 explicit vectors and 592 unrelated tests filtered out
+(`taggroove-l54-console-alias-green-rb2hnkbp`). The retained GREEN binding and
+current `src-tauri/src/action_host.rs` both have SHA-256
+`6bc6ae63749d830adb63fb3d1174b04b344c78510e81c5cd5e5e75de0cfdb1e1`.
+Compilation took 1m47s for RED and 41.04s for GREEN; each test harness reported
+0.00s. Neither run launched an app or exercised a native UI. Rust formatting
+and the corrected strict guide also pass (`taggroove-l54-console-guide-21mwr8vw`).
+Independent read-only review of the correction and guide has no concrete findings.
 
 ## Engineer handover
 
@@ -94,6 +123,7 @@ TagGroove build. Repeat the same owned fixtures through original Replace and
 Regex actions: punctuation removal, extension case/doubling, device names,
 empty results, paths, collisions and Undo. Include lowercase device names,
 multiple extensions, drive-relative/UNC/extended prefixes and control codes.
+Include bare and extension-bearing `CONIN$`/`CONOUT$` components separately.
 Record actual preview/apply/readback and byte preservation; source-derived
 vectors alone do not close this qualification. Original Windows execution
 remains owner-deferred. Native keyboard/accessibility and installed filesystem

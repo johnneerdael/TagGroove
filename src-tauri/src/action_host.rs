@@ -476,6 +476,9 @@ fn windows_edited_filename(
             .trim_end_matches(' ')
             .to_ascii_uppercase();
         let device = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+            // Match console aliases as whole cleaned components separately
+            // from legacy stems, preserving extension-bearing names.
+            || (stem_end == component.len() && matches!(stem.as_str(), "CONIN$" | "CONOUT$"))
             || matches!(
                 stem.strip_prefix("COM")
                     .or_else(|| stem.strip_prefix("LPT")),
@@ -1652,6 +1655,32 @@ mod tests {
             ("COM10.flac", None, true, "COM10.flac"),
             ("COM¹.wav", None, true, "Reserved-Windows-Filename.wav"),
             ("C:relative?.wav", None, true, "Crelative.wav"),
+        ] {
+            assert_eq!(
+                windows_edited_filename(input, extension, includes_extension).unwrap(),
+                expected,
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn windows_edited_action_filename_protects_bare_console_aliases_without_rewriting_extensions() {
+        for (input, extension, includes_extension, expected) in [
+            ("CONIN$", None, true, "Reserved-Windows-Filename"),
+            ("conout$", None, true, "Reserved-Windows-Filename"),
+            ("ConIn$ . ", None, true, "Reserved-Windows-Filename"),
+            ("CON?OUT$", None, true, "Reserved-Windows-Filename"),
+            (
+                r"album\CONOUT$",
+                None,
+                true,
+                r"album\Reserved-Windows-Filename",
+            ),
+            ("CONIN$.wav", None, true, "CONIN$.wav"),
+            ("conout$.tar.gz", None, true, "conout$.tar.gz"),
+            ("CONIN$", Some("wav"), false, "CONIN$.wav"),
+            ("CONOUT$live.wav", None, true, "CONOUT$live.wav"),
         ] {
             assert_eq!(
                 windows_edited_filename(input, extension, includes_extension).unwrap(),

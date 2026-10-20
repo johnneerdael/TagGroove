@@ -80,6 +80,10 @@ retained. For example, a result of `CON.MP3` becomes
 results identical; inspect collision errors and the Undo label after the run.
 Ordinary tag text and Unix-valid filename characters retain their normal rules.
 
+Bare console names `CONIN$` and `CONOUT$` also become
+`Reserved-Windows-Filename`. Their extension-bearing forms, such as
+`CONIN$.wav`, are kept; `CON.MP3` still receives the substitution above.
+
 ## Gotchas
 
 - Patterns can also match an empty string, producing replacements between
