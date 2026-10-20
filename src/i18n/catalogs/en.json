@@ -720,6 +720,7 @@
  "Deleted {plural} permanently, {plural2}": "Deleted {plural} permanently, {plural2}",
  "Deleting files is not available here": "Deleting files is not available here",
  "Deleting {plural}…": "Deleting {plural}…",
+ "Dependency licenses and notices": "Dependency licenses and notices",
  "Description": "Description",
  "Destination already exists: {value}": "Destination already exists: {value}",
  "Destination exists or another file maps to {value}": "Destination exists or another file maps to {value}",

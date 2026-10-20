@@ -18,6 +18,9 @@ def render(text):
             out.append("\\par\n")
         elif character == "\t":
             out.append("\\tab ")
+        elif character == "\f":
+            # Upstream COPYING documents can retain form-feed page separators.
+            out.append("\\u12?")
         elif ord(character) < 32:
             raise ValueError("Notice text contains an unsupported control character")
         elif ord(character) <= 126:

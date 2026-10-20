@@ -157,12 +157,22 @@ all seven release targets. The complete release source asset still requires
 all seven actual native manifests.
 
 Keep `THIRD_PARTY_NOTICES.md` as the canonical UTF-8 notice text. After changing
-it, regenerate the installer copy with `python3 scripts/installer-license.py`.
+its manual notices, regenerate the installer copy with `python3 scripts/installer-license.py`.
 The bundle uses `THIRD_PARTY_NOTICES.rtf` so copyright characters and literal
 braces/backslashes remain readable across the Windows license-page paths.
 `python3 scripts/installer-license.py --check` refuses a stale generated copy;
 the installer-notice tests also verify text preservation. Do not transliterate
 or remove characters from upstream license text to satisfy an ASCII guard.
+
+The delimited Rust/JavaScript dependency section is generated from
+`src/licenses/dependency-inventory.json`; do not edit that section by hand.
+`python3 scripts/dependency-notices.py --check` validates current source pins,
+material hashes and the attached common/offline/RTF outputs without accessing
+the network or package caches. Updating dependencies requires fresh bound
+Cargo metadata and exact checksum/integrity-verified package material. Follow
+the [collector and replay instructions](verification/dependency-notices-2026-10-20.md#regeneration-and-checks).
+This candidate inventory does not establish exact linked membership or replace
+the native/JVM/installer-helper audit and actual package inspection.
 
 For maintainers, collect each finished native prefix and assemble the source asset with:
 

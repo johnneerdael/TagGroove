@@ -2103,7 +2103,7 @@ async function startupUpdates(version:string){
 async function operateImpl(op: Operation) {
   if(!enabled(op))return;
   if(op==='about'){
-    const licenses=audioLicenses.map(license=>`<details><summary>${esc(license.title)}</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(license.text)}</pre></details>`).join('');
+    const licenses=audioLicenses.map(license=>`<details><summary>${esc(license.title)}</summary><pre translate="no" style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(license.text)}</pre></details>`).join('');
     const dialog=modal('About TagGroove',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="TagGroove — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · TagGroove source: MIT License</p><h3>Built-in audio fingerprinting</h3><p id="audio-backend-versions">Chromaprint 1.6.2 and FFmpeg 9.0.2, with zlib and bzip2. These components include LGPL 2.1-or-later code; their licenses and notices appear below.</p><p>The matching release includes complete corresponding application and native-library sources, build recipes and instructions for modifying and relinking these libraries. Library modification and reverse engineering for debugging modifications are permitted under their applicable licenses.</p><button type="button" id="audio-source-release">Sources and releases</button>${licenses}`,'');
     dialog.querySelector('[data-close]')!.textContent='Close';
     dialog.querySelector('#audio-source-release')!.addEventListener('click',()=>{void invoke('open_help_page',{page:'releases'}).catch(error=>modalError(dialog,error));});

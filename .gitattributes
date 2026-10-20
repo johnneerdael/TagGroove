@@ -9,6 +9,11 @@ src-tauri/gen/** linguist-generated
 *.nsh text eol=lf
 # The generated installer copy is checked byte-for-byte on every host.
 THIRD_PARTY_NOTICES.rtf text eol=lf
+THIRD_PARTY_NOTICES.rtf linguist-generated
+THIRD_PARTY_DEPENDENCIES.md text eol=lf linguist-generated whitespace=-blank-at-eol
+THIRD_PARTY_NOTICES.md text eol=lf linguist-generated whitespace=-blank-at-eol
+src/licenses/dependency-inventory.json text eol=lf linguist-generated
+src/licenses/supplements/** -text linguist-vendored whitespace=-blank-at-eol
 
 # Native recipe and imported-source byte hashes must survive Windows checkout.
 scripts/audio-deps/** text eol=lf

@@ -47,7 +47,7 @@ test('RTF renders copyright, non-BMP characters and literal control-looking text
   const directory=await mkdtemp(join(tmpdir(),'taggroove-license-'));
   try{
     const input=join(directory,'input.md'),output=join(directory,'license.rtf');
-    const text='Copyright © 2026 Zoë — 音楽 🎵\r\nLiteral {braces} and \\rtf1 \\object\tremain text.\n';
+    const text='Copyright © 2026 Zoë — 音楽 🎵\r\nLiteral {braces} and \\rtf1 \\object\tremain text.\nPage one.\fPage two.\n';
     await writeFile(input,text);
     const result=spawnSync(python,['scripts/installer-license.py','--input',input,'--output',output],{encoding:'utf8'});
     assert.equal(result.status,0,result.error?.message||result.stderr||result.stdout);

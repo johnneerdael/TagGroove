@@ -12,8 +12,11 @@ license identification. Include that version, your operating system and the
 operation used when reporting a problem. A similar-looking screenshot or an
 old source checkout does not identify the package installed on your computer.
 
-About also lists the built-in fingerprint libraries and Boost.Regex with their
-full license notices, available without a network connection. **Sources and releases** leads to the release downloads and the
+About also lists the built-in fingerprint libraries, Boost.Regex and locale-data
+notices, available without a network connection. Expand **Dependency licenses
+and notices** for the component/version index and its referenced license text.
+Copyright and license text keeps its original language when the dialog's
+controls and headings are translated. **Sources and releases** leads to the release downloads and the
 corresponding-source archive with rebuild and relink instructions. On Android
 and iOS, the notice displays the release address to open in your browser.
 
