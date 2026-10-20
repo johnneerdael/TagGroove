@@ -103,7 +103,7 @@ test('a delayed second click edits only while the clicked row keeps the focus', 
 });
 
 
-test('F2 filename editing sends an explicit audio-only request through the production commit path', async () => {
+test('F2 filename editing sends a literal request through the audio-only production command', async () => {
   const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
   const parsed = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true);
   const declaration = name => parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
@@ -130,9 +130,10 @@ return {commitCell, start: op => {${editBranch.getText(parsed)}}};`, {compilerOp
     const editor = new Function(...Object.keys(dependencies), `let errors=[],queuedNotices=[];${javascript}`)(...Object.values(dependencies));
     editor.start(listShortcut({key: 'F2', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false}, false));
     assert.deepEqual(target, {path: entry.path, column: column.id});
-    const result = await editor.commitCell(target, key === '_FILENAME_EXT' ? "O'Brien %title%.wav" : "O'Brien %title%");
+    const name=key === '_FILENAME_EXT' ? "O'Brien %title%.wav" : "O'Brien %title%";
+    const result = await editor.commitCell(target, name);
     assert.equal(result, "/Music/O'Brien %title%.wav");
-    assert.deepEqual(calls, [['rename_files', {paths: [entry.path], template: "'O''Brien %title%'", planToken: null, audioOnly: true}]]);
+    assert.deepEqual(calls, [['rename_file_from_list', {path:entry.path,name}]]);
     assert.equal(presented.length, 1);
   }
 });

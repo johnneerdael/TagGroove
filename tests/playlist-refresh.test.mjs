@@ -24,7 +24,7 @@ function runtime(state={}){
     if(command==='scan_files'){if(state.scanGate)await state.scanGate.promise;if(state.scanFailure)throw new Error(state.scanFailure);const expanded=state.scanEntries??args.paths.flatMap(path=>state.directories?.[path]??[path]),paths=[...new Set(expanded)].filter(path=>!state.missing?.includes(path));return{entries:paths.map(path=>({path,filename:path.split('/').pop(),fields:{TITLE:[path]},covers:[]})),errors:state.scanErrors??[]};}
     if(command==='run_tool')return {started:1};
     if(command==='save_columns')return;
-    if(command==='execute_action_groups'||command==='rename_files')return structuredClone(state.renameBatch);
+    if(command==='execute_action_groups'||command==='rename_files'||command==='rename_file_from_list')return structuredClone(state.renameBatch);
     throw new Error(`Unexpected ${command}`);
   };
   const playlistUI=new PlaylistUI({invoke});
@@ -187,12 +187,27 @@ test('Refresh refuses provider/URI roots and directory-only loading keeps regula
   const uri=runtime({playlists:{'content://fixture/list.m3u8':{files:['/music/a.wav'],errors:[]}}});await uri.loadPaths(['content://fixture/list.m3u8']);assert.equal(uri.snapshot().paths.length,0);assert.equal(uri.canRefresh(),false);
 });
 
-test('production action, inline converter and file-move callbacks carry playlist row rank through known file changes until Refresh',async()=>{
+test('production action, inline filename and file-move callbacks carry playlist row rank through known file changes until Refresh',async()=>{
   for(const route of ['execute','rename','move']){const model=runtime();await model.loadPaths(['/lists/one.m3u8'],{replace:true});const original=structuredClone(model.state.playlists);await model.sort();
     model.state.renameBatch={entries:[{path:'/music/renamed.wav',filename:'renamed.wav',fields:{},covers:[]}],errors:[],renamed:[{from:'/music/b.wav',to:'/music/renamed.wav'}]};
     if(route==='rename')assert.equal(await model.rename('/music/b.wav','renamed.wav'),'/music/renamed.wav');else await model[route]();
     await model.playlistOrder();assert.deepEqual(model.snapshot().paths,['/music/renamed.wav','/music/a.wav'],route);assert.deepEqual(model.snapshot().order,['/music/renamed.wav','/music/a.wav'],route);assert.deepEqual(model.snapshot().roots,['/lists/one.m3u8']);assert.deepEqual(model.state.playlists,original,'no source playlist rewrite');
     model.state.playlists['/lists/one.m3u8']={files:['/music/a.wav'],errors:[{path:'/lists/one.m3u8',error:'Line 1: b.wav: file not found'}]};await model.refresh();assert.deepEqual(model.snapshot().paths,['/music/a.wav']);assert.match(model.snapshot().errors[0].error,/b.wav/);
+  }
+});
+
+test('inline folder rename uses one canonical row identity for selection drafts roots and later Refresh',async()=>{
+  for(const name of ['Album/../Track.wav','alias/Track.wav']){
+    const from='/music/a.wav',to='/music/real/Track.wav',model=runtime();
+    await model.loadPaths([from],{replace:true});model.select(from);model.dirty(from);
+    model.state.renameBatch={entries:[{path:to,filename:'Track.wav',fields:{TITLE:['Saved']},covers:[]}],errors:[],renamed:[{from,to}]};
+    assert.equal(await model.rename(from,name),to);
+    const after=model.snapshot();
+    assert.deepEqual(after.paths,[to]);assert.deepEqual(after.roots,[to]);assert.deepEqual(after.selected,[to]);
+    assert.equal(after.drafts[0][0],to);
+    assert.deepEqual(model.calls.find(([command])=>command==='rename_file_from_list'),['rename_file_from_list',{path:from,name}]);
+    model.state.missing=[from];await model.refresh();
+    assert.deepEqual(model.snapshot().paths,[to]);assert.deepEqual(model.snapshot().roots,[to]);
   }
 });
 

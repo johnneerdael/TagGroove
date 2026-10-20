@@ -186,11 +186,31 @@ disk. For multiple separate values or multiline text,
 [Extended tags](extended-tags.md) has dedicated controls.
 
 A filename cell is different: accepting it requests an immediate filesystem
-rename. Keep the existing audio extension in a filename-with-extension
-column. Path separators are not accepted there; use
-[Tag → Filename](../converters/tag-to-filename.md) for a reviewed folder layout.
-A title field edit does not rename the file, and a filename edit does not
-automatically change TITLE.
+rename. The text is literal: `%title%`, `$upper(x)` and apostrophes are kept
+as entered. Editing a filename does not automatically change TITLE.
+
+To move one file into a folder, enter `Album/Track.mp3`; on Windows,
+`Album\Track.mp3` works too. A relative destination starts in that file's
+current folder. Use `../Track.mp3` to move one folder up. Paths are resolved
+before the required destination folders are created. On macOS and Linux,
+use `/` for folders: a backslash remains part of the filename. An absolute
+destination uses the path entered. Include a filename after the last folder
+separator; `Album/`, `Album/.` and `Album/..` are refused.
+
+The original audio extension is retained. If the entered suffix already
+matches it, including a different letter case, it is used once. Otherwise the
+audio extension is appended: `Track.flac` entered for an MP3 file becomes
+`Track.flac.mp3`. The audio format stays unchanged. Both filename columns
+use this rule; the stem-only column simply starts without the extension.
+
+An existing destination is refused. Inspect the operation result and use
+**Edit → Undo** to reverse a recorded rename; another **Save tags** is not
+needed. Pending tag edits follow the renamed file. When moving outside a
+loaded folder, **Keep moved files** controls whether its row stays listed.
+Inline rename moves only the audio file. For a reviewed batch layout or the
+opt-in companion-file workflow, use
+[Tag → Filename](../converters/tag-to-filename.md) and
+[associated files](associated-files.md).
 
 ## Show, size and arrange columns
 

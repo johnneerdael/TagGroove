@@ -203,13 +203,20 @@ struct HostTarget {
 }
 impl HostTarget {
     fn compile() -> Self {
-        // Extract the actual pure function, not a reimplementation. Compile only
-        // its std dependencies and minimal path DTO; no Tauri app or file moves.
+        // Extract the actual converter helper and its pure dependency. Adjacent
+        // inline/native helpers are a separate policy and do not belong here.
+        // Compile only std and a minimal path DTO; no Tauri app or file moves.
         let source = HOST.replace("\r\n", "\n");
-        let start = source.find("fn filename_target(").unwrap();
-        let rest = &source[start..];
-        let end = rest.find("\n#[tauri::command]").unwrap();
-        let helper = &rest[..end];
+        let helper = ["filename_target", "resolve_filename_target"]
+            .into_iter()
+            .map(|name| {
+                let start = source.find(&format!("fn {name}(")).unwrap();
+                let rest = &source[start..];
+                let end = rest.find("\n}\n").unwrap() + 2;
+                &rest[..end]
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         let temp = tempfile::tempdir().unwrap();
         let file = temp.path().join("filename_host.rs");
         let binary = temp.path().join(if cfg!(windows) {

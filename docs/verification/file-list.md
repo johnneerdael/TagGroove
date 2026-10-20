@@ -19,7 +19,7 @@ Scope: the Mp3tag reference pages `customization/file-list`, `getting-started/ma
 - F2 (or Edit → *Edit in file list*) edits the Filename column of the first selected file. If no filename column is visible, it edits the first editable column, as the docs describe. Clicking again, after a delay, on a cell of the already-selected file edits that cell; a double-click still opens Extended tags.
 - Enter commits, Escape cancels, and focus loss commits. Tab and Shift+Tab move across editable cells and wrap to the next or previous file, selecting it.
 - Tag field edits become pending drafts through `updateDraft`. Track and year use the same key mapping as the Tag Panel. Values are split on `\\` for multiple values. The cell shows as pending, and Ctrl+S saves the edit. An unchanged value creates no draft.
-- Filename edits rename right away through `rename_files`, with the name passed as a quoted literal template. The extension must stay the same. Path separators are rejected, provider documents are refused, and pending drafts follow the renamed file.
+- Filename edits rename right away. The [C64 follow-up](inline-filename-paths-2026-10-20.md) uses the dedicated literal `rename_file_from_list` route, native folder separators, retained audio extensions and canonical result identities. Provider documents remain refused and pending drafts follow the renamed file. This supersedes the original quoted-converter transport and blanket separator refusal.
 - The editor floats inside the scrolling table, so virtual-row updates and full renders keep the typed text and caret.
 
 ### Selection and list commands (`src/list-commands.ts`, `src/find.ts`)
@@ -74,7 +74,7 @@ The selection-info bar shows:
 ## Known gaps vs Mp3tag
 - Column configuration files use OpenTag's JSON layout, not Mp3tag's configuration format, and the editor is part of the Customize dialog rather than a Utils menu.
 - Mp3tag's random-order click on the file-icon column and Ctrl+Num+ auto-sizing are not implemented. Alt+arrow manual reordering of files is out of scope.
-- Inline filename edits cannot move a file to another folder (Mp3tag accepts `\` in the new name). Columns cannot use `$columnvalues()`/`$columnnames()` inside their own values (the engine reports a missing column context).
+- The [C64 follow-up](inline-filename-paths-2026-10-20.md) implements explicit native folder destinations for inline filenames; original Windows and native input acceptance remain separately qualified. Columns still cannot use `$columnvalues()`/`$columnnames()` inside their own values (the engine reports a missing column context).
 - The original batch used JavaScript regular expressions in Find. This engine limitation is superseded by the [2026-10-18 automation batch](automation-parity-2026-10-18.md): Find now uses the shared native Boost bridge with local regression coverage. Original-runtime and native-input equivalence remain unverified. Its history is per session, not persisted, and it searches the filtered list.
 - Refresh rescans the opened roots. A file added individually and later renamed is not found at its old root path, and the rescan reports it as an error.
 - Cut/Copy/Paste of tags, Copy as Text, Delete, Copy/Move to directory, Undo/Redo, and the Tag Panel toggle (Ctrl+Q) are out of this batch.

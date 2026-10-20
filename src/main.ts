@@ -85,7 +85,7 @@ const perfSink=()=>(window as Window&{__OPENTAG_TIMINGS__?:PerfRecord[]}).__OPEN
 // Native UI suites (tests/e2e) create this object to answer the cover image file dialog, which cannot be driven headless; normal runs never do.
 type DialogSeam={requests:{title:string;defaultPath?:string}[];answers:(string|null)[]};
 const dialogSeam=()=>(window as Window&{__OPENTAG_E2E_DIALOGS__?:DialogSeam}).__OPENTAG_E2E_DIALOGS__;
-const DIAGNOSTIC_COMMANDS=new Set(['execute_action_groups','apply_action','undo_last','redo_last','rename_files','read_playlist','tag_source_apply','convert_tag_to_tag']);
+const DIAGNOSTIC_COMMANDS=new Set(['execute_action_groups','apply_action','undo_last','redo_last','rename_files','rename_file_from_list','read_playlist','tag_source_apply','convert_tag_to_tag']);
 const configurationWrites=new SavedConfigurationWrites();
 const savedConfigurationCommands=new Set(['save_settings','save_action_library','save_export_library','save_columns','save_tag_panel','save_directory_state','save_helper_lists']);
 function invoke<T>(command:string,args?:InvokeArgs):Promise<T>{
@@ -2205,13 +2205,12 @@ async function commitCell(target:CellTarget,value:string,exactValues?:readonly s
   render();return target.path;
 }
 async function renameFromList(entry:Entry,key:string,value:string):Promise<string|undefined>{
-  const dot=entry.filename.lastIndexOf('.'),extension=dot>0?entry.filename.slice(dot):'';
-  let stem=value.trim();
-  if(key==='_FILENAME_EXT'){if(stem===entry.filename)return entry.path;if(extension&&stem.toLowerCase().endsWith(extension.toLowerCase()))stem=stem.slice(0,-extension.length);else if(extension){errors=[{path:'Rename',label:'Rename',error:`Keep the ${extension} extension when renaming ${entry.filename}.`}];render();return undefined;}}
-  else if(stem===entry.filename.slice(0,dot>0?dot:undefined))return entry.path;
-  const problem=!desktop?'Renaming requires the desktop app.':sourcePolicy().unsupportedReason||(!stem.trim()?'Enter a filename.':/[\\/]/.test(stem)?'Filenames cannot contain path separators.':'');
+  const dot=entry.filename.lastIndexOf('.'),name=value.trim();
+  const original=key==='_FILENAME_EXT'?entry.filename:entry.filename.slice(0,dot>0?dot:undefined);
+  if(name===original)return entry.path;
+  const problem=!desktop?'Renaming requires the desktop app.':sourcePolicy().unsupportedReason||(!name?'Enter a filename.':'');
   if(problem){errors=[{path:'Rename',label:'Rename',error:problem}];render();return undefined;}
-  const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:[entry.path],template:`'${stem.replace(/'/g,"''")}'`,planToken:null,audioOnly:true});applyRenamed(batch);accept(batch,'Renamed',false);queuedNotices=[];return batch;});
+  const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_file_from_list',{path:entry.path,name});applyRenamed(batch);accept(batch,'Renamed',false);queuedNotices=[];return batch;});
   return result&&!result.errors.length?result.renamed?.find(item=>item.from===entry.path)?.to||entry.path:undefined;
 }
 async function operate(op: Operation) {
