@@ -147,6 +147,12 @@ hash checks; no source files or provenance checks are omitted.
 
 The release body embeds the supplied [TagGroove banner](../assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.png) from the released tag and links the matching parity ledger. Signing and mobile limitations appear alongside the download table.
 
+## Failed-job retries and source-only recovery
+
+Rerun only failed jobs and their dependents. Do not restart successful platform builds or native integration suites for a source-packaging or publication failure. Source packaging and publication load repaired tooling from trusted `main`, while retaining the original immutable application commit, version, build artifacts and signing evidence. Release notes link the exact tooling commit when it differs from the application source; use that linked verifier for an older source archive.
+
+For a legacy run whose failed job predates that retry support, dispatch `.github/workflows/source-recovery.yml` with its `run_id` and immutable failed `attempt`. The gate requires every original platform and native integration job to have succeeded, only source packaging to have failed, publication to have been skipped, and current normal review or owner main-repair authorization. Downloads use exact artifact IDs whose source identity and timestamps match that attempt; expired, replaced or missing artifacts refuse recovery. Recovery generates matching frontend source, packages corresponding source, downloads the original packages and verifies the complete release before publication. It runs no native application builds or integration tests. Further recovery failures use **Re-run failed jobs** on that recovery run.
+
 ## Native audio builds and corresponding source
 
 The native fingerprint backend is built from the four hash-pinned upstream archives in `scripts/audio-deps/sources.json`. Builds require Python 3.11 or newer (CI uses 3.12), CMake, GNU Make and the target C/C++ toolchain. x86-64 builds also require NASM for the enabled assembly implementations; ARM builds use the compiler assembler. Linux installs `build-essential`, `cmake` and `make`; Apple builds use Xcode SDKs, `xcrun`, CMake and Make. Windows uses MSVC/NMake plus MSYS2 Bash/GNU Make, with MSVC tools first in `PATH`. Android uses the configured NDK and API 24 toolchain; the iOS preview uses the arm64 simulator SDK. These are build dependencies; fingerprinting uses the linked native libraries rather than launching an installed media program.

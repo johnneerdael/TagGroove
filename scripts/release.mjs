@@ -207,7 +207,7 @@ function verifySource(plan, args) {
   const env = {...process.env};
   for (const name of Object.keys(env)) if (/^(?:GH_|GITHUB_TOKEN$|ANDROID_KEY|GIT_CONFIG_|GIT_ASKPASS$|SSH_ASKPASS$|SSH_AUTH_SOCK$)/.test(name)) delete env[name];
   return execFileSync(process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
-    [sourceBuilder, '--source-sha', plan.commit, '--version', plan.version, ...args], {encoding: 'utf8', env});
+    [sourceBuilder, '--root', process.cwd(), '--source-sha', plan.commit, '--version', plan.version, ...args], {encoding: 'utf8', env});
 }
 
 async function nativeEvidence(plan, platform, path) {
@@ -460,6 +460,14 @@ export function previousTag(tags, plan) {
   return pool.sort((a, b) => compareVersions(b.slice(1), a.slice(1)))[0] ?? null;
 }
 
+// Tool repairs must never relabel previously built applications as a new source.
+export function verificationToolingNote(plan, repository, toolingSha) {
+  if (!toolingSha || toolingSha === plan.commit) return '';
+  if (!/^[0-9a-f]{40}$/.test(toolingSha) || !/^[\w.-]+\/[\w.-]+$/.test(repository))
+    throw new Error('Invalid trusted release verification tooling identity');
+  return `Release verification uses [repaired tooling](https://github.com/${repository}/tree/${toolingSha}) at ${toolingSha}. The application packages and corresponding source remain bound to ${plan.commit}. To verify this source archive, use that tooling checkout with \`python3 scripts/audio-source-bundle.py --source-sha ${plan.commit} --version ${plan.version} --verify <source-archive>\`.`;
+}
+
 export async function releaseNotes({ plan, previous, root = process.cwd(), repository = process.env.GITHUB_REPOSITORY }) {
   const script = fileURLToPath(new URL('../.github/scripts/release_notes.py', import.meta.url));
   // Arguments remain data: never interpolate PR text into a shell command.
@@ -629,7 +637,7 @@ async function main(command) {
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
     const published = await api.publishedReleaseTags();
     const previous = previousTag(git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n').filter(tag => published.has(tag)), plan);
-    const notes = await releaseNotes({ plan, previous });
+    const notes = [await releaseNotes({ plan, previous }), verificationToolingNote(plan, process.env.GITHUB_REPOSITORY, process.env.RELEASE_VERIFIER_REF)].filter(Boolean).join('\n\n');
     const result = await publishRelease({ api, plan, assembled, repository: process.env.GITHUB_REPOSITORY, notes });
     console.log(result.skipped ? `${plan.tag} was already published from ${plan.commit}; nothing to do` : `Published ${plan.tag}`);
   } else throw new Error(`Unknown release command: ${command}`);

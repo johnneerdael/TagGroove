@@ -1,0 +1,197 @@
+name: Recover failed source packaging
+run-name: 'Recover source from release ${{ inputs.run_id }} attempt ${{ inputs.attempt }}'
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Original reviewed release run with successful platform and native jobs
+        required: true
+        type: string
+      attempt:
+        description: Immutable failed attempt to reuse
+        required: true
+        default: '1'
+        type: string
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  actions: read
+concurrency:
+  group: opentag-release
+  queue: max
+  cancel-in-progress: false
+jobs:
+  source:
+    name: Recover corresponding source without rebuilding applications
+    if: github.ref == 'refs/heads/main' && github.workflow_ref == format('{0}/.github/workflows/source-recovery.yml@refs/heads/main', github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      source_sha: ${{ steps.gate.outputs.source_sha }}
+      run_id: ${{ steps.gate.outputs.run_id }}
+      attempt: ${{ steps.gate.outputs.attempt }}
+      tag: ${{ steps.plan.outputs.tag }}
+      version: ${{ steps.plan.outputs.version }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      skip: ${{ steps.plan.outputs.skip }}
+    steps:
+      - name: Use current trusted main tooling, including on failed-job retries
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-tools
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Require original successful builds and current release authorization
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORIGINAL_RUN: ${{ inputs.run_id }}
+          ORIGINAL_ATTEMPT: ${{ inputs.attempt }}
+        run: python3 .release-tools/.github/scripts/source_recovery.py --run-id "$ORIGINAL_RUN" --attempt "$ORIGINAL_ATTEMPT" --github-output "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.gate.outputs.source_sha }}
+          path: release-source
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Resolve original immutable release plan
+        id: plan
+        working-directory: release-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SOURCE_SHA: ${{ steps.gate.outputs.source_sha }}
+          RELEASE_TAG: ''
+          REQUESTED_PRERELEASE: 'false'
+          RELEASE_BRANCH: main
+          DRY_RUN: 'false'
+        run: node ../.release-tools/scripts/release.mjs prepare
+      - name: Stamp original source and generate matching frontend source
+        if: steps.plan.outputs.skip != 'true'
+        working-directory: release-source
+        env:
+          RELEASE_VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          node ../.release-tools/scripts/release.mjs stamp "$RELEASE_VERSION"
+          npm ci
+          npm run build
+      - uses: actions/download-artifact@v4
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          run-id: ${{ steps.gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          artifact-ids: ${{ steps.gate.outputs.native_ids }}
+          path: native-evidence
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          run-id: ${{ steps.gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          artifact-ids: ${{ steps.gate.outputs.linux_ids }}
+          path: linux-evidence
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          run-id: ${{ steps.gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          artifact-ids: ${{ steps.gate.outputs.macos_ids }}
+          path: macos-evidence
+          merge-multiple: true
+      - name: Package and independently verify original complete source
+        if: steps.plan.outputs.skip != 'true'
+        env:
+          RELEASE_COMMIT: ${{ steps.gate.outputs.source_sha }}
+          RELEASE_VERSION: ${{ steps.plan.outputs.version }}
+          RELEASE_TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          mkdir -p release-assets
+          python3 .release-tools/scripts/audio-source-bundle.py --root "$GITHUB_WORKSPACE/release-source" --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --linux-evidence linux-evidence --macos-evidence macos-evidence --output "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
+          python3 .release-tools/scripts/audio-source-bundle.py --root "$GITHUB_WORKSPACE/release-source" --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --linux-evidence linux-evidence --macos-evidence macos-evidence --verify "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
+      - uses: actions/upload-artifact@v4
+        if: steps.plan.outputs.skip != 'true'
+        with:
+          name: release-corresponding-source
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish original verified packages and recovered source
+    needs: source
+    if: needs.source.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
+      actions: read
+    env:
+      RELEASE_TAG: ${{ needs.source.outputs.tag }}
+      RELEASE_COMMIT: ${{ needs.source.outputs.source_sha }}
+      RELEASE_PRERELEASE: ${{ needs.source.outputs.prerelease }}
+      ORIGINAL_RUN: ${{ needs.source.outputs.run_id }}
+      ORIGINAL_ATTEMPT: ${{ needs.source.outputs.attempt }}
+    steps:
+      - name: Use current trusted publication tooling, including on failed-job retries
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .release-tools
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Revalidate original run and derive its immutable source
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .release-tools/.github/scripts/source_recovery.py --run-id "$ORIGINAL_RUN" --attempt "$ORIGINAL_ATTEMPT" --github-output "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.gate.outputs.source_sha }}
+          path: release-source
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Stamp original release version
+        working-directory: release-source
+        env:
+          RELEASE_VERSION: ${{ needs.source.outputs.version }}
+        run: node ../.release-tools/scripts/release.mjs stamp "$RELEASE_VERSION"
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ needs.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+          artifact-ids: ${{ steps.gate.outputs.release_ids }}
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-corresponding-source
+          path: release-assets
+      - name: Recheck authorization immediately before publication
+        id: final-gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .release-tools/.github/scripts/source_recovery.py --run-id "$ORIGINAL_RUN" --attempt "$ORIGINAL_ATTEMPT" --github-output "$GITHUB_OUTPUT"
+      - name: Verify source, packages, signatures and hashes before publishing
+        working-directory: release-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ASSETS: ${{ github.workspace }}/release-assets
+          RELEASE_VERIFIER_REF: ${{ steps.final-gate.outputs.tool_sha }}
+        run: node ../.release-tools/scripts/release.mjs publish

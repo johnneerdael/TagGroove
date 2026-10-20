@@ -15,6 +15,36 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
+    def test_source_recovery_reuses_original_packages_without_native_builds(self):
+        source = (WORKFLOWS / 'source-recovery.yml').read_text()
+        self.assertEqual(set(re.findall(r'^  ([a-z0-9_-]+):$', source.split('jobs:', 1)[1], re.M)), {'source', 'publish'})
+        for forbidden in ['tauri --', 'cargo build', 'cargo test', 'npm test', 'native-validation', 'secrets.']:
+            self.assertNotIn(forbidden, source)
+        self.assertIn('group: opentag-release', source)
+        recovery, publish = job(source, 'source'), job(source, 'publish')
+        self.assertIn('--root "$GITHUB_WORKSPACE/release-source"', recovery)
+        self.assertIn('ref: ${{ steps.gate.outputs.source_sha }}', recovery)
+        self.assertIn('RELEASE_SOURCE_SHA: ${{ steps.gate.outputs.source_sha }}', recovery)
+        for kind in ['native', 'linux', 'macos']:
+            step = recovery.split('artifact-ids: ${{ steps.gate.outputs.'+kind+'_ids }}', 1)[0].rsplit('      - uses: actions/download-artifact@v4', 1)[1]
+            self.assertIn('run-id: ${{ steps.gate.outputs.run_id }}', step)
+        self.assertIn('run-id: ${{ needs.source.outputs.run_id }}', publish)
+        self.assertIn('artifact-ids: ${{ steps.gate.outputs.release_ids }}', publish)
+        self.assertIn('name: release-corresponding-source', publish)
+        self.assertEqual(publish.count('source_recovery.py --run-id'), 2)
+        self.assertIn('working-directory: release-source', publish)
+        self.assertIn('node ../.release-tools/scripts/release.mjs publish', publish)
+        self.assertIn('RELEASE_VERIFIER_REF: ${{ steps.final-gate.outputs.tool_sha }}', publish)
+
+    def test_failed_source_and_publication_retries_use_trusted_main_tools(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        recovery, publish = job(source, 'corresponding-source'), job(source, 'publish')
+        self.assertIn('ref: main\n          path: .release-tools', recovery)
+        self.assertEqual(recovery.count('python .release-tools/scripts/audio-source-bundle.py --root "$GITHUB_WORKSPACE"'), 2)
+        self.assertIn('ref: main\n          path: .trusted-gate', publish)
+        self.assertIn('node .trusted-gate/scripts/release.mjs publish', publish)
+        self.assertIn('RELEASE_VERIFIER_REF: ${{ steps.trusted.outputs.tool_sha }}', publish)
+
     def test_notary_authentication_precedes_all_platform_builds(self):
         source = (WORKFLOWS / 'reviewed-release.yml').read_text()
         prepare = job(source, 'prepare')

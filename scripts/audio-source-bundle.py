@@ -681,6 +681,8 @@ def verify_bundle(path, commit, version, native_evidence=None, linux_evidence=No
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1],
+                        help="Immutable release checkout; may differ from trusted verifier tooling")
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--output", type=Path)
@@ -705,7 +707,7 @@ def main():
         native_manifest(wrapper, args.source_sha, args.version)
         print(json.dumps({"target": wrapper["target"], "manifest_sha256": sha(args.verify_native.read_bytes())}))
     elif args.verify_macos:
-        helper = macos_helper();root = Path(__file__).resolve().parents[1]
+        helper = macos_helper();root = args.root.resolve()
         receipt = load(helper.bounded(args.verify_macos, 1024*1024))
         helper.validate_receipt(receipt, helper.bounded(root/helper.POLICY, 8192), args.source_sha, args.version,
                                 receipt['platform'], load((root/'src-tauri/tauri.conf.json').read_bytes())['identifier'])
@@ -715,7 +717,7 @@ def main():
         collect_native(args.native_evidence, args.collect_native, args.source_sha, args.version, args.output)
     else:
         require(args.output is not None, "Building requires --output")
-        build_bundle(Path(__file__).resolve().parents[1], args.source_sha, args.version, args.output,
+        build_bundle(args.root.resolve(), args.source_sha, args.version, args.output,
                      args.native_evidence, vendor_dir=args.cargo_vendor, dist_dir=args.dist,
                      linux_runtime_sources=args.linux_runtime_sources, linux_evidence=args.linux_evidence,
                      macos_evidence=args.macos_evidence)
