@@ -456,10 +456,18 @@ class SourceSafetyTests(unittest.TestCase):
             original = ("#!/bin/sh\n" + needle + "\n").encode()
             expected = original.replace(needle.encode(), (needle + '\n# OpenTag opts in to these explicitly LGPL-marked audio components only.\n# GPL/nonfree/version3 remain disabled; the compiled object closure is audited.\nenable lgpl_gpl').encode())
             target.write_bytes(original)
-            spec = {"patches":[{"component":"ffmpeg","target":"configure", "original_sha256":hashlib.sha256(original).hexdigest(), "patched_sha256":hashlib.sha256(expected).hexdigest()}]}
+            patch = ('--- a/configure\n+++ b/configure\n@@ -1,2 +1,5 @@\n #!/bin/sh\n '
+                     + needle + '\n+# OpenTag opts in to these explicitly LGPL-marked audio components only.\n'
+                     '+# GPL/nonfree/version3 remain disabled; the compiled object closure is audited.\n'
+                     '+enable lgpl_gpl\n').encode()
+            (root / "patches").mkdir()
+            (root / "patches/newline-fixture.patch").write_bytes(patch)
+            spec = {"patches":[{"component":"ffmpeg","target":"configure",
+                    "file":"patches/newline-fixture.patch", "sha256":hashlib.sha256(patch).hexdigest(),
+                    "original_sha256":hashlib.sha256(original).hexdigest(), "patched_sha256":hashlib.sha256(expected).hexdigest()}]}
             def windows_text_write(path, text, **kwargs):
                 return path.write_bytes(text.replace("\n","\r\n").encode("utf-8"))
-            with mock.patch.object(Path,"write_text",autospec=True,side_effect=windows_text_write):
+            with mock.patch.object(self.build,"HERE",root), mock.patch.object(Path,"write_text",autospec=True,side_effect=windows_text_write):
                 self.build.apply_patches(spec,{"ffmpeg":root})
             self.assertEqual(target.read_bytes(),expected)
             self.assertNotIn(b"\r\n",target.read_bytes())
