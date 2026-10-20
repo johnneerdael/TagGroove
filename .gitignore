@@ -13,6 +13,9 @@
 /src-tauri/gen/apple/**/xcuserdata/
 .DS_Store
 *.log
+# Exact supplier logs are hash-bound inputs to the runtime source gate.
+!src/licenses/linux-runtime/evidence/runtime-producer-x86_64.log
+!src/licenses/linux-runtime/evidence/runtime-producer-aarch64.log
 *.keystore
 *.jks
 *.p12
