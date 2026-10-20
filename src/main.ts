@@ -776,10 +776,17 @@ const findUI=new FindUI({
 /** Apply a column layout. Verified layouts (the Customize dialog) are saved first; quick header changes apply immediately. */
 async function applyColumns(layout:ColumnLayout,verified=false,sorting=false){
   const next=normalizeLayout(layout),sortOnly=JSON.stringify(next.columns)===JSON.stringify(columnLayout.columns);
-  if(verified&&desktop)await invoke('save_columns',{layout:next});
-  if(verified||sorting||JSON.stringify(next.sort)!==JSON.stringify(columnLayout.sort))listOrder='columns';
-  columnLayout=next;if(sortOnly)refreshList();else render();
-  if(!verified&&desktop)await invoke('save_columns',{layout:next});
+  const ordering=sorting||JSON.stringify(next.sort)!==JSON.stringify(columnLayout.sort)||(verified&&listOrder!=='columns');
+  const change=async()=>{
+    if(verified&&desktop)await invoke('save_columns',{layout:next});
+    if(verified||sorting||ordering)listOrder='columns';
+    if(sorting)document.querySelector('.table-wrap')!.scrollTop=0;
+    columnLayout=next;if(sortOnly)refreshList();else render();
+    if(!verified&&desktop)await invoke('save_columns',{layout:next});
+  };
+  if(ordering){
+    if(!await saveOnMove(paths(),new Set(selected),change,true))throw new Error('Column layout was not applied. Finish saving or resolve pending edits, then try again.');
+  }else await change();
 }
 function revealRow(path:string,focus=true){
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap'),index=visible().findIndex(entry=>entry.path===path);if(!wrap||index<0)return null;
@@ -1302,32 +1309,50 @@ function keepField(key:string){
   status=`Keeping the existing ${key} values of ${selected.size} file${selected.size===1?'':'s'}.`;
 }
 function select(path: string, event: MouseEvent | KeyboardEvent) {
-  const list = visible().map(e => e.path), previous = paths();
-  if(event.shiftKey && anchor && list.includes(anchor)) {
-    if(!event.metaKey && !event.ctrlKey) selected.clear();
-    const a = list.indexOf(anchor), b = list.indexOf(path);
-    list.slice(Math.min(a,b),Math.max(a,b)+1).forEach(p => selected.add(p));
-  } else if(event.metaKey || event.ctrlKey) { selected.has(path) ? selected.delete(path) : selected.add(path); anchor = path; }
-  else { selected.clear();selected.add(path);anchor = path; }
-  const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
-  const index=list.indexOf(path),top=index*rowHeight,bottom=top+rowHeight,viewport=wrap.clientHeight-headerHeight;
-  if(top<wrap.scrollTop)wrap.scrollTop=top;else if(bottom>wrap.scrollTop+viewport)wrap.scrollTop=bottom-viewport;
-  coverIndex = 0; coverError=undefined;if(activeCover?.path!==active()?.path)activeCover=undefined;refreshSelection();
-  document.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(path)}"]`)?.focus({preventScroll:true});
-  saveOnMove(previous);
-}
-/** Options → Tags → Save tags when using arrow keys/single mouse click: moving to another file saves the files it leaves. */
-function saveOnMove(previous:string[]){
-  if(!desktop||busy||!tagsPagePrefs(optionsUI.page('tags')).save_on_move)return;
-  const targets=autoSaveTargets(previous,selected,path=>{const entry=entries.get(path);return !!entry&&drafts.has(path)&&!providerEntry(entry);});
-  if(!targets.length)return;
-  // Saving re-renders the window; keep the keyboard in the file list or tag panel field it was in.
-  const focused=document.activeElement,row=focused instanceof HTMLTableRowElement,field=focused instanceof HTMLElement?focused.dataset.field:undefined;
-  void saveDrafts(targets).then(()=>{
-    if(document.activeElement&&document.activeElement!==document.body)return;
-    if(field)document.querySelector<HTMLElement>(`.fields [data-field="${CSS.escape(field)}"]`)?.focus({preventScroll:true});
-    else if(row){const path=anchor&&selected.has(anchor)?anchor:paths()[0];if(path)revealRow(path);}
+  const list=visible().map(e=>e.path),previous=paths(),next=new Set(selected);let nextAnchor=anchor;
+  if(!list.includes(path))return Promise.resolve(false);
+  if(event.shiftKey&&anchor&&list.includes(anchor)){
+    if(!event.metaKey&&!event.ctrlKey)next.clear();
+    const a=list.indexOf(anchor),b=list.indexOf(path);
+    list.slice(Math.min(a,b),Math.max(a,b)+1).forEach(p=>next.add(p));
+  }else if(event.metaKey||event.ctrlKey){next.has(path)?next.delete(path):next.add(path);nextAnchor=path;}
+  else{next.clear();next.add(path);nextAnchor=path;}
+  return saveOnMove(previous,next,()=>{
+    selected.clear();next.forEach(path=>selected.add(path));anchor=nextAnchor;
+    const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
+    const index=visible().findIndex(entry=>entry.path===path),top=index*rowHeight,bottom=top+rowHeight,viewport=wrap.clientHeight-headerHeight;
+    if(top<wrap.scrollTop)wrap.scrollTop=top;else if(bottom>wrap.scrollTop+viewport)wrap.scrollTop=bottom-viewport;
+    coverIndex=0;coverError=undefined;if(activeCover?.path!==active()?.path)activeCover=undefined;refreshSelection();
+    document.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(path)}"]`)?.focus({preventScroll:true});
   });
+}
+let selectionChangePending=false;
+/** Save before a selection/order change; an incomplete save retains the old view and drafts. */
+async function saveOnMove(previous:string[],next:ReadonlySet<string>,change:()=>void|Promise<void>,ordering=false):Promise<boolean>{
+  if(busy||selectionChangePending)return false;
+  selectionChangePending=true;
+  const focused=document.activeElement,field=focused instanceof HTMLElement?focused.dataset.field:undefined,row=focused instanceof HTMLTableRowElement;
+  try{
+    if(desktop&&tagsPagePrefs(optionsUI.page('tags')).save_on_move){
+      const pending=(path:string)=>{const entry=entries.get(path);return !!entry&&(drafts.has(path)||pendingCovers.has(path))&&!providerEntry(entry);};
+      const targets=ordering?previous.filter(pending):autoSaveTargets(previous,next,pending);
+      if(targets.length){
+        const saved=await saveDrafts(targets);
+        if(!saved||targets.some(path=>drafts.has(path)||pendingCovers.has(path)))return false;
+        // A separate selection owner (for example Extended Tags) must not be
+        // overwritten by an older navigation request after its save returns.
+        if(previous.length!==selected.size||previous.some(path=>!selected.has(path)))return false;
+        if([...next].some(path=>!entries.has(path)))return false;
+      }
+    }
+    await change();return true;
+  }finally{
+    selectionChangePending=false;
+    if(!document.activeElement||document.activeElement===document.body){
+      if(field)document.querySelector<HTMLElement>(`.fields [data-field="${CSS.escape(field)}"]`)?.focus({preventScroll:true});
+      else if(row){const path=anchor&&selected.has(anchor)?anchor:paths()[0];if(path)revealRow(path);}
+    }
+  }
 }
 /** Manual order (Alt+arrows, Alt+drag): rearranges the unsorted list order that playlists and numbering use, for as long as the files stay listed. A sorted list becomes unsorted, starting from its displayed order. */
 async function reorderFiles(change:(shown:string[])=>string[]){
@@ -1344,14 +1369,15 @@ async function reorderFiles(change:(shown:string[])=>string[]){
 }
 /** A click on the icon column header puts the listed files in random order (a manual order, like Alt+drag). */
 async function shuffleFiles(){
-  if(busy)return;
-  const shown=visible().map(entry=>entry.path),next=shuffleOrder(shown);
-  const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
-  entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
-  orderCacheKey='';filterCacheKey='';document.querySelector('.table-wrap')!.scrollTop=0;
-  setListOrder('manual');
-  status=`Shuffled ${shown.length} files. Playlists and numbering use the list order.`;
-  const element=document.querySelector('.status-message');if(element)element.textContent=status;
+  await saveOnMove(paths(),new Set(selected),()=>{
+    const shown=visible().map(entry=>entry.path),next=shuffleOrder(shown);
+    const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
+    entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
+    orderCacheKey='';filterCacheKey='';document.querySelector('.table-wrap')!.scrollTop=0;
+    setListOrder('manual');
+    status=`Shuffled ${shown.length} files. Playlists and numbering use the list order.`;
+    const element=document.querySelector('.status-message');if(element)element.textContent=status;
+  },true);
 }
 /** The splitter between the docked tag panel and the file list: drag it, or use the arrow keys. */
 function bindSplitter(){
@@ -1458,12 +1484,12 @@ function bind() {
   document.querySelector('.view-sort-menu')?.addEventListener('click',event=>{
     const el=(event.target as Element).closest<HTMLButtonElement>('[data-sort-menu]');if(!el)return;
     document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);
-    const id=el.dataset.sortMenu!,primary=activeSort()[0];document.querySelector('.table-wrap')!.scrollTop=0;
+    const id=el.dataset.sortMenu!,primary=activeSort()[0];
     applyColumns({...columnLayout,sort:[{id,ascending:primary?.id===id?!primary.ascending:true}]},false,true).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   });
   document.querySelector<HTMLButtonElement>('[data-shuffle]')?.addEventListener('click',event=>{event.stopPropagation();void operate('shuffle-list');});
   bindToolbarHints();
-  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(activeSort(),el.dataset.sort!,event.shiftKey)},false,true).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();}); }));
+  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { applyColumns({...columnLayout,sort:sortClick(activeSort(),el.dataset.sort!,event.shiftKey)},false,true).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();}); }));
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   let scrollFrame=0;
   wrap.addEventListener('scroll',()=>{if(wrap.clientHeight){tableScrollTop=wrap.scrollTop;tableScrollLeft=wrap.scrollLeft;}if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;if(wrap.isConnected&&wrap.clientHeight)updateVirtualRows();});},{passive:true});
@@ -1472,7 +1498,12 @@ function bind() {
     const row=rowFor(e);
     // A click on the empty area below the files clears the selection (and counts as moving to another file).
     if(!row){const target=e.target as Element,box=wrap.getBoundingClientRect(),onScrollbar=e.clientX-box.left>=wrap.clientLeft+wrap.clientWidth||e.clientY-box.top>=wrap.clientTop+wrap.clientHeight;if(selected.size&&!onScrollbar&&!compactScreen()&&!target.closest('thead,.empty,.cell-editor,button,input'))void operate('unselect-all');return;}
-    if((e.target as Element).classList.contains('row-select'))select(row.dataset.path!,new MouseEvent('click',{ctrlKey:true,shiftKey:e.shiftKey}));
+    if((e.target as Element).classList.contains('row-select')){
+      // Native checkbox activation happens before this handler. The accepted
+      // selection owns its checkmark, including when a busy guard refuses it.
+      (e.target as HTMLInputElement).checked=selected.has(row.dataset.path!);
+      void select(row.dataset.path!,new MouseEvent('click',{ctrlKey:true,shiftKey:e.shiftKey}));
+    }
     else{
       // A second, delayed click on a selected file edits the clicked cell.
       const cell=(e.target as Element).closest<HTMLElement>('td.editable[data-col]'),again=!!cell&&!e.shiftKey&&!e.metaKey&&!e.ctrlKey&&!compactScreen()&&selected.size===1&&selected.has(row.dataset.path!);
@@ -1482,6 +1513,7 @@ function bind() {
   });
   rowMenu.bind(wrap);
   bindRowDrag(wrap,{rows:()=>visible().map(entry=>entry.path),rowHeight:()=>rowHeight,headerHeight,selected:()=>selected,
+    currentWrap:()=>document.querySelector<HTMLElement>('.table-wrap'),canDrag:()=>!busy&&!selectionChangePending,
     select:path=>select(path,new MouseEvent('click')),drop:(moving,before)=>void reorderFiles(shown=>dropSelection(shown,new Set(moving),before))});
   wrap.addEventListener('dblclick',e=>{window.clearTimeout(slowEditTimer);if(rowFor(e)&&toolsUI.defaultTool>=0)void toolsUI.run(toolsUI.defaultTool);});
   wrap.addEventListener('keydown',e=>{
@@ -1664,13 +1696,15 @@ async function mutate(command: string, args: Record<string,unknown>, message: st
 }
 // One backend call writes every file (in parallel, as one undo step) and reports progress; Cancel keeps unsaved drafts.
 async function saveDrafts(targets=paths()) {
-  await run('Saving tags…',async job=>{
-    const items=targets.flatMap(path=>{const updates=drafts.get(path),covers=pendingCovers.get(path);return updates?[{path,updates,...(covers?{covers}:{})}]:[];});
+  const saved=await run('Saving tags…',async job=>{
+    const items=targets.flatMap(path=>{const updates=drafts.get(path),covers=pendingCovers.get(path);return updates||covers?[{path,updates:updates??{},...(covers?{covers}:{})}]:[];});
     const batch=await invoke<Batch>('save_fields_batch',{items,job});
     batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),true);batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);pendingCovers.delete(entry.path);});
     const saved=batch.entries.length,skipped=items.length-saved-batch.errors.length;
     errors=batch.errors;status=`Saved tags: ${saved} file${saved===1?'':'s'}${errors.length?`, ${errors.length} failed`:''}${skipped>0?`. Cancelled before ${skipped} file${skipped===1?'':'s'}; their changes are still pending`:''}`;if(saved){queuedNotices.push(['after_save',status]);autoPlaylistPending=true;}
+    return batch.errors.length===0&&skipped===0;
   },{progress:true});
+  return saved===true;
 }
 function modal(title: string, content: string, buttons: string): HTMLDialogElement {
   const dialog=document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header><div class="dialog-content">${content}</div><div class="dialog-footer"><button data-close>Cancel</button>${buttons}</div>`;
@@ -2108,8 +2142,8 @@ async function operateImpl(op: Operation) {
   if(op==='toolbar-customize'){customizeToolbar({config:()=>toolbarConfig,save:saveToolbar,mac:macKeyboard});return;}
   if(op==='toggle-custom-toolbar'){await saveCustomToolbar({...customToolbar,shown:!customToolbar.shown});status=customToolbar.shown?customToolbar.items.length?'Custom toolbar shown':'Custom toolbar shown. Add commands, tools and action groups with View → Toolbars → Customize custom toolbar.':'Custom toolbar hidden';render();return;}
   if(op==='custom-toolbar-customize'){await actionUI.initialize().catch(()=>undefined);customizeToolbar({config:()=>customToolbar,save:saveCustomToolbar,mac:macKeyboard,custom:{choices:customToolbarChoices}});return;}
-  if(op==='list-unsorted'){setListOrder('manual');status='Files are shown in load order (playlist order)';render();return;}
-  if(op==='list-playlist-order'){setListOrder('playlist');status='Files are shown in playlist source order';render();return;}
+  if(op==='list-unsorted'){await saveOnMove(paths(),new Set(selected),()=>{setListOrder('manual');status='Files are shown in load order (playlist order)';render();},true);return;}
+  if(op==='list-playlist-order'){await saveOnMove(paths(),new Set(selected),()=>{setListOrder('playlist');status='Files are shown in playlist source order';render();},true);return;}
   if(op==='options'){await optionsUI.open();return;}
   if(op==='number'){numbering();return;}
   // Ctrl+I repeats a web source too; Ctrl+Shift+I's quick search is for the built-in sources.
@@ -2147,13 +2181,18 @@ async function operateImpl(op: Operation) {
 }
 async function listOperation(op:Operation){
   const list=visible().map(entry=>entry.path);
-  const choose=(targets:string[],focus=targets[0],listChanged=false)=>{const previous=paths();selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;if(listChanged)render();else refreshSelection();if(focus)revealRow(focus,!document.activeElement?.closest('.fields'));if(!listChanged)saveOnMove(previous);};
-  if(op==='unselect-all'){choose([]);return;}
-  if(op==='invert-selection'){choose(invertSelection(list,selected));return;}
-  if(op==='select-next'){const next=nextFile(list,selected);if(next)choose([next]);return;}
+  const choose=async(targets:string[],focus=targets[0],listChanged=false)=>{
+    const focusList=!document.activeElement?.closest('.fields');
+    const change=()=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;if(listChanged)render();else refreshSelection();if(focus)revealRow(focus,focusList);};
+    if(listChanged){change();return true;}
+    return saveOnMove(paths(),new Set(targets),change);
+  };
+  if(op==='unselect-all'){await choose([]);return;}
+  if(op==='invert-selection'){await choose(invertSelection(list,selected));return;}
+  if(op==='select-next'){const next=nextFile(list,selected);if(next)await choose([next]);return;}
   if(op==='select-similar'||op==='select-next-similar'){
     const targets=op==='select-similar'?similarFiles(list,sortValueOf,anchor&&selected.has(anchor)?anchor:paths()[0]):nextSimilarFiles(list,sortValueOf,selected);
-    if(targets.length){status=`Selected ${targets.length} similar file${targets.length===1?'':'s'}`;choose(targets);}return;
+    if(targets.length&&await choose(targets))status=`Selected ${targets.length} similar file${targets.length===1?'':'s'}`;return;
   }
   if(op==='find'){findUI.open();return;}
   if(op==='columns'){columnUI.customize();return;}

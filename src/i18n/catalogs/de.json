@@ -3567,5 +3567,6 @@
  "Show warnings from Actions": "Warnungen von Aktionen anzeigen",
  "Ask about unsaved changes": "Bei ungespeicherten Änderungen nachfragen",
  "Ask before importing cover art": "Vor dem Importieren von Coverbildern nachfragen",
- "Confirm removing tags": "Entfernen von Tags bestätigen"
+ "Confirm removing tags": "Entfernen von Tags bestätigen",
+ "Column layout was not applied. Finish saving or resolve pending edits, then try again.": "Das Spaltenlayout wurde nicht angewendet. Schließen Sie das Speichern ab oder klären Sie die ausstehenden Änderungen und versuchen Sie es erneut."
 }

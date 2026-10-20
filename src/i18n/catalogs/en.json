@@ -444,6 +444,7 @@
  "Color mode": "Color mode",
  "Color mode is remembered on this device and also available in the title bar.": "Color mode is remembered on this device and also available in the title bar.",
  "Column configurations": "Column configurations",
+ "Column layout was not applied. Finish saving or resolve pending edits, then try again.": "Column layout was not applied. Finish saving or resolve pending edits, then try again.",
  "Column scripting functions require the application File List column context": "Column scripting functions require the application File List column context",
  "Column value error: {errors}": "Column value error: {errors}",
  "Column values could not be evaluated: {error}": "Column values could not be evaluated: {error}",

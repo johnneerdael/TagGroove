@@ -3554,5 +3554,6 @@
  "Show warnings from Actions": "Waarschuwingen van acties tonen",
  "Ask about unsaved changes": "Vragen naar niet-opgeslagen wijzigingen",
  "Ask before importing cover art": "Vragen vóór het importeren van hoesafbeeldingen",
- "Confirm removing tags": "Verwijderen van tags bevestigen"
+ "Confirm removing tags": "Verwijderen van tags bevestigen",
+ "Column layout was not applied. Finish saving or resolve pending edits, then try again.": "De kolomindeling is niet toegepast. Rond het opslaan af of los de openstaande bewerkingen op en probeer het opnieuw."
 }
