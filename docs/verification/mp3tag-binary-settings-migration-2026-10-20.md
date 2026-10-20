@@ -109,6 +109,42 @@ The focused mode regression covers 0, 1, 2, 3 and `u32::MAX`, short payload
 refusals, extension bytes and last-record precedence. This establishes the
 static mapping and local importer behavior; original UI execution is deferred.
 
+### Message preferences
+
+All 11 Messages switches have independent native bindings. The constructor
+`0x1401e9fa4` loads their values into dialog fields; DDX `0x1401ea1a8`
+connects those fields to the controls, Init `0x1401ea3b8` assigns captions,
+and Update `0x1401eac48` writes the same booleans back. The language loader
+`0x14015cbbc` connects `_C_OPT_GEN_CHK_MSG_*` keys to language-object offsets
+`0xb20` through `0xb70`, which Init reads for those captions.
+
+The English language file from the same extraction has SHA-256
+`70c20d29a2d97021248420a6302b1880946997ee9a6a15a9eb33a81328ef5da8`.
+Its named captions establish that the delete notification and removal
+confirmation are separate choices. The fixture retains each language key,
+offset, control, dialog field and raw identifier. Four rows use language keys
+as their native identifier labels because no legacy registry alias is claimed.
+
+| Native key or language suffix | Raw record identifier | TagGroove Messages choice |
+| --- | --- | --- |
+| MsgSave / SAVE | `a0d12c9bfeca104a9e28c4d677eeed5b` | after_save |
+| MsgRemove / DEL | `50ee520115df554ca05d5a2318e7dbb1` | after_delete |
+| MsgChange / CHANGE | `c926caafa65b39429d863d45454e9457` | after_change |
+| MsgCut / CUT | `3e5445fa1d3cc94ea144ac8bcc08cbe6` | confirm_cut_tags |
+| MsgPaste / PASTE | `a5fea160d8e1d543b742a86a86a8f2d5` | confirm_paste_tags |
+| MsgExport / EXPORT | `f943c466dfced441ab7d90819f99baaa` | confirm_export |
+| MsgDeleteFile / DELETEFILE | `c2b1b77b33dd5e42b8e2bc0a90d00586` | confirm_delete_files |
+| ACTIONWARNINGS | `215db77b5ec4934c9d28593f17c07afd` | action_warnings |
+| UNSAVED | `0175173ea37ff746bf47382a1c7c3f76` | unsaved_changes |
+| TSIMPORTCOVER | `fc0a600b58c13744ab155cb882f9d901` | confirm_import_covers |
+| REMOVETAGS | `6ffacd136f47034d95660ba5e0469de8` | confirm_remove_tags |
+
+These mappings preserve the native option states, using the existing
+TagGroove confirmation/notification routes. They do not establish every
+original handler's timing. General save-on-selection and the artwork
+replacement choice remain separate. The guide explains the effect of disabling
+unsaved-change questions and retaining the current no-prompt artwork choice.
+
 ### Packed tag read/write/remove and encoding settings
 
 Six native u32 records carry 17 switches; the version/encoding record carries
@@ -195,6 +231,15 @@ preferences, skipped unsupported choices and short u32 refusals. Scoped Clippy,
 catalog validation, formatting and the strict guide build passed. The read-only
 review found no code issue; its guide correction about Ape/Mpc ordinary-save
 removal was applied and rechecked.
+
+The message slice passed the same 11 focused binary-settings tests with all
+29 boolean bindings. The manifest case now includes 29 one-hot profiles in
+addition to all-zero, all-one and noncanonical-true profiles, so swapping two
+boolean destinations cannot hide behind equal input values. The expanded case
+checks 928 mapped values through the actual saved JSON/browser preferences.
+Catalog tests, scoped Clippy, formatting and the strict guide build passed;
+the read-only review found no concrete issues with the message mappings or
+their documentation.
 
 The mapping fixture is independently authored from static identifiers and
 codec evidence. It is not an exported private profile, a Windows runtime

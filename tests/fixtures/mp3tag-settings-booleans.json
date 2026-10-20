@@ -257,6 +257,193 @@
         "show_dialog"
       ],
       "inverted": false
+    },
+    {
+      "native_key": "MsgSave",
+      "identifier": "a0d12c9bfeca104a9e28c4d677eeed5b",
+      "object": "0x140ac2e00",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "after_save"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_SAVE",
+      "language_offset": "0xb60",
+      "dialog_field": "0xc30",
+      "control": "0x498",
+      "label": "Notify after saving tags"
+    },
+    {
+      "native_key": "MsgRemove",
+      "identifier": "50ee520115df554ca05d5a2318e7dbb1",
+      "object": "0x140ac2cc0",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "after_delete"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_DEL",
+      "language_offset": "0xb38",
+      "dialog_field": "0xc34",
+      "control": "0x497",
+      "label": "Notify after removing tags"
+    },
+    {
+      "native_key": "MsgChange",
+      "identifier": "c926caafa65b39429d863d45454e9457",
+      "object": "0x140ac2ae0",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "after_change"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_CHANGE",
+      "language_offset": "0xb28",
+      "dialog_field": "0xc38",
+      "control": "0x494",
+      "label": "Notify after actions and converters"
+    },
+    {
+      "native_key": "MsgCut",
+      "identifier": "3e5445fa1d3cc94ea144ac8bcc08cbe6",
+      "object": "0x140ac2b30",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_cut_tags"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_CUT",
+      "language_offset": "0xb30",
+      "dialog_field": "0xc3c",
+      "control": "0x570",
+      "label": "Confirm cutting tags"
+    },
+    {
+      "native_key": "MsgPaste",
+      "identifier": "a5fea160d8e1d543b742a86a86a8f2d5",
+      "object": "0x140ac2c70",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_paste_tags"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_PASTE",
+      "language_offset": "0xb50",
+      "dialog_field": "0xc40",
+      "control": "0x571",
+      "label": "Confirm pasting tags"
+    },
+    {
+      "native_key": "MsgExport",
+      "identifier": "f943c466dfced441ab7d90819f99baaa",
+      "object": "0x140ac2bd0",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_export"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_EXPORT",
+      "language_offset": "0xb48",
+      "dialog_field": "0xc44",
+      "control": "0x572",
+      "label": "Offer to open exported files and playlists"
+    },
+    {
+      "native_key": "MsgDeleteFile",
+      "identifier": "c2b1b77b33dd5e42b8e2bc0a90d00586",
+      "object": "0x140ac2b80",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_delete_files"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_DELETEFILE",
+      "language_offset": "0xb40",
+      "dialog_field": "0xc48",
+      "control": "0x573",
+      "label": "Confirm deleting files"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_ACTIONWARNINGS",
+      "identifier": "215db77b5ec4934c9d28593f17c07afd",
+      "object": "0x140ac2a90",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "action_warnings"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_ACTIONWARNINGS",
+      "language_offset": "0xb20",
+      "dialog_field": "0xc4c",
+      "control": "0x574",
+      "label": "Show warnings from Actions"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_UNSAVED",
+      "identifier": "0175173ea37ff746bf47382a1c7c3f76",
+      "object": "0x140ac2e50",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "unsaved_changes"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_UNSAVED",
+      "language_offset": "0xb70",
+      "dialog_field": "0xc50",
+      "control": "0x86a",
+      "label": "Ask about unsaved changes"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_TSIMPORTCOVER",
+      "identifier": "fc0a600b58c13744ab155cb882f9d901",
+      "object": "0x140ac2c20",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_import_covers"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_TSIMPORTCOVER",
+      "language_offset": "0xb68",
+      "dialog_field": "0xc54",
+      "control": "0x870",
+      "label": "Ask before importing cover art"
+    },
+    {
+      "native_key": "_C_OPT_GEN_CHK_MSG_REMOVETAGS",
+      "identifier": "6ffacd136f47034d95660ba5e0469de8",
+      "object": "0x140ac2d10",
+      "component": "settings",
+      "path": [
+        "pages",
+        "messages",
+        "confirm_remove_tags"
+      ],
+      "inverted": false,
+      "language_key": "_C_OPT_GEN_CHK_MSG_REMOVETAGS",
+      "language_offset": "0xb58",
+      "dialog_field": "0xc58",
+      "control": "0x575",
+      "label": "Confirm removing tags"
     }
   ]
 }

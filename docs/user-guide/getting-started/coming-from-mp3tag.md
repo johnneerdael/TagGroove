@@ -100,6 +100,19 @@ in the same file can still transfer. Review these groups before editing a
 mixed-format library, especially if you deliberately disabled a tag type in
 your original setup.
 
+The supported **Messages** switches also transfer. Notifications after saving,
+changing or removing tags are separate from confirmations for cutting, pasting,
+removing tags and deleting files. In particular, **Notify after removing tags**
+does not control **Confirm removing tags**. Offers to open exported files or
+playlists, Actions warnings, questions about unsaved changes and cover-import
+confirmation have their own switches.
+
+Review **Options → Messages** after import. Turning off questions about unsaved
+changes allows the relevant close, reload or discard operations to discard
+pending edits without asking. Cover-import confirmation and the **Without
+asking, existing cover art is** choice are separate: the latter keeps its
+current TagGroove value, so check it before importing artwork without a prompt.
+
 Playlist preferences also include automatic creation after saving/renaming,
 extended information, relative entries, confirming the filename and whether
 directories may be created. A supported playlist filename and extended-info

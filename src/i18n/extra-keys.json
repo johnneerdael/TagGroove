@@ -110,5 +110,16 @@
  "Ape, Mpc: Write APEv2",
  "Ape, Mpc: Remove ID3v1",
  "Ape, Mpc: Remove ID3v2",
- "Ape, Mpc: Remove APE"
+ "Ape, Mpc: Remove APE",
+ "Notify after saving tags",
+ "Notify after removing tags",
+ "Notify after actions and converters",
+ "Confirm cutting tags",
+ "Confirm pasting tags",
+ "Offer to open exported files and playlists",
+ "Confirm deleting files",
+ "Show warnings from Actions",
+ "Ask about unsaved changes",
+ "Ask before importing cover art",
+ "Confirm removing tags"
 ]

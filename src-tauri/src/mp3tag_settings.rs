@@ -25,6 +25,7 @@ enum OptionKey {
     PlaylistConfirm,
     PlaylistNoFolders,
     ExportDialog,
+    Message(&'static str),
 }
 struct Spec {
     identifier: [u8; 16],
@@ -157,6 +158,72 @@ const SPECS: &[Spec] = &[
         identifier: identifier(b"97a81ca5caca824ab21be214338c735e"),
         key: OptionKey::ExportDialog,
         label: "Show export selection dialog",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"a0d12c9bfeca104a9e28c4d677eeed5b"),
+        key: OptionKey::Message("after_save"),
+        label: "Notify after saving tags",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"50ee520115df554ca05d5a2318e7dbb1"),
+        key: OptionKey::Message("after_delete"),
+        label: "Notify after removing tags",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"c926caafa65b39429d863d45454e9457"),
+        key: OptionKey::Message("after_change"),
+        label: "Notify after actions and converters",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"3e5445fa1d3cc94ea144ac8bcc08cbe6"),
+        key: OptionKey::Message("confirm_cut_tags"),
+        label: "Confirm cutting tags",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"a5fea160d8e1d543b742a86a86a8f2d5"),
+        key: OptionKey::Message("confirm_paste_tags"),
+        label: "Confirm pasting tags",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"f943c466dfced441ab7d90819f99baaa"),
+        key: OptionKey::Message("confirm_export"),
+        label: "Offer to open exported files and playlists",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"c2b1b77b33dd5e42b8e2bc0a90d00586"),
+        key: OptionKey::Message("confirm_delete_files"),
+        label: "Confirm deleting files",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"215db77b5ec4934c9d28593f17c07afd"),
+        key: OptionKey::Message("action_warnings"),
+        label: "Show warnings from Actions",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"0175173ea37ff746bf47382a1c7c3f76"),
+        key: OptionKey::Message("unsaved_changes"),
+        label: "Ask about unsaved changes",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"fc0a600b58c13744ab155cb882f9d901"),
+        key: OptionKey::Message("confirm_import_covers"),
+        label: "Ask before importing cover art",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"6ffacd136f47034d95660ba5e0469de8"),
+        key: OptionKey::Message("confirm_remove_tags"),
+        label: "Confirm removing tags",
         inverted: false,
     },
 ];
@@ -734,6 +801,12 @@ impl Patch {
                     "show_dialog",
                     *value,
                 )?,
+                OptionKey::Message(field) => page(
+                    settings(&mut options, directory)?,
+                    "messages",
+                    field,
+                    *value,
+                )?,
             }
         }
         if let Some(mode) = self.extended_mode {
@@ -794,18 +867,31 @@ mod tests {
             .collect()
     }
     #[test]
-    fn binary_settings_migration_matches_the_static_manifest_for_zero_one_and_noncanonical_true() {
+    fn binary_settings_migration_isolates_every_static_mapping_and_boolean_codec() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../../tests/fixtures/mp3tag-settings-booleans.json"
         ))
         .unwrap();
         let options = fixture["options"].as_array().unwrap();
-        assert_eq!(options.len(), 18);
-        for raw in [0, 1, 255] {
+        assert_eq!(options.len(), 29);
+        let mut cases = vec![
+            vec![0; options.len()],
+            vec![1; options.len()],
+            vec![255; options.len()],
+        ];
+        // Distinct native flags must never get swapped just because all flags
+        // happened to share the same value in an ordinary profile fixture.
+        cases.extend((0..options.len()).map(|selected| {
+            let mut raw = vec![0; options.len()];
+            raw[selected] = 1;
+            raw
+        }));
+        for raw in cases {
             let bytes = options
                 .iter()
-                .flat_map(|option| {
-                    record(&native_id(option["identifier"].as_str().unwrap()), &[raw])
+                .zip(&raw)
+                .flat_map(|(option, raw)| {
+                    record(&native_id(option["identifier"].as_str().unwrap()), &[*raw])
                 })
                 .collect::<Vec<_>>();
             let parsed = parse(&bytes).unwrap();
@@ -815,7 +901,7 @@ mod tests {
             let settings = crate::settings::load(&temp.path().join("settings.json")).0;
             let panel = crate::tag_panel::load(&temp.path().join("tag-panel.json")).unwrap();
             let actual = json!({"settings":settings,"panel":panel,"preferences":preferences});
-            for option in options {
+            for (option, raw) in options.iter().zip(raw) {
                 let mut value = &actual[option["component"].as_str().unwrap()];
                 for key in option["path"].as_array().unwrap() {
                     value = &value[key.as_str().unwrap()];

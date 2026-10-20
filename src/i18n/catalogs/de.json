@@ -3556,5 +3556,16 @@
  "Ape, Mpc: Remove ID3v1": "Ape, Mpc: ID3v1 entfernen",
  "Ape, Mpc: Remove ID3v2": "Ape, Mpc: ID3v2 entfernen",
  "Ape, Mpc: Remove APE": "Ape, Mpc: APE entfernen",
- "Binary tag settings are incomplete": "Binäre Tag-Einstellungen sind unvollständig"
+ "Binary tag settings are incomplete": "Binäre Tag-Einstellungen sind unvollständig",
+ "Notify after saving tags": "Nach dem Speichern von Tags benachrichtigen",
+ "Notify after removing tags": "Nach dem Entfernen von Tags benachrichtigen",
+ "Notify after actions and converters": "Nach Aktionen und Konvertierungen benachrichtigen",
+ "Confirm cutting tags": "Ausschneiden von Tags bestätigen",
+ "Confirm pasting tags": "Einfügen von Tags bestätigen",
+ "Offer to open exported files and playlists": "Öffnen exportierter Dateien und Wiedergabelisten anbieten",
+ "Confirm deleting files": "Löschen von Dateien bestätigen",
+ "Show warnings from Actions": "Warnungen von Aktionen anzeigen",
+ "Ask about unsaved changes": "Bei ungespeicherten Änderungen nachfragen",
+ "Ask before importing cover art": "Vor dem Importieren von Coverbildern nachfragen",
+ "Confirm removing tags": "Entfernen von Tags bestätigen"
 }
