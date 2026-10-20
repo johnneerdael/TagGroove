@@ -2486,7 +2486,11 @@ the downloaded input. File names are sanitized and kept under sources/debug.
 Check those files before changing an extraction pattern blindly.
 
 The checked engine stops after 2,000,000 command steps. Output names and
-values share a 16 MiB cumulative byte budget, checked before changing a buffer.
+values share a 16 MiB retained-byte budget, checked before changing a buffer.
+Replacing a value with `Set` or the nonempty second argument of `OutputTo`
+releases the previous value's bytes; appending with `Say` still consumes space.
+Other buffers and retained buffer names continue to count. A refused change
+leaves the previous value and output destination intact.
 SaveData/error dumps have the separate file-request/byte limits above. JoinLines and JoinUntil also
 share a 16 MiB budget for bytes appended during one run. Every copy counts,
 including repeated joins and overlapping retained lines; changing or replacing

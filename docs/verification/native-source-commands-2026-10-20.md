@@ -57,8 +57,10 @@ writes. Tests cover those existing links; no claim of adversarial concurrent
 directory-swap resistance or Windows reparse qualification is made.
 
 At most 64 data-file requests share a 16 MiB filename/content allowance.
-Output names and values are reserved against the existing cumulative 16 MiB
-budget before mutation. Default trace limits and the 2,000,000-step guard
+Output names and retained values are reserved against a shared 16 MiB budget
+before mutation. Replacing or clearing a value releases its previous bytes;
+other values and retained names still count. Refusal leaves output state and
+the destination unchanged. Default trace limits and the 2,000,000-step guard
 remain. File-request bounds do not silently turn a requested artifact into a
 successful write. Filesystem write failures remain best effort, as in the
 inspected native command; parser budget refusal remains an error.
@@ -120,3 +122,14 @@ actual captured file with CRLF terminators. No parser behavior was changed.
 All 52 focused web-source guide/engine tests pass locally; strict guide rendering
 and Rust formatting are checked separately. Final-head hosted validation remains
 required after this repair.
+
+## PR73 replacement accounting review repair
+
+GitHub Codex finding 4329291381 reproduced a false quota failure when repeated
+OutputTo/Set assignments replaced one 1 MiB UTF-8 buffer. Both new regressions
+failed before the repair. Reservation now subtracts only the replaced value
+before adding its successor, without mutating accounting or buffers on refusal.
+The shared limit still includes other buffers and retained names; clearing a
+value releases its bytes and later appends remain bounded. All 54 focused
+engine/guide tests, focused Clippy and strict guide rendering pass locally.
+No original application or native UI ran for this repair.

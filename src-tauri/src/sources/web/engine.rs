@@ -654,20 +654,26 @@ impl<'a> Machine<'a> {
 
     fn say(&mut self, text: &str) -> Result<(), String> {
         let key = self.current.to_uppercase();
-        self.reserve_output(&key, text.len())?;
+        self.reserve_output(&key, text.len(), false)?;
         self.outputs.entry(key).or_default().push_str(text);
         Ok(())
     }
 
-    fn reserve_output(&mut self, name: &str, bytes: usize) -> Result<(), String> {
+    fn reserve_output(&mut self, name: &str, bytes: usize, replace: bool) -> Result<(), String> {
         let name_bytes = if self.outputs.contains_key(name) {
             0
         } else {
             name.len()
         };
+        let replaced_bytes = if replace {
+            self.outputs.get(name).map_or(0, String::len)
+        } else {
+            0
+        };
         let total = self
             .size
-            .checked_add(name_bytes)
+            .checked_sub(replaced_bytes)
+            .and_then(|size| size.checked_add(name_bytes))
             .and_then(|size| size.checked_add(bytes));
         self.size = total
             .filter(|size| *size <= OUTPUT_LIMIT)
@@ -676,7 +682,7 @@ impl<'a> Machine<'a> {
     }
 
     fn set_output(&mut self, name: &str, value: &str) -> Result<(), String> {
-        self.reserve_output(name, value.len())?;
+        self.reserve_output(name, value.len(), true)?;
         self.outputs.insert(name.to_owned(), value.to_owned());
         Ok(())
     }
@@ -1915,6 +1921,45 @@ mod tests {
             outputs("OutputTo \"Xé\"\nDecOutput\nSay \"kept\"", "")["X"],
             "kept"
         );
+    }
+
+    #[test]
+    fn output_replacement_reuses_live_byte_budget_in_native_commands() {
+        let chunk = "é".repeat(512 * 1024); // 1 MiB of UTF-8 bytes.
+        for command in ["OutputTo", "Set"] {
+            let text = format!("Do\n{command} \"Scratch\" \"{chunk}\"\nWhile \"x\" 20");
+            let result = run(&script(&text), "x", &Environment::default())
+                .result
+                .unwrap_or_else(|error| panic!("{} at line {}", error.message, error.line));
+            assert_eq!(result["SCRATCH"], chunk, "{command}");
+        }
+    }
+
+    #[test]
+    fn output_replacement_preserves_shared_limit_and_refused_state() {
+        let env = Environment::default();
+        let mut machine = Machine::new("", &env);
+        let large = "x".repeat(OUTPUT_LIMIT - 6); // Two names plus four retained bytes.
+        machine.set_output("A", &large).unwrap();
+        machine.set_output("B", "stay").unwrap();
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        for command in ["Set \"B\" \"longer\"", "OutputTo \"B\" \"longer\""] {
+            assert!(one_step(&mut machine, command)
+                .unwrap_err()
+                .contains("16 MB"));
+            assert_eq!(machine.outputs["A"], large);
+            assert_eq!(machine.outputs["B"], "stay");
+            assert_eq!(machine.size, OUTPUT_LIMIT);
+            assert_eq!(machine.current, DEFAULT_OUTPUT);
+        }
+        one_step(&mut machine, "Set \"A\"").unwrap();
+        assert_eq!(machine.size, 6); // Retain both names and B's value.
+        one_step(&mut machine, "OutputTo \"A\"").unwrap();
+        machine.say(&large).unwrap();
+        assert_eq!(machine.size, OUTPUT_LIMIT);
+        assert!(machine.say("!").unwrap_err().contains("16 MB"));
+        assert_eq!(machine.outputs["A"], large);
+        assert_eq!(machine.outputs["B"], "stay");
     }
 
     #[test]
