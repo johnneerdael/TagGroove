@@ -223,6 +223,29 @@ def download(url, limit):
     return raw
 
 
+def decompress_index(raw, limit=512 * 1024 * 1024):
+    """Read complete XZ streams and four-byte padding under one output budget."""
+    require(raw and type(limit) is int and 0 <= limit <= 512 * 1024 * 1024,
+            'Invalid repository index decompression input')
+    chunks, total, streams = [], 0, 0
+    while raw:
+        streams += 1
+        require(streams <= 64, 'Repository index has excessive XZ streams')
+        try:
+            decoder = lzma.LZMADecompressor(format=lzma.FORMAT_XZ, memlimit=256 * 1024 * 1024)
+            decoded = decoder.decompress(raw, max_length=limit-total+1)
+        except lzma.LZMAError as error:
+            raise ValueError('Invalid repository index XZ stream or trailing data') from error
+        total += len(decoded)
+        require(total <= limit and decoder.eof, 'Repository index decompression exceeds bounds or is truncated')
+        chunks.append(decoded)
+        raw = decoder.unused_data
+        padding = len(raw)-len(raw.lstrip(b'\0'))
+        require(padding % 4 == 0, 'Invalid repository index XZ stream padding')
+        raw = raw[padding:]
+    return b''.join(chunks)
+
+
 class RepositorySnapshot:
     """Capture selected material through a fixed signature/index/package chain.
 
@@ -279,9 +302,7 @@ class RepositorySnapshot:
             address = path.rsplit('/', 1)[0]+'/by-hash/SHA256/'+self.checksums[path]['sha256']
             raw = self._read(f'dists/{self.suite}/'+address, self.checksums[path]['size'])
             verify_index(self.release, path, raw)
-            decoder = lzma.LZMADecompressor()
-            decoded = decoder.decompress(raw, max_length=512 * 1024 * 1024)
-            require(decoder.eof and not decoder.unused_data, 'Repository index decompression exceeds bounds or has trailing data')
+            decoded = decompress_index(raw)
             lookup = {}
             fields = ({'package', 'version', 'architecture', 'source', 'filename', 'size', 'sha256'}
                       if kind == 'binary' else {'package', 'version', 'directory', 'checksums-sha256'})

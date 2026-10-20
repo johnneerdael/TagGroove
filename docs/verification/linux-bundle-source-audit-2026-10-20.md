@@ -158,6 +158,16 @@ application or copied GTK/WebKit modules; newly deployed top-level libraries
 retain the pinned strip policy. The marker patch is confined to the application
 route, and every other byte must still match the complete replay output.
 
+The authenticated Ubuntu Noble indexes contain a second, empty XZ stream.
+Index decoding accepts complete concatenated streams and standard four-byte
+zero padding under one unchanged 512 MiB output budget, with a 64-stream and
+256 MiB decoder-memory limit. Truncated streams, non-XZ trailing data and
+combined output beyond the budget refuse. The complete compressed input is
+still authenticated against the signed repository metadata before decoding.
+The repaired reader was checked against all eight real Noble amd64 component
+binary/source indexes: both compressed inputs and complete decoded outputs
+matched their respective checksums in the authenticated Release metadata.
+
 Both target manifests and digest-addressed objects enter the corresponding-source
 archive. Offline verification reauthenticates repository/source selections,
 checks every retained object and compares captured configuration, recipes and

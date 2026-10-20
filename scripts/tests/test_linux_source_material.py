@@ -45,6 +45,25 @@ class LinuxSourceMaterial(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.binary_source({**explicit, 'Source': 'example (bad version) extra'})
 
+    def test_index_decoding_accepts_ubuntu_concatenated_xz_streams_and_legal_padding(self):
+        m = self.module()
+        self.assertTrue(callable(getattr(m, 'decompress_index', None)), 'Missing bounded multi-stream XZ reader')
+        first, second = b'Package: first\n\n', b'Package: second\n\n'
+        # Noble's signed indexes append this complete, empty XZ stream.
+        empty = bytes.fromhex('fd377a585a000004e6d6b446000000001cdf44211fb6f37d010000000004595a')
+        self.assertEqual(m.decompress_index(lzma.compress(first)+empty), first)
+        self.assertEqual(m.decompress_index(lzma.compress(first)+b'\0'*4+lzma.compress(second)+b'\0'*8), first+second)
+
+    def test_index_decoding_refuses_trailing_garbage_truncation_and_combined_output_overflow(self):
+        m = self.module()
+        self.assertTrue(callable(getattr(m, 'decompress_index', None)), 'Missing bounded multi-stream XZ reader')
+        first, second = lzma.compress(b'first'), lzma.compress(b'second')
+        for raw in [b'', first+b'garbage', first+b'\0', first+second[:-1], first[:-1],
+                    lzma.compress(b'')*65]:
+            with self.subTest(raw=raw[:20]), self.assertRaises(ValueError):m.decompress_index(raw)
+        self.assertEqual(m.decompress_index(first+second, limit=11), b'firstsecond')
+        with self.assertRaises(ValueError):m.decompress_index(first+second, limit=10)
+
     @unittest.skipUnless(shutil.which('gpgv'), 'GnuPG signature verifier required')
     def test_signature_authentication_checks_real_bytes_and_the_pinned_archive_signer(self):
         m = self.module()
