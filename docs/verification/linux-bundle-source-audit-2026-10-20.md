@@ -168,6 +168,14 @@ The repaired reader was checked against all eight real Noble amd64 component
 binary/source indexes: both compressed inputs and complete decoded outputs
 matched their respective checksums in the authenticated Release metadata.
 
+Copyright lookup also handles package-owned documentation-directory aliases:
+Ubuntu's authenticated `libatomic1` archive lists `usr/share/doc/libatomic1` as
+a symlink to `gcc-14-base`, without a separate copyright leaf. The collector
+resolves only copyright paths within `/usr/share/doc`, requires an already
+indexed owner for the canonical document, then applies the same exact package,
+member, installed-byte and packaged-byte proof. An unowned or out-of-tree target
+does not gain a provenance route.
+
 Both target manifests and digest-addressed objects enter the corresponding-source
 archive. Offline verification reauthenticates repository/source selections,
 checks every retained object and compares captured configuration, recipes and

@@ -495,6 +495,13 @@ def candidates(index,path,triplet,basename=False):
     # Copyright files can be leaf aliases into another package's documentation.
     # Resolve ownership of the canonical target, then prove that package member.
     for canonical in {row['canonical'] for row in result}:result.extend(index.get(canonical,[]))
+    # A package may list only a documentation-directory symlink (libatomic1
+    # points to gcc-14-base). Its copyright leaf then has no separate .list row.
+    if path.startswith('usr/share/doc/') and path.endswith('/copyright'):
+        try:canonical=str(Path('/'+path).resolve(strict=True))
+        except FileNotFoundError:canonical=None
+        if canonical is not None and canonical.startswith('/usr/share/doc/'):
+            result.extend(index.get(canonical,[]))
     unique={(row['path'],row['package'],row['version']):row for row in result}
     return [unique[key] for key in sorted(unique)]
 

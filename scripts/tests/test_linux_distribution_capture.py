@@ -200,6 +200,28 @@ class LinuxDistributionCapture(unittest.TestCase):
                            'usr/share/doc/alias/copyright','x86_64-linux-gnu')
         self.assertEqual({row['package'] for row in found},{'alias','base'})
 
+    def test_copyright_directory_alias_can_reach_an_owned_leaf_absent_from_alias_package_listing(self):
+        m=self.module()
+        path='usr/share/doc/libatomic1/copyright';canonical='/usr/share/doc/gcc-14-base/copyright'
+        document={'path':canonical,'canonical':canonical,'package':'gcc-14-base','version':'14.2'}
+        # A .list contains the directory symlink, not an invented copyright leaf.
+        with patch.object(m.Path,'resolve',return_value=Path(canonical)) as resolved:
+            found=m.candidates({canonical:[document]},path,'x86_64-linux-gnu')
+        self.assertEqual(found,[document])
+        resolved.assert_called_once_with(strict=True)
+
+    def test_copyright_directory_alias_never_invents_ownership_or_escapes_document_tree(self):
+        m=self.module();path='usr/share/doc/libatomic1/copyright'
+        outside={'path':'/etc/passwd','canonical':'/etc/passwd','package':'base','version':'1'}
+        with patch.object(m.Path,'resolve',return_value=Path('/etc/passwd')):
+            self.assertEqual(m.candidates({'/etc/passwd':[outside]},path,'x86_64-linux-gnu'),[])
+        with patch.object(m.Path,'resolve',return_value=Path('/usr/share/doc/unowned/copyright')):
+            self.assertEqual(m.candidates({},path,'x86_64-linux-gnu'),[])
+        with patch.object(m.Path,'resolve',side_effect=FileNotFoundError):
+            self.assertEqual(m.candidates({},path,'x86_64-linux-gnu'),[])
+        with patch.object(m.Path,'resolve',side_effect=AssertionError('Unrelated filesystem lookup')):
+            self.assertEqual(m.candidates({},'usr/share/doc/libatomic1/README','x86_64-linux-gnu'),[])
+
     def test_marker_observation_is_application_only_and_cannot_hide_other_byte_changes(self):
         m=self.module()
         original=b'\x7fELF|__TAURI_BUNDLE_TYPE_VAR_UNK|real-code'
