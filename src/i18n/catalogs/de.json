@@ -3589,5 +3589,15 @@
  "Export partition format": "Gruppierungsformat für den Export",
  "Remembered export configuration": "Gespeicherte Exportkonfiguration",
  "Remembered export filename": "Gespeicherter Exportdateiname",
- "Write export byte order mark (BOM)": "Byte-Reihenfolgemarkierung (BOM) beim Export schreiben"
+ "Write export byte order mark (BOM)": "Byte-Reihenfolgemarkierung (BOM) beim Export schreiben",
+ "Numbering: Save total track count": "Nummerierung: Gesamtzahl der Tracks speichern",
+ "Numbering: Next disc on change of directory": "Nummerierung: Nächste Disc bei Verzeichniswechsel",
+ "Numbering: Reset track counter on next disc": "Nummerierung: Trackzähler bei nächster Disc zurücksetzen",
+ "Numbering: Disc numbers": "Nummerierung: Discnummern",
+ "Numbering: Save total disc count": "Nummerierung: Gesamtzahl der Discs speichern",
+ "Numbering: Next disc on change of field": "Nummerierung: Nächste Disc bei geändertem Feldwert",
+ "Numbering: Reset disc counter on change of field": "Nummerierung: Disczähler bei geändertem Feldwert zurücksetzen",
+ "Numbering: Next-disc field": "Nummerierung: Feld für nächste Disc",
+ "Numbering: Reset-disc field": "Nummerierung: Feld zum Zurücksetzen des Disczählers",
+ "The current numbering preferences are invalid; review Auto-numbering before importing its settings.": "Die aktuellen Nummerierungseinstellungen sind ungültig; prüfe die automatische Nummerierung vor dem Import ihrer Einstellungen."
 }

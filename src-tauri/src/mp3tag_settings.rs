@@ -33,6 +33,8 @@ enum OptionKey {
     PreferGenres,
     ExportAppend,
     ExportMultiple,
+    Numbering(&'static str),
+    NumberingFieldEnabled(&'static str),
 }
 struct Spec {
     identifier: [u8; 16],
@@ -59,6 +61,48 @@ const fn identifier(text: &[u8; 32]) -> [u8; 16] {
 // Raw byte identifiers, with no UUID byte-order conversion. Bound to the
 // 3.36.1 static reader/object/serializer evidence in the migration receipt.
 const SPECS: &[Spec] = &[
+    Spec {
+        identifier: identifier(b"2da5f759503fa947932b7e5310a032fa"),
+        key: OptionKey::NumberingFieldEnabled("next_disc_on_field"),
+        label: "Numbering: Next disc on change of field",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"b9f3835eafb14c4ba2ca0a1e319f33a3"),
+        key: OptionKey::NumberingFieldEnabled("reset_disc_on_field"),
+        label: "Numbering: Reset disc counter on change of field",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"f4a314340ea7c044a6de766e7a2adc74"),
+        key: OptionKey::Numbering("track_total"),
+        label: "Numbering: Save total track count",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"aaeda90a7158644ab6371c40786599a8"),
+        key: OptionKey::Numbering("next_disc_on_directory"),
+        label: "Numbering: Next disc on change of directory",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"e242331383e5a2448bec645e3eabdd87"),
+        key: OptionKey::Numbering("reset_track_on_next_disc"),
+        label: "Numbering: Reset track counter on next disc",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"c90c8b8c433f5f4e8c86ba63e902fb8b"),
+        key: OptionKey::Numbering("disc_enabled"),
+        label: "Numbering: Disc numbers",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"5a98eb5f2200764a94daf6d4d9300c0b"),
+        key: OptionKey::Numbering("disc_total"),
+        label: "Numbering: Save total disc count",
+        inverted: false,
+    },
     Spec {
         identifier: identifier(b"a91684289cba6f498fd857faeaa3749c"),
         key: OptionKey::ExportAppend,
@@ -318,13 +362,29 @@ enum TextKey {
     ExportPartition,
     ExportConfiguration,
     ExportFilename,
+    NumberingNextField,
+    NumberingResetField,
 }
+const NUMBERING_FIELDS: [(&str, TextKey); 2] = [
+    ("next_disc_on_field", TextKey::NumberingNextField),
+    ("reset_disc_on_field", TextKey::NumberingResetField),
+];
 struct TextSpec {
     identifier: [u8; 16],
     key: TextKey,
     label: &'static str,
 }
 const TEXT_SPECS: &[TextSpec] = &[
+    TextSpec {
+        identifier: identifier(b"36d2f91d9589434ea5669328ab6b9486"),
+        key: TextKey::NumberingNextField,
+        label: "Numbering: Next-disc field",
+    },
+    TextSpec {
+        identifier: identifier(b"89d6949ac805e64b9eab9c7fa533a0db"),
+        key: TextKey::NumberingResetField,
+        label: "Numbering: Reset-disc field",
+    },
     TextSpec {
         identifier: identifier(b"e31f66267bd2a34baffa13f42d34fd95"),
         key: TextKey::ExportPartition,
@@ -755,6 +815,30 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     {
         warnings.push("The remembered export configuration and filename require its matching source template to be selected. Unresolved bindings keep the current configuration and filename.".into());
     }
+    for (field, text_key) in NUMBERING_FIELDS {
+        let enabled_key = OptionKey::NumberingFieldEnabled(field);
+        match values.get(&enabled_key) {
+            Some(false) => {
+                text.remove(&text_key);
+            }
+            Some(true) => {
+                if !text.get(&text_key).is_some_and(|name| {
+                    !name.trim().is_empty()
+                        && !name.starts_with('_')
+                        && !name.chars().any(char::is_control)
+                }) {
+                    values.remove(&enabled_key);
+                    text.remove(&text_key);
+                    warnings.push("An enabled numbering field choice lacks a usable explicit tag-field name; special path fields are not substituted. The current choice is kept.".into());
+                }
+            }
+            None => {
+                if text.remove(&text_key).is_some() {
+                    warnings.push("A numbering field name without its enabled switch is not imported; the current choice is kept.".into());
+                }
+            }
+        }
+    }
     if values.is_empty()
         && extended_mode.is_none()
         && text.is_empty()
@@ -970,15 +1054,54 @@ impl Patch {
     }
     /// Work only in the caller's unpublished configuration stage. Browser
     /// preferences are returned for the same durable window/restore receipt.
-    pub fn apply(&self, directory: &Path) -> Result<BTreeMap<String, String>, String> {
+    pub fn apply(
+        &self,
+        directory: &Path,
+        current: &BTreeMap<String, String>,
+    ) -> Result<BTreeMap<String, String>, String> {
         let mut options = None;
         let mut tag_panel = None;
         let mut preferences = BTreeMap::new();
+        let mut numbering = if self.booleans.keys().any(|key| {
+            matches!(
+                key,
+                OptionKey::Numbering(_) | OptionKey::NumberingFieldEnabled(_)
+            )
+        }) {
+            let saved = current
+                .get("opentag.numbering")
+                .cloned()
+                .unwrap_or_else(|| "{}".into());
+            crate::configuration_transfer::validate_preferences(&BTreeMap::from([("opentag.numbering".into(), saved.clone())]))
+                .map_err(|_| "The current numbering preferences are invalid; review Auto-numbering before importing its settings.")?;
+            Some(
+                serde_json::from_str::<serde_json::Value>(&saved)
+                    .map_err(|error| error.to_string())?,
+            )
+        } else {
+            None
+        };
         for (key, value) in &self.booleans {
             match key {
                 // Applied only to the final in-memory export library after
                 // template collision decisions, never via a stale disk snapshot.
                 OptionKey::ExportAppend | OptionKey::ExportMultiple => {}
+                OptionKey::Numbering(field) => {
+                    numbering.as_mut().unwrap()[*field] = (*value).into();
+                }
+                OptionKey::NumberingFieldEnabled(field) => {
+                    let text_key = NUMBERING_FIELDS
+                        .iter()
+                        .find(|(name, _)| name == field)
+                        .unwrap()
+                        .1;
+                    let name = if *value {
+                        self.text[&text_key].clone()
+                    } else {
+                        String::new()
+                    };
+                    numbering.as_mut().unwrap()[*field] = name.into();
+                }
                 OptionKey::SaveOnMove => page(
                     settings(&mut options, directory)?,
                     "tags",
@@ -1138,7 +1261,9 @@ impl Patch {
             match key {
                 TextKey::ExportPartition
                 | TextKey::ExportConfiguration
-                | TextKey::ExportFilename => {}
+                | TextKey::ExportFilename
+                | TextKey::NumberingNextField
+                | TextKey::NumberingResetField => {}
                 TextKey::PlaylistFilename => page(
                     settings(&mut options, directory)?,
                     "playlist",
@@ -1179,6 +1304,9 @@ impl Patch {
                 tags["mpeg"]["id3v2_format"] = encoding.into();
             }
             options.tags = serde_json::from_value(tags).map_err(|error| error.to_string())?;
+        }
+        if let Some(numbering) = numbering {
+            preferences.insert("opentag.numbering".into(), numbering.to_string());
         }
         if let Some(options) = options {
             crate::settings::save(&directory.join("settings.json"), &options)?;
@@ -1233,7 +1361,7 @@ mod tests {
             let parsed = parse(&bytes).unwrap();
             assert_eq!(parsed.settings.len(), options.len());
             let temp = tempfile::tempdir().unwrap();
-            let preferences = parsed.patch.apply(temp.path()).unwrap();
+            let preferences = parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
             let settings = crate::settings::load(&temp.path().join("settings.json")).0;
             let panel = crate::tag_panel::load(&temp.path().join("tag-panel.json")).unwrap();
             let actual = json!({"settings":settings,"panel":panel,"preferences":preferences});
@@ -1315,7 +1443,7 @@ mod tests {
                 assert_eq!(parsed.settings.len(), 4);
                 assert!(parsed.warnings.is_empty());
                 let temp = tempfile::tempdir().unwrap();
-                parsed.patch.apply(temp.path()).unwrap();
+                parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
                 let options = crate::settings::load(&temp.path().join("settings.json")).0;
                 assert_eq!(options.pages["appearance"]["grid"], expected);
                 assert_eq!(options.tags.advanced.id3v2_comment_language, "NLD");
@@ -1364,7 +1492,7 @@ mod tests {
             .warnings
             .iter()
             .all(|warning| !warning.contains("private") && !warning.contains("english")));
-        parsed.patch.apply(temp.path()).unwrap();
+        parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
         let after = crate::settings::load(&temp.path().join("settings.json")).0;
         assert_eq!(
             after.files.restrict_extensions,
@@ -1398,7 +1526,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().join("settings.json");
         std::fs::write(&path, b"invalid current options").unwrap();
-        assert!(parsed.patch.apply(temp.path()).is_err());
+        assert!(parsed.patch.apply(temp.path(), &BTreeMap::new()).is_err());
         assert_eq!(std::fs::read(path).unwrap(), b"invalid current options");
     }
     #[test]
@@ -1417,7 +1545,7 @@ mod tests {
             assert_eq!(preview[0]["value"], label);
             assert!(preview[0].get("enabled").is_none());
             let temp = tempfile::tempdir().unwrap();
-            parsed.patch.apply(temp.path()).unwrap();
+            parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
             let settings = crate::settings::load(&temp.path().join("settings.json")).0;
             assert_eq!(settings.pages["tags"]["extended_save_mode"], expected);
         }
@@ -1429,7 +1557,7 @@ mod tests {
             parse(&[record(&id, &[1, 0, 0, 0, 9]), record(&id, &[2, 0, 0, 0])].concat()).unwrap();
         assert_eq!(parsed.settings.len(), 1);
         let temp = tempfile::tempdir().unwrap();
-        parsed.patch.apply(temp.path()).unwrap();
+        parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
         assert_eq!(
             crate::settings::load(&temp.path().join("settings.json"))
                 .0
@@ -1469,7 +1597,11 @@ mod tests {
             json!({"filename":"before.m3u8", "relative":false, "generator_partition":"%album%"}),
         );
         crate::settings::save(&temp.path().join("settings.json"), &settings).unwrap();
-        assert!(parsed.patch.apply(temp.path()).unwrap().is_empty());
+        assert!(parsed
+            .patch
+            .apply(temp.path(), &BTreeMap::new())
+            .unwrap()
+            .is_empty());
         let actual = crate::settings::load(&temp.path().join("settings.json")).0;
         assert_eq!(actual.pages["playlist"]["filename"], filename);
         assert_eq!(actual.pages["playlist"]["extinf_format"], format);
@@ -1489,7 +1621,7 @@ mod tests {
         .unwrap();
         assert_eq!(parsed.settings.len(), 1);
         let temp = tempfile::tempdir().unwrap();
-        parsed.patch.apply(temp.path()).unwrap();
+        parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
         assert_eq!(
             crate::settings::load(&temp.path().join("settings.json"))
                 .0
@@ -1535,7 +1667,7 @@ mod tests {
                 .pages
                 .insert("playlist".into(), json!({"filename":"keep.m3u8"}));
             crate::settings::save(&temp.path().join("settings.json"), &settings).unwrap();
-            parsed.patch.apply(temp.path()).unwrap();
+            parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
             let actual = crate::settings::load(&temp.path().join("settings.json")).0;
             assert_eq!(actual.pages["playlist"]["filename"], "keep.m3u8");
             assert_eq!(actual.pages["tags"]["save_on_move"], true);
@@ -1571,7 +1703,7 @@ mod tests {
                     .pages
                     .insert("playlist".into(), json!({"filename":"preserved.m3u8"}));
                 crate::settings::save(&temp.path().join("settings.json"), &before).unwrap();
-                parsed.patch.apply(temp.path()).unwrap();
+                parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
                 let actual = crate::settings::load(&temp.path().join("settings.json")).0;
                 assert!(actual.tags.advanced.popularimeter_ratings);
                 assert_eq!(actual.pages["playlist"]["filename"], "preserved.m3u8");
@@ -1627,7 +1759,7 @@ mod tests {
                 serde_json::to_vec(&before).unwrap(),
             )
             .unwrap();
-            parsed.patch.apply(temp.path()).unwrap();
+            parsed.patch.apply(temp.path(), &BTreeMap::new()).unwrap();
             let actual =
                 serde_json::to_value(crate::settings::load(&temp.path().join("settings.json")).0)
                     .unwrap();

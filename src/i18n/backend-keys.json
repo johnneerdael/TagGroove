@@ -767,6 +767,7 @@
  "The cue sheet has no folder",
  "The cue sheet track has no FILE line",
  "The current configuration or workspace changed after preview; inspect it again.",
+ "The current numbering preferences are invalid; review Auto-numbering before importing its settings.",
  "The current options page is not an object",
  "The destination is not a folder",
  "The downloaded cover is not a supported image.",

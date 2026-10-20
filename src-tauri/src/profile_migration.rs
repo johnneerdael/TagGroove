@@ -1296,9 +1296,8 @@ fn apply(
     let mut after_window = window.clone();
     for name in selected {
         if let Candidate::Settings(settings) = &plan.candidates[name] {
-            after_window
-                .preferences
-                .extend(settings.apply(stage.path())?);
+            let preferences = settings.apply(stage.path(), &after_window.preferences)?;
+            after_window.preferences.extend(preferences);
             let before_preferences =
                 serde_json::to_value(&exports.preferences).map_err(|e| e.to_string())?;
             let warnings = settings.apply_exports(&mut exports, &admitted_exports);
@@ -2346,6 +2345,300 @@ mod tests {
             assert_eq!(after.preferences.filename, "before.txt");
             assert_eq!(after.preferences.partition.as_deref(), Some("%title%"));
             assert!(after.preferences.append);
+        }
+    }
+    #[test]
+    fn binary_numbering_switches_overlay_present_records_and_restore_browser_memory() {
+        let _guard = TESTS.lock().unwrap();
+        let mappings = [
+            ("f4a314340ea7c044a6de766e7a2adc74", "track_total"),
+            ("aaeda90a7158644ab6371c40786599a8", "next_disc_on_directory"),
+            (
+                "e242331383e5a2448bec645e3eabdd87",
+                "reset_track_on_next_disc",
+            ),
+            ("c90c8b8c433f5f4e8c86ba63e902fb8b", "disc_enabled"),
+            ("5a98eb5f2200764a94daf6d4d9300c0b", "disc_total"),
+        ];
+        let cases = [vec![0; 5], vec![1; 5], vec![255; 5]].into_iter().chain(
+            (0..5).map(|selected| (0..5).map(|index| u8::from(index == selected)).collect()),
+        );
+        for raw in cases {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let before = native(dir.path()).unwrap();
+            let mut current = window();
+            let mut remembered = serde_json::json!({
+                "track_start":9,"track_digits":4,"disc_start":7,"disc_digits":3,"disc_total_value":5,
+                "next_disc_on_field":"ALBUMARTIST","reset_disc_on_field":"ALBUM",
+                "track_total":false,"next_disc_on_directory":false,"reset_track_on_next_disc":false,
+                "disc_enabled":false,"disc_total":false
+            });
+            current
+                .preferences
+                .insert("opentag.numbering".into(), remembered.to_string());
+            let payloads: Vec<_> = raw.iter().map(|value| [*value, 123]).collect();
+            let records: Vec<_> = mappings
+                .iter()
+                .zip(&payloads)
+                .map(|((id, _), payload)| (*id, payload.as_slice()))
+                .collect();
+            let bytes = export_setting_records(&records);
+            std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|item| item.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported, "{:?}", item.warnings);
+            assert_eq!(item.settings.len(), 5);
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current.clone(),
+            )
+            .unwrap();
+            for ((_, key), value) in mappings.iter().zip(raw) {
+                remembered[*key] = (value != 0).into();
+            }
+            let pending = applied.pending.unwrap();
+            let actual: serde_json::Value =
+                serde_json::from_str(&pending.window.preferences["opentag.numbering"]).unwrap();
+            assert_eq!(actual, remembered);
+            assert_eq!(pending.window.workspace, current.workspace);
+            assert_eq!(
+                pending.window.preferences["opentag.language"],
+                current.preferences["opentag.language"]
+            );
+            status(dir.path(), Some(&pending.id), None, None).unwrap();
+            status(dir.path(), None, Some(&pending.id), None).unwrap();
+            let restored = restore(dir.path(), pending.window).unwrap();
+            assert_eq!(restored.pending.unwrap().window, current);
+            assert_eq!(native(dir.path()).unwrap(), before);
+            assert_eq!(
+                std::fs::read(source.path().join("mp3tag.cfg")).unwrap(),
+                bytes
+            );
+        }
+    }
+    #[test]
+    fn binary_numbering_partial_import_never_invents_absent_native_defaults() {
+        let _guard = TESTS.lock().unwrap();
+        for saved in [
+            None,
+            Some(
+                r#"{"track_total":true,"track_start":3,"disc_enabled":true,"reset_track_on_next_disc":false}"#,
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut current = window();
+            if let Some(text) = saved {
+                current
+                    .preferences
+                    .insert("opentag.numbering".into(), text.into());
+            }
+            let bytes = export_setting_records(&[("f4a314340ea7c044a6de766e7a2adc74", &[0])]);
+            std::fs::write(source.path().join("mp3tag.cfg"), bytes).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current,
+            )
+            .unwrap();
+            let mut expected: serde_json::Value =
+                serde_json::from_str(saved.unwrap_or("{}")).unwrap();
+            expected["track_total"] = false.into();
+            let pending = applied.pending.unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(
+                    &pending.window.preferences["opentag.numbering"]
+                )
+                .unwrap(),
+                expected
+            );
+        }
+    }
+    #[test]
+    fn binary_numbering_field_pairs_require_explicit_enabled_state_and_usable_names() {
+        let _guard = TESTS.lock().unwrap();
+        for (
+            next_enabled,
+            next_field,
+            reset_enabled,
+            reset_field,
+            expected_next,
+            expected_reset,
+            warn,
+        ) in [
+            (
+                Some(true),
+                Some("ALBUM"),
+                Some(true),
+                Some("ÉPOQUE🎵"),
+                "ALBUM",
+                "ÉPOQUE🎵",
+                false,
+            ),
+            (
+                Some(false),
+                Some(""),
+                Some(false),
+                Some("_DIRECTORY"),
+                "",
+                "",
+                false,
+            ),
+            (Some(false), None, Some(false), None, "", "", false),
+            (
+                Some(true),
+                None,
+                Some(true),
+                None,
+                "Before next",
+                "Before reset",
+                true,
+            ),
+            (
+                None,
+                Some("ALBUM"),
+                None,
+                Some("ARTIST"),
+                "Before next",
+                "Before reset",
+                true,
+            ),
+            (
+                Some(true),
+                Some("_DIRECTORY"),
+                Some(true),
+                Some("_DIRECTORY"),
+                "Before next",
+                "Before reset",
+                true,
+            ),
+            (
+                Some(true),
+                Some(""),
+                Some(true),
+                Some("bad\nfield"),
+                "Before next",
+                "Before reset",
+                true,
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut current = window();
+            current.preferences.insert("opentag.numbering".into(),serde_json::json!({"track_start":5,"next_disc_on_field":"Before next","reset_disc_on_field":"Before reset"}).to_string());
+            let mut owned: Vec<(&str, Vec<u8>)> =
+                vec![("a17772f7656a2b4fb710657ed41cb01d", vec![0])];
+            if let Some(enabled) = next_enabled {
+                owned.push(("2da5f759503fa947932b7e5310a032fa", vec![u8::from(enabled)]));
+            }
+            if let Some(field) = next_field {
+                owned.push((
+                    "36d2f91d9589434ea5669328ab6b9486",
+                    field.as_bytes().to_vec(),
+                ));
+            }
+            if let Some(enabled) = reset_enabled {
+                owned.push(("b9f3835eafb14c4ba2ca0a1e319f33a3", vec![u8::from(enabled)]));
+            }
+            if let Some(field) = reset_field {
+                owned.push((
+                    "89d6949ac805e64b9eab9c7fa533a0db",
+                    field.as_bytes().to_vec(),
+                ));
+            }
+            let records: Vec<_> = owned
+                .iter()
+                .map(|(id, payload)| (*id, payload.as_slice()))
+                .collect();
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&records),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported);
+            assert_eq!(
+                item.warnings.iter().any(|w| w.contains("numbering field")),
+                warn,
+                "{:?}",
+                item.warnings
+            );
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current,
+            )
+            .unwrap();
+            let pending = applied.pending.unwrap();
+            let memory: serde_json::Value =
+                serde_json::from_str(&pending.window.preferences["opentag.numbering"]).unwrap();
+            assert_eq!(memory["next_disc_on_field"], expected_next);
+            assert_eq!(memory["reset_disc_on_field"], expected_reset);
+            assert_eq!(memory["track_start"], 5);
+            assert!(!item.warnings.iter().any(|w| w.contains("bad\nfield")));
+        }
+    }
+    #[test]
+    fn binary_numbering_invalid_existing_memory_refuses_before_publication() {
+        let _guard = TESTS.lock().unwrap();
+        for saved in [
+            "null",
+            "{broken",
+            r#"{"track_start":0}"#,
+            r#"{"track_total":"false"}"#,
+            r#"{"unrelated_key":true}"#,
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let before = native(dir.path()).unwrap();
+            let mut current = window();
+            current
+                .preferences
+                .insert("opentag.numbering".into(), saved.into());
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&[("f4a314340ea7c044a6de766e7a2adc74", &[1])]),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+            let Err(error) = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                current,
+            ) else {
+                panic!("invalid numbering memory accepted");
+            };
+            assert!(error.contains("numbering"), "{error}");
+            assert_eq!(native(dir.path()).unwrap(), before);
+            assert!(!dir.path().join(STORE).exists());
         }
     }
     #[test]

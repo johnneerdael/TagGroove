@@ -4,8 +4,8 @@ This is unmerged work on `codex/refresh-file-identity`. It extends the
 [binary settings](mp3tag-binary-settings-migration-2026-10-20.md) and
 [field-value](mp3tag-field-values-migration-2026-10-20.md) adapters.
 The later [export settings slice](mp3tag-export-settings-migration-2026-10-20.md)
-adds six more records. **L57b remains open:** numbering
-memory still has concrete unimplemented mappings. A whitelist count is not
+adds six more records; the [numbering slice](mp3tag-numbering-settings-migration-2026-10-20.md)
+adds nine. **L57b remains open:** unsupported-choice dispositions still need review. A whitelist count is not
 proof that all original profile settings are covered.
 
 ## Confirmed native records
@@ -107,7 +107,7 @@ Read-only audits additionally established export partition/default/identity
 contracts and five direct numbering booleans. They also found required paired
 numbering-field handling and a potential stale export-library overwrite during
 combined settings/MTE import. The later export slice fixes that overwrite;
-numbering mappings remain required. LastCodepage is
+the later numbering slice implements the nine supported numbering records. LastCodepage is
 a Windows chooser row index, not an importable codepage or LCID; padding uses
 dynamic widths, with L66 scope/qualification retained. Toolbar, tool, networking,
 foreign workspace, credential and native acceptance boundaries remain explicit.

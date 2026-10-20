@@ -3576,5 +3576,15 @@
  "Export partition format": "Groeperingsformaat voor export",
  "Remembered export configuration": "Onthouden exportconfiguratie",
  "Remembered export filename": "Onthouden exportbestandsnaam",
- "Write export byte order mark (BOM)": "Bytevolgordemarkering (BOM) schrijven bij export"
+ "Write export byte order mark (BOM)": "Bytevolgordemarkering (BOM) schrijven bij export",
+ "Numbering: Save total track count": "Nummering: totaal aantal tracks opslaan",
+ "Numbering: Next disc on change of directory": "Nummering: volgende schijf bij andere map",
+ "Numbering: Reset track counter on next disc": "Nummering: trackteller opnieuw beginnen bij volgende schijf",
+ "Numbering: Disc numbers": "Nummering: schijfnummers",
+ "Numbering: Save total disc count": "Nummering: totaal aantal schijven opslaan",
+ "Numbering: Next disc on change of field": "Nummering: volgende schijf bij gewijzigde veldwaarde",
+ "Numbering: Reset disc counter on change of field": "Nummering: schijfteller opnieuw beginnen bij gewijzigde veldwaarde",
+ "Numbering: Next-disc field": "Nummering: veld voor volgende schijf",
+ "Numbering: Reset-disc field": "Nummering: veld voor opnieuw beginnen van schijfteller",
+ "The current numbering preferences are invalid; review Auto-numbering before importing its settings.": "De huidige nummeringsvoorkeuren zijn ongeldig; controleer Automatisch nummeren voordat je deze instellingen importeert."
 }

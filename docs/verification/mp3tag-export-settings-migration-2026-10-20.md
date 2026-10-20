@@ -1,7 +1,8 @@
 # Mp3tag export settings migration — 2026-10-20
 
 This working-branch L57b slice imports six export records and preserves disabled
-partition expressions. **L57b remains open for numbering memory.** This is local
+partition expressions. The later [numbering-memory slice](mp3tag-numbering-settings-migration-2026-10-20.md)
+adds nine records; L57b remains open pending the remaining-choice disposition review. This is local
 implementation evidence; final batch PR review, Linux CI, merge and original /
 native acceptance are separate requirements.
 
@@ -61,7 +62,7 @@ invalid incoming expression skips both its expression and switch, preserving
 current partition settings. Numbering, LastCodepage, padding and unsupported
 choices remain separate; no allowlist-size closure is claimed.
 
-The earlier 53-record implementation becomes 59 records and at most 70 preview
+At this slice, the earlier 53-record implementation became 59 records and at most 70 preview
 options: 41 byte booleans, 17 packed tag switches, three choices, eight text
 values and one u32-derived BOM switch. The independently pinned 39-boolean
 fixture remains its existing 1,638 checks; the six new export records have

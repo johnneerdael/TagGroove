@@ -128,5 +128,14 @@
  "Export partition format",
  "Remembered export configuration",
  "Remembered export filename",
- "Write export byte order mark (BOM)"
+ "Write export byte order mark (BOM)",
+ "Numbering: Save total track count",
+ "Numbering: Next disc on change of directory",
+ "Numbering: Reset track counter on next disc",
+ "Numbering: Disc numbers",
+ "Numbering: Save total disc count",
+ "Numbering: Next disc on change of field",
+ "Numbering: Reset disc counter on change of field",
+ "Numbering: Next-disc field",
+ "Numbering: Reset-disc field"
 ]

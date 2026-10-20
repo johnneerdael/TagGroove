@@ -187,6 +187,36 @@ Importing these choices never runs the template or writes an export file.
 If **Show export selection dialog** is off, inspect the active template and
 output filename before your first export.
 
+The numbering wizard's **Save total track count**, **Disc numbers**, **Save
+total disc count**, **Next disc on change of directory** and **Reset track
+counter on next disc** preferences also transfer. Each source switch changes
+only its matching remembered choice. Existing start values, minimum digits,
+entered totals and unrelated preferences stay as they were; missing source
+switches do not import the original application's defaults.
+
+The two **change of field** choices transfer when their source enabled switch
+and usable field name are both present. Unicode names are preserved. An explicit
+disabled switch clears that field choice. A name without its switch, an enabled
+switch without a usable name, or names starting with `_` (including `_DIRECTORY`) keep
+your current choice and produce a warning. The importer does not reinterpret
+`_DIRECTORY` as an ordinary tag or substitute the separate next-directory rule.
+
+These choices appear after setup reload in **Convert → Auto-numbering…**. Inspect
+them, run **Preview**, then **Stage numbers**; setup import itself stages no tag
+edits and writes no audio. The per-folder numbering shortcut still applies its
+own temporary options for that run. It does not overwrite the imported ordinary
+wizard memory. **Restore setup** restores the previous remembered numbering
+choices along with the captured window state.
+
+If current saved numbering preferences are invalid, importing numbering stops
+before publishing any setup changes. With files selected, open Auto-numbering, review its options,
+and stage a reviewed sequence to remember valid choices before inspecting the
+profile again. Staged tag changes still require **Save tags** to write audio.
+Native dynamic leading-zero options and the Windows last-codepage chooser
+index are not mapped onto fixed minimum digits or an unrelated codepage; review
+those choices manually. A raw chooser index depends on the original Windows
+locale list and cannot identify a portable codepage by itself.
+
 For example, if the preview says **Show filter: Off**, importing it hides the
 filter after setup reload. Check that value before proceeding if you use the
 filter every day. The previous value remains available through **Restore setup**.
