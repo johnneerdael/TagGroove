@@ -1,6 +1,8 @@
 """Focused release-signing controls; never build, launch or submit a real app."""
 import base64
+from contextlib import redirect_stdout
 import importlib.util
+import io
 import json
 from pathlib import Path
 import plistlib
@@ -95,6 +97,30 @@ class MacOSRelease(unittest.TestCase):
             path = Path(folder)/'tool.py'
             path.write_text('import sys\nprint(\'{"status":"Accepted"}\')\nprint("fixture diagnostic",file=sys.stderr)\n')
             self.assertEqual(json.loads(m.command([sys.executable, path])), {'status': 'Accepted'})
+
+    def test_verification_step_reports_only_fixed_stage_and_never_private_failure_details(self):
+        m = self.module()
+        self.assertTrue(callable(getattr(m, 'verify_step', None)), 'Missing private-output verification diagnostics')
+        output = io.StringIO()
+        def failed():raise OSError('private key path /private/fixture-secret with tool stderr')
+        with redirect_stdout(output), self.assertRaises(OSError):m.verify_step('application signature', failed)
+        self.assertEqual(output.getvalue(), 'macOS verification started: application signature\nmacOS verification failed: application signature\n')
+        output = io.StringIO()
+        with redirect_stdout(output):self.assertEqual(m.verify_step('application signature', lambda: 'verified'), 'verified')
+        self.assertEqual(output.getvalue(), 'macOS verification started: application signature\nmacOS verification passed: application signature\n')
+
+    def test_actual_verifier_failure_names_signature_stage_without_echoing_arguments(self):
+        m = self.module()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)/'repo';env = self.fixture(root);directory = Path(folder)/'notary'
+            m.prepare(root, directory, env);target = 'aarch64-apple-darwin';self.build_fixture(root, target)
+            output = io.StringIO()
+            def failed(args):raise OSError('private credentials: '+str(args))
+            with redirect_stdout(output), self.assertRaises(OSError):
+                m.verify_and_package(root, target, directory, 'a'*40, '0.1.0', env, run=failed)
+            self.assertIn('macOS verification failed: application signature', output.getvalue())
+            self.assertNotIn('private', output.getvalue())
+            self.assertNotIn(str(directory), output.getvalue())
 
     def test_signature_metadata_rejects_adhoc_wrong_team_and_missing_runtime_or_timestamp(self):
         m = self.module();policy = {'schema': 1, 'team_id': '6DF93UDRBJ', 'identity': IDENTITY}

@@ -119,6 +119,18 @@ def command(arguments):
             else stdout).decode('utf-8')
 
 
+def verify_step(label, action, *arguments):
+    """Log only caller-supplied literal stage names, never tool data or arguments."""
+    print('macOS verification started: '+label, flush=True)
+    try:
+        result = action(*arguments)
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        print('macOS verification failed: '+label, flush=True)
+        raise
+    print('macOS verification passed: '+label, flush=True)
+    return result
+
+
 def signature_metadata(text, selected, identifier, hardened):
     def unique(name):
         values = re.findall(r'^'+name+r'=(.*)$', text, re.M)
@@ -188,43 +200,50 @@ def verify_and_package(root, target, directory, commit, version, environment, *,
         bundle_version = config.get('bundle', {}).get('macOS', {}).get('bundleVersion', version)
         require(info.get('CFBundleIdentifier') == config['identifier'] and info.get('CFBundleShortVersionString') == version
                 and info.get('CFBundleVersion') == bundle_version, 'Built application identity/version differs from release')
-    application_info(app)
+    verify_step('application identity', application_info, app)
     def signed(path, hardened):
         run(['codesign', '--verify', '--deep', '--strict', path])
         return signature_metadata(run(['codesign', '--display', '--verbose=4', path]), selected,
                                   config['identifier'] if hardened else None, hardened)
-    app_cdhash = signed(app, True);run(['xcrun', 'stapler', 'validate', app])
-    run(['spctl', '--assess', '--type', 'execute', '--verbose=2', app])
-    signed(dmg, False)
+    app_cdhash = verify_step('application signature', signed, app, True)
+    verify_step('application ticket', run, ['xcrun', 'stapler', 'validate', app])
+    verify_step('application Gatekeeper', run, ['spctl', '--assess', '--type', 'execute', '--verbose=2', app])
+    verify_step('DMG signature', signed, dmg, False)
     # The image's outer signature alone permits an old same-signer app. Mount
     # read-only and bind its fully verified app seal to the collected loose app.
     with tempfile.TemporaryDirectory(prefix='taggroove-dmg-', dir=directory.parent) as temporary:
         mount = Path(temporary)/'image';mount.mkdir();mounted = False
         try:
-            mounted_info = run(['hdiutil', 'attach', dmg, '-readonly', '-nobrowse', '-noautoopen', '-plist', '-mountpoint', mount])
+            mounted_info = verify_step('read-only DMG mount', run,
+                ['hdiutil', 'attach', dmg, '-readonly', '-nobrowse', '-noautoopen', '-plist', '-mountpoint', mount])
             mounted = True
             volumes = plistlib.loads(mounted_info.encode()).get('system-entities', [])
             require([row['mount-point'] for row in volumes if 'mount-point' in row] == [str(mount)],
                     'Unexpected mounted disk image layout')
-            contained = mount/(product+'.app');application_info(contained)
-            require(signed(contained, True) == app_cdhash, 'DMG contained application differs from verified release bundle')
-            run(['xcrun', 'stapler', 'validate', contained])
+            contained = mount/(product+'.app');verify_step('DMG application identity', application_info, contained)
+            contained_cdhash = verify_step('DMG application signature', signed, contained, True)
+            verify_step('DMG application binding', require,
+                contained_cdhash == app_cdhash, 'DMG contained application differs from verified release bundle')
+            verify_step('DMG application ticket', run, ['xcrun', 'stapler', 'validate', contained])
         finally:
-            if mounted:run(['hdiutil', 'detach', mount])
-    submitted = core.unique_json(run(['xcrun', 'notarytool', 'submit', dmg, '--key', key_path,
+            if mounted:verify_step('DMG unmount', run, ['hdiutil', 'detach', mount])
+    submitted = core.unique_json(verify_step('DMG notarization submission', run, ['xcrun', 'notarytool', 'submit', dmg, '--key', key_path,
         '--key-id', environment['APPLE_NOTARY_KEY_ID'], '--issuer', environment['APPLE_NOTARY_ISSUER_ID'],
         '--wait', '--timeout', '30m', '--output-format', 'json']))
-    require(submitted.get('status') == 'Accepted', 'DMG notarization was not accepted')
+    verify_step('DMG notarization acceptance', require, submitted.get('status') == 'Accepted', 'DMG notarization was not accepted')
     try:submission_id = str(uuid.UUID(submitted['id']))
     except (ValueError, KeyError):raise ValueError('Missing accepted DMG notarization identity') from None
-    run(['xcrun', 'stapler', 'staple', dmg]);run(['xcrun', 'stapler', 'validate', dmg]);signed(dmg, False)
-    run(['spctl', '--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose=2', dmg])
+    verify_step('DMG stapling', run, ['xcrun', 'stapler', 'staple', dmg])
+    verify_step('DMG ticket', run, ['xcrun', 'stapler', 'validate', dmg])
+    verify_step('stapled DMG signature', signed, dmg, False)
+    verify_step('DMG Gatekeeper', run,
+        ['spctl', '--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose=2', dmg])
     # Ignore any action-created archive. Create the collected archive only after
     # the app's Developer ID signature, hardened runtime and stapled ticket pass.
     artifacts = directory.parent/('taggroove-signed-'+target)
     require(not artifacts.exists() and not artifacts.is_symlink(), 'macOS artifact staging already exists')
     artifacts.mkdir(mode=0o700);archive = artifacts/(product+'.app.tar.gz')
-    run(['tar', 'czf', archive, '-C', app.parent, app.name])
+    verify_step('verified application archive', run, ['tar', 'czf', archive, '-C', app.parent, app.name])
     receipt = {'schema': 1, 'platform': TARGETS[target], 'target': target, 'source_commit': commit,
         'version': version, 'identity': selected['identity'], 'team_id': selected['team_id'],
         'identifier': config['identifier'], 'policy_sha256': sha(bounded(root/POLICY, 8192)),

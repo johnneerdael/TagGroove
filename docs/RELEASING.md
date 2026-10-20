@@ -115,6 +115,13 @@ Trusted PR validation runs the workflow from `main`. Land build-tool prerequisit
 
 Linux packages are built on Ubuntu 24.04; compatibility with older distributions is not established by compilation. The [GitHub runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) documents native arm64 Linux and separate macOS Intel/arm64 runners. Platform jobs use separate artifact names and preserve their OS/architecture in public download filenames.
 
+The macOS verifier logs fixed stage names with started/passed/failed markers,
+including application signing, tickets and Gatekeeper, the read-only DMG mount,
+contained-app binding, DMG notarization and final archive creation. Use the
+failed stage to diagnose a refused package; the final error remains generic
+and tool output, arguments, credential values and private-key paths stay private.
+These diagnostics do not relax a signing, notarization or publication check.
+
 Each builder uploads its packages, `manifest-<platform>.json`, and `native-<platform>.json` as workflow artifacts. The native sidecar binds the installed static libraries, headers, configuration, source recipe and patch evidence to the release commit, version and Rust target. A fresh per-run native build directory prevents a restored Rust cache from silently substituting a missing or older native prefix. Each Linux builder also uploads its `linux-source-<platform>.json` and captured source/repository objects. The source job receives these two captures and the seven native sidecars, rather than downloading the application packages again.
 
 The final publisher requires all seven platform manifests, their exact native sidecars, the original 13 package filenames/formats, and exactly one `TagGroove-v<version>-sources.tar.xz`. The Git-bound Linux recipe additionally requires both Linux capture sidecars; their full bytes must match those inside the verified source archive, and each captured AppImage hash/size must match its package. It verifies commit/version/target identities, rejects unexpected files or duplicate formats, and streams every public asset through SHA256. It publishes 16 assets: 13 application packages, the corresponding-source archive, `release-manifest.json`, and `SHA256SUMS`. The Linux sidecars and source objects are retained inside the source archive. The checksum list includes the packages, source archive and release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, native and Linux evidence hashes, byte sizes and hashes.
