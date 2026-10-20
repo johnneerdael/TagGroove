@@ -1,19 +1,21 @@
 # Remaining parity: user impact and priority
 
-Planning snapshot refreshed 2026-10-20, after merged PR64 with L67 represented by
-[C62](../research/remaining-gaps.md#c62). This table covers all **49 current intake
+Planning snapshot refreshed 2026-10-20, after merged PR66 and the native
+source-download repair. L67 is represented by [C62](../research/remaining-gaps.md#c62),
+and the current C63 follow-up represents L54. This table covers all **48 current intake
 IDs**, assigned to later PRs. It is not a feature count, parity percentage,
 claim of a defect, or completion certificate. PR64 review, CI and merge are recorded in the [integration evidence](../research/remaining-gaps.md#pr64-integration-evidence).
 
 The owner changed the sequence: **finish L67, freeze and merge PR64 after its
 required review/CI, then use a new PR for further ledger implementation**. PR64
 has merged; the remaining local implementation now follows this priority table.
+C63 now represents L54; its original Windows/native qualifications remain open.
 The current [intake](../PARITY.md), [scope/evidence companion](../research/remaining-gaps.md)
 and [OS handover](PARITY-OTHER-MACHINES.md) remain authoritative. Implemented work
 must not be rebuilt because an original/native qualification is still open.
 
-The 49 intake rows primarily comprise **12 missing-capability scopes**,
-**20 limitations in existing behavior**, **15 unresolved compatibility questions**
+The 48 intake rows primarily comprise **12 missing-capability scopes**,
+**19 limitations in existing behavior**, **15 unresolved compatibility questions**
 and **2 measurement/audit scopes**. These are primary planning categories: a
 limited feature can also need original-behavior research. The separate 14
 qualification identities below are not missing-feature assignments.
@@ -90,7 +92,6 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L50](../research/remaining-gaps.md#l50) | P2 | Missing migration capability | Customized toolbar users | Vendor toolbar layouts and user symbols must be recreated manually; commands and band placement already exist. | R → implementation TBD / low | Mac schema/import work; populated original layouts |
 | [L51](../research/remaining-gaps.md#l51) | P2 | Limited tools; contract unknown | External-tool users | Tag placeholders, Windows shortcuts/batch forms and the 100-launch cap can prevent existing configurations from transferring. | R / medium | Mac placeholder/cap analysis; Windows .lnk/.bat launching |
 | [L52](../research/remaining-gaps.md#l52) | P2 | Limited legacy source routes | freedb/CDDB users | Fetched server lists, broader server search/artwork and non-exact local lookup are missing; gnudb and exact local lookup exist. | R → L / low | Mac protocol/local-match work; usable services/reference semantics |
-| [L54](../research/remaining-gaps.md#l54) | P1 | Limited rename protection | Action-based renaming | Replace/Regex _FILENAME results can reach Windows-invalid names and fail at rename time; this is not proven data loss. | M / medium | Portable protection now; exact original substitution and Windows acceptance later |
 | [L55](../research/remaining-gaps.md#l55) | P2 | Unknown converter/export semantics | Advanced converter users | Relative paths, shared output partitions and slash markers may differ; existing refusals must not be removed speculatively. | R / medium | Mac plan/path analysis; original target/order semantics |
 | [L56a](../research/remaining-gaps.md#l56a) | P2 | Limited batch policy; contract unknown | Batch filename conversion | One collision refuses the reviewed plan, including unaffected rows; original partial-clash policy is unqualified. | R / medium | Mac transaction analysis; Windows reference policy |
 | [L56b](../research/remaining-gaps.md#l56b) | P2 | Limited legacy encodings/presets | Legacy text/action libraries | Some codepages, ANSI interpretations, quality presets and defaults do not have confirmed equivalents. | R / medium | Mac decoder/preset analysis; original bytes/options comparison |
@@ -153,8 +154,8 @@ acceptance and keep unrelated features in the ledger.
 
 | Order | Bounded next outcome | Candidate IDs | Why this order / exit condition |
 | --- | --- | --- | --- |
-| 1 | Native desktop confidence and any demonstrated save/restart repair | C47/C59/C61; targeted L78/L73/L47c; L62 where installed context is available | Exercise current behavior first. Record actual failures and fix only those in the first follow-up; do not add speculative implicit saves. C62 records completed bounded history/recovery validation; do not repeat it as missing implementation. |
-| 2 | Predictable inline rename and Refresh | L47a; portable protection slice of L54 | Direct daily benefit and explicit current limitations. Keep membership/no-clobber/history rules; original Windows substitution remains qualification. Split L54 out if the patch stops being coherent or small. |
+| 1 | Native desktop confidence and any demonstrated save/restart repair | C47/C59/C61; targeted L78/L73/L47c; L62 where installed context is available | Use postmerge native CI and focused checks for actual failures; do not repeat local UI sweeps to refresh evidence or add speculative implicit saves. C62 records completed bounded history/recovery validation; do not repeat it as missing implementation. |
+| 2 | Predictable inline rename and Refresh | L47a; C63 represents the prior L54 Windows action-protection slice | Direct daily benefit and explicit current limitations. Keep membership/no-clobber/history rules; original Windows substitution remains qualification. C63 retains exact original Windows/native qualification in its handover. |
 | 3 | One real migrated tag-source workflow at a time | L30; scoped L32/N03; specific L52 route if needed | Sources are a stated owner priority and freedb is active. Retain actual authorized responses, reproduce a user-visible difference, then repair that route; do not rebuild already delivered parser/install engines or call all sources missing. |
 | 4 | Confirmed profile/action migration omissions | Start L07/L57b; N05 as a separate action-file batch | Use actual profiles/static schemas and explicit loss diagnostics. Ship a bounded confirmed mapping rather than all undocumented settings; preserve existing import/recovery and opaque data. |
 | 5 | Trusted Mac distribution and bounded release inventory | Desktop L71 with a bounded L76 audit | Broad install/trust benefit. Check current artifacts and actual account/certificate availability first. Windows signing and physical iOS distribution stay separate. This can move earlier if current installation is the adoption blocker. |
@@ -173,7 +174,7 @@ priority label. No new original Windows, service, device or GUI pass was created
 by this planning review.
 
 L67 has moved to C62 with bounded implementation/acceptance evidence; it is absent
-from the 49-row intake table and CSV. After merge, open the next PR from new
+from the 48-row intake table and CSV. After merge, open the next PR from new
 main using this order and the actual user-visible acceptance condition. Keep
 unresolved local work local in the handover, even when its final native check
 needs another OS. Reassess priority when a concrete failing library, provider,

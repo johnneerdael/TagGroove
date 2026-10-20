@@ -72,6 +72,14 @@ those spaces are not at the end of the input. Use `\s+(?=\.\w+$)` for that
 specific case. Protect the extension when rearranging captured groups.
 Folder renames can affect unselected files in that folder.
 
+On Windows, a filename result receives the same
+[Windows filename cleanup as literal Replace](replace.md#filename-results-on-windows).
+The regex operates on the full filename first, so its resulting extension is
+retained. For example, a result of `CON.MP3` becomes
+`Reserved-Windows-Filename.MP3`. Characters removed during cleanup can make two
+results identical; inspect collision errors and the Undo label after the run.
+Ordinary tag text and Unix-valid filename characters retain their normal rules.
+
 ## Gotchas
 
 - Patterns can also match an empty string, producing replacements between

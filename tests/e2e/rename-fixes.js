@@ -52,6 +52,33 @@
       return target.split(/[\\/]/).pop();
     });
 
+    await step('edited filename actions use platform cleanup, Undo and collision protection', async () => {
+      const path = row('sine-a.mp3').dataset.path, windows = /Win/.test(navigator.platform);
+      const execute = action => inv('execute_action_groups', { paths: [path], groups: [{ name: 'Edited filename regression', enabled: true, actions: [action] }], columns: null });
+      const files = async () => (await inv('scan_files', { paths: [album], recursive: false })).entries;
+      const changed = [
+        [{ type: 'replace', field: '_FILENAME', from: 'sine-a', to: windows ? 'AC/DC: Live?' : 'AC\\DC: Live?', whole_word: false, case_sensitive: true }, windows ? 'ACDC Live.mp3' : 'AC\\DC: Live?.mp3'],
+        [{ type: 'regex_replace', field: '_FILENAME', pattern: '^sine-a[.]mp3$', replacement: 'CON.MP3', case_sensitive: true }, windows ? 'Reserved-Windows-Filename.MP3' : 'CON.MP3'],
+      ];
+      for (const [action, expected] of changed) {
+        const result = await execute(action);
+        if (result.errors.length) throw new Error(JSON.stringify(result.errors));
+        const target = result.renamed?.[0]?.to, expectedPath = album + (windows ? '\\' : '/') + expected;
+        if (target !== expectedPath) throw new Error(`expected ${expectedPath}, got ${target}`);
+        const after = await files(), renamed = after.find(entry => entry.filename === expected);
+        if (!renamed || renamed.fields.TITLE?.[0] !== 'Sine A' || after.some(entry => entry.filename === 'sine-a.mp3')) throw new Error('renamed file or metadata mismatch');
+        const undo = await inv('undo_last');
+        if (undo.errors?.length) throw new Error(JSON.stringify(undo.errors));
+        const restored = await files();
+        if (!restored.some(entry => entry.filename === 'sine-a.mp3') || restored.some(entry => entry.filename === expected)) throw new Error('Undo did not restore the original filename');
+      }
+      const clash = await execute({ type: 'replace', field: '_FILENAME', from: 'sine-a', to: windows ? 'sine-b?' : 'sine-b', whole_word: false, case_sensitive: true });
+      if (!clash.errors.length) throw new Error('cleanup replaced the existing destination');
+      const after = await files();
+      if (after.find(entry => entry.filename === 'sine-a.mp3')?.fields.TITLE?.[0] !== 'Sine A' || after.find(entry => entry.filename === 'sine-b.mp3')?.fields.TITLE?.[0] !== 'Sine B') throw new Error('collision changed a source or destination');
+      return windows ? 'Windows cleanup and reserved name, Undo and collision refusal' : 'Unix literal characters retained, Undo and collision refusal';
+    });
+
     const casefold = album.replace(/[\\/][^\\/]+$/, '') + (album.includes('\\') ? '\\' : '/') + 'casefold';
     let folded = [];
     try { folded = await names(casefold); } catch { /* No casefolded volume on this runner. */ }
