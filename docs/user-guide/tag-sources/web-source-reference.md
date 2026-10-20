@@ -9,7 +9,10 @@ Start with the [local JSON lesson](writing-web-sources.md) for a complete
 source and [installation guide](web-sources.md) for menus/settings. This page
 covers every header in the canonical source format and all 67 commands accepted
 by the checked TagGroove parser. Examples inspect parser output directly; they
-do not certify a provider, track matching or an audio-file write.
+do not certify a provider, track matching or an audio-file write. Each command
+has a primary Input/Script/Output example checked with both LF and CRLF input;
+the command-name coverage is checked against the parser registry. Additional
+short snippets explain variants and practical choices.
 
 ## Description headers
 
@@ -308,6 +311,8 @@ SayRest
 Album: Harbour Lights
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:findlinenocase -->
 
 ### `FindLineNoCase`
@@ -336,6 +341,8 @@ SayRest
 ALBUM: Harbour Lights
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:findinline -->
 
 ### `FindInLine`
@@ -363,6 +370,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:gotochar -->
 
 ### `GotoChar`
@@ -389,6 +398,8 @@ SayRest
 ```text
 Lanterns
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:gotoline -->
 
@@ -418,6 +429,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:movechar -->
 
 ### `MoveChar`
@@ -445,6 +458,8 @@ SayNChars 5
 ```text
 Paper
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:moveline -->
 
@@ -475,6 +490,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 ## Read and emit text
 
 <!-- web-example:say -->
@@ -503,6 +520,8 @@ Say "Juniper Vale"
 Juniper Vale
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayuntil -->
 
 ### `SayUntil`
@@ -528,6 +547,8 @@ SayUntil "|"
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:sayuntilml -->
 
@@ -559,6 +580,8 @@ Paper
 Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayrest -->
 
 ### `SayRest`
@@ -585,6 +608,8 @@ SayRest
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:saynchars -->
 
@@ -614,6 +639,8 @@ SayNChars 2
 ␠␠
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:saynextnumber -->
 
 ### `SayNextNumber`
@@ -640,6 +667,10 @@ SayNextNumber
 -03.5
 ```
 
+<!-- web-example-end -->
+
+<!-- web-example:sayall -->
+
 ### `SayAll`
 
 **Syntax:** `SayAll "characters"`
@@ -652,11 +683,27 @@ An empty set or a nonmatching first character emits nothing and stays put.
 
 With input ` abba:tail`:
 
+**Input**
+
+```text
+ abba:tail
+```
+
+**Script**
+
 ```text
 SayAll " ab"
 Say "|"
 SayRest
 ```
+
+**Output buffer:** `OUTPUT`
+
+```text
+abba|:tail
+```
+
+<!-- web-example-end -->
 
 `OUTPUT` becomes `abba|:tail`. With `Trim "off"` first, the leading space is
 also emitted. This is useful for reading a run of allowed identifier characters
@@ -688,6 +735,8 @@ SayNextWord
 Paper,
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayoutput -->
 
 ### `SayOutput`
@@ -716,6 +765,8 @@ SayOutput "CurrentUrl"
 ```text
 Harbour Lights @ https://catalogue.example.invalid/release/harbour
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:saynewline -->
 
@@ -748,6 +799,8 @@ Paper
 Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:saydate -->
 
 ### `SayDate`
@@ -774,6 +827,8 @@ SayDate "ms"
 2024-01-01
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayduration -->
 
 ### `SayDuration`
@@ -799,6 +854,8 @@ SayDuration "ms" 1 1
 ```text
 0:01:02.005
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:sayregexp -->
 
@@ -828,6 +885,8 @@ SayRest
 item2, item7|item2 item7; item9
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:sayformat -->
 
 ### `SayFormat`
@@ -854,6 +913,8 @@ SayFormat "$upper(%_current%) — %ARTIST%"
 ```text
 PAPER BOATS — Juniper Vale
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:sayvar -->
 
@@ -882,6 +943,8 @@ SayVar "edition"
 ```text
 deluxe
 ```
+
+<!-- web-example-end -->
 
 ## Change buffers or input
 
@@ -914,6 +977,8 @@ Endif
 ```text
 cleared
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:outputto -->
 
@@ -952,6 +1017,10 @@ SayRest
 Harbour Lights
 ```
 
+<!-- web-example-end -->
+
+<!-- web-example:incoutput -->
+
 ### `IncOutput`
 
 **Syntax:** `IncOutput "suffix"`
@@ -959,6 +1028,14 @@ Harbour Lights
 Append the suffix to the current output **name**. It does not append to the
 output's value and does not increment a number. Use it to build related
 buffer names, then return with DecOutput or an explicit OutputTo.
+
+**Input**
+
+```text
+
+```
+
+**Script**
 
 ```text
 OutputTo "FIELD"
@@ -968,7 +1045,17 @@ DecOutput
 Say "Parent"
 ```
 
+**Output buffer:** `FIELD1`
+
+```text
+First
+```
+
+<!-- web-example-end -->
+
 `FIELD1` contains `First`; `FIELD` contains `Parent`.
+
+<!-- web-example:decoutput -->
 
 ### `DecOutput`
 
@@ -983,6 +1070,30 @@ The Windows original removes one UTF-16 code unit. TagGroove refuses a removal
 that would split a surrogate pair in an output name, because it cannot carry
 that invalid name as a tag/JSON string. Use ordinary field-name characters
 when constructing names dynamically; this refusal is not a successful rename.
+
+**Input**
+
+```text
+
+```
+
+**Script**
+
+```text
+OutputTo "FIELD"
+IncOutput "1"
+Say "First"
+DecOutput
+Say "Parent"
+```
+
+**Output buffer:** `FIELD`
+
+```text
+Parent
+```
+
+<!-- web-example-end -->
 
 <!-- web-example:skipchars -->
 
@@ -1011,6 +1122,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:insert -->
 
 ### `Insert`
@@ -1037,6 +1150,8 @@ SayRest
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:use -->
 
@@ -1066,6 +1181,8 @@ SayRest
 Harbour Lights
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:useformat -->
 
 ### `UseFormat`
@@ -1092,6 +1209,8 @@ SayRest
 ```text
 PAPER BOATS
 ```
+
+<!-- web-example-end -->
 
 ## Conditions and loops
 
@@ -1123,6 +1242,8 @@ Endif
 album found
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifnot -->
 
 ### `IfNot`
@@ -1150,6 +1271,8 @@ Endif
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:ifoutput -->
 
@@ -1180,6 +1303,8 @@ Endif
 present
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifnotoutput -->
 
 ### `IfNotOutput`
@@ -1207,6 +1332,8 @@ Endif
 ```text
 no comment
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:ifgreater -->
 
@@ -1236,6 +1363,8 @@ Endif
 large
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifless -->
 
 ### `IfLess`
@@ -1263,6 +1392,8 @@ Endif
 ```text
 small
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:ifvar -->
 
@@ -1294,6 +1425,8 @@ Endif
 extra tracks
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:ifnotvar -->
 
 ### `IfNotVar`
@@ -1323,6 +1456,8 @@ Endif
 ```text
 alternate edition
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:else -->
 
@@ -1354,6 +1489,8 @@ Endif
 other
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:endif -->
 
 ### `Endif`
@@ -1383,6 +1520,8 @@ Say "."
 matched.
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:do -->
 
 ### `Do`
@@ -1410,6 +1549,8 @@ While "x" 3
 ```text
 xxx
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:while -->
 
@@ -1444,6 +1585,10 @@ While "A" 2
 AA
 ```
 
+<!-- web-example-end -->
+
+<!-- web-example:exit -->
+
 ### `Exit`
 
 **Syntax:** `Exit`
@@ -1452,6 +1597,14 @@ Stop the parser normally and keep its accumulated outputs. This exits the
 script, not TagGroove. Later commands are not run. Use it when a complete
 result is already available and the rest of the extraction is unnecessary.
 
+**Input**
+
+```text
+
+```
+
+**Script**
+
 ```text
 OutputTo "ALBUM"
 Say "Harbour Lights"
@@ -1459,7 +1612,17 @@ Exit
 Say "not reached"
 ```
 
+**Output buffer:** `ALBUM`
+
+```text
+Harbour Lights
+```
+
+<!-- web-example-end -->
+
 `ALBUM` contains `Harbour Lights`.
+
+<!-- web-example:onerror -->
 
 ### `OnError`
 
@@ -1474,12 +1637,28 @@ are case-sensitive, so `<fail>` is not the default `<FAIL>` handler.
 
 For example, if the whole lookup can legitimately have a fallback album name:
 
+**Input**
+
+```text
+No album in this response
+```
+
+**Script**
+
 ```text
 OutputTo "ALBUM"
 OnError "Album unavailable" "album-error.txt"
 FindLine "Album:"
 SayRest
 ```
+
+**Output buffer:** `ALBUM`
+
+```text
+Album unavailable
+```
+
+<!-- web-example-end -->
 
 If `Album:` is missing, the parser stops and `ALBUM` becomes `Album unavailable`.
 It does not continue extracting fields after the failed Find. The optional
@@ -1527,6 +1706,8 @@ SayRest
 Paper Boats|Other_Label
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:regexpreplace -->
 
 ### `RegexpReplace`
@@ -1553,6 +1734,8 @@ SayRest
 ```text
 Paper Boats [03]
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:joinuntil -->
 
@@ -1582,6 +1765,8 @@ SayUntil "</title>"
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:joinlines -->
 
@@ -1613,6 +1798,8 @@ SayRest
 Paper␠Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:killtag -->
 
 ### `KillTag`
@@ -1639,6 +1826,8 @@ SayRest
 ```text
 Paper Boats
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:trim -->
 
@@ -1669,6 +1858,8 @@ SayRest
 ␠␠Paper␠␠
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:unspace -->
 
 ### `Unspace`
@@ -1697,6 +1888,8 @@ SayRest
 ```text
 Paper
 ```
+
+<!-- web-example-end -->
 
 ## Debugging
 
@@ -1730,6 +1923,8 @@ Debug "off"
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:debugwriteinput -->
 
 ### `DebugWriteInput`
@@ -1760,6 +1955,10 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
+<!-- web-example:savedata -->
+
 ### `SaveData`
 
 **Syntax:** `SaveData "filename"`
@@ -1769,10 +1968,31 @@ writing each line followed by CRLF. This is the input, not the current output
 buffer. Cursor position does not restrict the capture. An empty filename
 requests no file. For input `original` followed by a second line `second`:
 
+**Input**
+
+```text
+original
+second
+```
+
+**Script**
+
 ```text
 Replace "original" "changed"
 SaveData "saved-input.txt"
 ```
+
+**Output file:** `saved-input.txt`
+
+**Line endings:** `CRLF`
+
+```text
+changed
+second
+
+```
+
+<!-- web-example-end -->
 
 The file contains `changed` and `second`, each with a CRLF terminator.
 The app writes UTF-8 under the sources folder's `debug` directory. Paths are
@@ -1788,6 +2008,8 @@ failure is best effort and does not itself stop the parser: inspect the debug
 folder rather than assuming that a successful metadata lookup proves a dump
 was written.
 
+<!-- web-example:extern -->
+
 ### `Extern`
 
 **Syntax:** `Extern "command" "argument"`
@@ -1798,11 +2020,27 @@ installed: execution reports `NO EXTERN HANDLER`. The syntax is accepted so
 scripts can retain an unreachable or explicitly handled callback route, but
 it does not make external programs available.
 
+**Input**
+
+```text
+
+```
+
+**Script**
+
 ```text
 OnError "Callback unavailable"
 Extern "helper" "input"
 Say "not reached"
 ```
+
+**Output buffer:** `OUTPUT`
+
+```text
+Callback unavailable
+```
+
+<!-- web-example-end -->
 
 This stops through OnError and leaves `Callback unavailable` in `OUTPUT`.
 Use built-in parser commands for extraction instead of assuming a helper runs.
@@ -1838,6 +2076,8 @@ SayRest
 Paper Boats
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_foreach -->
 
 ### `json_foreach`
@@ -1868,6 +2108,8 @@ json_foreach_end
 ```text
 Paper Boats|Lanterns|
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:json_foreach_reverse -->
 
@@ -1902,6 +2144,8 @@ json_foreach_end
 Lanterns|Paper Boats|
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_foreach_counter -->
 
 ### `json_foreach_counter`
@@ -1931,6 +2175,8 @@ json_foreach_end
 ```text
 01|02|
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:json_foreach_end -->
 
@@ -1962,6 +2208,10 @@ json_foreach_end
 PaperBoats
 ```
 
+<!-- web-example-end -->
+
+<!-- web-example:json_foreach_continue -->
+
 ### `json_foreach_continue`
 
 **Syntax:** `json_foreach_continue`
@@ -1974,6 +2224,14 @@ loop, it continues normally rather than raising an outside-loop error.
 
 For input `[{"title":"one"},{"title":"two"}]`:
 
+**Input**
+
+```text
+[{"title":"one"},{"title":"two"}]
+```
+
+**Script**
+
 ```text
 json "on"
 json_foreach
@@ -1984,6 +2242,14 @@ json_foreach_continue
 Say "not reached"
 json_foreach_end
 ```
+
+**Output buffer:** `OUTPUT`
+
+```text
+one|two|
+```
+
+<!-- web-example-end -->
 
 `OUTPUT` becomes `one|two|`. Prefer a simple conditional when it makes the
 selection rule easier to read; Continue is useful when the remaining body
@@ -2018,6 +2284,8 @@ SayRest
 Harbour Lights
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_unselect_object -->
 
 ### `json_unselect_object`
@@ -2051,6 +2319,8 @@ SayRest
 inner/root
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_select -->
 
 ### `json_select`
@@ -2078,6 +2348,8 @@ SayRest
 ```text
 Juniper Vale
 ```
+
+<!-- web-example-end -->
 
 <!-- web-example:json_select_array -->
 
@@ -2108,6 +2380,8 @@ SayRest
 ```text
 Paper Boats / Lanterns
 ```
+
+<!-- web-example-end -->
 
 #### Compare the two index rules
 
@@ -2166,6 +2440,8 @@ SayRest
 Juniper Vale & Mira Solberg
 ```
 
+<!-- web-example-end -->
+
 <!-- web-example:json_select_many_count -->
 
 ### `json_select_many_count`
@@ -2193,6 +2469,8 @@ SayRest
 ```text
 3
 ```
+
+<!-- web-example-end -->
 
 ## Troubleshoot and bound the work
 

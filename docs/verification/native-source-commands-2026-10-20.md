@@ -103,3 +103,20 @@ manifest. This changes test inclusion only, not parser behavior or the 67-comman
 contract. Focused cross-crate compilation and the 67-command registry test passed;
 library/test-target Clippy for both affected packages also passed. Exact run
 identities are retained in the task checkpoint.
+
+## PR73 executable guide repair
+
+The first [protected Linux run](https://github.com/johnneerdael/TagGroove/actions/runs/39472886325)
+exposed two stale guide-test assumptions: the fixed count still expected 59,
+and eight added command sections lacked isolated executable-example markers.
+The parser registry and written headings already contained 67 commands; this
+was not a missing engine implementation.
+
+The guide now supplies a complete primary input/script/result case for all 67
+commands. Explicit case boundaries keep supplementary teaching snippets from
+being attributed to the preceding command. The test requires the exact example
+name set to equal the registry, runs both LF and CRLF input, and checks SaveData's
+actual captured file with CRLF terminators. No parser behavior was changed.
+All 52 focused web-source guide/engine tests pass locally; strict guide rendering
+and Rust formatting are checked separately. Final-head hosted validation remains
+required after this repair.

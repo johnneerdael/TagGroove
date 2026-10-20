@@ -149,22 +149,40 @@ fn command_reference_index_matches_the_actual_parser_registry() {
     written.sort();
     actual.sort();
     assert_eq!(written, actual);
-    assert_eq!(written.len(), 59);
+    assert_eq!(written.len(), 67);
 }
 
 #[test]
-fn every_command_example_runs_its_written_input_script_and_output_under_lf_and_crlf() {
+fn every_primary_command_example_runs_its_written_input_script_and_output_under_lf_and_crlf() {
     let page_url = "https://catalogue.example.invalid/release/harbour";
     assert!(REFERENCE.contains(page_url));
     let examples: Vec<_> = REFERENCE.split("<!-- web-example:").skip(1).collect();
-    assert_eq!(examples.len(), 59);
+    assert_eq!(examples.len(), 67);
+    let mut example_names: Vec<_> = examples
+        .iter()
+        .map(|example| example.split_once("-->").unwrap().0.trim().to_owned())
+        .collect();
+    example_names.sort();
+    let mut commands: Vec<_> = web_engine::command_names().map(str::to_owned).collect();
+    commands.sort();
+    assert_eq!(example_names, commands);
     for example in examples {
         let (name, body) = example.split_once("-->").unwrap();
+        assert_eq!(
+            body.matches("<!-- web-example-end -->").count(),
+            1,
+            "{name}"
+        );
+        let body = body.split_once("<!-- web-example-end -->").unwrap().0;
         let blocks = text_blocks(body);
         assert_eq!(blocks.len(), 3, "{name}");
-        let buffer = match labelled(body, "Output buffer").unwrap() {
-            "unnamed" => "",
-            buffer => buffer,
+        let buffer = match labelled(body, "Output buffer") {
+            Some("unnamed") => "",
+            Some(buffer) => buffer,
+            None => {
+                assert!(labelled(body, "Output file").is_some(), "{name}");
+                ""
+            }
         };
         let decode_spaces = |text: &str| match labelled(body, "Visible spaces") {
             Some("␠") => text.replace('␠', " "),
@@ -200,11 +218,20 @@ fn every_command_example_runs_its_written_input_script_and_output_under_lf_and_c
             let output = outcome
                 .result
                 .unwrap_or_else(|error| panic!("{name}: {error}"));
-            assert_eq!(
-                output.get(buffer).map(String::as_str).unwrap_or_default(),
-                expected,
-                "{name}"
-            );
+            if let Some(filename) = labelled(body, "Output file") {
+                let file = outcome
+                    .files
+                    .iter()
+                    .find(|file| file.name == filename)
+                    .unwrap();
+                assert_eq!(file.content, expected, "{name}");
+            } else {
+                assert_eq!(
+                    output.get(buffer).map(String::as_str).unwrap_or_default(),
+                    expected,
+                    "{name}"
+                );
+            }
             if let Some(filename) = labelled(body, "Debug file") {
                 let file = outcome
                     .files
