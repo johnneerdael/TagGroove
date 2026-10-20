@@ -91,3 +91,12 @@ check and unlink are not an adversarial filesystem compare-and-swap.
 L22b/C06 and L78/L79 retain the original/native/platform qualifications. Review
 this slice's final PR head through the required genuine GitHub Codex code review
 and immutable Linux CI before merge; local reviews do not satisfy those gates.
+
+## Timestamp-fixture portability
+
+The equal-byte replacement fixture opens its created replacement with write
+access before restoring its timestamp. This supplies the write-attributes
+permission required by the underlying Windows timestamp API; see Microsoft's
+[SetFileTime documentation](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfiletime).
+The adjustment affects only the temporary test fixture; Windows runtime
+qualification remains separate.

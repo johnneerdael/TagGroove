@@ -209,7 +209,9 @@ mod tests {
                 let prior = fs::metadata(&target).unwrap();
                 fs::rename(&target, root.path().join("retained-created-copy")).unwrap();
                 fs::write(&target, b"unchanged").unwrap();
-                fs::File::open(&target)
+                fs::File::options()
+                    .write(true)
+                    .open(&target)
                     .unwrap()
                     .set_times(fs::FileTimes::new().set_modified(prior.modified().unwrap()))
                     .unwrap();
