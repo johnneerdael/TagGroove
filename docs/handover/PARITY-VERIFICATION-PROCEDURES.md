@@ -114,10 +114,13 @@ Separately edit both filename-column forms into a new and an existing child
 folder. Record separator/absolute/parent-component handling, extension policy,
 selection, pending intent, companion behavior and any observed Undo/Redo.
 Include cancel/no-op and existing-target controls without overwriting a user
-file. Compare the same cases in TagGroove after its covering implementation;
-the current separator refusal and exact-file refresh roots remain local code
-work. Converter path documentation alone does not establish inline behavior,
-and rescanning every parent must not silently replace playlist membership.
+file. Compare those inline cases against the represented
+[C64 literal-destination implementation](../verification/inline-filename-paths-2026-10-20.md);
+its original Windows and physical native-input outcomes remain qualification.
+Only discovering an externally renamed individually loaded file remains L47a
+local implementation. Converter path documentation alone does not establish
+inline behavior, and rescanning every parent must not silently replace playlist
+membership.
 
 ### Local C59/C47 replay after final PR64 root classification
 

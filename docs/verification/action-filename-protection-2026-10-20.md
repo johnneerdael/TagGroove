@@ -116,6 +116,43 @@ Compilation took 1m47s for RED and 41.04s for GREEN; each test harness reported
 and the corrected strict guide also pass (`taggroove-l54-console-guide-21mwr8vw`).
 Independent read-only review of the correction and guide has no concrete findings.
 
+## PR67 integration evidence
+
+[PR67](https://github.com/johnneerdael/TagGroove/pull/67) merged at
+2026-10-20T01:44:38Z as `69cd9f063c66290adbb6b3db3a70b2d5a1ca4592`.
+Its final head `c50a02685693e4d5fe8f2bbd408add0b7d360de5` received a clean
+GitHub CODE review completed at 2026-10-20T01:26:29.275888Z, receipt
+`6281005471`, followed by the connector's approval reaction `581294291`.
+All four jobs in [immutable premerge validation](https://github.com/johnneerdael/TagGroove/actions/runs/39353536662)
+passed, including 1,523 Rust and 881 frontend tests with zero failures.
+Nineteen Rust ignores and one frontend skip retain their stated scopes.
+
+The tested synthetic merge `3ba441523ba1eff9f9650bc76a6986825fa6377b`
+and actual merge have identical tree
+`05a209740a9d964322b41f61179b787f6801bd89` and parents
+`f0bc8dfa97f1c16c32b7405789ab71f7c01b1e30` /
+`c50a02685693e4d5fe8f2bbd408add0b7d360de5`.
+Postmerge packaging/native integration and publication remain separate
+run/source-bound evidence; this merge result alone does not certify them.
+
+## Postmerge integration and publication
+
+[Run 39355147037](https://github.com/johnneerdael/TagGroove/actions/runs/39355147037)
+completed successfully at source `69cd9f063c66290adbb6b3db3a70b2d5a1ca4592`.
+The added managed-command case reports `PASS` on Ubuntu job `118408338779`,
+Windows job `118408338833` and macOS job `118408338871`. These exercise
+TagGroove's actual app command, file readback, platform cleanup, Undo and
+collision refusal. They do not execute original Mp3tag or prove physical
+Actions-dialog input, console-alias namespaces or every installed filesystem.
+
+[v0.2.55](https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.55)
+published at 2026-10-20T02:04:02Z from that source. The downloaded release
+manifest/checksum digests and GitHub asset metadata match 13 packages across
+seven platform groups, the corresponding-source archive and 16 public assets.
+Metadata receipt: `/tmp/opentag-release-v0.2.55-verified/verification.json`.
+That verification did not download or install package binaries or the full
+source archive. The iOS group is the simulator preview, not a device IPA.
+
 ## Engineer handover
 
 Use a Windows desktop with the pinned original and a source/executable-bound

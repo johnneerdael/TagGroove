@@ -4,7 +4,7 @@ For the next work sequence, use the [user-impact, effort and environment table](
 
 This is the single actionable **uncovered** list: missing behavior and unresolved semantic research for which the inspected open or merged PRs provide no covering implementation. Outstanding verification of implemented behavior belongs in the [qualification register](research/remaining-gaps.md#qualification-of-implemented-scopes), outside this intake. Represented work is excluded even while its PR is open; exclusion is not a completion claim. The [coverage companion](research/remaining-gaps.md) records delivered work, inspected PR scopes, historical row IDs, evidence and intentional limits. The [feature inventory](FEATURE-INVENTORY.md) retains the full acceptance contract.
 
-Reference: Windows x64 Mp3tag 3.36.1, executable SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Inspected merged baseline: main `f0bc8dfa97f1c16c32b7405789ab71f7c01b1e30`, after merged PRs49–66 and the owner-authorized native source-download repair. Intake refreshed **2026-10-20**. PR64 and PR66 review/CI/merge identities are recorded in the [coverage companion](research/remaining-gaps.md); packaging, publication and native acceptance remain separate claims.
+Reference: Windows x64 Mp3tag 3.36.1, executable SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Inspected merged baseline: main `69cd9f063c66290adbb6b3db3a70b2d5a1ca4592`, after merged PRs49–67 and the owner-authorized native source-download repair. Intake refreshed **2026-10-20**. PR64, PR66 and PR67 review/CI/merge identities are recorded in the [coverage companion](research/remaining-gaps.md); packaging, publication and native acceptance remain separate claims.
 
 The [implementation checkpoint table](research/remaining-gaps.md#pr64-implementation-checkpoints) identifies the exact commits and bounded evidence behind represented work. Planned checklists, local checks and an open PR do not establish delivery or original/native acceptance. See the [coverage and refresh rules](research/remaining-gaps.md#refresh-and-evidence-rules).
 
@@ -60,7 +60,7 @@ C61 covers full-content history and staged-write checks, including concealed ext
 
 Windows-specific work and original Windows captures are **deferred by the owner**. Retain those requirements as unqualified; continue the cross-platform work without treating deferral as completion.
 
-C63 now represents [edited Windows action-filename protection](verification/action-filename-protection-2026-10-20.md), including source-backed cleanup and portable regressions. L54 leaves this intake; exact original Windows/runtime qualification remains with C63 and L79. There are **48 active IDs** and **14 separate qualification identities**.
+C63 now represents [edited Windows action-filename protection](verification/action-filename-protection-2026-10-20.md), including source-backed cleanup and portable regressions. L54 leaves this intake; exact original Windows/runtime qualification remains with C63 and L79. C64 additionally represents [literal inline filename/folder destinations](verification/inline-filename-paths-2026-10-20.md); L47a retains only external-rename discovery on Refresh. There are **48 active IDs** and **14 separate qualification identities**.
 
 ## Uncovered work
 
@@ -88,7 +88,7 @@ C63 now represents [edited Windows action-filename protection](verification/acti
 | L41 | Utils | Qualify fragmented MP4, stco→co64 growth and FLAC with leading ID3v2 before extending Optimize; assess Remove Unsupported Fields beyond ID3v2 on MP3/AAC/AIFF/WAV. | [Scope and evidence](research/remaining-gaps.md#l41) |
 | L43 | Technical fields | Complete/qualify Musepack/WavPack %_vbr% and tag sizes for WAV, AIFF, MP4, Ogg, Matroska, ASF and DSD containers. | [Scope and evidence](research/remaining-gaps.md#l43) |
 | L46 | Covers | Qualify Linux drag-out and percent-encode file URIs before relaxing the current ASCII temporary-name restriction. | [Scope and evidence](research/remaining-gaps.md#l46) |
-| L47a | File list | Support/qualify inline filename moves to another folder and individually added-file Refresh after an external rename. | [Scope and evidence](research/remaining-gaps.md#l47a) |
+| L47a | File list | Discover an externally renamed individually loaded file during Refresh without guessing a neighbor or loading unrelated files. | [Scope and evidence](research/remaining-gaps.md#l47a) |
 | L47c | Saving | Compare save-on-move policy for editor Enter/Tab, Find, Select all and Select directory; these routes do not currently trigger it. | [Scope and evidence](research/remaining-gaps.md#l47c) |
 | L48 | File operations | Qualify temporary-playlist playback and a native folder-picker subfolder choice; Play currently opens each file separately and the native picker has no subfolders checkbox. | [Scope and evidence](research/remaining-gaps.md#l48) |
 | L49 | Tag panel | Qualify the dropdown changing the working directory and format-string fields; the dropdown currently selects rows. Typed-directory Enter and automatic multi-selection defaults are already implemented. | [Scope and evidence](research/remaining-gaps.md#l49) |

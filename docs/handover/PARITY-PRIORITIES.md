@@ -1,15 +1,15 @@
 # Remaining parity: user impact and priority
 
-Planning snapshot refreshed 2026-10-20, after merged PR66 and the native
-source-download repair. L67 is represented by [C62](../research/remaining-gaps.md#c62),
-and the current C63 follow-up represents L54. This table covers all **48 current intake
+Planning snapshot refreshed 2026-10-20, after merged PR67 and the earlier native
+source-download repair. L67 is represented by [C62](../research/remaining-gaps.md#c62).
+C63 represents L54, and C64 now represents literal inline destinations. This table covers all **48 current intake
 IDs**, assigned to later PRs. It is not a feature count, parity percentage,
 claim of a defect, or completion certificate. PR64 review, CI and merge are recorded in the [integration evidence](../research/remaining-gaps.md#pr64-integration-evidence).
 
 The owner changed the sequence: **finish L67, freeze and merge PR64 after its
 required review/CI, then use a new PR for further ledger implementation**. PR64
 has merged; the remaining local implementation now follows this priority table.
-C63 now represents L54; its original Windows/native qualifications remain open.
+C63 represents L54 and C64 represents inline destinations; their original Windows/native qualifications remain open. L47a retains external-rename discovery on Refresh.
 The current [intake](../PARITY.md), [scope/evidence companion](../research/remaining-gaps.md)
 and [OS handover](PARITY-OTHER-MACHINES.md) remain authoritative. Implemented work
 must not be rebuilt because an original/native qualification is still open.
@@ -85,7 +85,7 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L41](../research/remaining-gaps.md#l41) | P2 | Limited guarded utilities | Advanced maintenance users | Optimize refuses some layouts; broader Remove Unsupported requirements are unestablished. | R → L–XL / low | Mac topology/utility work; reference/player results |
 | [L43](../research/remaining-gaps.md#l43) | P2 | Missing technical values | Custom-column/export users | Some VBR and container tag-size fields remain empty or incomplete. | M–L / medium | Mac extraction and byte-size oracles; reference display/rounding |
 | [L46](../research/remaining-gaps.md#l46) | P2 | Limited Linux workflow | Cover drag-out on Linux | File URIs lack correct encoding, so temporary filenames are restricted to ASCII. | S–M / medium | Portable URI fix on Mac; real Linux drag acceptance |
-| [L47a](../research/remaining-gaps.md#l47a) | P1 | Limited daily workflow | Filename/list users | Inline edits cannot move into folders; individually added files may not be rediscovered after external rename and Refresh. | L / medium | Mac implementation/native checks; other OS path acceptance |
+| [L47a](../research/remaining-gaps.md#l47a) | P1 | Limited daily workflow | Filename/list users | Refresh cannot discover the new path of a file opened individually after an external rename. | L / medium | Mac source-identity implementation; Windows original and cross-platform native acceptance |
 | [L47c](../research/remaining-gaps.md#l47c) | P1 | Unknown save policy | Daily editing/selection | Some navigation/selection routes leave drafts pending despite save-on-move expectations; original triggers must be established. | R / medium | Mac draft/native checks; Windows reference trigger policy |
 | [L48](../research/remaining-gaps.md#l48) | P2 | Limited playback/directory UX | Selected-file playback users | Play opens files separately instead of one ordered playlist; subfolder choice is outside the picker workflow. | M / medium | Mac playlist lifecycle/UX; each OS player/picker acceptance |
 | [L49](../research/remaining-gaps.md#l49) | P2 | Limited workflow; contract unknown | Directory/panel users | Directory dropdown selects rows instead of changing the working directory; format-string behavior is unresolved. | R / medium | Mac state/evaluation analysis; original behavior |
@@ -155,7 +155,7 @@ acceptance and keep unrelated features in the ledger.
 | Order | Bounded next outcome | Candidate IDs | Why this order / exit condition |
 | --- | --- | --- | --- |
 | 1 | Native desktop confidence and any demonstrated save/restart repair | C47/C59/C61; targeted L78/L73/L47c; L62 where installed context is available | Use postmerge native CI and focused checks for actual failures; do not repeat local UI sweeps to refresh evidence or add speculative implicit saves. C62 records completed bounded history/recovery validation; do not repeat it as missing implementation. |
-| 2 | Predictable inline rename and Refresh | L47a; C63 represents the prior L54 Windows action-protection slice | Direct daily benefit and explicit current limitations. Keep membership/no-clobber/history rules; original Windows substitution remains qualification. C63 retains exact original Windows/native qualification in its handover. |
+| 2 | Predictable external-rename Refresh | L47a; C63/C64 represent action protection and known inline destinations | Finish exact source-identity discovery without replacing a missing file with a guessed neighbor or broadening membership to its parent. Preserve the represented inline behavior and its separate Windows/native qualification. |
 | 3 | One real migrated tag-source workflow at a time | L30; scoped L32/N03; specific L52 route if needed | Sources are a stated owner priority and freedb is active. Retain actual authorized responses, reproduce a user-visible difference, then repair that route; do not rebuild already delivered parser/install engines or call all sources missing. |
 | 4 | Confirmed profile/action migration omissions | Start L07/L57b; N05 as a separate action-file batch | Use actual profiles/static schemas and explicit loss diagnostics. Ship a bounded confirmed mapping rather than all undocumented settings; preserve existing import/recovery and opaque data. |
 | 5 | Trusted Mac distribution and bounded release inventory | Desktop L71 with a bounded L76 audit | Broad install/trust benefit. Check current artifacts and actual account/certificate availability first. Windows signing and physical iOS distribution stay separate. This can move earlier if current installation is the adoption blocker. |
