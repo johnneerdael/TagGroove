@@ -46,9 +46,9 @@ To choose individual fields from several providers, use
 Traxsource may require a FlareSolverr-compatible proxy when direct catalog
 requests are restricted. TagGroove does not install or start a solver.
 
-Open **Options → Tag Sources → Beatport and Traxsource**:
+Open **Options → Tag Sources → Traxsource**:
 
-- **Optional challenge solver endpoint:** leave empty for direct access, or
+- **Traxsource solver endpoint:** leave empty for direct access, or
   enter the HTTP/HTTPS endpoint of a trusted solver, for example
   `http://localhost:8191/v1`.
 - **Solver timeout (seconds):** use 1–300 seconds; the default is 120.
@@ -56,7 +56,7 @@ Open **Options → Tag Sources → Beatport and Traxsource**:
   updating the solver or fixing connectivity. This action does not edit tags.
 
 Choose **OK** to save endpoint and timeout changes. Saving an endpoint permits
-blocked catalog page requests to use that solver. An unavailable or rejected
+challenged Traxsource page requests to use that solver. An unavailable or rejected
 solver produces a lookup error; a failed or challenged page is not a valid
 empty release. Close or cancel an unwanted lookup before retrying.
 
@@ -66,7 +66,8 @@ Searches send artist/title terms and provider identifiers to the selected
 catalog. Metadata and artwork retrieval contact that catalog and its image
 hosts. Audio files are not uploaded by these catalog lookups.
 
-A configured solver receives catalog page addresses and fetches those pages.
+Beatport uses its direct catalog API and never uses this solver. A configured
+solver receives Traxsource page addresses and fetches those pages.
 Choose a solver whose operator and network are trusted. The endpoint is saved
 in ordinary Options, separately from private source credentials; do not put
 passwords or tokens in its address. Catalog solver configuration does not grant

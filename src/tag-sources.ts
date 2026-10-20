@@ -338,15 +338,15 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         render:draft => `<div class="field"><span>TEXT INDEX</span><p id="local-freedb-index-status" role="status">${html(indexText(indexStatus,draft))}</p><div class="action-input"><button type="button" id="local-freedb-index-build">Build index</button><button type="button" id="local-freedb-index-cancel" hidden>Cancel</button></div></div>`,
         bind:(root,draft) => bindIndex(root,draft)},
       ]},
-    {id:'tag-sources-catalog',label:'Beatport and Traxsource',parent:'tag-sources',order:4,
-      description:'Search tracks and releases from Beatport and Traxsource. Traxsource may require a separately hosted FlareSolverr-compatible proxy.',
+    {id:'tag-sources-catalog',label:'Traxsource',parent:'tag-sources',order:4,
+      description:'Configure the optional FlareSolverr-compatible proxy for Traxsource. Beatport uses its direct catalog API.',
       defaults:{endpoint:'',timeout_seconds:120},
       controls:[
-        {kind:'text',path:'pages.tag-sources-catalog.endpoint',label:'Optional challenge solver endpoint',placeholder:'http://localhost:8191/v1'},
-        {kind:'note',text:'Leave empty for direct access. Saving an endpoint allows blocked catalog page requests to use that solver. The solver receives catalog page addresses; keep it on a server trusted by you.'},
+        {kind:'text',path:'pages.tag-sources-catalog.endpoint',label:'Traxsource solver endpoint',placeholder:'http://localhost:8191/v1'},
+        {kind:'note',text:'Leave empty for direct Traxsource access. Saving an endpoint allows challenged Traxsource page requests to use that solver. The solver receives Traxsource page addresses; keep it on a server trusted by you.'},
         {kind:'text',path:'pages.tag-sources-catalog.timeout_seconds',label:'Solver timeout (seconds)',placeholder:'120'},
-        {kind:'button',id:'tag-source-catalog-reset',label:'Retry restricted catalog services',run:async () => { await resetCatalog?.(); }},
-        {kind:'note',text:'Clear remembered access restrictions after updating the solver or fixing connectivity. This does not change saved tags.'},
+        {kind:'button',id:'tag-source-catalog-reset',label:'Retry direct Traxsource access',run:async () => { await resetCatalog?.(); }},
+        {kind:'note',text:'Clear remembered Traxsource access restrictions after updating the solver or fixing connectivity. This does not change saved tags.'},
       ],
       validate:draft => {
         const page = (draft.pages['tag-sources-catalog'] || {}) as Record<string,unknown>;

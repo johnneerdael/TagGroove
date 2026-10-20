@@ -59,16 +59,17 @@ its separate credential and optional keychain setting.
 The **freedb** and **Local freedb** subpages configure a CDDB server and local
 database folder. They do not choose servers for the other online services.
 
-## Beatport and Traxsource
+## Traxsource
 
-The **Beatport and Traxsource** subpage configures an optional
-FlareSolverr-compatible challenge solver. Leave **Optional challenge solver
+The **Traxsource** subpage configures an optional
+FlareSolverr-compatible challenge solver. Leave **Traxsource solver
 endpoint** empty for direct access, or enter a trusted HTTP/HTTPS endpoint
-without credentials in its address. Saving an endpoint allows blocked catalog
-page requests to use it. The endpoint is stored in ordinary Options.
+without credentials in its address. Saving an endpoint allows challenged Traxsource
+page requests to use it. Beatport uses its direct catalog API and never uses
+this solver. The endpoint is stored in ordinary Options.
 
 **Solver timeout (seconds)** defaults to 120 and accepts 1–300.
-**Retry restricted catalog services** clears remembered access restrictions;
+**Retry direct Traxsource access** clears remembered access restrictions;
 use it after updating the solver or fixing connectivity. It does not change
 tags. Read the [catalog source guide](../../tag-sources/catalog.md) for the
 track/release workflow and solver privacy details.
