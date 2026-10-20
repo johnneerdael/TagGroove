@@ -16,5 +16,5 @@ export const audioLicenses = [
   {title:"zlib 1.3.2 — license",text:license5},
   {title:"bzip2 1.0.8 — license",text:license6},
   {title:"Boost.Regex 1.89.0 — license and notices",text:licenseBoost},
-  {title:".NET runtime v10.0.0 locale data — MIT license",text:licenseDotnet},
+  {title:"Locale data (.NET runtime v10.0.0) — MIT license",text:licenseDotnet},
 ];

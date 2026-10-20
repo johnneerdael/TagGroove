@@ -3677,5 +3677,6 @@
  "Unknown native locale identifier": "Unbekannte ursprüngliche Gebietsschema-ID",
  "Unknown — preserve ambiguous actions": "Unbekannt — mehrdeutige Aktionen beibehalten",
  "Unqualified native cover filter tuple": "Ungeprüfte ursprüngliche Wertekombination für den Coverfilter",
- "Unqualified native export partition tuple": "Ungeprüfte ursprüngliche Wertekombination für die Exportaufteilung"
+ "Unqualified native export partition tuple": "Ungeprüfte ursprüngliche Wertekombination für die Exportaufteilung",
+ "Locale data (.NET runtime v10.0.0) — MIT license": "Gebietsschemadaten (.NET runtime v10.0.0) — MIT-Lizenz"
 }

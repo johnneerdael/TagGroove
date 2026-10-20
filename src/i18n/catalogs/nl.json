@@ -3664,5 +3664,6 @@
  "Unknown native locale identifier": "Onbekende oorspronkelijke landinstellingscode",
  "Unknown — preserve ambiguous actions": "Onbekend — onduidelijke acties behouden",
  "Unqualified native cover filter tuple": "Niet-gevalideerde oorspronkelijke combinatie voor het afbeeldingsfilter",
- "Unqualified native export partition tuple": "Niet-gevalideerde oorspronkelijke combinatie voor exportsplitsing"
+ "Unqualified native export partition tuple": "Niet-gevalideerde oorspronkelijke combinatie voor exportsplitsing",
+ "Locale data (.NET runtime v10.0.0) — MIT license": "Landinstellingsgegevens (.NET runtime v10.0.0) — MIT-licentie"
 }
