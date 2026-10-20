@@ -54,3 +54,51 @@ Both Linux architectures need their own package/byte mapping. Shared source
 archives may be deduplicated by their verified identities; an x64 observation
 does not certify the arm64 image. Application relinking and native integration
 remain separate checks, while reproducible rebuilds remain P2.
+
+## Approved implementation and actual material controls
+
+The owner approved extending the existing source pipeline to retain verified
+distribution source archives/patches and AppImage runtime/launcher source and
+notices, bound to both Linux builds, without duplicate application builds or UI
+runs. Implementation is in progress; this section does not close L76.
+
+The [source-material core](../../scripts/linux-source-material.py) binds index
+bytes to an already authenticated Release payload, selects one exact source
+package/version, and checks every source archive, patch and `.dsc` byte against
+the index. It also requires the `.dsc` identity and complete declared file set
+to agree. Changed or missing patches, ambiguous versions, duplicate metadata
+fields and detached source descriptions refuse. It does not yet perform GnuPG
+authentication, builder capture or publication integration. Its seven focused
+regressions are included through the existing premerge headless test discovery.
+
+The [structured controls](linux-source-controls-2026-10-20.json) retain exact
+input identities and limits:
+
+- Six actual Ubuntu package indexes were verified against signed Release files
+  with GnuPG and the official archive key fingerprint
+  `F6ECB3762474EDA9D21B7022871920D1991BC93C`, published in
+  [Ubuntu's integrity guidance](https://documentation.ubuntu.com/security/software-integrity/image-verification/).
+  The selected source index was verified through the same chain.
+- GTK `3.24.41-4ubuntu1.3` supplies an original archive, a distribution archive
+  with patches/packaging, and a `.dsc`. All three downloaded files pass the new
+  production material verifier. The control does not establish that this is
+  the only historical binary package with equivalent code.
+- The actual packaged GTK has a different full hash from that package's
+  original library. Its 6,885 dynamic symbol records, 26 other section records
+  and original dynamic strings agree after resolving metadata references; the
+  canonical dynamic table adds `$ORIGIN` as RUNPATH. This is one static control,
+  not a general proof of ELF transformation safety or all program-header/load
+  relationships. The collector should replay the exact bundler tools and
+  require full resulting bytes to match, rather than relying on this comparison.
+- The image's 944,632-byte runtime prefix matches the published type2-runtime
+  binary for commit `fedfad51acc2860b2916a1eef32ba4a500ff31ef`, except its
+  16-byte `.digest_md5` field. The runtime's root license lists statically linked
+  suppliers; its Makefile also links mimalloc, which needs its own retained
+  material. Root MIT wording alone does not finish this runtime audit.
+- The top-level `AppRun` is a generated shell wrapper. `AppRun.wrapped` matches
+  the publisher's 31,552-byte AppRun mirror exactly; a mirror pointing at a moving
+  upstream release does not establish an immutable producer-source revision.
+
+These checks read archive data and metadata. No downloaded application, runtime,
+launcher or Linux inspection executable was run, and no local app build or UI
+replay was performed.

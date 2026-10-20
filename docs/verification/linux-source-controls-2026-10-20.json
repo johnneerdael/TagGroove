@@ -1,0 +1,267 @@
+{
+  "schema": 1,
+  "scope": "Actual v0.2.56x64 controls, not complete builder capture or arm64/source-delivery acceptance",
+  "ubuntu_index_signatures": [
+    {
+      "suite": "noble",
+      "signer_fingerprint": "F6ECB3762474EDA9D21B7022871920D1991BC93C",
+      "inrelease_sha256": "cdb2f31d809f589719a53c6ad15f255b27569c4059542ada282aaa21b8e164b0",
+      "release_sha256": "26758a13cecfaff9ff274d31ea9a4633674a999bd130c09f6ecd66a4b8071184",
+      "checked_indexes": [
+        "main/binary-amd64/Packages.xz",
+        "universe/binary-amd64/Packages.xz"
+      ]
+    },
+    {
+      "suite": "noble-updates",
+      "signer_fingerprint": "F6ECB3762474EDA9D21B7022871920D1991BC93C",
+      "inrelease_sha256": "4fd8f772d483cb011bf899a9e1a20c38c7dec90fbc21bf5083d4ada6b7d9120b",
+      "release_sha256": "d9f7b934e18de77f3c2a1a53a0946a3e2811939ab350d510bcc8fe6630fdf9bc",
+      "checked_indexes": [
+        "main/binary-amd64/Packages.xz",
+        "universe/binary-amd64/Packages.xz"
+      ]
+    },
+    {
+      "suite": "noble-security",
+      "signer_fingerprint": "F6ECB3762474EDA9D21B7022871920D1991BC93C",
+      "inrelease_sha256": "3e807a1db9531e3815e6fa04e16b98e3d0499d925766c8fe398e9101b8bd4c3f",
+      "release_sha256": "6b86021ce77415d94005370c641d855c5a0caa93ce3dd67eeb17f481847b073a",
+      "checked_indexes": [
+        "main/binary-amd64/Packages.xz",
+        "universe/binary-amd64/Packages.xz"
+      ]
+    }
+  ],
+  "ubuntu_keyring_sha256": "80a36b0a6de2f69f49d2df75ef473ccde121e9e190b9ea01d20a4f63778d5c31",
+  "binary_candidates": [
+    {
+      "package": {
+        "Package": "libgtk-3-0t64",
+        "Version": "3.24.41-4ubuntu1",
+        "Architecture": "amd64",
+        "Source": "gtk+3.0",
+        "Filename": "pool/main/g/gtk+3.0/libgtk-3-0t64_3.24.41-4ubuntu1_amd64.deb",
+        "Size": "2901068",
+        "SHA256": "011d0688aeb8e40fb146b6d6cd3d892e2a81b1e181320bcf2bf7e2d7206ae156"
+      },
+      "member": "./usr/lib/x86_64-linux-gnu/libgtk-3.so.0.2409.32",
+      "original_size": 8127960,
+      "original_sha256": "12295d82d4ee087a121c10e87db330a34efdccc4b7b302b6090413b593ef906f",
+      "image_sha256": "a7c9b0a7d80abf16e4a17d75bc15aeeb87e76a37bb86042ec25b9349152a0c9e",
+      "full_bytes_equal": false,
+      "text_equal": false,
+      "matching_sections": [
+        "",
+        ".gnu.version",
+        ".gnu.version_r",
+        ".fini",
+        ".init_array",
+        ".fini_array",
+        ".shstrtab",
+        ".note.gnu.property",
+        ".gnu.hash"
+      ],
+      "differing_sections": [
+        ".dynsym",
+        ".rela.dyn",
+        ".rela.plt",
+        ".init",
+        ".plt",
+        ".plt.got",
+        ".plt.sec",
+        ".text",
+        ".rodata",
+        ".gresource.gtk",
+        ".eh_frame_hdr",
+        ".eh_frame",
+        ".data.rel.ro",
+        ".got",
+        ".data",
+        ".gnu_debuglink",
+        ".note.gnu.build-id",
+        ".dynstr",
+        ".dynamic"
+      ],
+      "image_only_sections": [],
+      "source_only_sections": []
+    },
+    {
+      "package": {
+        "Package": "libgtk-3-0t64",
+        "Version": "3.24.41-4ubuntu1.3",
+        "Architecture": "amd64",
+        "Source": "gtk+3.0",
+        "Filename": "pool/main/g/gtk+3.0/libgtk-3-0t64_3.24.41-4ubuntu1.3_amd64.deb",
+        "Size": "2913080",
+        "SHA256": "fd61e308234b12d243160798216d0efcb605d83af185bf3414ac99c2ed5166fc"
+      },
+      "member": "./usr/lib/x86_64-linux-gnu/libgtk-3.so.0.2409.32",
+      "original_size": 8156632,
+      "original_sha256": "0611fd19d1354a39a7cfafceffa3bdf4289d4c497c7f69ff337f86e99cf37d93",
+      "image_sha256": "a7c9b0a7d80abf16e4a17d75bc15aeeb87e76a37bb86042ec25b9349152a0c9e",
+      "full_bytes_equal": false,
+      "text_equal": true,
+      "matching_sections": [
+        "",
+        ".gnu.version",
+        ".gnu.version_r",
+        ".rela.dyn",
+        ".rela.plt",
+        ".init",
+        ".plt",
+        ".plt.got",
+        ".plt.sec",
+        ".text",
+        ".fini",
+        ".rodata",
+        ".gresource.gtk",
+        ".eh_frame_hdr",
+        ".eh_frame",
+        ".init_array",
+        ".fini_array",
+        ".data.rel.ro",
+        ".got",
+        ".data",
+        ".gnu_debuglink",
+        ".shstrtab",
+        ".note.gnu.property",
+        ".note.gnu.build-id",
+        ".gnu.hash"
+      ],
+      "differing_sections": [
+        ".dynsym",
+        ".dynstr",
+        ".dynamic"
+      ],
+      "image_only_sections": [],
+      "source_only_sections": []
+    },
+    {
+      "package": {
+        "Package": "libgtk-3-0t64",
+        "Version": "3.24.41-4ubuntu1.1",
+        "Architecture": "amd64",
+        "Source": "gtk+3.0",
+        "Filename": "pool/main/g/gtk+3.0/libgtk-3-0t64_3.24.41-4ubuntu1.1_amd64.deb",
+        "Size": "2901260",
+        "SHA256": "c6c498c6f4e643b239172b079d1501c483ec911cb68284821d1f2d73f837c89e"
+      },
+      "member": "./usr/lib/x86_64-linux-gnu/libgtk-3.so.0.2409.32",
+      "original_size": 8127960,
+      "original_sha256": "368d53cbe01a870d0218cbe98923cad81a53b431db9449a84052fc51d6cb947a",
+      "image_sha256": "a7c9b0a7d80abf16e4a17d75bc15aeeb87e76a37bb86042ec25b9349152a0c9e",
+      "full_bytes_equal": false,
+      "text_equal": false,
+      "matching_sections": [
+        "",
+        ".gnu.version",
+        ".gnu.version_r",
+        ".fini",
+        ".init_array",
+        ".fini_array",
+        ".shstrtab",
+        ".note.gnu.property",
+        ".gnu.hash"
+      ],
+      "differing_sections": [
+        ".dynsym",
+        ".rela.dyn",
+        ".rela.plt",
+        ".init",
+        ".plt",
+        ".plt.got",
+        ".plt.sec",
+        ".text",
+        ".rodata",
+        ".gresource.gtk",
+        ".eh_frame_hdr",
+        ".eh_frame",
+        ".data.rel.ro",
+        ".got",
+        ".data",
+        ".gnu_debuglink",
+        ".note.gnu.build-id",
+        ".dynstr",
+        ".dynamic"
+      ],
+      "image_only_sections": [],
+      "source_only_sections": []
+    }
+  ],
+  "selected_source_material": {
+    "schema": 1,
+    "source_package": "gtk+3.0",
+    "source_version": "3.24.41-4ubuntu1.3",
+    "signed_suite": "noble-updates",
+    "source_index_path": "main/source/Sources.xz",
+    "source_index_sha256": "56956fdc9dbdf980e52b8c02fb211cced4bf01ffc3cd4773779d2dd2b27783e2",
+    "release_sha256": "d9f7b934e18de77f3c2a1a53a0946a3e2811939ab350d510bcc8fe6630fdf9bc",
+    "sources": [
+      {
+        "name": "gtk+3.0_3.24.41.orig.tar.xz",
+        "size": 13188312,
+        "sha256": "47da61487af3087a94bc49296fd025ca0bc02f96ef06c556e7c8988bd651b6fa",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/g/gtk+3.0/gtk+3.0_3.24.41.orig.tar.xz"
+      },
+      {
+        "name": "gtk+3.0_3.24.41-4ubuntu1.3.debian.tar.xz",
+        "size": 3666360,
+        "sha256": "1a82c70d722296f15af0a00a737a0c552580c6bf3f527f9ef7e66f192fe1831c",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/g/gtk+3.0/gtk+3.0_3.24.41-4ubuntu1.3.debian.tar.xz"
+      },
+      {
+        "name": "gtk+3.0_3.24.41-4ubuntu1.3.dsc",
+        "size": 4996,
+        "sha256": "b7ea9dda7ffd3f01f97d7ee673f130a82db5b346ade2d003e609e27886b35269",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/main/g/gtk+3.0/gtk+3.0_3.24.41-4ubuntu1.3.dsc"
+      }
+    ],
+    "limit": "Actual verified GTK source control only; no source extraction, app build, library execution or all-AppImage mapping claim."
+  },
+  "elf_control": {
+    "schema": 1,
+    "scope": "One actual GTK ELF64 transformation control; not whole-AppImage or arm64 qualification",
+    "original_sha256": "0611fd19d1354a39a7cfafceffa3bdf4289d4c497c7f69ff337f86e99cf37d93",
+    "packaged_sha256": "a7c9b0a7d80abf16e4a17d75bc15aeeb87e76a37bb86042ec25b9349152a0c9e",
+    "unchanged_other_sections": 26,
+    "unchanged_symbol_records": 6885,
+    "canonical_dynamic_added": [
+      [
+        29,
+        "$ORIGIN"
+      ]
+    ],
+    "canonical_dynamic_removed": [],
+    "checked_material_changes": [
+      "dynsym name offsets resolved through each dynstr, section indexes resolved to section names",
+      "DT_STRTAB and GNU_HASH pointers bound to each exact section address",
+      "DT_STRSZ bound to each dynstr size",
+      "All original dynstr NUL-separated strings retained",
+      "All other section bytes/types/flags/sizes/alignment/entry sizes equal"
+    ],
+    "limit": "This is a focused static control. It does not prove generic safety of ELF transformations or all program-header/load-address relationships."
+  },
+  "runtime_control": {
+    "source_commit": "fedfad51acc2860b2916a1eef32ba4a500ff31ef",
+    "upstream_binary_sha256": "617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46",
+    "packaged_prefix_sha256": "9d47631736db77dbc0a18ff45e1e92689d5eaa4a0eae179ff44740583fe1901f",
+    "prefix_size": 944632,
+    "only_changed_section": ".digest_md5",
+    "section_offset": 932096,
+    "section_size": 16,
+    "full_prefix_equal_after_zeroing_section": true,
+    "source_license_sha256": "aa154fc9070614bbe7921f89db11efd1dba7a1f3a41685958110e2230f9c0ca1",
+    "limit": "Root MIT license also lists supplier libraries; Makefile additionally links mimalloc. Exact supplier source material and notices are still required. The naive whole-container MD5 control is not qualified for this format and is not used as integrity proof; release SHA256 binds the inspected image.",
+    "naive_zero_field_whole_container_md5_matches": false
+  },
+  "launcher_control": {
+    "packaged_member": "AppRun.wrapped",
+    "size": 31552,
+    "sha256": "f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f",
+    "matches_publisher_mirror": true,
+    "source_qualification": "Mirror points at moving AppImageKit continuous release; not an immutable producer-source identity."
+  },
+  "production_core_control": "Current linux-source-material.py verifies authenticated Release-index hash binding, exact GTK source record and complete original/patch/dsc bytes. Signature authentication/capture and pipeline wiring are not implemented in this core slice.",
+  "production_core_sha256": "38e100f480c2e0332e666518bbaa611856bb82a3df51858810aba5cb6915b26a"
+}
