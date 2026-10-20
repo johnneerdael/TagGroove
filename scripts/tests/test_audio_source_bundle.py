@@ -269,6 +269,47 @@ def linux_distribution_fixture(root, builder, macos_signing=False):
 
 
 class SourceBundleTests(unittest.TestCase):
+    def test_archive_budget_supports_measured_complete_sources_and_keeps_all_bounds(self):
+        m=self.builder
+        self.assertTrue(callable(getattr(m,'archive_budget',None)), 'Missing shared producer/verifier archive budget')
+        self.assertEqual(m.archive_budget([512*1024*1024]*6),(6,3*1024**3))
+        self.assertEqual(m.archive_budget([512*1024*1024]*8),(8,4*1024**3))
+        for sizes in [[-1],[512*1024*1024+1],[512*1024*1024]*8+[1],[0]*100001]:
+            with self.subTest(sizes=len(sizes)),self.assertRaises(ValueError):m.archive_budget(sizes)
+
+    def test_producer_refuses_over_budget_before_opening_a_compression_output(self):
+        m=self.builder
+        self.assertTrue(hasattr(m,'MAX_ARCHIVE_BYTES'), 'Missing producer source-size preflight')
+        output=self.f['root']/'oversized.tar.xz';original_open=m.tarfile.open
+        def opened(*args,**kwargs):
+            if len(args)>1 and args[1]=='w:xz':raise AssertionError('Compression started before budget refusal')
+            return original_open(*args,**kwargs)
+        with patch.object(m,'MAX_ARCHIVE_BYTES',1),patch.object(m.tarfile,'open',side_effect=opened):
+            with self.assertRaisesRegex(ValueError,'expanded bytes'):
+                m.build_bundle(self.f['app'],self.f['commit'],'0.1.0',output,
+                    self.f['evidence'],self.f['archives'],self.f['vendor'],self.f['dist'])
+        self.assertFalse(output.exists())
+
+    def test_reader_refuses_expanded_overflow_before_buffering_the_member(self):
+        path=build(self.f);m=self.builder
+        with patch.object(m,'MAX_ARCHIVE_BYTES',1),patch.object(m.tarfile.TarFile,'extractfile',side_effect=AssertionError('Oversized body read')):
+            with self.assertRaisesRegex(ValueError,'expanded bytes'):
+                m.verify_bundle(path,self.f['commit'],'0.1.0')
+
+    def test_producer_releases_expanded_inputs_before_independent_archive_verification(self):
+        m=self.builder;inputs=[];original_contents=m.verify_contents;original_bundle=m.verify_bundle
+        def contents(files,*args,**kwargs):
+            if not inputs:inputs.append(files)
+            return original_contents(files,*args,**kwargs)
+        def independent(*args,**kwargs):
+            self.assertEqual(inputs,[{}], 'Producer retained the complete expanded input during reload')
+            return original_bundle(*args,**kwargs)
+        output=self.f['root']/'released-inputs.tar.xz'
+        with patch.object(m,'verify_contents',side_effect=contents),patch.object(m,'verify_bundle',side_effect=independent):
+            m.build_bundle(self.f['app'],self.f['commit'],'0.1.0',output,
+                self.f['evidence'],self.f['archives'],self.f['vendor'],self.f['dist'])
+        self.assertTrue(output.is_file())
+
     def test_signed_mac_source_receipts_are_required_and_bound_to_git_policy_and_external_artifacts(self):
         self.assertIn('macos_evidence', inspect.signature(self.builder.build_bundle).parameters,
                       'Source publication has no macOS signing evidence input')
