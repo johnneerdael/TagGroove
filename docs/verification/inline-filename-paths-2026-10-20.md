@@ -1,7 +1,8 @@
 # Literal inline filename destinations — 2026-10-20
 
-C64 represents the inline-destination part of L47a. Implementation checkpoint:
-`6465fb5572054b555b541a4c9436517c94c8b760`, based on merged PR67 main
+C64 represents the inline-destination part of L47a. Current implementation checkpoint:
+`faca383bf693e9978b00bbf0dc2758b10e93588a` (initial implementation
+`6465fb5572054b555b541a4c9436517c94c8b760`), based on merged PR67 main
 `69cd9f063c66290adbb6b3db3a70b2d5a1ca4592`. Discovering an externally renamed,
 individually loaded file on Refresh remains active L47a work.
 
@@ -48,7 +49,9 @@ backslashes and uses `/` for folders.
 The existing audio suffix is retained once when it matches without case, or
 appended when it differs. Missing filename leaves, including an explicit final
 `.` or `..`, are refused before suffix handling. Intermediate dot navigation
-is allowed. Successful receipts use the canonical readback row identity, with
+is allowed. Existing parent directories and symlinks are resolved before
+interpreting `..`; missing components canceled by navigation are never created.
+The final filename retains its authored case. Successful receipts use the canonical readback row identity, with
 a filesystem fallback when readback fails, so destination aliases do not
 produce duplicate rows or stale source roots.
 
@@ -72,7 +75,7 @@ explains the immediate operation, extension examples and Undo.
 - Review RED: unresolved dot-navigation receipt identity and accepted terminal
   `/.` both failed actual assertions; two controls passed
   (`taggroove-l47a-inline-review-red-xpi962iw`).
-- Corrected backend: eight focused tests pass, 592 unrelated tests filtered
+- Initial corrected backend: eight focused tests pass, 592 unrelated tests filtered
   out, 1.70s harness time (`taggroove-l47a-inline-canonical-history-mnjrv9r9`).
   This includes byte-checked Undo/Redo through dot and owned Unix symlink
   destinations. Six related converter/rename regressions passed separately
@@ -84,20 +87,21 @@ explains the immediate operation, extension examples and Undo.
   Before/after hashes agree in
   `/tmp/taggroove-l47a-frontend-final-source-binding.json`.
 - TypeScript, production-library Clippy with warnings denied, Rust formatting,
-  catalog extraction and the strict guide pass. The final Rust-only change
-  after Clippy strengthens Undo/Redo assertions; hosted all-target validation
-  remains a separate final-head requirement. The two obsolete refusal messages
+  catalog extraction and the strict guide pass. Current parent-normalization
+  checks are recorded below; hosted all-target validation remains a separate
+  final-head requirement. The two obsolete refusal messages
   were removed from all three catalogs without reordering translations.
 
-The final compiled adapter SHA-256 is
+The initial eight-test compiled adapter SHA-256 is
 `abbce25acdd60e58e2387f693d285c07a78d1f6a2bd4c15c041be7fb0b2d993a`;
-the retained GREEN binding matches it. This is macOS execution of TagGroove
+the retained initial GREEN binding matches it. This is macOS execution of TagGroove
 policy and owned fixtures, not original Windows execution.
 
 The existing postmerge [native suite](../../tests/e2e/rename-fixes.js) gains a
 registered-command case for literal folder destinations, suffix retention,
-native backslashes, canonical dot navigation, metadata readback, Undo and
-typed collision refusal. It is syntax-checked only and has **not run locally**.
+native backslashes, canonical dot navigation without discarded folders,
+metadata readback, Undo and typed collision refusal without discarded folders.
+It is syntax-checked only and has **not run locally**.
 It does not prove a physical F2/keyboard/accessibility journey. No local app
 build, UI replay or full Rust/frontend sweep was run for this follow-up.
 Independent code review found two path edges, both reproduced and corrected;
@@ -124,9 +128,39 @@ The probe now extracts only the named production converter helper and its
 pure destination dependency. It retains all written-case assertions and
 `-D warnings`. All four focused folder-recipe tests pass, including the real
 standalone helper compile (`taggroove-l47a-guide-probe-ci-fix-4ra03zs5`).
-Application source and the policy/source bindings above remain unchanged.
-The corrected PR head still requires fresh GitHub CODE approval and immutable
-premerge validation; the earlier clean review does not approve a new commit.
+That test-probe correction did not change application source. Its new review
+then identified the separate application issue below. The corrected final PR
+head requires fresh GitHub CODE approval and immutable premerge validation;
+the earlier clean review does not approve a new commit.
+
+## GitHub CODE parent-navigation correction
+
+[Finding 4320882325](https://github.com/johnneerdael/TagGroove/pull/68#discussion_r4320882325)
+identified that `Album/../Track.wav` could create an unused `Album` directory,
+including when an occupied destination refused the rename. A focused RED run
+reproduced the discarded-directory assertion: nine tests passed and one failed
+(`taggroove-inline-dot-parent-red-17k_kup7`).
+
+Checkpoint `faca383bf693e9978b00bbf0dc2758b10e93588a` resolves only the
+destination parent before execution. Existing symlinks retain filesystem
+parent semantics, missing components remain prospective until navigation has
+been resolved, invalid file/dangling-link parents refuse without writes, and
+the authored filename case is preserved.
+
+The current source-bound GREEN run passes 11 focused Rust tests, zero failures,
+592 unrelated tests filtered out, in 2.45s harness time after compilation
+(`taggroove-inline-dot-parent-green-fixed-7uktkx_u`). It covers successful and
+colliding one-level/nested navigation without discarded directories, Undo
+bytes, real Unix symlink parents, invalid parents and a direct-command
+case-only rename. Current compiled adapter SHA-256:
+`fa560dd292839e24b31d6ef99fc2244d9dc04591ba8f0fa412706de160415b9b`.
+
+Production-library Clippy with warnings denied passes
+(`taggroove-l47a-dot-parent-clippy-aj5yh77z`), all four real folder-recipe probe
+tests pass (`taggroove-l47a-dot-parent-guide-probe-v3ljbemx`), formatting passes,
+and the strict guide passes (`taggroove-l47a-dot-parent-guide-gj3yolhq`).
+Independent code and native-case source reviews are clear. The native case
+was only syntax-checked; no local UI/app execution was performed.
 
 ## Engineer handover and remaining work
 

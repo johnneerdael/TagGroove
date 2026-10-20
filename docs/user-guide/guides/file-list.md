@@ -191,7 +191,8 @@ as entered. Editing a filename does not automatically change TITLE.
 
 To move one file into a folder, enter `Album/Track.mp3`; on Windows,
 `Album\Track.mp3` works too. A relative destination starts in that file's
-current folder. Missing destination folders are created. On macOS and Linux,
+current folder. Use `../Track.mp3` to move one folder up. Paths are resolved
+before the required destination folders are created. On macOS and Linux,
 use `/` for folders: a backslash remains part of the filename. An absolute
 destination uses the path entered. Include a filename after the last folder
 separator; `Album/`, `Album/.` and `Album/..` are refused.
