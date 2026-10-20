@@ -176,6 +176,30 @@ the [collector and replay instructions](verification/dependency-notices-2026-10-
 This candidate inventory does not establish exact linked membership or replace
 the native/JVM/installer-helper audit and actual package inspection.
 
+The separate Android/JVM section comes from `src/licenses/android-inventory.json`
+and `THIRD_PARTY_ANDROID.md`. Run `python3 scripts/android-notices.py --check`
+without Gradle or caches to check source bindings, text hashes and the attached
+Android/common/RTF payload; frontend checks separately verify About's import.
+After preparing the current Tauri Android Gradle
+project, capture and replay actual runtime material with:
+
+```sh
+python3 scripts/android-notices.py --capture /tmp/taggroove-android-runtime.json
+python3 scripts/android-notices.py --generate --metadata /tmp/taggroove-android-runtime.json --maven-cache /path/to/.gradle/caches/modules-2/files-2.1
+python3 scripts/android-notices.py --check --metadata /tmp/taggroove-android-runtime.json --verify-material --maven-cache /path/to/.gradle/caches/modules-2/files-2.1
+```
+
+Capture runs only the scoped offline runtime-metadata task; Gradle may compile
+its buildSrc tooling, but no application, Rust or native packaging task is
+requested. It ignores application-signing environment variables. The collector
+requires current tracked app/buildSrc inputs, exact generated dependency scripts
+and Cargo-archive-bound Tauri module configuration. See the
+[Android audit](verification/android-jvm-notices-2026-10-20.md) for material and
+candidate-membership limits. The Android release job captures the dependency
+selection after its normal APK build, then checks exact runtime archive hashes
+and replays material before package collection. It retains the metadata as a
+separate workflow artifact, outside the strict public release asset set.
+
 For maintainers, collect each finished native prefix and assemble the source asset with:
 
 ```sh

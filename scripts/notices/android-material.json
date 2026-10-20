@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "apache_license_names": [
+    "Apache 2.0",
+    "The Apache License, Version 2.0",
+    "The Apache Software License, Version 2.0"
+  ],
+  "canonical_license": {
+    "source_file": "src/licenses/android/apache-2.0.txt",
+    "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+    "reference_component": "androidx.annotation:annotation-jvm:1.9.1",
+    "archive_sha256": "1e343917ebf27ba96fe4dc52b1cad7fd32b738fbc6355bb6cd5b3b305d7212d0",
+    "archive_member": "META-INF/androidx/annotation/annotation/LICENSE.txt"
+  }
+}

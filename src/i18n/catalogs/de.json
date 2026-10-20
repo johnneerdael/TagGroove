@@ -143,6 +143,7 @@
  "An export configuration named {name} already exists.": "Eine Exportkonfiguration namens {name} existiert bereits.",
  "An update is available": "Ein Update ist verfügbar",
  "Android SAF document access is not supported on this platform": "Android-SAF-Dokumentzugriff wird auf dieser Plattform nicht unterstützt",
+ "Android/JVM licenses and notices": "Android/JVM-Lizenzen und Hinweise",
  "Another selected file is also named {value}": "Eine andere ausgewählte Datei heißt ebenfalls {value}",
  "Any text (.*)": "Beliebiger Text (.*)",
  "Ape, Mpc": "Ape, Mpc",

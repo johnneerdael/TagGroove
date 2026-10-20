@@ -14,6 +14,10 @@ THIRD_PARTY_DEPENDENCIES.md text eol=lf linguist-generated whitespace=-blank-at-
 THIRD_PARTY_NOTICES.md text eol=lf linguist-generated whitespace=-blank-at-eol
 src/licenses/dependency-inventory.json text eol=lf linguist-generated
 src/licenses/supplements/** -text linguist-vendored whitespace=-blank-at-eol
+THIRD_PARTY_ANDROID.md text eol=lf linguist-generated whitespace=-blank-at-eol
+src/licenses/android-inventory.json text eol=lf linguist-generated
+src/licenses/android/** -text linguist-vendored whitespace=-blank-at-eol,-blank-at-eof
+scripts/notices/*.gradle text eol=lf
 
 # Native recipe and imported-source byte hashes must survive Windows checkout.
 scripts/audio-deps/** text eol=lf

@@ -14,6 +14,18 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
+    def test_android_notices_match_actual_runtime_archives_before_package_collection(self):
+        block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "android")
+        build = block.index("npm run tauri -- android build --target aarch64 --apk --ci")
+        capture = block.index('python scripts/android-notices.py --capture "$RUNNER_TEMP/taggroove-android-runtime.json"')
+        verify = block.index('python scripts/android-notices.py --check --metadata "$RUNNER_TEMP/taggroove-android-runtime.json" --verify-material')
+        collect = block.index("node scripts/release.mjs collect-android")
+        self.assertLess(build, capture)
+        self.assertLess(capture, verify)
+        self.assertLess(verify, collect)
+        self.assertNotIn('release-assets/android-runtime', block)
+        self.assertIn('name: android-runtime-notice-evidence', block)
+
     def test_premerge_runs_checks_on_one_linux_worker_without_app_builds(self):
         source = (WORKFLOWS / "_reviewed-build.yml").read_text()
         self.assertEqual(set(re.findall(r"^  ([a-z0-9_-]+):$", source, re.M)), {"workflow_call", "authorize", "tooling"})

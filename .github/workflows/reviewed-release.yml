@@ -305,6 +305,16 @@ jobs:
           # Tauri forwards this alias across the IDE build environment.
           export TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"
           npm run tauri -- android build --target aarch64 --apk --ci
+      - name: Verify bundled Android notices against resolved runtime archives
+        run: |
+          python scripts/android-notices.py --capture "$RUNNER_TEMP/taggroove-android-runtime.json"
+          python scripts/android-notices.py --check --metadata "$RUNNER_TEMP/taggroove-android-runtime.json" --verify-material --maven-cache "$HOME/.gradle/caches/modules-2/files-2.1"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-runtime-notice-evidence
+          path: ${{ runner.temp }}/taggroove-android-runtime.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Verify APK signature, version and ABI, then collect
         run: |
           python scripts/audio-source-bundle.py --collect-native aarch64-linux-android --native-evidence "$OPENTAG_AUDIO_BUILD_ROOT" --source-sha "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --output release-assets/native-android-arm64.json
