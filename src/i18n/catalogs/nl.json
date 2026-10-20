@@ -3569,5 +3569,12 @@
  "Select at most one column layout, one tag-panel layout, one genres file, one field-values file and one binary settings file.": "Selecteer maximaal één kolomindeling, één tagpaneelindeling, één genrebestand, één bestand met veldwaarden en één bestand met binaire instellingen.",
  "Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Selected portable settings replace the listed matching options. Unmapped binary records are not imported. Imported field-value entries replace matching saved lists and preferences. A selected genres.ini replaces the legacy genre list. A selected usrfieldvalues.ini takes precedence over legacy panel values, genres.ini and the binary genre preference. Imported action groups stay disabled, including unresolved actions that need editing.": "Selecteer de ondersteunde onderdelen die je wilt importeren. Geselecteerde kolom- en tagpaneelindelingen vervangen de huidige indelingen. Geselecteerde overdraagbare instellingen vervangen de vermelde overeenkomstige opties. Niet-toegewezen binaire records worden niet geïmporteerd. Geïmporteerde veldwaarden vervangen de overeenkomstige opgeslagen lijsten en voorkeuren. Een geselecteerd genres.ini vervangt de oude genrelijst. Een geselecteerd usrfieldvalues.ini heeft voorrang op de veldwaarden uit het oude tagpaneel, genres.ini en de binaire genrevoorkeur. Geïmporteerde actiegroepen blijven uitgeschakeld, ook als onopgeloste acties nog moeten worden aangepast.",
  "The file contains no supported genre names; the current genre list is kept. {details}": "Het bestand bevat geen ondersteunde genrenamen; de huidige genrelijst blijft behouden. {details}",
- "Unfinished escape in genre name": "Onvolledige escape in genrenaam"
+ "Unfinished escape in genre name": "Onvolledige escape in genrenaam",
+ "Append export data": "Exportgegevens toevoegen",
+ "Binary export BOM setting is incomplete": "De binaire BOM-instelling voor export is onvolledig",
+ "Create one export file per partition": "Eén exportbestand per groep maken",
+ "Export partition format": "Groeperingsformaat voor export",
+ "Remembered export configuration": "Onthouden exportconfiguratie",
+ "Remembered export filename": "Onthouden exportbestandsnaam",
+ "Write export byte order mark (BOM)": "Bytevolgordemarkering (BOM) schrijven bij export"
 }

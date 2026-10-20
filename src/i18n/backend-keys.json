@@ -84,6 +84,7 @@
  "Audio container exceeds its 32-bit size limit",
  "Audio path has no parent directory",
  "Binary boolean setting has no value",
+ "Binary export BOM setting is incomplete",
  "Binary extended-tag save mode is incomplete",
  "Binary grid setting is incomplete",
  "Binary settings length overflow",

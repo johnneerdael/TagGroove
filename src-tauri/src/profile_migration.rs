@@ -1220,6 +1220,7 @@ fn apply(
     };
     let mut actions_changed = false;
     let mut exports_changed = false;
+    let mut admitted_exports = BTreeMap::new();
     for name in selected {
         match &plan.candidates[name] {
             Candidate::Columns(layout) => {
@@ -1261,13 +1262,19 @@ fn apply(
                     .position(|old| old.name.eq_ignore_ascii_case(&configuration.name))
                 {
                     if !replace_names {
+                        admitted_exports.insert(
+                            configuration.name.clone(),
+                            exports.configurations[index].id.clone(),
+                        );
                         report.kept.push(name.clone());
                         continue;
                     }
                     configuration.id = exports.configurations[index].id.clone();
                     configuration.file = exports.configurations[index].file.clone();
+                    admitted_exports.insert(configuration.name.clone(), configuration.id.clone());
                     exports.configurations[index] = configuration;
                 } else {
+                    admitted_exports.insert(configuration.name.clone(), configuration.id.clone());
                     exports.configurations.push(configuration);
                 }
                 exports_changed = true;
@@ -1292,6 +1299,14 @@ fn apply(
             after_window
                 .preferences
                 .extend(settings.apply(stage.path())?);
+            let before_preferences =
+                serde_json::to_value(&exports.preferences).map_err(|e| e.to_string())?;
+            let warnings = settings.apply_exports(&mut exports, &admitted_exports);
+            exports_changed |= before_preferences
+                != serde_json::to_value(&exports.preferences).map_err(|e| e.to_string())?;
+            if let Some(item) = report.items.iter_mut().find(|item| &item.file == name) {
+                item.warnings.extend(warnings);
+            }
         }
     }
     // The modern per-field file wins over legacy panel/genre lists and the
@@ -2023,6 +2038,316 @@ mod tests {
         assert!(!state.restorable);
         assert!(!directory.join(STORE).exists());
     }
+    fn export_setting_records(records: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for (id, payload) in records {
+            bytes.extend(
+                (0..32)
+                    .step_by(2)
+                    .map(|index| u8::from_str_radix(&id[index..index + 2], 16).unwrap()),
+            );
+            bytes.extend((payload.len() as u32).to_le_bytes());
+            bytes.extend_from_slice(payload);
+        }
+        bytes
+    }
+    #[test]
+    fn binary_export_settings_bind_after_collision_resolution_and_restore_exactly() {
+        let _guard = TESTS.lock().unwrap();
+        for replace in [false, true] {
+            for reverse in [false, true] {
+                let dir = tempfile::tempdir().unwrap();
+                let source = tempfile::tempdir().unwrap();
+                config(dir.path());
+                make_source(source.path());
+                let mut prior = crate::settings::Settings::default();
+                prior.pages.insert(
+                    "export".into(),
+                    serde_json::json!({"write_bom":false,"show_dialog":true}),
+                );
+                crate::settings::save(&dir.path().join("settings.json"), &prior).unwrap();
+                let bytes = export_setting_records(&[
+                    ("a91684289cba6f498fd857faeaa3749c", &[255]),
+                    ("9e917d2becf8af4793061746fdf7bad5", &[1]),
+                    ("e31f66267bd2a34baffa13f42d34fd95", b"  %album%  "),
+                    ("759de112c0072d48b5650c2fbec586a8", &256u32.to_le_bytes()),
+                    ("536d231fc389234bafa84663f0986a0c", b"Practice"),
+                    ("d1c3c5a4c95780489c008de588e2eeea", b"lists/%album%.txt"),
+                ]);
+                std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+                let before = native(dir.path()).unwrap();
+                let original = input(source.path()).unwrap();
+                let preview =
+                    make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+                let settings = preview
+                    .items
+                    .iter()
+                    .find(|item| item.file == "mp3tag.cfg")
+                    .unwrap();
+                assert!(settings.supported, "{:?}", settings.warnings);
+                assert_eq!(settings.settings.len(), 6);
+                let mut selected = vec!["mp3tag.cfg".into(), "export/Practice.mte".into()];
+                if reverse {
+                    selected.reverse();
+                }
+                let applied =
+                    apply(dir.path(), &preview.token, &selected, replace, window()).unwrap();
+                let library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+                assert_eq!(
+                    library.preferences.configuration.as_deref(),
+                    Some("before-practice")
+                );
+                assert_eq!(library.preferences.filename, "lists/%album%.txt");
+                assert!(library.preferences.append);
+                assert_eq!(library.preferences.partition.as_deref(), Some("%album%"));
+                let metadata = serde_json::to_value(&library).unwrap();
+                assert_eq!(metadata["preferences"]["partition_memory"], "%album%");
+                let options: crate::settings::Settings = serde_json::from_slice(
+                    &std::fs::read(dir.path().join("settings.json")).unwrap(),
+                )
+                .unwrap();
+                assert!(
+                    crate::exports::output_options(
+                        options.pages.get("export"),
+                        &library.preferences
+                    )
+                    .0
+                );
+                assert_eq!(options.pages["export"]["show_dialog"], true);
+                assert_eq!(
+                    library
+                        .configurations
+                        .iter()
+                        .find(|c| c.id == "before-practice")
+                        .unwrap()
+                        .template
+                        == "Before export",
+                    !replace
+                );
+                let pending = applied.pending.unwrap();
+                status(dir.path(), Some(&pending.id), None, None).unwrap();
+                status(dir.path(), None, Some(&pending.id), None).unwrap();
+                restore(dir.path(), pending.window).unwrap();
+                assert_eq!(native(dir.path()).unwrap(), before);
+                assert_eq!(input(source.path()).unwrap(), original);
+            }
+        }
+    }
+    #[test]
+    fn binary_export_partition_memory_survives_disabled_and_partial_imports() {
+        let _guard = TESTS.lock().unwrap();
+        for (multiple, expression, expected, memory) in [
+            (Some(false), Some("%artist%"), None, "%artist%"),
+            (
+                Some(true),
+                Some("  "),
+                Some("%_folderpath%"),
+                "%_folderpath%",
+            ),
+            (Some(true), None, Some("%album%"), "%album%"),
+            (None, Some("%artist%"), None, "%artist%"),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            let mut value = serde_json::to_value(&library).unwrap();
+            value["preferences"]["partition_memory"] = "%album%".into();
+            library = serde_json::from_value(value).unwrap();
+            crate::exports::save(&dir.path().join("exports.json"), &library).unwrap();
+            let flag = [u8::from(multiple.unwrap_or(false))];
+            let mut records = Vec::new();
+            if multiple.is_some() {
+                records.push(("9e917d2becf8af4793061746fdf7bad5", flag.as_slice()));
+            }
+            if let Some(text) = expression {
+                records.push(("e31f66267bd2a34baffa13f42d34fd95", text.as_bytes()));
+            }
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&records),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into()],
+                false,
+                window(),
+            )
+            .unwrap();
+            let value: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(dir.path().join("exports.json")).unwrap())
+                    .unwrap();
+            assert_eq!(
+                value["preferences"]["partition"],
+                serde_json::to_value(expected).unwrap()
+            );
+            assert_eq!(value["preferences"]["partition_memory"], memory);
+        }
+    }
+    #[test]
+    fn binary_export_unresolved_active_template_never_borrows_current_target() {
+        let _guard = TESTS.lock().unwrap();
+        for active in [None, Some("Missing"), Some("practice"), Some("Practice")] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            make_source(source.path());
+            let mut library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            library.preferences.filename = "before.txt".into();
+            crate::exports::save(&dir.path().join("exports.json"), &library).unwrap();
+            let mut records = vec![(
+                "d1c3c5a4c95780489c008de588e2eeea",
+                b"incoming.txt".as_slice(),
+            )];
+            if let Some(name) = active {
+                records.push(("536d231fc389234bafa84663f0986a0c", name.as_bytes()));
+            }
+            std::fs::write(
+                source.path().join("mp3tag.cfg"),
+                export_setting_records(&records),
+            )
+            .unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            // Exact-case matching and explicit selection are both required.
+            let selected_template = if active == Some("practice") {
+                "export/Practice.mte"
+            } else {
+                "export/Other.mte"
+            };
+            let applied = apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into(), selected_template.into()],
+                false,
+                window(),
+            )
+            .unwrap();
+            let after = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            assert_eq!(
+                after.preferences.configuration,
+                library.preferences.configuration
+            );
+            assert_eq!(after.preferences.filename, "before.txt");
+            assert!(applied
+                .report
+                .unwrap()
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap()
+                .warnings
+                .iter()
+                .any(|w| w.contains("selected export template")));
+        }
+    }
+    #[test]
+    fn binary_export_new_template_binding_and_last_record_values_survive_reload() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        make_source(source.path());
+        let bytes = export_setting_records(&[
+            ("a91684289cba6f498fd857faeaa3749c", &[1]),
+            ("a91684289cba6f498fd857faeaa3749c", &[0, 255]),
+            ("759de112c0072d48b5650c2fbec586a8", &1u32.to_le_bytes()),
+            ("759de112c0072d48b5650c2fbec586a8", &0u32.to_le_bytes()),
+            ("536d231fc389234bafa84663f0986a0c", b"Practice"),
+            ("536d231fc389234bafa84663f0986a0c", b"Other\0Practice"),
+            ("d1c3c5a4c95780489c008de588e2eeea", b"out.txt"),
+            ("d1c3c5a4c95780489c008de588e2eeea", b""),
+            ("9e917d2becf8af4793061746fdf7bad5", &[1]),
+        ]);
+        std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        apply(
+            dir.path(),
+            &preview.token,
+            &["mp3tag.cfg".into(), "export/Other.mte".into()],
+            false,
+            window(),
+        )
+        .unwrap();
+        let library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+        let other = library
+            .configurations
+            .iter()
+            .find(|c| c.name == "Other")
+            .unwrap();
+        assert_eq!(
+            library.preferences.configuration.as_deref(),
+            Some(other.id.as_str())
+        );
+        assert!(!library.preferences.append);
+        assert!(!library.preferences.write_bom);
+        assert!(library.preferences.filename.is_empty());
+        assert_eq!(
+            library.preferences.partition.as_deref(),
+            Some("%_folderpath%")
+        );
+        let options: crate::settings::Settings =
+            serde_json::from_slice(&std::fs::read(dir.path().join("settings.json")).unwrap())
+                .unwrap();
+        assert_eq!(options.pages["export"]["write_bom"], false);
+    }
+    #[test]
+    fn binary_export_invalid_incoming_formats_keep_existing_choices() {
+        let _guard = TESTS.lock().unwrap();
+        for filename in ["$if(", "C:\\private\\out.txt", "\\\\server\\share\\out.txt"] {
+            if cfg!(windows) && filename.contains('\\') {
+                continue;
+            }
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            make_source(source.path());
+            let mut library = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            library.preferences.filename = "before.txt".into();
+            library.preferences.partition = Some("%title%".into());
+            crate::exports::save(&dir.path().join("exports.json"), &library).unwrap();
+            let bytes = export_setting_records(&[
+                ("a91684289cba6f498fd857faeaa3749c", &[1]),
+                ("9e917d2becf8af4793061746fdf7bad5", &[0]),
+                ("e31f66267bd2a34baffa13f42d34fd95", b"$if("),
+                ("536d231fc389234bafa84663f0986a0c", b"Practice"),
+                ("d1c3c5a4c95780489c008de588e2eeea", filename.as_bytes()),
+            ]);
+            std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|i| i.file == "mp3tag.cfg")
+                .unwrap();
+            assert!(item.supported);
+            assert!(item
+                .warnings
+                .iter()
+                .any(|w| w.contains("invalid export partition")));
+            assert!(item
+                .warnings
+                .iter()
+                .any(|w| w.contains("filename is not imported")));
+            apply(
+                dir.path(),
+                &preview.token,
+                &["mp3tag.cfg".into(), "export/Practice.mte".into()],
+                false,
+                window(),
+            )
+            .unwrap();
+            let after = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+            assert_eq!(after.preferences.filename, "before.txt");
+            assert_eq!(after.preferences.partition.as_deref(), Some("%title%"));
+            assert!(after.preferences.append);
+        }
+    }
     #[test]
     fn binary_settings_migration_previews_applies_and_restores_confirmed_flags() {
         let _guard = TESTS.lock().unwrap();
@@ -2071,7 +2396,8 @@ mod tests {
         }
         for part in "10ad9a5de1a201419efb4f510bd262f4"
             .as_bytes()
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
         {
             bytes.push(u8::from_str_radix(std::str::from_utf8(part).unwrap(), 16).unwrap());
         }

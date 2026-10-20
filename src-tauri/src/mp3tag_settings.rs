@@ -31,6 +31,8 @@ enum OptionKey {
     KeepMoved,
     Advanced(&'static str),
     PreferGenres,
+    ExportAppend,
+    ExportMultiple,
 }
 struct Spec {
     identifier: [u8; 16],
@@ -57,6 +59,18 @@ const fn identifier(text: &[u8; 32]) -> [u8; 16] {
 // Raw byte identifiers, with no UUID byte-order conversion. Bound to the
 // 3.36.1 static reader/object/serializer evidence in the migration receipt.
 const SPECS: &[Spec] = &[
+    Spec {
+        identifier: identifier(b"a91684289cba6f498fd857faeaa3749c"),
+        key: OptionKey::ExportAppend,
+        label: "Append export data",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"9e917d2becf8af4793061746fdf7bad5"),
+        key: OptionKey::ExportMultiple,
+        label: "Create one export file per partition",
+        inverted: false,
+    },
     Spec {
         identifier: identifier(b"8840da8e2956d74da1853b63f6df9037"),
         key: OptionKey::SaveOnMove,
@@ -301,6 +315,9 @@ enum TextKey {
     CommentLanguage,
     RestrictExtensions,
     FolderSeparator,
+    ExportPartition,
+    ExportConfiguration,
+    ExportFilename,
 }
 struct TextSpec {
     identifier: [u8; 16],
@@ -308,6 +325,21 @@ struct TextSpec {
     label: &'static str,
 }
 const TEXT_SPECS: &[TextSpec] = &[
+    TextSpec {
+        identifier: identifier(b"e31f66267bd2a34baffa13f42d34fd95"),
+        key: TextKey::ExportPartition,
+        label: "Export partition format",
+    },
+    TextSpec {
+        identifier: identifier(b"536d231fc389234bafa84663f0986a0c"),
+        key: TextKey::ExportConfiguration,
+        label: "Remembered export configuration",
+    },
+    TextSpec {
+        identifier: identifier(b"d1c3c5a4c95780489c008de588e2eeea"),
+        key: TextKey::ExportFilename,
+        label: "Remembered export filename",
+    },
     TextSpec {
         identifier: identifier(b"7eaf6b64ce85a54196043a3c8cfb1d2e"),
         key: TextKey::PlaylistFilename,
@@ -497,6 +529,7 @@ const MASK_SPECS: &[MaskSpec] = &[
         ],
     },
 ];
+const EXPORT_BOM: [u8; 16] = identifier(b"759de112c0072d48b5650c2fbec586a8");
 const TAG_ENCODING: [u8; 16] = identifier(b"025280d33d85d942b0a8699eb8a0b3d2");
 const TEXT_LIMIT: usize = 4 * 1024 * 1024;
 fn is_false(value: &bool) -> bool {
@@ -521,6 +554,7 @@ pub struct Patch {
     masks: BTreeMap<MaskKey, u32>,
     tag_encoding: Option<&'static str>,
     grid: Option<&'static str>,
+    export_bom: Option<bool>,
 }
 pub struct Import {
     pub patch: Patch,
@@ -532,6 +566,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut values = BTreeMap::new();
     let mut extended_mode = None;
     let mut grid_raw = None;
+    let mut export_bom = None;
     let mut text = BTreeMap::new();
     let mut masks = BTreeMap::new();
     let mut tag_encoding_raw = None;
@@ -558,6 +593,16 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 .ok_or("Binary boolean setting has no value")?
                 != 0;
             values.insert(spec.key, value ^ spec.inverted);
+        } else if header[..16] == EXPORT_BOM {
+            export_bom = Some(
+                u32::from_le_bytes(
+                    payload
+                        .get(..4)
+                        .ok_or("Binary export BOM setting is incomplete")?
+                        .try_into()
+                        .unwrap(),
+                ) != 0,
+            );
         } else if header[..16] == GRID {
             grid_raw = Some(u32::from_le_bytes(
                 payload
@@ -678,12 +723,45 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             text.remove(&TextKey::PlaylistFilename);
         }
     }
+    if let Some(expression) = text.get_mut(&TextKey::ExportPartition) {
+        *expression = expression.trim().to_owned();
+        if expression.is_empty() {
+            *expression = "%_folderpath%".into();
+        }
+        if tag_core::CompiledTemplate::compile(expression).is_err() {
+            text.remove(&TextKey::ExportPartition);
+            values.remove(&OptionKey::ExportMultiple);
+            warnings.push("The invalid export partition format and its enabled state are not imported; current partition settings are kept.".into());
+        }
+    }
+    if let Some(filename) = text.get(&TextKey::ExportFilename) {
+        let bytes = filename.as_bytes();
+        let windows_drive =
+            bytes.first().is_some_and(u8::is_ascii_alphabetic) && bytes.get(1) == Some(&b':');
+        let reason = if !cfg!(windows) && (windows_drive || filename.contains('\\')) {
+            Some("The Windows-specific export filename is not imported on this platform; the current filename is kept.")
+        } else if tag_core::CompiledTemplate::compile(filename).is_err() {
+            Some("The invalid export filename is not imported; the current filename is kept.")
+        } else {
+            None
+        };
+        if let Some(reason) = reason {
+            text.remove(&TextKey::ExportFilename);
+            warnings.push(reason.into());
+        }
+    }
+    if text.contains_key(&TextKey::ExportConfiguration)
+        || text.contains_key(&TextKey::ExportFilename)
+    {
+        warnings.push("The remembered export configuration and filename require its matching source template to be selected. Unresolved bindings keep the current configuration and filename.".into());
+    }
     if values.is_empty()
         && extended_mode.is_none()
         && text.is_empty()
         && masks.is_empty()
         && tag_encoding.is_none()
         && grid.is_none()
+        && export_bom.is_none()
     {
         if !warnings.is_empty() {
             return Err(warnings.join(" "));
@@ -704,6 +782,14 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             verbatim: false,
         })
         .collect();
+    if let Some(enabled) = export_bom {
+        settings.push(Setting {
+            label: "Write export byte order mark (BOM)".into(),
+            enabled: Some(enabled),
+            value: None,
+            verbatim: false,
+        });
+    }
     for (key, raw) in &masks {
         let spec = MASK_SPECS.iter().find(|spec| spec.key == *key).unwrap();
         settings.extend(spec.rules.iter().map(|rule| Setting {
@@ -782,6 +868,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             masks,
             tag_encoding,
             grid,
+            export_bom,
         },
         settings,
         warnings,
@@ -831,6 +918,56 @@ fn page(
     Ok(())
 }
 impl Patch {
+    /// Overlay export choices on the library whose imported template identities
+    /// have already been resolved. Return diagnostics for unresolved bindings.
+    pub fn apply_exports(
+        &self,
+        library: &mut crate::exports::Library,
+        admitted: &BTreeMap<String, String>,
+    ) -> Vec<String> {
+        let preferences = &mut library.preferences;
+        if let Some(value) = self.booleans.get(&OptionKey::ExportAppend) {
+            preferences.append = *value;
+        }
+        if self.text.contains_key(&TextKey::ExportPartition)
+            || self.booleans.contains_key(&OptionKey::ExportMultiple)
+        {
+            let expression = self
+                .text
+                .get(&TextKey::ExportPartition)
+                .cloned()
+                .or_else(|| preferences.partition.clone())
+                .or_else(|| preferences.partition_memory.clone())
+                .unwrap_or_else(|| "%_folderpath%".into());
+            let enabled = self
+                .booleans
+                .get(&OptionKey::ExportMultiple)
+                .copied()
+                .unwrap_or(preferences.partition.is_some());
+            preferences.partition_memory = Some(expression.clone());
+            preferences.partition = enabled.then_some(expression);
+        }
+        if let Some(value) = self.export_bom {
+            preferences.write_bom = value;
+        }
+        if self.text.contains_key(&TextKey::ExportConfiguration)
+            || self.text.contains_key(&TextKey::ExportFilename)
+        {
+            if let Some(id) = self
+                .text
+                .get(&TextKey::ExportConfiguration)
+                .and_then(|name| admitted.get(name))
+            {
+                preferences.configuration = Some(id.clone());
+                if let Some(value) = self.text.get(&TextKey::ExportFilename) {
+                    preferences.filename = value.clone();
+                }
+            } else {
+                return vec!["The remembered export configuration could not be bound to a selected export template; the current configuration and filename are kept.".into()];
+            }
+        }
+        Vec::new()
+    }
     /// Work only in the caller's unpublished configuration stage. Browser
     /// preferences are returned for the same durable window/restore receipt.
     pub fn apply(&self, directory: &Path) -> Result<BTreeMap<String, String>, String> {
@@ -839,6 +976,9 @@ impl Patch {
         let mut preferences = BTreeMap::new();
         for (key, value) in &self.booleans {
             match key {
+                // Applied only to the final in-memory export library after
+                // template collision decisions, never via a stale disk snapshot.
+                OptionKey::ExportAppend | OptionKey::ExportMultiple => {}
                 OptionKey::SaveOnMove => page(
                     settings(&mut options, directory)?,
                     "tags",
@@ -970,6 +1110,14 @@ impl Patch {
                 )?,
             }
         }
+        if let Some(enabled) = self.export_bom {
+            page(
+                settings(&mut options, directory)?,
+                "export",
+                "write_bom",
+                enabled,
+            )?;
+        }
         if let Some(mode) = self.extended_mode {
             page(
                 settings(&mut options, directory)?,
@@ -988,6 +1136,9 @@ impl Patch {
         }
         for (key, value) in &self.text {
             match key {
+                TextKey::ExportPartition
+                | TextKey::ExportConfiguration
+                | TextKey::ExportFilename => {}
                 TextKey::PlaylistFilename => page(
                     settings(&mut options, directory)?,
                     "playlist",
@@ -1103,6 +1254,26 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+    #[test]
+    fn binary_export_records_reject_short_payloads_and_invalid_utf8() {
+        for (id, length) in [
+            ("a91684289cba6f498fd857faeaa3749c", 1),
+            ("9e917d2becf8af4793061746fdf7bad5", 1),
+            ("759de112c0072d48b5650c2fbec586a8", 4),
+        ] {
+            for short in 0..length {
+                assert!(parse(&record(&native_id(id), &vec![0; short])).is_err());
+            }
+        }
+        for id in [
+            "e31f66267bd2a34baffa13f42d34fd95",
+            "536d231fc389234bafa84663f0986a0c",
+            "d1c3c5a4c95780489c008de588e2eeea",
+        ] {
+            assert!(parse(&record(&native_id(id), &[255])).is_err());
+            assert!(parse(&record(&native_id(id), &vec![b'a'; TEXT_LIMIT + 1])).is_err());
         }
     }
     #[test]

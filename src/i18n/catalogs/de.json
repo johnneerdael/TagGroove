@@ -3582,5 +3582,12 @@
  "Select at most one column layout, one tag-panel layout, one genres file, one field-values file and one binary settings file.": "Wählen Sie höchstens ein Spaltenlayout, ein Tag-Panel-Layout, eine Genre-Datei, eine Feldwerte-Datei und eine Datei mit binären Einstellungen aus.",
  "Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Selected portable settings replace the listed matching options. Unmapped binary records are not imported. Imported field-value entries replace matching saved lists and preferences. A selected genres.ini replaces the legacy genre list. A selected usrfieldvalues.ini takes precedence over legacy panel values, genres.ini and the binary genre preference. Imported action groups stay disabled, including unresolved actions that need editing.": "Wählen Sie die unterstützten Elemente zum Importieren aus. Ausgewählte Spalten- und Tag-Panel-Layouts ersetzen die aktuellen Layouts. Ausgewählte übertragbare Einstellungen ersetzen die aufgeführten entsprechenden Optionen. Nicht zugeordnete binäre Datensätze werden nicht importiert. Importierte Feldwerte ersetzen die entsprechenden gespeicherten Listen und Einstellungen. Eine ausgewählte genres.ini ersetzt die bisherige Genreliste. Eine ausgewählte usrfieldvalues.ini hat Vorrang vor Feldwerten aus dem bisherigen Tag-Panel, genres.ini und der binären Genre-Einstellung. Importierte Aktionsgruppen bleiben deaktiviert, einschließlich ungeklärter Aktionen, die noch bearbeitet werden müssen.",
  "The file contains no supported genre names; the current genre list is kept. {details}": "Die Datei enthält keine unterstützten Genrenamen; die aktuelle Genreliste bleibt erhalten. {details}",
- "Unfinished escape in genre name": "Unvollständige Escape-Sequenz im Genrenamen"
+ "Unfinished escape in genre name": "Unvollständige Escape-Sequenz im Genrenamen",
+ "Append export data": "Exportdaten anhängen",
+ "Binary export BOM setting is incomplete": "Die binäre Export-BOM-Einstellung ist unvollständig",
+ "Create one export file per partition": "Eine Exportdatei pro Gruppe erstellen",
+ "Export partition format": "Gruppierungsformat für den Export",
+ "Remembered export configuration": "Gespeicherte Exportkonfiguration",
+ "Remembered export filename": "Gespeicherter Exportdateiname",
+ "Write export byte order mark (BOM)": "Byte-Reihenfolgemarkierung (BOM) beim Export schreiben"
 }

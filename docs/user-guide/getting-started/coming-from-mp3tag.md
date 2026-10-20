@@ -156,10 +156,36 @@ An empty playlist filename is skipped. On macOS/Linux, filenames containing
 backslashes or a Windows drive prefix are skipped with a warning; edit the
 filename in **Options → Playlist** for the new machine. The importer does not
 guess how to rewrite a Windows path inside an expression.
-The original selected-only automatic
-playlist scope is not transferred. For exports, an imported **Show export
-selection dialog: Off** uses the active TagGroove export configuration; it does
-not import or select an original last-used export configuration by itself.
+The original selected-only automatic playlist scope is not transferred.
+
+Export settings also include **Append data**, whether to create one file per
+partition, the partition expression and **Write byte order mark (BOM)**.
+A disabled partition expression is remembered: enabling **Create one output
+file per** later restores it. An explicitly blank source partition expression
+uses `%_folderpath%`, matching the original export dialog's default.
+An absent expression keeps your current remembered expression; if none exists,
+enabling partitioning uses `%_folderpath%`. Missing source switches keep their
+current TagGroove choices.
+
+To transfer the original last-used export configuration and output filename,
+select both **mp3tag.cfg** and its matching **.mte** template in the preview.
+The source template name must match exactly, including letter case. A selected
+template retained through **Keep current items** binds to that retained target
+configuration; **Replace current items** retains the target identity and
+replaces its template. If the matching source template is absent or unselected,
+a warning explains that the current active configuration and filename are kept.
+The importer does not select an unrelated existing export merely because it
+has a similar name. An empty imported export filename is meaningful: it lets
+the selected template supply its own output filename.
+
+Malformed partition expressions keep both your current partition switch and
+expression. Invalid filename expressions, and Windows drive/UNC/backslash
+filenames on macOS/Linux, are skipped with a warning. Edit **File → Export…**
+for the new machine rather than relying on an automatic Windows path rewrite.
+The imported BOM choice updates the effective **Options → Export** setting.
+Importing these choices never runs the template or writes an export file.
+If **Show export selection dialog** is off, inspect the active template and
+output filename before your first export.
 
 For example, if the preview says **Show filter: Off**, importing it hides the
 filter after setup reload. Check that value before proceeding if you use the

@@ -5,7 +5,7 @@ migration scope. The companion [field-value migration receipt](mp3tag-field-valu
 covers the independently implemented text files.
 
 The later [advanced settings and genre extension](mp3tag-profile-remainders-2026-10-20.md)
-raises current coverage to 53 native records: 39 boolean records, packed tag
+raised that slice to 53 native records: 39 boolean records, packed tag
 switches, three choices and five text options. Earlier test counts below retain
 their original slice boundaries; neither count closes L57b.
 

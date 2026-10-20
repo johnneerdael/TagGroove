@@ -122,5 +122,11 @@
  "Ask about unsaved changes",
  "Ask before importing cover art",
  "Confirm removing tags",
- "Prefer genre values from tags"
+ "Prefer genre values from tags",
+ "Append export data",
+ "Create one export file per partition",
+ "Export partition format",
+ "Remembered export configuration",
+ "Remembered export filename",
+ "Write export byte order mark (BOM)"
 ]

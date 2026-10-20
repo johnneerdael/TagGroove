@@ -3,8 +3,9 @@
 This is unmerged work on `codex/refresh-file-identity`. It extends the
 [binary settings](mp3tag-binary-settings-migration-2026-10-20.md) and
 [field-value](mp3tag-field-values-migration-2026-10-20.md) adapters.
-**L57b remains open:** export preferences/active-template binding and numbering
-memory still have concrete unimplemented mappings. A whitelist count is not
+The later [export settings slice](mp3tag-export-settings-migration-2026-10-20.md)
+adds six more records. **L57b remains open:** numbering
+memory still has concrete unimplemented mappings. A whitelist count is not
 proof that all original profile settings are covered.
 
 ## Confirmed native records
@@ -52,7 +53,7 @@ Empty restriction/separator strings remain meaningful. Text previews escape
 HTML and preserve authored values; intentional empty values display a
 translated `(empty)` label.
 
-Current coverage is **53 native records** producing at most **64 preview
+Coverage at this slice is **53 native records** producing at most **64 preview
 options**: 39 booleans, 17 packed tag switches, three choices and five text
 values. This is an implementation inventory, not total native coverage.
 
@@ -105,7 +106,8 @@ selection. Remaining lint/catalog/type/guide checks are in the checkpoint.
 Read-only audits additionally established export partition/default/identity
 contracts and five direct numbering booleans. They also found required paired
 numbering-field handling and a potential stale export-library overwrite during
-combined settings/MTE import. Those fixes are still required. LastCodepage is
+combined settings/MTE import. The later export slice fixes that overwrite;
+numbering mappings remain required. LastCodepage is
 a Windows chooser row index, not an importable codepage or LCID; padding uses
 dynamic widths, with L66 scope/qualification retained. Toolbar, tool, networking,
 foreign workspace, credential and native acceptance boundaries remain explicit.

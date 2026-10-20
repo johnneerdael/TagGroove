@@ -125,6 +125,9 @@ files you need to retain.
 
 ## Create one output file per group
 
+The partition expression remains remembered when **Create one output file per**
+is disabled, including an expression imported from an Mp3tag profile.
+
 Enable **Create one output file per**, then set **Partition format**. TagGroove
 evaluates this ordinary format string for every selected file. Equal text
 values belong to one report; different values produce different reports.
