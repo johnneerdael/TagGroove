@@ -29,6 +29,11 @@ finishes its approved local companion-route implementation after Copy and
 Filename → Filename. Inline keeps its established audio-only policy; original
 and native qualification remain separate. Batch review/CI/merge are pending.
 
+[N05's interchange repair](../verification/native-mta-interchange-2026-10-20.md)
+finishes the approved local codec/matrix scope with explicit native/older-port
+origin choices. Original-generated files/readback remain separate qualification;
+the batch still needs its covering PR, review, CI and merge.
+
 [L57b field-value migration](../verification/mp3tag-field-values-migration-2026-10-20.md)
 now has a separately verified working-branch implementation for legacy panel
 values and `usrfieldvalues.ini`. General global/binary settings remain open;
@@ -144,7 +149,7 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L77b](../research/remaining-gaps.md#l77b) | P2 | Unknown performance cost | Large/batch libraries | Whole-file rewrites may be slow for remaining containers; impact must be measured before optimizing. | R → M measurement / medium | Mac same-corpus benchmark; other OS/reference comparisons |
 | [N03](../research/remaining-gaps.md#n03) | P1 | Unknown source preview semantics | Migrating album-parser sources | CurrentPreview grammar is confirmed and repaired on the working branch; batch review/merge and original/native/provider acceptance remain. Full-cover routing already exists. | R / medium | Mac parser/DTO analysis; original outputs/native provider comparison |
 | [N04](../research/remaining-gaps.md#n04) | P2 | Unknown automation semantics | Advanced expressions/columns | Column-function and self-reference outcomes may differ; existing evaluator/export repairs already cover named contexts. | R / medium | Mac adapter/recursion tracing; same-vector original execution |
-| [N05](../research/remaining-gaps.md#n05) | P1 | Unknown action interchange | Migrating .mta action groups | Remaining recognized/unknown option combinations lack original generated-file and re-import proof; opaque preservation already exists. | R / medium | Mac schema/static work; Windows-generated files/re-import deferred |
+| [N05](../research/remaining-gaps.md#n05) | P1 | Local implementation; qualification pending | Migrating .mta action groups | Working-branch Type 1/11/12/13/15 repairs and recognized/unknown-option matrix complete approved local scope. Explicit native/older-port origin prevents guessing. Batch review/merge and original-generated/readback qualification remain. | R / medium | Batch review/CI/merge; C57/L78/L79 original and native acceptance |
 
 ## Qualification of already represented behavior
 

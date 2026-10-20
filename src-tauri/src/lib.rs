@@ -119,6 +119,7 @@ async fn run_export(
                 name: format!("Export {}", configuration.name),
                 enabled: true,
                 actions: vec![tag_core::actions::ActionSpec::Export {
+                    mta_source: None,
                     template: configuration.template.clone(),
                     filename_template: filename,
                     append: library.preferences.append,
@@ -169,12 +170,14 @@ async fn import_action_group(
 async fn import_action_group_with_diagnostics(
     path: String,
     legacy_encoding: Option<String>,
+    dialect: Option<tag_core::actions::MtaDialect>,
 ) -> Result<tag_core::actions::MtaImportReport, import_diagnostics::ImportFailure> {
     io(move || {
         let input = auxiliary_input(&path)?;
-        Ok(action_host::import_group_diagnostic(
+        Ok(action_host::import_group_diagnostic_with_dialect(
             &input,
             legacy_encoding.as_deref(),
+            dialect.unwrap_or_default(),
         ))
     })
     .await
@@ -225,6 +228,7 @@ async fn import_action_groups(
 async fn import_action_groups_with_diagnostics(
     paths: Vec<String>,
     legacy_encoding: Option<String>,
+    dialect: Option<tag_core::actions::MtaDialect>,
 ) -> Result<Vec<action_host::GroupFileImportReport>, String> {
     io(move || {
         let mut results = Vec::with_capacity(paths.len());
@@ -232,8 +236,11 @@ async fn import_action_groups_with_diagnostics(
         for path in paths {
             match auxiliary_group_input(&path) {
                 Ok((input, name)) => {
-                    let mut imported =
-                        action_host::import_groups_diagnostic(&[input], legacy_encoding.as_deref());
+                    let mut imported = action_host::import_groups_diagnostic_with_dialect(
+                        &[input],
+                        legacy_encoding.as_deref(),
+                        dialect.unwrap_or_default(),
+                    );
                     if path.starts_with("content://") {
                         for result in &mut imported {
                             result.result.path = path.clone();
@@ -1895,6 +1902,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn action_import_commands_keep_selected_origin_for_single_and_folder_inputs() {
+        use tag_core::actions::{ActionSpec, CaseMode, MtaDialect};
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("Origin.mta");
+        std::fs::write(&file, b"[#0]\nT=1\nF=TITLE\n1=2\n2= \n").unwrap();
+        for (dialect, mode) in [
+            (None, None),
+            (Some(MtaDialect::Mp3tag), Some(CaseMode::Upper)),
+            (Some(MtaDialect::LegacyTaggroove), Some(CaseMode::Sentence)),
+        ] {
+            let single = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
+                file.to_string_lossy().into_owned(),
+                None,
+                dialect,
+            ))
+            .unwrap();
+            let bulk = tauri::async_runtime::block_on(import_action_groups_with_diagnostics(
+                vec![dir.path().to_string_lossy().into_owned()],
+                None,
+                dialect,
+            ))
+            .unwrap();
+            assert_eq!(bulk.len(), 1);
+            let group = &single.result.group;
+            assert_eq!(bulk[0].result.imported.as_ref().unwrap().group, *group);
+            match mode {
+                Some(expected) => {
+                    assert!(single.result.issues.is_empty());
+                    assert!(
+                        matches!(group.actions[0], ActionSpec::CaseConversion { mode, .. } if mode == expected)
+                    );
+                }
+                None => {
+                    assert!(!group.enabled);
+                    assert_eq!(single.result.issues.len(), 1);
+                    assert!(matches!(group.actions[0], ActionSpec::UnresolvedMta { .. }));
+                }
+            }
+        }
+    }
+
+    #[test]
     fn import_single_and_bulk_companions_keep_per_file_context_and_foreign_causes() {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../../tests/fixtures/import-diagnostics.json"))
@@ -1913,6 +1962,7 @@ mod tests {
         let one = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
             first.to_string_lossy().into_owned(),
             None,
+            None,
         ))
         .unwrap();
         assert_eq!(one.issue_diagnostics.len(), 3);
@@ -1927,6 +1977,7 @@ mod tests {
         ];
         let rows = tauri::async_runtime::block_on(import_action_groups_with_diagnostics(
             paths.clone(),
+            None,
             None,
         ))
         .unwrap();
@@ -1955,6 +2006,7 @@ mod tests {
         }
         let failure = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
             missing.to_string_lossy().into_owned(),
+            None,
             None,
         ))
         .unwrap_err();

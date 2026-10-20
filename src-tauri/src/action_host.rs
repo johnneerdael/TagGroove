@@ -109,6 +109,7 @@ pub fn example_library() -> ActionLibrary {
             group(
                 "Save front cover as folder image",
                 vec![ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "folder".into(),
                     picture_type: Some("CoverFront".into()),
                     export_duplicates: false,
@@ -134,18 +135,31 @@ pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImp
         .map(|report| report.result)
         .map_err(|cause| cause.to_string())
 }
+#[cfg(test)]
 pub fn import_group_diagnostic(
     path: &Path,
     legacy_encoding: Option<&str>,
 ) -> Result<tag_core::actions::MtaImportReport, ErrorCause> {
+    import_group_diagnostic_with_dialect(
+        path,
+        legacy_encoding,
+        tag_core::actions::MtaDialect::Unknown,
+    )
+}
+pub fn import_group_diagnostic_with_dialect(
+    path: &Path,
+    legacy_encoding: Option<&str>,
+    dialect: tag_core::actions::MtaDialect,
+) -> Result<tag_core::actions::MtaImportReport, ErrorCause> {
     let bytes = fs::read(path).map_err(ErrorCause::external)?;
-    tag_core::actions::import_mta_diagnostic(
+    tag_core::actions::import_mta_diagnostic_with_dialect(
         path.file_stem()
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned(),
         &bytes,
         legacy_encoding,
+        dialect,
     )
     .map_err(ErrorCause::owned_text)
 }
@@ -174,9 +188,21 @@ pub fn import_groups(paths: &[PathBuf], legacy_encoding: Option<&str>) -> Vec<Gr
         .map(|report| report.result)
         .collect()
 }
+#[cfg(test)]
 pub fn import_groups_diagnostic(
     paths: &[PathBuf],
     legacy_encoding: Option<&str>,
+) -> Vec<GroupFileImportReport> {
+    import_groups_diagnostic_with_dialect(
+        paths,
+        legacy_encoding,
+        tag_core::actions::MtaDialect::Unknown,
+    )
+}
+pub fn import_groups_diagnostic_with_dialect(
+    paths: &[PathBuf],
+    legacy_encoding: Option<&str>,
+    dialect: tag_core::actions::MtaDialect,
 ) -> Vec<GroupFileImportReport> {
     let outcome = |path: &Path, result: Result<tag_core::actions::MtaImportReport, ErrorCause>| {
         let (imported, error, issue_diagnostics, error_cause) = match result {
@@ -198,7 +224,7 @@ pub fn import_groups_diagnostic(
         if !path.is_dir() {
             results.push(outcome(
                 path,
-                import_group_diagnostic(path, legacy_encoding),
+                import_group_diagnostic_with_dialect(path, legacy_encoding, dialect),
             ));
             continue;
         }
@@ -235,7 +261,7 @@ pub fn import_groups_diagnostic(
         for file in files {
             results.push(outcome(
                 &file,
-                import_group_diagnostic(&file, legacy_encoding),
+                import_group_diagnostic_with_dialect(&file, legacy_encoding, dialect),
             ));
         }
     }
@@ -1651,6 +1677,7 @@ pub(crate) fn execute_prepared(
                         filename_template,
                         append,
                         partition_template,
+                        ..
                     } => Some(BatchActionEffect::Export {
                         template: template.clone(),
                         filename_template: filename_template.clone(),
@@ -2581,6 +2608,7 @@ mod tests {
             name: "Export".into(),
             enabled: true,
             actions: vec![ActionSpec::Export {
+                mta_source: None,
                 template: "Saved export".into(),
                 filename_template: output.to_string_lossy().into_owned(),
                 append: false,
@@ -2608,6 +2636,7 @@ mod tests {
             name: "Plain".into(),
             enabled: true,
             actions: vec![ActionSpec::Export {
+                mta_source: None,
                 template: "Plain text".into(),
                 filename_template: output.to_string_lossy().into_owned(),
                 append: false,
@@ -2636,6 +2665,7 @@ mod tests {
             name: "Standalone export".into(),
             enabled: true,
             actions: vec![ActionSpec::Export {
+                mta_source: None,
                 template: "$filename(txt,utf-8)$loop(1)%_filename_ext%$char(10)$loopend()".into(),
                 filename_template: output.to_string_lossy().into_owned(),
                 append,
@@ -2753,6 +2783,7 @@ mod tests {
             name: "Import art".into(),
             enabled: true,
             actions: vec![ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: image.into(),
                 picture_type: picture_type.map(str::to_owned),
                 delete_existing,
@@ -2942,6 +2973,7 @@ mod tests {
             name: "Export art".into(),
             enabled: true,
             actions: vec![ActionSpec::ExportCover {
+                mta_source: None,
                 filename_template: filename.into(),
                 picture_type: None,
                 export_duplicates,
@@ -3053,6 +3085,7 @@ mod tests {
             &path,
             vec![
                 ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "%_folderpath%art\\folder".into(),
                     picture_type: None,
                     export_duplicates: false,
@@ -3105,6 +3138,7 @@ mod tests {
             enabled: true,
             actions: vec![
                 ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "shared".into(),
                     picture_type: None,
                     export_duplicates: false,
@@ -3114,6 +3148,7 @@ mod tests {
                     template: "Moved".into(),
                 },
                 ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "shared".into(),
                     picture_type: Some("CoverBack".into()),
                     export_duplicates: false,
@@ -3289,11 +3324,13 @@ mod tests {
         fs::write(dir.path().join("second.png"), image(2)).unwrap();
         fs::write(dir.path().join("third.png"), image(3)).unwrap();
         let export = || ActionSpec::ExportCover {
+            mta_source: None,
             filename_template: "art".into(),
             picture_type: None,
             export_duplicates: false,
         };
         let import = |name: &str| ActionSpec::ImportCover {
+            mta_source: None,
             filename_template: name.into(),
             picture_type: None,
             delete_existing: true,
@@ -3356,6 +3393,7 @@ mod tests {
         let other = other.into_inner();
         fs::write(dir.path().join("other.png"), &other).unwrap();
         let export = || ActionSpec::ExportCover {
+            mta_source: None,
             filename_template: "art".into(),
             picture_type: None,
             export_duplicates: false,
@@ -3365,6 +3403,7 @@ mod tests {
             vec![
                 export(),
                 ActionSpec::ImportCover {
+                    mta_source: None,
                     filename_template: "other.png".into(),
                     picture_type: None,
                     delete_existing: false,
@@ -3423,6 +3462,7 @@ mod tests {
                 fs::write(dir.path().join(format!("input{index}.png")), bytes).unwrap();
             }
             let import = |index, delete_existing| ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: format!("input{index}.png"),
                 picture_type: None,
                 delete_existing,
@@ -3476,6 +3516,7 @@ mod tests {
             .unwrap();
         }
         let import = |width, delete_existing| ActionSpec::ImportCover {
+            mta_source: None,
             filename_template: format!("input{width}.png"),
             picture_type: None,
             delete_existing,
@@ -3519,11 +3560,13 @@ mod tests {
         assert_ne!(original, other);
         fs::write(dir.path().join("other.png"), &other).unwrap();
         let export = || ActionSpec::ExportCover {
+            mta_source: None,
             filename_template: "art".into(),
             picture_type: None,
             export_duplicates: false,
         };
         let import = |name: &str| ActionSpec::ImportCover {
+            mta_source: None,
             filename_template: name.into(),
             picture_type: None,
             delete_existing: true,
@@ -3555,6 +3598,7 @@ mod tests {
         let other = bytes.into_inner();
         fs::write(dir.path().join("other.png"), &other).unwrap();
         let export = || ActionSpec::ExportCover {
+            mta_source: None,
             filename_template: "shared".into(),
             picture_type: None,
             export_duplicates: true,
@@ -3572,6 +3616,7 @@ mod tests {
                 enabled: true,
                 actions: vec![
                     ActionSpec::ImportCover {
+                        mta_source: None,
                         filename_template: "$if($eql(%_filename%,a),other.png,missing.png)".into(),
                         picture_type: None,
                         delete_existing: true,
@@ -3916,6 +3961,7 @@ mod tests {
         let a = fixture(dir.path(), "a.wav");
         let b = fixture(dir.path(), "b.wav");
         let export = ActionSpec::Export {
+            mta_source: None,
             template: "$filename(txt,utf-16)$loop(%title%)%title%$char(10)$loopend()".into(),
             filename_template: "%_folderpath%report.txt".into(),
             append: true,
@@ -3967,6 +4013,7 @@ mod tests {
             b.to_string_lossy().into_owned(),
         ];
         let mut export = ActionSpec::Export {
+            mta_source: None,
             template: "$loop(%_filename%)%_filename%$loopend()".into(),
             filename_template: "same.txt".into(),
             append: false,
@@ -4011,6 +4058,7 @@ mod tests {
         bytes.extend(script.encode_utf16().flat_map(u16::to_le_bytes));
         fs::write(config_dir.join("Checksums.mte"), bytes).unwrap();
         let action = ActionSpec::Export {
+            mta_source: None,
             template: "Checksums".into(),
             filename_template: "checksums.txt".into(),
             append: false,
@@ -4071,6 +4119,7 @@ mod tests {
                 partition_template: "".into(),
             },
             ActionSpec::Export {
+                mta_source: None,
                 template: "$loop(%_filename%)%_filename%$loopend()".into(),
                 filename_template: "missing/../input.wav".into(),
                 append: false,
@@ -4303,6 +4352,7 @@ mod tests {
                         template: "Done".into(),
                     },
                     ActionSpec::Export {
+                        mta_source: None,
                         template: "$loop(%_filename%)%_filename%:%title%;$loopend()".into(),
                         filename_template: "report.txt".into(),
                         append: false,
@@ -4363,6 +4413,7 @@ mod tests {
         let result = run(
             &path,
             vec![ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "Scans\\front*.png".into(),
                 picture_type: None,
                 delete_existing: false,
@@ -4376,6 +4427,7 @@ mod tests {
         let result = run(
             &path,
             vec![ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "Scans\\*.jpg".into(),
                 picture_type: None,
                 delete_existing: true,
@@ -4405,6 +4457,7 @@ mod tests {
             run(
                 &path,
                 vec![ActionSpec::ImportCover {
+                    mta_source: None,
                     filename_template: template.into(),
                     picture_type: None,
                     delete_existing: true,
@@ -4453,6 +4506,7 @@ mod tests {
         let result = run(
             &path,
             vec![ActionSpec::ImportCover {
+                mta_source: None,
                 filename_template: "%_folderpath%cover*.png".into(),
                 picture_type: None,
                 delete_existing: true,
@@ -4480,6 +4534,7 @@ mod tests {
             &path,
             vec![
                 ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "Covers\\%album%".into(),
                     picture_type: None,
                     export_duplicates: false,
@@ -4524,6 +4579,7 @@ mod tests {
                     name: "Export".into(),
                     enabled: true,
                     actions: vec![ActionSpec::Export {
+                        mta_source: None,
                         template: "$loop(%title%)%title% $loopend()".into(),
                         filename_template: "sorted.txt".into(),
                         append: false,

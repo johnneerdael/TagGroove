@@ -1,0 +1,13 @@
+{
+  "component": ".NET runtime locale data",
+  "version": "v10.0.0",
+  "commit": "60629d14374c56f1cb51819049ad1fa529307f8d",
+  "source": "https://raw.githubusercontent.com/dotnet/runtime/60629d14374c56f1cb51819049ad1fa529307f8d/src/libraries/System.Private.CoreLib/src/System/Globalization/IcuLocaleData.cs",
+  "sha256": "ab04bf41c61149233ad7bc04279637426e5a04c8f18f6d979d639ad1ff0f8bee",
+  "generator": "scripts/generate-lcid-ansi.py",
+  "method": "LCIDToLocaleName sort partitions and packed culture-name indexes; GetLocaleDataNumericPart(AnsiCodePage).",
+  "lcids": 448,
+  "nonzero_ansi": 354,
+  "zero_ansi_refused": 94,
+  "windows_runtime_qualified": false
+}

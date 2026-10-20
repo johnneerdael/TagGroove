@@ -3419,7 +3419,6 @@
  "Native cover geometry with this quality cannot be represented by the legacy MTA schema": "Die ursprüngliche Cover-Form mit dieser Qualität kann im alten MTA-Format nicht dargestellt werden",
  "Native source metadata exceeds the MTA limit": "Die ursprünglichen Quelldaten überschreiten das MTA-Limit",
  "Native source type does not match its action": "Der ursprüngliche Quelltyp passt nicht zur Aktion",
- "Not a native cover/playlist record": "Kein ursprünglicher Cover- oder Wiedergabelisteneintrag",
  "Unknown native action setting": "Unbekannte ursprüngliche Aktionseinstellung",
  "Unknown native cover format": "Unbekanntes ursprüngliches Cover-Format",
  "Unknown native cover shape": "Unbekannte ursprüngliche Cover-Form",
@@ -3664,5 +3663,19 @@
  "The action operation has no captured selected input": "Für die Aktionsoperation fehlt eine erfasste ausgewählte Quelle",
  "The action rename completed without an audio readback": "Die Umbenennungsaktion wurde abgeschlossen, ohne die Audiodatei erneut einzulesen",
  "The moved action file changed; retained it at its destination": "Die durch die Aktion verschobene Datei wurde geändert; sie wurde am Ziel beibehalten",
- "Off by default. Includes exact-basename .lrc and .cdg files in Tag → Filename, Filename → Filename, Move files to, Copy files to, Tag → Tag and action-driven filename renames. Converters and transfers show companion paths for review. Actions and Tag → Tag run immediately with frozen membership and per-effect checks. Copy keeps originals and has no transfer Undo. Inline filename edits remain audio-only.": "Standardmäßig aus. Bezieht .lrc- und .cdg-Dateien mit genau demselben Basisnamen bei Tag → Dateiname, Dateiname → Dateiname, Dateien verschieben nach, Dateien kopieren nach, Tag → Tag und aktionsgesteuerten Dateiumbenennungen ein. Konvertierungen und Übertragungen zeigen die Begleitdateipfade zur Prüfung. Aktionen und Tag → Tag werden sofort mit vorher erfassten Begleitdateien und Prüfungen je Operation ausgeführt. Beim Kopieren bleiben die Originale erhalten; es gibt dafür kein Rückgängig. Inline-Dateinamenänderungen betreffen weiterhin nur Audio."
+ "Off by default. Includes exact-basename .lrc and .cdg files in Tag → Filename, Filename → Filename, Move files to, Copy files to, Tag → Tag and action-driven filename renames. Converters and transfers show companion paths for review. Actions and Tag → Tag run immediately with frozen membership and per-effect checks. Copy keeps originals and has no transfer Undo. Inline filename edits remain audio-only.": "Standardmäßig aus. Bezieht .lrc- und .cdg-Dateien mit genau demselben Basisnamen bei Tag → Dateiname, Dateiname → Dateiname, Dateien verschieben nach, Dateien kopieren nach, Tag → Tag und aktionsgesteuerten Dateiumbenennungen ein. Konvertierungen und Übertragungen zeigen die Begleitdateipfade zur Prüfung. Aktionen und Tag → Tag werden sofort mit vorher erfassten Begleitdateien und Prüfungen je Operation ausgeführt. Beim Kopieren bleiben die Originale erhalten; es gibt dafür kein Rückgängig. Inline-Dateinamenänderungen betreffen weiterhin nur Audio.",
+ "ACTION FILE CREATED BY": "AKTIONSDATEI ERSTELLT MIT",
+ "Ambiguous action-file origin; choose Mp3tag/current TagGroove or older TagGroove and import again": "Herkunft der Aktionsdatei ist mehrdeutig; Mp3tag/aktuelles TagGroove oder älteres TagGroove wählen und erneut importieren",
+ "Mp3tag or current TagGroove": "Mp3tag oder aktuelles TagGroove",
+ "Native locale has no qualified portable ANSI codepage": "Für dieses ursprüngliche Gebietsschema ist keine geprüfte portable ANSI-Codepage verfügbar",
+ "Not a retained native record": "Kein beibehaltener ursprünglicher Datensatz",
+ "Older TagGroove (before the interchange repair)": "Älteres TagGroove (vor der Korrektur des Austauschformats)",
+ "The same settings can mean different things in older TagGroove files. Choose their origin, or keep ambiguous actions disabled for review.": "Dieselben Einstellungen können in älteren TagGroove-Dateien etwas anderes bedeuten. Die Herkunft wählen oder mehrdeutige Aktionen zur Prüfung deaktiviert lassen.",
+ "Unknown legacy case mode {raw}": "Unbekannter älterer Groß-/Kleinschreibungsmodus {raw}",
+ "Unknown native cover filter state": "Unbekannter ursprünglicher Zustand des Coverfilters",
+ "Unknown native export partition state": "Unbekannter ursprünglicher Zustand der Exportaufteilung",
+ "Unknown native locale identifier": "Unbekannte ursprüngliche Gebietsschema-ID",
+ "Unknown — preserve ambiguous actions": "Unbekannt — mehrdeutige Aktionen beibehalten",
+ "Unqualified native cover filter tuple": "Ungeprüfte ursprüngliche Wertekombination für den Coverfilter",
+ "Unqualified native export partition tuple": "Ungeprüfte ursprüngliche Wertekombination für die Exportaufteilung"
 }

@@ -666,9 +666,10 @@ fn inspect(
                 Ok(Some(Candidate::Panel(parsed.panel, parsed.field_values)))
             } else if lower.ends_with(".mta") {
                 item.kind = "actions".into();
-                let mut parsed = crate::action_host::import_group_diagnostic(
+                let mut parsed = crate::action_host::import_group_diagnostic_with_dialect(
                     &extracted.path().join(file),
                     legacy_encoding,
+                    tag_core::actions::MtaDialect::Mp3tag,
                 )
                 .map_err(|e| e.to_string())?;
                 item.warnings = parsed
@@ -3292,6 +3293,51 @@ mod tests {
         assert_eq!(native(dir.path()).unwrap(), before);
     }
 
+    #[test]
+    fn native_action_import_uses_known_mp3tag_origin_and_stays_disabled() {
+        let _guard = TESTS.lock().unwrap();
+        let target = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(target.path());
+        let path = make_source(source.path());
+        let relative = "data/actions/NativeOrigin.mta";
+        std::fs::write(
+            source.path().join(relative),
+            b"[#0]\nT=1\nF=TITLE\n1=2\n2= \n",
+        )
+        .unwrap();
+        let preview = make_preview(target.path(), &path, window()).unwrap();
+        let item = preview
+            .items
+            .iter()
+            .find(|item| item.file == relative)
+            .unwrap();
+        assert!(item.supported);
+        assert!(item.warnings.is_empty(), "{:?}", item.warnings);
+        apply(
+            target.path(),
+            &preview.token,
+            &[relative.into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        let library =
+            crate::action_host::load_library(&target.path().join("actions.json")).unwrap();
+        let group = library
+            .groups
+            .iter()
+            .find(|group| group.name == "NativeOrigin")
+            .unwrap();
+        assert!(!group.enabled);
+        assert!(matches!(
+            group.actions[0],
+            tag_core::actions::ActionSpec::CaseConversion {
+                mode: tag_core::actions::CaseMode::Upper,
+                ..
+            }
+        ));
+    }
     #[test]
     fn populated_folder_preview_import_restart_and_full_content_restore() {
         let _guard = TESTS.lock().unwrap();

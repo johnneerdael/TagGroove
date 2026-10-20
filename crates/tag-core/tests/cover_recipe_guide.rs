@@ -63,6 +63,7 @@ fn filename(template: &str, folder: &Path) -> String {
     match apply_action_spec(
         &mut state,
         &ActionSpec::ImportCover {
+            mta_source: None,
             filename_template: template.into(),
             picture_type: None,
             delete_existing: false,

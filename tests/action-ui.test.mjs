@@ -8,6 +8,18 @@ const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.Sc
 const { mtaExportWarning, actionListKey, moveMarked, markAll, clickMark, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets, recallQuick, rememberQuick } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
+test('Quick memory retains imported locale and inactive native cover/export options',()=>{
+  const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
+  for(const type of ['convert_codepage','import_cover','export_cover','export']){
+    const mta_source={properties:{T:type==='convert_codepage'?'11':type==='import_cover'?'12':type==='export_cover'?'13':'15',1:'1033',3:'0|4'}};
+    rememberQuick(storage,{...recallQuick(undefined,type),mta_source});
+    const restored=recallQuick(storage,type);
+    assert.deepEqual(restored.mta_source,mta_source,type);
+    restored.mta_source.properties['3']='changed';
+    assert.equal(recallQuick(storage,type).mta_source.properties['3'],'0|4');
+  }
+});
+
 test('catalog exposes every documented action type exactly once', () => {
   assert.equal(actionCatalog.length,18);
   assert.equal(new Set(actionCatalog.map(([type])=>type)).size,18);

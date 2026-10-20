@@ -3406,7 +3406,6 @@
  "Native cover geometry with this quality cannot be represented by the legacy MTA schema": "De oorspronkelijke hoesvorm met deze kwaliteit kan niet worden opgeslagen in het oude MTA-formaat",
  "Native source metadata exceeds the MTA limit": "De oorspronkelijke bronmetadata overschrijden de MTA-limiet",
  "Native source type does not match its action": "Het oorspronkelijke brontype komt niet overeen met de actie",
- "Not a native cover/playlist record": "Geen oorspronkelijke hoes- of afspeellijstrecord",
  "Unknown native action setting": "Onbekende oorspronkelijke actie-instelling",
  "Unknown native cover format": "Onbekend oorspronkelijk hoesformaat",
  "Unknown native cover shape": "Onbekende oorspronkelijke hoesvorm",
@@ -3651,5 +3650,19 @@
  "The action operation has no captured selected input": "De actiebewerking heeft geen vastgelegde geselecteerde bron",
  "The action rename completed without an audio readback": "De hernoemactie is voltooid zonder dat de audio opnieuw is ingelezen",
  "The moved action file changed; retained it at its destination": "Het door de actie verplaatste bestand is gewijzigd; het is op de doellocatie behouden",
- "Off by default. Includes exact-basename .lrc and .cdg files in Tag → Filename, Filename → Filename, Move files to, Copy files to, Tag → Tag and action-driven filename renames. Converters and transfers show companion paths for review. Actions and Tag → Tag run immediately with frozen membership and per-effect checks. Copy keeps originals and has no transfer Undo. Inline filename edits remain audio-only.": "Standaard uit. Neemt .lrc- en .cdg-bestanden met exact dezelfde basisnaam mee bij Tag → Bestandsnaam, Bestandsnaam → Bestandsnaam, Bestanden verplaatsen naar, Bestanden kopiëren naar, Tag → Tag en hernoemen via acties. Converters en overdrachten tonen de paden ter controle. Acties en Tag → Tag worden direct uitgevoerd met vooraf vastgelegde bijbehorende bestanden en controles per bewerking. Kopiëren behoudt de originelen en heeft geen overdrachtsactie voor Ongedaan maken. Inline bewerkingen van bestandsnamen wijzigen alleen de audio."
+ "Off by default. Includes exact-basename .lrc and .cdg files in Tag → Filename, Filename → Filename, Move files to, Copy files to, Tag → Tag and action-driven filename renames. Converters and transfers show companion paths for review. Actions and Tag → Tag run immediately with frozen membership and per-effect checks. Copy keeps originals and has no transfer Undo. Inline filename edits remain audio-only.": "Standaard uit. Neemt .lrc- en .cdg-bestanden met exact dezelfde basisnaam mee bij Tag → Bestandsnaam, Bestandsnaam → Bestandsnaam, Bestanden verplaatsen naar, Bestanden kopiëren naar, Tag → Tag en hernoemen via acties. Converters en overdrachten tonen de paden ter controle. Acties en Tag → Tag worden direct uitgevoerd met vooraf vastgelegde bijbehorende bestanden en controles per bewerking. Kopiëren behoudt de originelen en heeft geen overdrachtsactie voor Ongedaan maken. Inline bewerkingen van bestandsnamen wijzigen alleen de audio.",
+ "ACTION FILE CREATED BY": "ACTIEBESTAND GEMAAKT MET",
+ "Ambiguous action-file origin; choose Mp3tag/current TagGroove or older TagGroove and import again": "Onduidelijke herkomst van het actiebestand; kies Mp3tag/huidige TagGroove of oudere TagGroove en importeer opnieuw",
+ "Mp3tag or current TagGroove": "Mp3tag of huidige TagGroove",
+ "Native locale has no qualified portable ANSI codepage": "Voor deze oorspronkelijke landinstelling is geen gevalideerde overdraagbare ANSI-codepagina beschikbaar",
+ "Not a retained native record": "Geen bewaard oorspronkelijk record",
+ "Older TagGroove (before the interchange repair)": "Oudere TagGroove (vóór de reparatie van het uitwisselingsformaat)",
+ "The same settings can mean different things in older TagGroove files. Choose their origin, or keep ambiguous actions disabled for review.": "Dezelfde instellingen kunnen in oudere TagGroove-bestanden iets anders betekenen. Kies de herkomst, of laat onduidelijke acties uitgeschakeld om ze te controleren.",
+ "Unknown legacy case mode {raw}": "Onbekende oudere hoofdlettermodus {raw}",
+ "Unknown native cover filter state": "Onbekende oorspronkelijke toestand van het afbeeldingsfilter",
+ "Unknown native export partition state": "Onbekende oorspronkelijke toestand van de exportsplitsing",
+ "Unknown native locale identifier": "Onbekende oorspronkelijke landinstellingscode",
+ "Unknown — preserve ambiguous actions": "Onbekend — onduidelijke acties behouden",
+ "Unqualified native cover filter tuple": "Niet-gevalideerde oorspronkelijke combinatie voor het afbeeldingsfilter",
+ "Unqualified native export partition tuple": "Niet-gevalideerde oorspronkelijke combinatie voor exportsplitsing"
 }

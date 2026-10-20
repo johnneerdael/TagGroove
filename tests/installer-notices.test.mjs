@@ -10,7 +10,7 @@ test('the complete installer notices remain safe for Tauri plain-text to ANSI RT
   assert.match(notices,/Help > About TagGroove/);
   const metadata=await readFile(new URL('../src/audio-licenses.ts',import.meta.url),'utf8');
   const files=[...metadata.matchAll(/from ['"]([^'"]+)\?raw['"]/g)].map(match=>match[1]);
-  assert.equal(files.length,8,'check every imported component notice');
+  assert.equal(files.length,9,'check every imported component notice');
   for(const file of files){
     const text=(await readFile(new URL(file,new URL('../src/audio-licenses.ts',import.meta.url)),'utf8')).replace(/\r\n/g,'\n');
     assert.ok(notices.includes(text.trimEnd()),`retain the complete ${file} notice`);

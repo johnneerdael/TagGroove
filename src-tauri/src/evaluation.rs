@@ -707,7 +707,7 @@ mod tests {
                     field: "AFTER".into(),
                     template: "%_CODEC%|%_BITSPERSAMPLE%|%_COVERS%|[%_COVER_WIDTH%]".into(),
                 },
-                ActionSpec::Export {
+                ActionSpec::Export { mta_source: None,
                     template: "$filename(txt,utf-8)$loop(%_filename%)%COMMENT%/%AFTER%/%_CODEC%/%_BITSPERSAMPLE%/%_COVERS%/$if(%_COVER_WIDTH%,present,absent)/%_COUNTER%$loopend()".into(),
                     filename_template: "technical.txt".into(),
                     append: false,
@@ -791,7 +791,7 @@ mod tests {
                     template: "Changed".into(),
                 },
                 // Deferred output must observe all subsequent actions too.
-                ActionSpec::Export {
+                ActionSpec::Export { mta_source: None,
                     template: format!("$filename(txt,utf-8)$loop(1){column_expression}\n$list('<',=,'>','~')$loopend()"),
                     filename_template: "automation.txt".into(),
                     append: false,
@@ -867,7 +867,7 @@ mod tests {
         let group = ActionGroup {
             name: "Unchanged column snapshot".into(),
             enabled: true,
-            actions: vec![ActionSpec::Export {
+            actions: vec![ActionSpec::Export { mta_source: None,
                 template: "$filename(txt,utf-8)$loop(1)$columnNames('<','>')|$columnValues('<','>')|$list('<',=,'>','~')$loopend()".into(),
                 filename_template: "snapshot.txt".into(),
                 append: false,
@@ -895,6 +895,7 @@ mod tests {
             name: "Working folder".into(),
             enabled: true,
             actions: vec![ActionSpec::Export {
+                mta_source: None,
                 template: "$filename(txt,utf-8)$loop(1)%_workingdir%|%_filename_ext%$loopend()"
                     .into(),
                 filename_template: "%_workingpath%%_workingdir%-list.txt".into(),

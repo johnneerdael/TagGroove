@@ -250,7 +250,7 @@ const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?err
   translateNow,translateLabel:label=>translate(label),
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
-  import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
+  import:async(path,legacyEncoding,dialect)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null,dialect:dialect??'unknown'});}catch(error){throw importFailure(error,true)??error;}},
   importIssues:mtaImportFailure,
   exportReport:group=>invoke('action_group_export_report',{group}),
   execute:executeGroups,

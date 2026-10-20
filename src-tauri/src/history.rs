@@ -1319,6 +1319,7 @@ mod tests {
         tag_core::add_cover(&audio, &input).unwrap();
         let original = std::fs::read(&audio).unwrap();
         let mut actions = vec![tag_core::actions::ActionSpec::ExportCover {
+            mta_source: None,
             filename_template: "art/newcover".into(),
             picture_type: None,
             export_duplicates: false,
@@ -1421,6 +1422,7 @@ mod tests {
             name: "Cover link".into(),
             enabled: true,
             actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                mta_source: None,
                 filename_template: "shared".into(),
                 picture_type: None,
                 export_duplicates: false,
@@ -1486,6 +1488,7 @@ mod tests {
                 name: "Dangling link".into(),
                 enabled: true,
                 actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "dangling".into(),
                     picture_type: None,
                     export_duplicates: false,
@@ -1545,6 +1548,7 @@ mod tests {
             let before_audio = std::fs::read(&audio).unwrap();
             std::fs::write(album.join("shared.png"), &previous).unwrap();
             let export = || tag_core::actions::ActionSpec::ExportCover {
+                mta_source: None,
                 filename_template: "shared".into(),
                 picture_type: None,
                 export_duplicates: false,
@@ -1560,6 +1564,7 @@ mod tests {
             if repeat_after_move {
                 actions.extend([
                     tag_core::actions::ActionSpec::ImportCover {
+                        mta_source: None,
                         filename_template: next.to_string_lossy().into_owned(),
                         picture_type: None,
                         delete_existing: true,
@@ -1685,6 +1690,7 @@ mod tests {
                 name: "Limited cover".into(),
                 enabled: true,
                 actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "cover".into(),
                     picture_type: None,
                     export_duplicates: false,
@@ -1727,6 +1733,7 @@ mod tests {
             let before = std::fs::read(&audio).unwrap();
             std::fs::write(album.join("shared.png"), b"Original output").unwrap();
             let export = |name| tag_core::actions::ActionSpec::ExportCover {
+                mta_source: None,
                 filename_template: name,
                 picture_type: None,
                 export_duplicates: false,
@@ -2137,6 +2144,7 @@ mod tests {
             actions: vec![
                 format("_FILENAME", "middle"),
                 tag_core::actions::ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "cover".into(),
                     picture_type: None,
                     export_duplicates: false,
@@ -2144,6 +2152,7 @@ mod tests {
                 format("_DIRECTORY", "Moved"),
                 format("_FILENAME", "final"),
                 tag_core::actions::ActionSpec::ExportCover {
+                    mta_source: None,
                     filename_template: "later".into(),
                     picture_type: None,
                     export_duplicates: false,
