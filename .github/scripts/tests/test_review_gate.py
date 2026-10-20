@@ -398,6 +398,58 @@ class GateTests(unittest.TestCase):
             self.gate.check_release(self.api, 17, HEAD, SOURCE)
 
 
+class MergedProofRaceTests(unittest.TestCase):
+    def setUp(self):
+        self.gate = load()
+        self.api = Mock(repo='owner/repo')
+        item = pull()
+        item.update(state='closed', merged=True, merge_commit_sha=SOURCE)
+        self.api.snapshot.return_value = (item, (True, 'Clean'))
+        self.bot = dict(login='github-actions[bot]', type='Bot')
+        self.race = dict(context='Reviewed PR builds', state='pending',
+                         description='PR changed while reading review state', creator=self.bot)
+        self.proof = dict(context='Reviewed PR builds', state='success',
+                          description=f'Passed {BASE} {MERGE}', creator=self.bot,
+                          target_url='https://github.com/owner/repo/actions/runs/7')
+        self.statuses = [self.race, self.proof]
+        self.api.pages.side_effect = lambda path: self.statuses if path.startswith('commits/') else []
+        def get(path):
+            if path == 'actions/runs/7':
+                return dict(path='.github/workflows/reviewed-pr.yml', event='workflow_dispatch',
+                            head_branch='main', head_sha=BASE, status='completed', conclusion='success',
+                            display_title=f'Reviewed PR #17 @ {HEAD} + {BASE}')
+            if path.startswith('compare/'):
+                return dict(status='ahead')
+            return dict(parents=[dict(sha=BASE), dict(sha=HEAD)], tree=dict(sha='e' * 40))
+        self.api.get.side_effect = get
+
+    def test_merge_snapshot_race_preserves_the_exact_trusted_validation_proof(self):
+        self.gate.check_release(self.api, 17, HEAD, SOURCE)
+        self.api.snapshot.assert_called_once_with(17, merged=True)
+        self.api.post.assert_not_called()
+
+    def test_other_invalidations_and_untrusted_race_statuses_still_refuse(self):
+        for field, value in [('state', 'failure'), ('description', 'Validation failed'),
+                             ('creator', dict(login='owner', type='User'))]:
+            original = self.race[field]
+            with self.subTest(field=field):
+                self.race[field] = value
+                with self.assertRaises(RuntimeError):
+                    self.gate.check_release(self.api, 17, HEAD, SOURCE)
+            self.race[field] = original
+        self.proof['creator'] = dict(login='owner', type='User')
+        with self.assertRaisesRegex(RuntimeError, 'trusted Actions identity'):
+            self.gate.check_release(self.api, 17, HEAD, SOURCE)
+
+    def test_race_does_not_hide_an_intervening_failure_or_missing_proof(self):
+        self.statuses.insert(1, dict(self.proof, state='failure'))
+        with self.assertRaises(RuntimeError):
+            self.gate.check_release(self.api, 17, HEAD, SOURCE)
+        self.statuses[:] = [self.race]
+        with self.assertRaises(RuntimeError):
+            self.gate.check_release(self.api, 17, HEAD, SOURCE)
+
+
 class MainRepairTests(unittest.TestCase):
     def setUp(self):
         self.gate = load()

@@ -28,6 +28,13 @@ Commit statuses are shared by SHA. Withhold review, release-note and build succe
 
 ### Repository protection and containment
 
+After merge, release authorization can recover the preceding successful build
+proof when a trusted Actions status says exactly `PR changed while reading
+review state`: a metadata reader may have overlapped the merge. Live clean
+review, release notes, unique head, trusted successful run, exact merge parents
+and tested tree still have to pass. Other pending reasons, failures and
+untrusted statuses remain blocking; this exception never authorizes a PR merge.
+
 Normal changes require PRs, a current base, resolved threads, `Codex review` and `Reviewed PR builds`; use merge commits. The owner-authorized direct-main workflow and failed-build repair exceptions are described below. The controller validates release notes before dispatch, during validation preflights and before publication. `Release notes` also exposes a separate diagnostic status. A green optional status does not enforce a merge policy.
 
 Keep the legacy build/release, Docs, Docs screenshots and CI tooling workflows disabled. Do not restore automatic application jobs. Releases use only the reviewed controller and `reviewed-release.yml`, including successful trusted build proof and identical validated source checks. See [the containment contract](../.github/CI_LOCKDOWN.md). No Codex API key is needed: the installed GitHub connector performs reviews; the controller uses the workflow token for metadata and dispatch authorization. Failed validation needs an explicit `retry_build=true` dispatch after investigation; an API error or elapsed time never authorizes execution.

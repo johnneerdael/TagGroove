@@ -275,7 +275,15 @@ def check_release(api, number, head, source):
         raise RuntimeError(f'Main source has no approved merged PR: {reason}')
     check_notes(pr)
     require_unique_open_head(api, number, head)
-    proof = next((item for item in api.pages(f'commits/{head}/statuses?per_page=100') if item['context'] == CONTEXT), None)
+    # A pre-merge metadata reader can finish after the merge and publish this
+    # transient pending status. The live merged review above still must pass;
+    # skip only that trusted race marker, never other invalidations or failures.
+    proof = next((item for item in api.pages(f'commits/{head}/statuses?per_page=100')
+                  if item['context'] == CONTEXT and not (
+                      item.get('state') == 'pending'
+                      and item.get('description') == 'PR changed while reading review state'
+                      and item.get('creator', {}).get('login') == 'github-actions[bot]'
+                      and item.get('creator', {}).get('type') == 'Bot')), None)
     match = re.fullmatch(r'Passed ([0-9a-f]{40}) ([0-9a-f]{40})', proof.get('description', '')) if proof and proof['state'] == 'success' else None
     if not match:
         raise RuntimeError('Merged source has no successful reviewed-build proof')
