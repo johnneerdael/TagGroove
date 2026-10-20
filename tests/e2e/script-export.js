@@ -99,7 +99,7 @@
         { type: 'generate_playlists', filename_template: '%album%.m3u', partition_template: '%_folderpath%' },
       ] };
       await inv('export_action_group', { path: album + '/Every type.mta', group });
-      const imported = await inv('import_action_group', { path: album + '/Every type.mta', legacyEncoding: null });
+      const imported = await inv('import_action_group', { path: album + '/Every type.mta', legacyEncoding: null, dialect: 'mp3tag' });
       const definitions = imported.group.actions.map(({ mta_source, ...definition }) => definition);
       if (imported.issues.length || JSON.stringify(definitions) !== JSON.stringify(group.actions)) throw new Error(JSON.stringify(imported));
       for (const [index, action] of imported.group.actions.entries()) {
@@ -109,7 +109,7 @@
         if (action.mta_source && JSON.stringify(action.mta_source.properties) !== JSON.stringify(record.properties)) throw new Error('Retained source properties differ from the imported native record');
       }
       await inv('export_action_group', { path: album + '/Every type again.mta', group: imported.group });
-      const again = await inv('import_action_group', { path: album + '/Every type again.mta', legacyEncoding: null });
+      const again = await inv('import_action_group', { path: album + '/Every type again.mta', legacyEncoding: null, dialect: 'mp3tag' });
       if (again.issues.length || JSON.stringify(again.records) !== JSON.stringify(imported.records)) throw new Error('Re-export changed native action records: ' + JSON.stringify(again));
       return `${imported.group.actions.length} semantic actions; retained source properties and re-exported records match`;
     });

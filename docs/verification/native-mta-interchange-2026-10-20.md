@@ -122,3 +122,15 @@ settings remain qualification under C57/L29/L78/L79. No original Windows
 execution, application/native UI replay or live-provider run was performed.
 Passing source/codec checks does not replace the exact-final-head GitHub Codex
 code review, required Linux CI, merge or release/native evidence.
+
+## First postmerge native fixture repair
+
+Release 39488995123 reached the real Linux and macOS native suites. Both
+script-export suites passed six of seven checks and refused the same all-action
+round trip: the fixture exported current TagGroove data but imported without
+choosing its origin, so Types 1 and 15 remained intentionally unresolved.
+Both fixture imports now pass `dialect: mp3tag`, the explicit current/native
+format choice. Semantic-action and exact re-export-record comparisons remain
+unchanged. The all-action core round trip and all ten native interchange tests
+pass headlessly; JavaScript syntax checking passes. No local native UI ran.
+The corrected hosted suite remains required on the repair source.

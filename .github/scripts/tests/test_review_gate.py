@@ -459,6 +459,7 @@ class MainRepairTests(unittest.TestCase):
                         head_branch='main', head_sha=BASE, status='completed', conclusion='failure',
                         display_title=f'Reviewed release {BASE}')
         self.comparisons = {}
+        self.comparison_files = {}
         self.associated = []
         self.jobs = [dict(name=name, status='completed', conclusion='success')
                      for name in ('authorize', 'Validate version, tag and source commit')]
@@ -471,7 +472,10 @@ class MainRepairTests(unittest.TestCase):
             if path == 'actions/runs/42':
                 return self.run
             if path.startswith('compare/'):
-                return dict(status=self.comparisons.get(path, 'ahead'))
+                result = dict(status=self.comparisons.get(path, 'ahead'))
+                if path in self.comparison_files:
+                    result['files'] = self.comparison_files[path]
+                return result
             raise AssertionError(f'Unexpected API request: {path}')
         self.api.get.side_effect = get
 
@@ -491,6 +495,33 @@ class MainRepairTests(unittest.TestCase):
     def test_failed_release_controller_can_be_a_later_main_commit(self):
         self.run['head_sha'] = HEAD
         self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+
+    def test_repair_can_preserve_the_failed_runs_workflow_only_controller_commit(self):
+        self.run['head_sha'] = HEAD
+        self.commit['parents'] = [dict(sha=HEAD)]
+        self.comparison_files[f'compare/{BASE}...{HEAD}'] = [
+            dict(filename='.github/scripts/review_gate.py'),
+            dict(filename='docs/verification/controller-repair.md')]
+        self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.api.snapshot.assert_not_called()
+        self.api.status.assert_not_called()
+
+    def test_later_controller_cannot_hide_application_changes_or_incomplete_diff(self):
+        self.run['head_sha'] = HEAD
+        self.commit['parents'] = [dict(sha=HEAD)]
+        comparison = f'compare/{BASE}...{HEAD}'
+        for files in [None, [dict(filename='src/main.ts')],
+                      [dict(filename='scripts/macos-release.py')],
+                      [dict(filename='docs/moved.md', previous_filename='src/main.ts')],
+                      [dict(filename='.github/workflows/release.yml')] * 300]:
+            with self.subTest(files=files):
+                self.comparison_files[comparison] = files
+                with self.assertRaises(RuntimeError):
+                    self.gate.check_release(self.api, 0, SOURCE, SOURCE)
+        self.comparison_files[comparison] = [dict(filename='.github/scripts/review_gate.py')]
+        self.comparisons[comparison] = 'diverged'
+        with self.assertRaises(RuntimeError):
+            self.gate.check_release(self.api, 0, SOURCE, SOURCE)
 
     def test_failed_run_must_have_successfully_authorized_and_prepared_its_source(self):
         for index in (0, 1):

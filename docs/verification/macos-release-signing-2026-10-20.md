@@ -78,3 +78,25 @@ native integration and published release assets must be observed before L71 is
 closed. Existing release metadata and checksums alone do not establish those
 results. Apple's [Developer ID guidance](https://developer.apple.com/developer-id/)
 describes signing and notarization as separate distribution checks.
+
+## First postmerge schema repair
+
+Reviewed release 39488995123 authorized and prepared merged source
+`b3097651a7bbb00b8ae4e3ed8f77bf272cf6e3ca`, then macOS arm64 job
+118857016092 refused the override before compilation: `skipStapling` is not
+a supported field in the pinned Tauri CLI macOS configuration schema.
+The override now contains only the pinned identity and hardened-runtime flag.
+App/DMG stapling and Gatekeeper verification remain mandatory in verify-built;
+no signature or notarization gate was removed. A generated-field/schema
+regression failed before this repair and passes afterward.
+
+The later trusted controller commit only repaired CI metadata. The main-repair
+gate now permits preserving that exact failed-run controller parent after
+proving the intervening diff is complete and limited to CI/docs, with explicit
+refusals for application changes, cross-boundary renames or truncated evidence.
+The original failed run still must finish as failed with successful authorization
+and preparation; no PR review or premerge proof is manufactured.
+
+Android integration job 118857168337 separately failed while downloading and
+unzipping NDK 28.2.13676358, before executing tests. Its root cause beyond the
+reported ZIP read error is unproven; the fresh repair run retries SDK acquisition.

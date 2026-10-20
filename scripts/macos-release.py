@@ -70,7 +70,7 @@ def prepare(root, directory, environment):
         rb'-----BEGIN PRIVATE KEY-----\r?\n[A-Za-z0-9+/=\r\n]+\r?\n-----END PRIVATE KEY-----\r?\n?', key),
         'Invalid notary private-key envelope')
     config = core.encoded({'bundle': {'macOS': {'signingIdentity': selected['identity'],
-                                              'hardenedRuntime': True, 'skipStapling': False}}})
+                                              'hardenedRuntime': True}}})
     outputs = {'AuthKey.p8': key, 'tauri-release.json': config}
     outputs['owner.json'] = core.encoded({'owner': OWNER, 'files': {
         name: {'size': len(raw), 'sha256': sha(raw)} for name, raw in outputs.items()}})

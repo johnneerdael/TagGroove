@@ -44,9 +44,21 @@ class MacOSRelease(unittest.TestCase):
             self.assertEqual((directory/'AuthKey.p8').stat().st_mode & 0o777, 0o600)
             self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
             config = json.loads((directory/'tauri-release.json').read_bytes())['bundle']['macOS']
-            self.assertEqual(config, {'signingIdentity': IDENTITY, 'hardenedRuntime': True, 'skipStapling': False})
+            self.assertEqual(config, {'signingIdentity': IDENTITY, 'hardenedRuntime': True})
             with self.assertRaises(ValueError):m.prepare(root, directory, env)
             m.cleanup(directory);self.assertFalse(directory.exists())
+
+    def test_prepare_override_has_no_unknown_pinned_cli_macos_fields(self):
+        schema_path = SCRIPT.parents[1]/'node_modules/@tauri-apps/cli/config.schema.json'
+        schema = json.loads(schema_path.read_bytes())['definitions']['MacConfig']
+        self.assertFalse(schema['additionalProperties'])
+        m = self.module()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)/'repo';env = self.fixture(root);directory = Path(folder)/'notary'
+            m.prepare(root, directory, env)
+            config = json.loads((directory/'tauri-release.json').read_bytes())['bundle']['macOS']
+            self.assertFalse(set(config) - set(schema['properties']), 'Unknown Tauri macOS config fields')
+            m.cleanup(directory)
 
     def test_cleanup_preserves_changed_or_unknown_material(self):
         m = self.module()

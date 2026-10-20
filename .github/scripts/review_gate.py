@@ -253,7 +253,19 @@ def check_main_repair(api, head, source):
         raise RuntimeError('Repair requires a failed trusted main release run')
     parent = failed[1]
     if [item['sha'] for item in commit['parents']] != [parent]:
-        raise RuntimeError('Repair must have the failed release source as its sole parent')
+        # A trusted workflow repair may have landed before this failed run was
+        # dispatched. Preserve that exact controller commit, but never absorb
+        # intervening application changes through the failed-build exception.
+        if [item['sha'] for item in commit['parents']] != [run['head_sha']]:
+            raise RuntimeError('Repair must follow the failed source or its workflow-only controller')
+        comparison = api.get(f"compare/{parent}...{run['head_sha']}")
+        files = comparison.get('files')
+        allowed = lambda path: isinstance(path, str) and path.startswith(('.github/', 'docs/'))
+        if (comparison.get('status') != 'ahead' or not isinstance(files, list) or len(files) >= 300
+                or not all(allowed(item.get('filename'))
+                           and ('previous_filename' not in item or allowed(item['previous_filename']))
+                           for item in files)):
+            raise RuntimeError('Failed release controller includes application changes or incomplete diff')
     jobs = api.jobs(run_id)
     for name in ('authorize', 'Validate version, tag and source commit'):
         matching = [job for job in jobs if job.get('name') == name]
