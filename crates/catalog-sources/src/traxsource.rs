@@ -65,6 +65,8 @@ fn absolute(s: &str) -> Option<String> {
                     | "traxsource.com"
                     | "geo-static.traxsource.com"
                     | "geo-static2.traxsource.com"
+                    | "geo-w-static.traxsource.com"
+                    | "w-static.traxsource.com"
             )
         ))
     .then(|| url.to_string())

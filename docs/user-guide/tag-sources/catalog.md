@@ -50,7 +50,8 @@ Open **Options → Tag Sources → Traxsource**:
 
 - **Traxsource solver endpoint:** leave empty for direct access, or
   enter the HTTP/HTTPS endpoint of a trusted solver, for example
-  `http://localhost:8191/v1`.
+  `http://localhost:8191/v1`. Include a host and omit credentials, query
+  parameters and fragments.
 - **Solver timeout (seconds):** use 1–300 seconds; the default is 120.
 - **Retry restricted catalog services:** clear restrictions remembered during this app session after
   updating the solver or fixing connectivity. This action does not edit tags.

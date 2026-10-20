@@ -17,6 +17,62 @@ fn traxsource_full_release_keeps_identity_order_and_ignores_recommendations() {
 fn traxsource_wrong_release_identity_is_rejected() {
     assert!(parse_traxsource_release(RELEASE, "43").is_err());
 }
+
+fn traxsource_covers(address: &str) -> [Option<String>; 3] {
+    let release = RELEASE.replace("https://geo-static.traxsource.com/cover.jpg", address);
+    let release_search = format!(
+        r#"<div class="release-grid"><div class="grid-item" data-tid="42"><img src="{address}"><div class="links"><a class="com-title" href="/title/42/night-signals">Night Signals</a></div></div></div>"#
+    );
+    let track_search = format!(
+        r#"<div id="searchTrackList"><div class="trk-row" data-trid="81"><div class="thumb"><img src="{address}"></div><div class="title"><a href="/track/81/first">First</a></div></div></div>"#
+    );
+    [
+        parse_traxsource_release(&release, "42").unwrap().cover,
+        parse_traxsource_search(&release_search, true)
+            .unwrap()
+            .results
+            .remove(0)
+            .cover,
+        parse_traxsource_search(&track_search, false)
+            .unwrap()
+            .results
+            .remove(0)
+            .cover,
+    ]
+}
+
+#[test]
+fn traxsource_covers_keep_all_supported_artwork_hosts() {
+    for host in [
+        "www.traxsource.com",
+        "traxsource.com",
+        "geo-static.traxsource.com",
+        "geo-static2.traxsource.com",
+        "geo-w-static.traxsource.com",
+        "w-static.traxsource.com",
+    ] {
+        let address = format!("https://{host}/cover.jpg");
+        assert_eq!(
+            traxsource_covers(&address),
+            [Some(address.clone()), Some(address.clone()), Some(address)],
+            "release detail, release search and track search must retain {host} covers"
+        );
+    }
+}
+
+#[test]
+fn traxsource_covers_reject_unsupported_and_lookalike_hosts() {
+    for address in [
+        "https://geo-w-static.traxsource.com.example.invalid/cover.jpg",
+        "https://evilw-static.traxsource.com/cover.jpg",
+        "https://images.w-static.traxsource.com/cover.jpg",
+        "https://w-static.traxsource.com@example.invalid/cover.jpg",
+        "http://w-static.traxsource.com/cover.jpg",
+    ] {
+        assert_eq!(traxsource_covers(address), [None, None, None], "{address}");
+    }
+}
+
 #[test]
 fn empty_results_are_different_from_malformed_or_challenged() {
     assert!(parse_traxsource_search(

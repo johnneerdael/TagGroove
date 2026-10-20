@@ -351,7 +351,15 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
       validate:draft => {
         const page = (draft.pages['tag-sources-catalog'] || {}) as Record<string,unknown>;
         const endpoint = String(page.endpoint ?? '').trim();
-        if (endpoint) { try { const url = new URL(endpoint); if (!['http:','https:'].includes(url.protocol) || url.username || url.password) return 'Enter an HTTP or HTTPS solver endpoint without credentials.'; } catch { return 'Enter a valid solver endpoint address.'; } }
+        if (endpoint) {
+          try {
+            const url = new URL(endpoint);
+            // The serialized URL preserves empty query/fragment delimiters, unlike search/hash.
+            if (!['http:','https:'].includes(url.protocol) || !url.hostname || url.username || url.password || url.href.includes('?') || url.href.includes('#')) {
+              return 'Enter an HTTP or HTTPS solver endpoint with a host and without credentials, query parameters or a fragment.';
+            }
+          } catch { return 'Enter a valid solver endpoint address.'; }
+        }
         const timeout = String(page.timeout_seconds ?? '120');
         return !/^\d+$/.test(timeout) || Number(timeout) < 1 || Number(timeout) > 300 ? 'Enter a solver timeout from 1 to 300 seconds.' : undefined;
       }},

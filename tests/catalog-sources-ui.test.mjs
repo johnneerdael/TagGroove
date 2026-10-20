@@ -35,6 +35,28 @@ test('catalog solver settings are optional, validated and have a reset action',a
   let reset=0;const page=tagSourcesOptionsPages(async()=>null,undefined,undefined,async()=>reset++).find(page=>page.id==='tag-sources-catalog');assert.equal(page.label,'Traxsource');assert.equal(page.controls.find(control=>control.id==='tag-source-catalog-reset').label,'Retry direct Traxsource access');assert.equal(page.defaults.endpoint,'');const draft={pages:{'tag-sources-catalog':{endpoint:'http://localhost:8191/v1',timeout_seconds:'60'}}};assert.equal(page.validate(draft),undefined);draft.pages['tag-sources-catalog'].endpoint='file:///tmp/solver';assert.match(page.validate(draft),/HTTP/);draft.pages['tag-sources-catalog'].endpoint='';draft.pages['tag-sources-catalog'].timeout_seconds='0';assert.match(page.validate(draft),/1 to 300/);await page.controls.find(control=>control.id==='tag-source-catalog-reset').run();assert.equal(reset,1);
 });
 
+test('Traxsource solver endpoint validation matches backend URL restrictions',()=>{
+  const page=tagSourcesOptionsPages(async()=>null).find(page=>page.id==='tag-sources-catalog');
+  const validate=endpoint=>page.validate({pages:{'tag-sources-catalog':{endpoint,timeout_seconds:120}}});
+  for(const endpoint of ['', '   ', 'http://localhost:8191', 'http://localhost:8191/v1', 'https://solver.example/proxy/v1/', 'http://[::1]:8191/v1', ' https://solver.example/v1 ']) {
+    assert.equal(validate(endpoint),undefined,`accept ${endpoint}`);
+  }
+  for(const endpoint of [
+    'http://localhost:8191/v1?token=x',
+    'http://localhost:8191/v1?',
+    'http://localhost:8191/v1#fragment',
+    'http://localhost:8191/v1#',
+    'http://user@localhost:8191/v1',
+    'http://:password@localhost:8191/v1',
+    'ftp://localhost:8191/v1',
+    'file:///tmp/solver',
+    'http://',
+    'not a URL',
+  ]) {
+    assert.equal(typeof validate(endpoint),'string',`reject ${endpoint}`);
+  }
+});
+
 test('switching catalog track/release mode uses the corresponding artist and title query',async()=>{const s=setup(async command=>command==='tag_source_search'?{results:[],total:0}:undefined);await s.ui.open('beatport');const d=document.querySelector('dialog'),mode=d.querySelector('#ts-mode');assert.equal(d.querySelector('#ts-artist').value,'Guest');mode.value='release';mode.dispatchEvent(new Event('change'));assert.equal(d.querySelector('#ts-artist').value,'Various Artists');d.querySelector('#ts-search').click();await tick();const query=s.calls.find(call=>call.command==='tag_source_search').args.query;assert.equal(query.mode,'release');assert.equal(query.album,'Night');d.querySelector('[data-close]').click();});
 
 for (const provider of ['beatport','traxsource']) test(`pasted ${provider} track URL retains its canonical track when opening the release`,async()=>{

@@ -4,7 +4,6 @@
 mod asf;
 #[path = "container_formats.rs"]
 mod container_formats;
-#[cfg(test)]
 #[path = "tags_content_guard_tests.rs"]
 mod content_guard_tests;
 #[path = "cover_manage.rs"]

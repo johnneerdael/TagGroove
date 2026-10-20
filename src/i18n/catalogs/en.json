@@ -958,7 +958,7 @@
  "Enter a track:<id>, release:<id>, or catalog track/release HTTPS address": "Enter a track:<id>, release:<id>, or catalog track/release HTTPS address",
  "Enter a valid solver endpoint address.": "Enter a valid solver endpoint address.",
  "Enter a {name} release ID or address.": "Enter a {name} release ID or address.",
- "Enter an HTTP or HTTPS solver endpoint without credentials.": "Enter an HTTP or HTTPS solver endpoint without credentials.",
+ "Enter an HTTP or HTTPS solver endpoint with a host and without credentials, query parameters or a fragment.": "Enter an HTTP or HTTPS solver endpoint with a host and without credentials, query parameters or a fragment.",
  "Enter an HTTPS track or release address from the selected catalog without credentials or a custom port": "Enter an HTTPS track or release address from the selected catalog without credentials or a custom port",
  "Enter an LRCLIB lyrics record ID (a number).": "Enter an LRCLIB lyrics record ID (a number).",
  "Enter an action group name.": "Enter an action group name.",
