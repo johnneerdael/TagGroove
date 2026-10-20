@@ -29,6 +29,8 @@ enum OptionKey {
     NaturalSort,
     SelectAdded,
     KeepMoved,
+    Advanced(&'static str),
+    PreferGenres,
 }
 struct Spec {
     identifier: [u8; 16],
@@ -247,12 +249,58 @@ const SPECS: &[Spec] = &[
         label: "Keep moved files in the file list",
         inverted: false,
     },
+    Spec {
+        identifier: identifier(b"243cae0bb6d7804b932f5ea2f2d2a55d"),
+        key: OptionKey::Advanced("popularimeter_ratings"),
+        label: "Always display POPULARIMETER values for ID3v2 ratings",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"ac740b3914557e479e4b32dbbbacaab0"),
+        key: OptionKey::Advanced("list_chapters"),
+        label: "List chapters as separate files",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"e4f596ec68aba54da0bf8bff3a489238"),
+        key: OptionKey::Advanced("matroska_video_mapping"),
+        label: "Use recommended mapping for Matroska video",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"40b8c799a9b6ac4080064606a8c10200"),
+        key: OptionKey::Advanced("mp4_single_atom"),
+        label: "Use single MP4 atom for multiple values",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"a8c68011b761684596bd8f68db51d329"),
+        key: OptionKey::Advanced("reuse_mp4_atoms"),
+        label: "Reuse unmodified MP4 atoms",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"8b86f06a405be14991918e4fc1cf13d8"),
+        key: OptionKey::Advanced("reuse_id3v2_frames"),
+        label: "Reuse unmodified ID3v2 frames",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"a5a066496e5a1d409b6a874bb814b65b"),
+        key: OptionKey::PreferGenres,
+        label: "Prefer genre values from tags",
+        inverted: false,
+    },
 ];
+const GRID: [u8; 16] = identifier(b"10ad9a5de1a201419efb4f510bd262f4");
 const EXTENDED_MODE: [u8; 16] = identifier(b"16ba6ee64495f544a1f46ad5ed57b876");
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum TextKey {
     PlaylistFilename,
     PlaylistInfo,
+    CommentLanguage,
+    RestrictExtensions,
+    FolderSeparator,
 }
 struct TextSpec {
     identifier: [u8; 16],
@@ -269,6 +317,21 @@ const TEXT_SPECS: &[TextSpec] = &[
         identifier: identifier(b"aa0ec86bea2e7a40a7350a520bcf4a46"),
         key: TextKey::PlaylistInfo,
         label: "Extended info format string",
+    },
+    TextSpec {
+        identifier: identifier(b"8eec759f9a170443abf0e47af87c1079"),
+        key: TextKey::CommentLanguage,
+        label: "ID3v2 comment language code (ISO-639-2)",
+    },
+    TextSpec {
+        identifier: identifier(b"0c7f0a198af644488be02a0d19631585"),
+        key: TextKey::RestrictExtensions,
+        label: "Restrict incoming files to",
+    },
+    TextSpec {
+        identifier: identifier(b"375e4b6e9c45af49a77caac696ced2b6"),
+        key: TextKey::FolderSeparator,
+        label: "Replace folder separator in tag values with",
     },
 ];
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -457,6 +520,7 @@ pub struct Patch {
     text: BTreeMap<TextKey, String>,
     masks: BTreeMap<MaskKey, u32>,
     tag_encoding: Option<&'static str>,
+    grid: Option<&'static str>,
 }
 pub struct Import {
     pub patch: Patch,
@@ -467,6 +531,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut position = 0usize;
     let mut values = BTreeMap::new();
     let mut extended_mode = None;
+    let mut grid_raw = None;
     let mut text = BTreeMap::new();
     let mut masks = BTreeMap::new();
     let mut tag_encoding_raw = None;
@@ -493,6 +558,14 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 .ok_or("Binary boolean setting has no value")?
                 != 0;
             values.insert(spec.key, value ^ spec.inverted);
+        } else if header[..16] == GRID {
+            grid_raw = Some(u32::from_le_bytes(
+                payload
+                    .get(..4)
+                    .ok_or("Binary grid setting is incomplete")?
+                    .try_into()
+                    .unwrap(),
+            ));
         } else if header[..16] == EXTENDED_MODE {
             // The native reader consumes a little-endian dword. Its save
             // handler saves for 1, ignores for 2 and prompts for any other value.
@@ -547,6 +620,27 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
         position = end;
     }
     let mut warnings = Vec::new();
+    let grid = match grid_raw {
+        Some(0) => Some("off"),
+        Some(1) => Some("alternate"),
+        Some(2) => Some("lines"),
+        Some(_) => {
+            warnings.push(
+                "The unrecognized grid choice is not imported; the current choice is kept.".into(),
+            );
+            None
+        }
+        None => None,
+    };
+    text.retain(|key,value| {
+        let reason = match key {
+            TextKey::CommentLanguage if value.len()!=3 || !value.bytes().all(|byte|byte.is_ascii_alphabetic()) => Some("The invalid comment language is not imported; the current language is kept."),
+            TextKey::RestrictExtensions if crate::settings::parse_extensions(value).is_err() => Some("The invalid incoming-file restriction is not imported; the current restriction is kept."),
+            TextKey::FolderSeparator if tag_core::validate_folder_separator(value).is_err() => Some("The invalid folder-separator replacement is not imported; the current replacement is kept."),
+            _ => None,
+        };
+        if let Some(reason)=reason {warnings.push(reason.into());false} else {true}
+    });
     masks.retain(|key, raw| {
         let spec = MASK_SPECS.iter().find(|spec| spec.key == *key).unwrap();
         if spec.writable != 0 && *raw & spec.writable == 0 {
@@ -589,6 +683,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
         && text.is_empty()
         && masks.is_empty()
         && tag_encoding.is_none()
+        && grid.is_none()
     {
         if !warnings.is_empty() {
             return Err(warnings.join(" "));
@@ -648,6 +743,21 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             verbatim: false,
         });
     }
+    if let Some(value) = grid {
+        settings.push(Setting {
+            label: "Display grid lines in file view".into(),
+            enabled: None,
+            value: Some(
+                match value {
+                    "off" => "Off",
+                    "alternate" => "Alternate row colors",
+                    _ => "Grid lines",
+                }
+                .into(),
+            ),
+            verbatim: false,
+        });
+    }
     for (key, value) in &text {
         settings.push(Setting {
             label: TEXT_SPECS
@@ -671,6 +781,7 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             text,
             masks,
             tag_encoding,
+            grid,
         },
         settings,
         warnings,
@@ -828,6 +939,20 @@ impl Patch {
                     field,
                     *value,
                 )?,
+                OptionKey::Advanced(field) => {
+                    let options = settings(&mut options, directory)?;
+                    let mut advanced = serde_json::to_value(&options.tags.advanced)
+                        .map_err(|error| error.to_string())?;
+                    advanced[field] = (*value).into();
+                    options.tags.advanced =
+                        serde_json::from_value(advanced).map_err(|error| error.to_string())?;
+                }
+                OptionKey::PreferGenres => {
+                    panel(&mut tag_panel, directory)?
+                        .field_values
+                        .prefer_tag_fields
+                        .insert("GENRE".into(), *value);
+                }
                 OptionKey::NaturalSort => {
                     settings(&mut options, directory)?.general.natural_sort = *value;
                 }
@@ -853,17 +978,41 @@ impl Patch {
                 mode,
             )?;
         }
-        for (key, value) in &self.text {
-            let name = match key {
-                TextKey::PlaylistFilename => "filename",
-                TextKey::PlaylistInfo => "extinf_format",
-            };
+        if let Some(grid) = self.grid {
             page(
                 settings(&mut options, directory)?,
-                "playlist",
-                name,
-                value.as_str(),
+                "appearance",
+                "grid",
+                grid,
             )?;
+        }
+        for (key, value) in &self.text {
+            match key {
+                TextKey::PlaylistFilename => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "filename",
+                    value.as_str(),
+                )?,
+                TextKey::PlaylistInfo => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "extinf_format",
+                    value.as_str(),
+                )?,
+                TextKey::CommentLanguage => {
+                    settings(&mut options, directory)?
+                        .tags
+                        .advanced
+                        .id3v2_comment_language = value.clone()
+                }
+                TextKey::RestrictExtensions => {
+                    settings(&mut options, directory)?.files.restrict_extensions = value.clone()
+                }
+                TextKey::FolderSeparator => {
+                    settings(&mut options, directory)?.files.folder_separator = value.clone()
+                }
+            }
         }
         if !self.masks.is_empty() || self.tag_encoding.is_some() {
             let options = settings(&mut options, directory)?;
@@ -909,7 +1058,7 @@ mod tests {
         ))
         .unwrap();
         let options = fixture["options"].as_array().unwrap();
-        assert_eq!(options.len(), 32);
+        assert_eq!(options.len(), 39);
         let mut cases = vec![
             vec![0; options.len()],
             vec![1; options.len()],
@@ -966,6 +1115,94 @@ mod tests {
         assert!(parse(&record(&id, &[])).is_err());
         let malicious = [id, u32::MAX.to_le_bytes().to_vec()].concat();
         assert!(parse(&malicious).is_err());
+    }
+
+    #[test]
+    fn binary_settings_remainders_import_grid_and_advanced_text_without_coercion() {
+        for (grid, expected) in [(0, "off"), (1, "alternate"), (2, "lines")] {
+            for separator in ["", " - "] {
+                let bytes = [
+                    record(
+                        &native_id("10ad9a5de1a201419efb4f510bd262f4"),
+                        &[grid, 0, 0, 0, 99],
+                    ),
+                    record(
+                        &native_id("8eec759f9a170443abf0e47af87c1079"),
+                        b"NLD\0ignored",
+                    ),
+                    record(
+                        &native_id("0c7f0a198af644488be02a0d19631585"),
+                        b"*.MP3; *.flac, opus",
+                    ),
+                    record(
+                        &native_id("375e4b6e9c45af49a77caac696ced2b6"),
+                        separator.as_bytes(),
+                    ),
+                ]
+                .concat();
+                let parsed = parse(&bytes).unwrap();
+                assert_eq!(parsed.settings.len(), 4);
+                assert!(parsed.warnings.is_empty());
+                let temp = tempfile::tempdir().unwrap();
+                parsed.patch.apply(temp.path()).unwrap();
+                let options = crate::settings::load(&temp.path().join("settings.json")).0;
+                assert_eq!(options.pages["appearance"]["grid"], expected);
+                assert_eq!(options.tags.advanced.id3v2_comment_language, "NLD");
+                assert_eq!(options.files.restrict_extensions, "*.MP3; *.flac, opus");
+                assert_eq!(options.files.folder_separator, separator);
+                assert!(parsed
+                    .settings
+                    .iter()
+                    .any(|item| item.value.as_deref() == Some(separator) && item.verbatim));
+            }
+        }
+    }
+
+    #[test]
+    fn binary_settings_remainders_skip_last_invalid_value_and_preserve_current_choices() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut before = crate::settings::Settings::default();
+        before.files.restrict_extensions = "*.wav".into();
+        before.files.folder_separator = "__".into();
+        before.tags.advanced.id3v2_comment_language = "deu".into();
+        page(&mut before, "appearance", "grid", "lines").unwrap();
+        crate::settings::save(&temp.path().join("settings.json"), &before).unwrap();
+        let bytes = [
+            record(
+                &native_id("10ad9a5de1a201419efb4f510bd262f4"),
+                &0u32.to_le_bytes(),
+            ),
+            record(
+                &native_id("10ad9a5de1a201419efb4f510bd262f4"),
+                &99u32.to_le_bytes(),
+            ),
+            record(&native_id("8eec759f9a170443abf0e47af87c1079"), b"eng"),
+            record(&native_id("8eec759f9a170443abf0e47af87c1079"), b"english"),
+            record(
+                &native_id("0c7f0a198af644488be02a0d19631585"),
+                b"*.mp3;../private",
+            ),
+            record(&native_id("375e4b6e9c45af49a77caac696ced2b6"), b"/"),
+            record(&native_id("8840da8e2956d74da1853b63f6df9037"), &[1]),
+        ]
+        .concat();
+        let parsed = parse(&bytes).unwrap();
+        assert_eq!(parsed.settings.len(), 1);
+        assert_eq!(parsed.warnings.len(), 4);
+        assert!(parsed
+            .warnings
+            .iter()
+            .all(|warning| !warning.contains("private") && !warning.contains("english")));
+        parsed.patch.apply(temp.path()).unwrap();
+        let after = crate::settings::load(&temp.path().join("settings.json")).0;
+        assert_eq!(
+            after.files.restrict_extensions,
+            before.files.restrict_extensions
+        );
+        assert_eq!(after.files.folder_separator, before.files.folder_separator);
+        assert_eq!(after.tags.advanced.id3v2_comment_language, "deu");
+        assert_eq!(after.pages["appearance"]["grid"], "lines");
+        assert_eq!(after.pages["tags"]["save_on_move"], true);
     }
     #[test]
     fn binary_settings_migration_skips_unknown_records_and_uses_the_last_known_record() {

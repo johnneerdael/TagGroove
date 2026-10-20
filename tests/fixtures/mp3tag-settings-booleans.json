@@ -491,6 +491,104 @@
       "control": "0x5be",
       "language_offset": "0xb18",
       "label": "Keep moved files in the file list"
+    },
+    {
+      "native_key": "binary:243cae0bb6d7804b932f5ea2f2d2a55d",
+      "identifier": "243cae0bb6d7804b932f5ea2f2d2a55d",
+      "object": "0x140ac55b0",
+      "control": "0x868",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "popularimeter_ratings"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:ac740b3914557e479e4b32dbbbacaab0",
+      "identifier": "ac740b3914557e479e4b32dbbbacaab0",
+      "object": "0x140ac5880",
+      "control": "0x85d",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "list_chapters"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:e4f596ec68aba54da0bf8bff3a489238",
+      "identifier": "e4f596ec68aba54da0bf8bff3a489238",
+      "object": "0x140ac56f0",
+      "control": "0x85e",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "matroska_video_mapping"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:40b8c799a9b6ac4080064606a8c10200",
+      "identifier": "40b8c799a9b6ac4080064606a8c10200",
+      "object": "0x140ac5650",
+      "control": "0x95e",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "mp4_single_atom"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:a8c68011b761684596bd8f68db51d329",
+      "identifier": "a8c68011b761684596bd8f68db51d329",
+      "object": "0x140ac56a0",
+      "control": "0x967",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "reuse_mp4_atoms"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:8b86f06a405be14991918e4fc1cf13d8",
+      "identifier": "8b86f06a405be14991918e4fc1cf13d8",
+      "object": "0x140ac5600",
+      "control": "0x95f",
+      "legacy_alias": null,
+      "component": "settings",
+      "path": [
+        "tags",
+        "advanced",
+        "reuse_id3v2_frames"
+      ],
+      "inverted": false
+    },
+    {
+      "native_key": "binary:a5a066496e5a1d409b6a874bb814b65b",
+      "identifier": "a5a066496e5a1d409b6a874bb814b65b",
+      "object": "0x140ac2810",
+      "control": "0x5c6",
+      "legacy_alias": null,
+      "component": "panel",
+      "path": [
+        "field_values",
+        "prefer_tag_fields",
+        "GENRE"
+      ],
+      "inverted": false
     }
   ]
 }

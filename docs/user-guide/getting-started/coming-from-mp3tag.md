@@ -43,8 +43,9 @@ inspecting the setup; the importer never silently truncates it.
 | --- | --- |
 | `columns.ini` or INI presets under a `columns` directory | Preview the existing column importer result; choose at most one layout to replace the active layout. Unsupported expressions/columns are reported. |
 | `usrfields.ini` or INI presets under `panels` | Preview supported tag-panel controls and legacy custom-value settings; choose at most one layout. Preserve unrelated TagGroove lists and report unsupported entries. |
+| `genres.ini` | Import the original custom-genre names as the GENRE suggestion list; choose at most one file. Decode the original escapes and preserve valid names and spaces. An explicitly selected empty list clears the current custom genres. |
 | `usrfieldvalues.ini` | Import custom suggestions and per-field preference choices; choose at most one file. Replace matching entries after confirmation while preserving unrelated lists and global defaults. |
-| `mp3tag.cfg` | Preview supported portable settings as On/Off choices; choose at most one file. Import only the listed options and report the number of unmapped records. |
+| `mp3tag.cfg` | Preview confirmed portable switches, named choices and literal text values; choose at most one file. Import only the listed options and report the number of unmapped records. |
 | `.mta` action groups | Reuse the existing MTA importer and retain unresolved actions with their diagnostics. Imported groups remain disabled until reviewed. |
 | `.mte` export templates | Decode with the existing export importer and retain the template/name. Importing never executes the template. |
 | `.src`, `.inc`, `.settings` source collections | Report them separately. Use [Install tag sources](../tag-sources/web-sources.md) for complete source bundles, then qualify a real lookup. |
@@ -56,9 +57,19 @@ items** or **Replace current items**. A replacement export retains its existing
 TagGroove identity and physical filename. Partial imports keep their warnings;
 an unresolved action does not silently become another action type.
 
-When both a legacy panel and `usrfieldvalues.ini` provide a field-value entry,
-the dedicated file takes precedence. Review those selections together. Field
-values are suggestions and do not write audio tags during setup import.
+Review overlapping genre/field-value sources together. A selected `genres.ini`
+replaces the GENRE list supplied by a legacy panel; it preserves lists for
+other fields. A selected `usrfieldvalues.ini` then takes precedence for the
+matching lists and preference choices it supplies, including over the binary
+genre preference. This order is fixed, regardless of checkbox order. The
+imported genre-specific **Prefer values from tags** choice affects GENRE only;
+the global fallback preference stays as it was.
+
+These lists provide suggestions; importing them does not write audio tags.
+Invalid/control-containing names are reported, and a list exceeding 5,000
+unique names is refused rather than truncated. A file containing only invalid
+names keeps your current list. An empty file is different: selecting it
+explicitly clears the custom-genre list, with a warning in the preview.
 
 ### Review portable settings
 
@@ -79,6 +90,22 @@ it controls what happens when you navigate away from an edited file in that
 dialog. It is independent of saving on ordinary file-list selection.
 Notification-area behavior depends on the desktop
 platform. These are preferences, not a transfer of the original window layout.
+
+The appearance grid choice also transfers: **Off**, **Alternate row colors**
+or **Grid lines**. Advanced tag preferences include POPULARIMETER display,
+listing chapters, Matroska video mapping, single MP4 atoms, reusing unmodified
+MP4 atoms/ID3v2 frames and the ID3v2 comment-language code. Reload files to see
+changed rating fields or mappings; reload the directory to list/hide chapters.
+These settings govern later reading/writing and do not rewrite audio during
+setup import.
+
+The incoming-file restriction and folder-separator replacement transfer as
+literal text. An empty restriction means all supported formats; it does not
+add support for formats TagGroove cannot read. An empty separator replacement
+means removing separators from tag values when constructing filenames. The
+preview shows an intentional empty text value as **(empty)**. Invalid language
+codes, restrictions, separator replacements and unknown grid values are
+skipped with a warning, preserving the corresponding current choice.
 
 The **Mpeg** and **Ape, Mpc** Read, Write and Remove switches also transfer,
 along with **ID3v2 only if ID3v1 too small** and the supported ID3v2

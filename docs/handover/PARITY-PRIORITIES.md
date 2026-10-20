@@ -29,9 +29,12 @@ now has a separately verified working-branch implementation for legacy panel
 values and `usrfieldvalues.ini`. General global/binary settings remain open;
 the full L57b identity has not been closed by this slice. A further working-branch
 [binary settings slice](../verification/mp3tag-binary-settings-migration-2026-10-20.md)
-imports 32 confirmed boolean options, the Extended Tags save mode and two
-playlist text options, plus the packed tag-policy and encoding choices;
-remaining mappings still need investigation.
+now imports 39 confirmed boolean options, the Extended Tags/grid/encoding
+choices and five text options, plus the packed tag-policy switches. The
+[advanced/genre extension](../verification/mp3tag-profile-remainders-2026-10-20.md)
+adds genres.ini and fixed precedence. Export preferences/active-template
+binding and numbering memory remain concrete L57b work; this is not closure
+by whitelist size.
 
 The 48 intake rows primarily comprise **12 missing-capability scopes**,
 **19 limitations in existing behavior**, **15 unresolved compatibility questions**
@@ -114,7 +117,7 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L55](../research/remaining-gaps.md#l55) | P2 | Unknown converter/export semantics | Advanced converter users | Relative paths, shared output partitions and slash markers may differ; existing refusals must not be removed speculatively. | R / medium | Mac plan/path analysis; original target/order semantics |
 | [L56a](../research/remaining-gaps.md#l56a) | P2 | Limited batch policy; contract unknown | Batch filename conversion | One collision refuses the reviewed plan, including unaffected rows; original partial-clash policy is unqualified. | R / medium | Mac transaction analysis; Windows reference policy |
 | [L56b](../research/remaining-gaps.md#l56b) | P2 | Limited legacy encodings/presets | Legacy text/action libraries | Some codepages, ANSI interpretations, quality presets and defaults do not have confirmed equivalents. | R / medium | Mac decoder/preset analysis; original bytes/options comparison |
-| [L57b](../research/remaining-gaps.md#l57b) | P1 | Missing/unknown migration mappings | Migrating customized profiles | Global/binary settings and panel custom_values/prefer_tag are not fully carried over; supported import/recovery already exists. | R → bounded mapping PR / medium | Mac schema/mapping work; actual profiles/reference readback |
+| [L57b](../research/remaining-gaps.md#l57b) | P1 | Missing/unknown migration mappings | Migrating customized profiles | Legacy/modern values, custom genres and 53 native records are implemented on the working branch; export preferences/template binding and numbering memory still need migration. Original/native qualification remains. | R → bounded mapping PR / medium | Mac schema/mapping work; actual profiles/reference readback |
 | [L58](../research/remaining-gaps.md#l58) | P2 | Missing integrated updater | All installed users | The update check opens a release page; downloading and installing are manual. | L–XL / medium | Mac verification/install flow; OS upgrade/restart acceptance; release trust prerequisite |
 | [L63](../research/remaining-gaps.md#l63) | P3 | Missing optional catalogs | Users needing another language | Only English/Dutch/German are available; add languages on demonstrated demand rather than matching 43. | L per catalog / medium | Mac authoring/review and native journeys; other OS IME/layout |
 | [L64](../research/remaining-gaps.md#l64) | P2 | Limited networking | Restricted-network users | Proxy authentication, SOCKS or PAC gaps may block online tagging/updates for affected networks. | R → L–XL / low | Mac protocol/credential boundaries; native system-proxy acceptance |

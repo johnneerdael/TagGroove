@@ -3516,9 +3516,7 @@
  "The file contains no supported portable binary settings.": "Het bestand bevat geen ondersteunde overdraagbare binaire instellingen.",
  "On": "Aan",
  "Portable settings": "Overdraagbare instellingen",
- "Select at most one column layout, one tag-panel layout, one field-values file and one binary settings file.": "Selecteer maximaal één kolomindeling, één tagpaneelindeling, één bestand met veldwaarden en één bestand met binaire instellingen.",
  "Inspect a configuration folder or ZIP. Columns, tag panels, field values, portable settings, action groups and export templates can be selected before anything changes. Unsupported settings remain listed. Credentials and audio files are left untouched.": "Inspecteer een configuratiemap of ZIP. Kolommen, tagpanelen, veldwaarden, overdraagbare instellingen, actiegroepen en exportsjablonen kunnen worden geselecteerd voordat iets verandert. Niet-ondersteunde instellingen blijven vermeld. Aanmeldgegevens en audiobestanden blijven ongewijzigd.",
- "Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Selected portable settings replace the listed matching options. Unmapped binary records are not imported. Imported field-value entries replace matching saved lists and preferences. A selected usrfieldvalues.ini takes precedence over values in a selected legacy panel. Imported action groups stay disabled, including unresolved actions that need editing.": "Selecteer ondersteunde items om te importeren. Geselecteerde kolom- en tagpaneelindelingen vervangen de huidige indelingen. Geselecteerde overdraagbare instellingen vervangen de vermelde overeenkomstige opties. Niet-toegewezen binaire records worden niet geïmporteerd. Geïmporteerde veldwaarden vervangen overeenkomstige opgeslagen lijsten en voorkeuren. Een geselecteerde usrfieldvalues.ini heeft voorrang op waarden in een geselecteerd oud paneel. Geïmporteerde actiegroepen blijven uitgeschakeld, inclusief onopgeloste acties die bewerking vereisen.",
  "{unknown} unmapped binary setting records are not imported; their source file is unchanged.": "{unknown} niet-toegewezen binaire instellingenrecords worden niet geïmporteerd; het bronbestand blijft ongewijzigd.",
  "Binary extended-tag save mode is incomplete": "Binaire opslagmodus voor uitgebreide tags is onvolledig",
  "Don't create directories for playlists": "Geen mappen maken voor afspeellijsten",
@@ -3559,5 +3557,17 @@
  "NO EXTERN HANDLER": "GEEN EXTERN-HANDLER",
  "the output name is larger than 16 MB": "de uitvoernaam is groter dan 16 MB",
  "script file output exceeds 64 files or 16 MB": "de bestandsuitvoer van het script overschrijdt 64 bestanden of 16 MB",
- "{value} without a running json_foreach": "{value} zonder een actieve json_foreach"
+ "{value} without a running json_foreach": "{value} zonder een actieve json_foreach",
+ "Binary grid setting is incomplete": "De binaire rasterinstelling is onvolledig",
+ "Custom genres": "Aangepaste genres",
+ "GENRE: at most {MAX_VALUES} custom values are supported": "GENRE: maximaal {MAX_VALUES} aangepaste waarden worden ondersteund",
+ "Genre names must not be empty": "Genrenamen mogen niet leeg zijn",
+ "Invalid UTF-16 escape in genre name": "Ongeldige UTF-16-escape in genrenaam",
+ "Invalid braced hexadecimal escape in genre name": "Ongeldige hexadecimale escape tussen accolades in genrenaam",
+ "Invalid hexadecimal escape in genre name": "Ongeldige hexadecimale escape in genrenaam",
+ "Prefer genre values from tags": "Genrewaarden uit tags voorrang geven",
+ "Select at most one column layout, one tag-panel layout, one genres file, one field-values file and one binary settings file.": "Selecteer maximaal één kolomindeling, één tagpaneelindeling, één genrebestand, één bestand met veldwaarden en één bestand met binaire instellingen.",
+ "Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Selected portable settings replace the listed matching options. Unmapped binary records are not imported. Imported field-value entries replace matching saved lists and preferences. A selected genres.ini replaces the legacy genre list. A selected usrfieldvalues.ini takes precedence over legacy panel values, genres.ini and the binary genre preference. Imported action groups stay disabled, including unresolved actions that need editing.": "Selecteer de ondersteunde onderdelen die je wilt importeren. Geselecteerde kolom- en tagpaneelindelingen vervangen de huidige indelingen. Geselecteerde overdraagbare instellingen vervangen de vermelde overeenkomstige opties. Niet-toegewezen binaire records worden niet geïmporteerd. Geïmporteerde veldwaarden vervangen de overeenkomstige opgeslagen lijsten en voorkeuren. Een geselecteerd genres.ini vervangt de oude genrelijst. Een geselecteerd usrfieldvalues.ini heeft voorrang op de veldwaarden uit het oude tagpaneel, genres.ini en de binaire genrevoorkeur. Geïmporteerde actiegroepen blijven uitgeschakeld, ook als onopgeloste acties nog moeten worden aangepast.",
+ "The file contains no supported genre names; the current genre list is kept. {details}": "Het bestand bevat geen ondersteunde genrenamen; de huidige genrelijst blijft behouden. {details}",
+ "Unfinished escape in genre name": "Onvolledige escape in genrenaam"
 }

@@ -4,6 +4,11 @@ This working-branch slice advances L57b; it does not close the entire profile
 migration scope. The companion [field-value migration receipt](mp3tag-field-values-migration-2026-10-20.md)
 covers the independently implemented text files.
 
+The later [advanced settings and genre extension](mp3tag-profile-remainders-2026-10-20.md)
+raises current coverage to 53 native records: 39 boolean records, packed tag
+switches, three choices and five text options. Earlier test counts below retain
+their original slice boundaries; neither count closes L57b.
+
 ## Static source and record contract
 
 The subject is the shipped Windows Mp3tag 3.36.1 x64 executable, SHA-256

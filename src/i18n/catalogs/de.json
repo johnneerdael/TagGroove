@@ -3529,9 +3529,7 @@
  "The file contains no supported portable binary settings.": "Die Datei enthält keine unterstützten übertragbaren binären Einstellungen.",
  "On": "Ein",
  "Portable settings": "Übertragbare Einstellungen",
- "Select at most one column layout, one tag-panel layout, one field-values file and one binary settings file.": "Höchstens ein Spaltenlayout, ein Tag-Panel-Layout, eine Feldwertdatei und eine binäre Einstellungsdatei auswählen.",
  "Inspect a configuration folder or ZIP. Columns, tag panels, field values, portable settings, action groups and export templates can be selected before anything changes. Unsupported settings remain listed. Credentials and audio files are left untouched.": "Einen Konfigurationsordner oder eine ZIP-Datei prüfen. Spalten, Tag-Panels, Feldwerte, übertragbare Einstellungen, Aktionsgruppen und Exportvorlagen können ausgewählt werden, bevor sich etwas ändert. Nicht unterstützte Einstellungen bleiben aufgelistet. Zugangsdaten und Audiodateien bleiben unverändert.",
- "Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Selected portable settings replace the listed matching options. Unmapped binary records are not imported. Imported field-value entries replace matching saved lists and preferences. A selected usrfieldvalues.ini takes precedence over values in a selected legacy panel. Imported action groups stay disabled, including unresolved actions that need editing.": "Unterstützte Elemente zum Importieren auswählen. Ausgewählte Spalten- und Tag-Panel-Layouts ersetzen die aktuellen Layouts. Ausgewählte übertragbare Einstellungen ersetzen die aufgelisteten entsprechenden Optionen. Nicht zugeordnete binäre Datensätze werden nicht importiert. Importierte Feldwerteinträge ersetzen entsprechende gespeicherte Listen und Einstellungen. Eine ausgewählte usrfieldvalues.ini hat Vorrang vor Werten in einem ausgewählten älteren Panel. Importierte Aktionsgruppen bleiben deaktiviert, einschließlich ungeklärter Aktionen, die bearbeitet werden müssen.",
  "{unknown} unmapped binary setting records are not imported; their source file is unchanged.": "{unknown} nicht zugeordnete binäre Einstellungsdatensätze werden nicht importiert; ihre Quelldatei bleibt unverändert.",
  "Binary extended-tag save mode is incomplete": "Binärer Speichermodus für erweiterte Tags ist unvollständig",
  "Don't create directories for playlists": "Keine Verzeichnisse für Wiedergabelisten erstellen",
@@ -3572,5 +3570,17 @@
  "NO EXTERN HANDLER": "KEIN EXTERN-HANDLER",
  "the output name is larger than 16 MB": "der Ausgabename ist größer als 16 MB",
  "script file output exceeds 64 files or 16 MB": "die Dateiausgabe des Skripts überschreitet 64 Dateien oder 16 MB",
- "{value} without a running json_foreach": "{value} ohne eine laufende json_foreach"
+ "{value} without a running json_foreach": "{value} ohne eine laufende json_foreach",
+ "Binary grid setting is incomplete": "Die binäre Rastereinstellung ist unvollständig",
+ "Custom genres": "Benutzerdefinierte Genres",
+ "GENRE: at most {MAX_VALUES} custom values are supported": "GENRE: höchstens {MAX_VALUES} benutzerdefinierte Werte werden unterstützt",
+ "Genre names must not be empty": "Genrenamen dürfen nicht leer sein",
+ "Invalid UTF-16 escape in genre name": "Ungültige UTF-16-Escape-Sequenz im Genrenamen",
+ "Invalid braced hexadecimal escape in genre name": "Ungültige hexadezimale Escape-Sequenz in geschweiften Klammern im Genrenamen",
+ "Invalid hexadecimal escape in genre name": "Ungültige hexadezimale Escape-Sequenz im Genrenamen",
+ "Prefer genre values from tags": "Genrewerte aus Tags bevorzugen",
+ "Select at most one column layout, one tag-panel layout, one genres file, one field-values file and one binary settings file.": "Wählen Sie höchstens ein Spaltenlayout, ein Tag-Panel-Layout, eine Genre-Datei, eine Feldwerte-Datei und eine Datei mit binären Einstellungen aus.",
+ "Select supported items to import. Selected column and tag-panel layouts replace the current layouts. Selected portable settings replace the listed matching options. Unmapped binary records are not imported. Imported field-value entries replace matching saved lists and preferences. A selected genres.ini replaces the legacy genre list. A selected usrfieldvalues.ini takes precedence over legacy panel values, genres.ini and the binary genre preference. Imported action groups stay disabled, including unresolved actions that need editing.": "Wählen Sie die unterstützten Elemente zum Importieren aus. Ausgewählte Spalten- und Tag-Panel-Layouts ersetzen die aktuellen Layouts. Ausgewählte übertragbare Einstellungen ersetzen die aufgeführten entsprechenden Optionen. Nicht zugeordnete binäre Datensätze werden nicht importiert. Importierte Feldwerte ersetzen die entsprechenden gespeicherten Listen und Einstellungen. Eine ausgewählte genres.ini ersetzt die bisherige Genreliste. Eine ausgewählte usrfieldvalues.ini hat Vorrang vor Feldwerten aus dem bisherigen Tag-Panel, genres.ini und der binären Genre-Einstellung. Importierte Aktionsgruppen bleiben deaktiviert, einschließlich ungeklärter Aktionen, die noch bearbeitet werden müssen.",
+ "The file contains no supported genre names; the current genre list is kept. {details}": "Die Datei enthält keine unterstützten Genrenamen; die aktuelle Genreliste bleibt erhalten. {details}",
+ "Unfinished escape in genre name": "Unvollständige Escape-Sequenz im Genrenamen"
 }

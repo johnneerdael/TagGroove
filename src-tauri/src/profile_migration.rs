@@ -469,6 +469,7 @@ enum Candidate {
         crate::mp3tag_field_values::ImportedFieldValues,
     ),
     FieldValues(crate::mp3tag_field_values::ImportedFieldValues),
+    Genres(crate::mp3tag_field_values::ImportedFieldValues),
     Settings(crate::mp3tag_settings::Patch),
     Actions(tag_core::actions::ActionGroup),
     Export(crate::exports::Configuration),
@@ -637,6 +638,14 @@ fn inspect(
                 item.settings = parsed.settings;
                 item.warnings = parsed.warnings;
                 Ok(Some(Candidate::Settings(parsed.patch)))
+            } else if lower.rsplit('/').next() == Some("genres.ini") {
+                item.kind = "genres".into();
+                item.collision = directory.join("tag-panel.json").exists();
+                let parsed = crate::mp3tag_field_values::parse_genres(
+                    &crate::mp3tag_columns::decode(bytes),
+                )?;
+                item.warnings = parsed.skipped;
+                Ok(Some(Candidate::Genres(parsed.values)))
             } else if lower.rsplit('/').next() == Some("usrfieldvalues.ini") {
                 item.kind = "field_values".into();
                 item.collision = directory.join("tag-panel.json").exists();
@@ -1170,7 +1179,7 @@ fn apply(
     {
         return Err("Select supported setup items from the current preview.".into());
     }
-    for kind in ["columns", "panel", "field_values", "settings"] {
+    for kind in ["columns", "panel", "genres", "field_values", "settings"] {
         if plan
             .items
             .iter()
@@ -1179,7 +1188,7 @@ fn apply(
             > 1
         {
             return Err(
-                "Select at most one column layout, one tag-panel layout, one field-values file and one binary settings file."
+                "Select at most one column layout, one tag-panel layout, one genres file, one field-values file and one binary settings file."
                     .into(),
             );
         }
@@ -1226,6 +1235,7 @@ fn apply(
             // Apply the dedicated modern file after legacy panel settings,
             // independently of checkbox/selection order.
             Candidate::FieldValues(_) => {}
+            Candidate::Genres(_) => {}
             Candidate::Settings(_) => {}
             Candidate::Actions(group) => {
                 if let Some(index) = actions
@@ -1269,7 +1279,7 @@ fn apply(
         return Err("No setup items would change; review the collision choices.".into());
     }
     for name in selected {
-        if let Candidate::FieldValues(values) = &plan.candidates[name] {
+        if let Candidate::Genres(values) = &plan.candidates[name] {
             let path = stage.path().join("tag-panel.json");
             let mut panel = crate::tag_panel::load(&path)?;
             values.apply(&mut panel.field_values);
@@ -1282,6 +1292,16 @@ fn apply(
             after_window
                 .preferences
                 .extend(settings.apply(stage.path())?);
+        }
+    }
+    // The modern per-field file wins over legacy panel/genre lists and the
+    // binary genre-specific preference, regardless of selection order.
+    for name in selected {
+        if let Candidate::FieldValues(values) = &plan.candidates[name] {
+            let path = stage.path().join("tag-panel.json");
+            let mut panel = crate::tag_panel::load(&path)?;
+            values.apply(&mut panel.field_values);
+            crate::tag_panel::save(&path, &panel)?;
         }
     }
     if actions_changed {
@@ -2009,6 +2029,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let source = tempfile::tempdir().unwrap();
         config(dir.path());
+        let mut prior_panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        prior_panel.field_values.prefer_tag_values = true;
+        crate::tag_panel::save(&dir.path().join("tag-panel.json"), &prior_panel).unwrap();
         let before = native(dir.path()).unwrap();
         let mut bytes = Vec::new();
         for (identifier, value) in [
@@ -2016,6 +2039,13 @@ mod tests {
             ("a17772f7656a2b4fb710657ed41cb01d", 0),   // Native UseAutoComplete
             ("a635489304121948aceaf4ad079f3fa1", 1),   // Native HideStandardGenres
             ("86fd6bff815ed0488b445b271955c35c", 0),   // Native HideFilterBar
+            ("243cae0bb6d7804b932f5ea2f2d2a55d", 1),
+            ("ac740b3914557e479e4b32dbbbacaab0", 1),
+            ("e4f596ec68aba54da0bf8bff3a489238", 0),
+            ("40b8c799a9b6ac4080064606a8c10200", 0),
+            ("a8c68011b761684596bd8f68db51d329", 1),
+            ("8b86f06a405be14991918e4fc1cf13d8", 1),
+            ("a5a066496e5a1d409b6a874bb814b65b", 0),
         ] {
             for index in (0..identifier.len()).step_by(2) {
                 bytes.push(u8::from_str_radix(&identifier[index..index + 2], 16).unwrap());
@@ -2029,6 +2059,9 @@ mod tests {
                 "%artist% - Björk 🎵.m3u8",
             ),
             ("aa0ec86bea2e7a40a7350a520bcf4a46", " %artist% | %title% "),
+            ("8eec759f9a170443abf0e47af87c1079", "NLD"),
+            ("0c7f0a198af644488be02a0d19631585", "*.MP3; *.flac"),
+            ("375e4b6e9c45af49a77caac696ced2b6", ""),
         ] {
             for index in (0..identifier.len()).step_by(2) {
                 bytes.push(u8::from_str_radix(&identifier[index..index + 2], 16).unwrap());
@@ -2036,6 +2069,14 @@ mod tests {
             bytes.extend((value.len() as u32).to_le_bytes());
             bytes.extend(value.as_bytes());
         }
+        for part in "10ad9a5de1a201419efb4f510bd262f4"
+            .as_bytes()
+            .chunks_exact(2)
+        {
+            bytes.push(u8::from_str_radix(std::str::from_utf8(part).unwrap(), 16).unwrap());
+        }
+        bytes.extend(4u32.to_le_bytes());
+        bytes.extend(1u32.to_le_bytes());
         let unmapped = b"unmapped-private-payload-stays";
         bytes.extend([0x99; 16]);
         bytes.extend((unmapped.len() as u32).to_le_bytes());
@@ -2049,7 +2090,7 @@ mod tests {
             preview.items[0].warnings
         );
         let wire = serde_json::to_value(&preview).unwrap();
-        assert_eq!(wire["items"][0]["settings"].as_array().unwrap().len(), 6);
+        assert_eq!(wire["items"][0]["settings"].as_array().unwrap().len(), 17);
         assert_eq!(
             native(dir.path()).unwrap(),
             before,
@@ -2075,6 +2116,22 @@ mod tests {
             " %artist% | %title% "
         );
         let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        assert!(
+            settings.tags.advanced.popularimeter_ratings && settings.tags.advanced.list_chapters
+        );
+        assert!(
+            !settings.tags.advanced.matroska_video_mapping
+                && !settings.tags.advanced.mp4_single_atom
+        );
+        assert!(
+            settings.tags.advanced.reuse_mp4_atoms && settings.tags.advanced.reuse_id3v2_frames
+        );
+        assert_eq!(settings.tags.advanced.id3v2_comment_language, "NLD");
+        assert_eq!(settings.files.restrict_extensions, "*.MP3; *.flac");
+        assert_eq!(settings.files.folder_separator, "");
+        assert_eq!(settings.pages["appearance"]["grid"], "alternate");
+        assert!(panel.field_values.prefer_tag_values);
+        assert!(!panel.field_values.prefer_tag_fields["GENRE"]);
         assert!(panel.field_values.only_user_genres);
         assert_eq!(panel.field_values.lists["GENRE"], ["Before genre"]);
         assert_eq!(
@@ -2089,6 +2146,175 @@ mod tests {
         restore(dir.path(), window()).unwrap();
         assert_eq!(native(dir.path()).unwrap(), before);
         assert_eq!(std::fs::read(input_path).unwrap(), bytes);
+    }
+
+    #[test]
+    fn genres_migration_reads_escaped_names_and_restores_exact_previous_lists() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let mut retained = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        retained
+            .field_values
+            .lists
+            .insert("MOOD".into(), vec!["Calm".into()]);
+        crate::tag_panel::save(&dir.path().join("tag-panel.json"), &retained).unwrap();
+        let before = native(dir.path()).unwrap();
+        let text=format!("\u{feff}Jazz=\r\nRock\\u003dPop=\r\nCaf\\u00e9=\r\nCaf\\xe9=\r\nCaf\\x{{00e9}}=\r\nTune\\ud83c\\udfb5=\r\n C\\\\D =\r\nLiteral\\qName=\r\nPlain genre\r\nJazz=\r\nTabs\\tbad=\r\nbad\\ud800=\r\n{}=\r\n","x".repeat(1001));
+        std::fs::write(source.path().join("genres.ini"), &text).unwrap();
+        let original = input(source.path()).unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        let item = preview
+            .items
+            .iter()
+            .find(|item| item.file == "genres.ini")
+            .unwrap();
+        assert!(item.supported, "{:?}", item.warnings);
+        assert_eq!(item.kind, "genres");
+        assert_eq!(item.warnings.len(), 3);
+        apply(
+            dir.path(),
+            &preview.token,
+            &["genres.ini".into()],
+            true,
+            window(),
+        )
+        .unwrap();
+        let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+        assert_eq!(
+            panel.field_values.lists["GENRE"],
+            [
+                "Jazz",
+                "Rock=Pop",
+                "Café",
+                "Tune🎵",
+                " C\\D ",
+                "LiteralqName",
+                "Plain genre"
+            ]
+        );
+        assert_eq!(panel.field_values.lists["MOOD"], ["Calm"]);
+        assert!(!panel.field_values.prefer_tag_values);
+        restore(dir.path(), window()).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert_eq!(input(source.path()).unwrap(), original);
+    }
+
+    #[test]
+    fn genres_migration_empty_list_clears_explicitly_but_invalid_only_file_is_not_applied() {
+        let _guard = TESTS.lock().unwrap();
+        for text in ["", "Bad\\u0000name=\nBad\\uD800=\n"] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = tempfile::tempdir().unwrap();
+            config(dir.path());
+            let mut retained = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+            retained
+                .field_values
+                .lists
+                .insert("MOOD".into(), vec!["Calm".into()]);
+            crate::tag_panel::save(&dir.path().join("tag-panel.json"), &retained).unwrap();
+            let before = native(dir.path()).unwrap();
+            std::fs::write(source.path().join("genres.ini"), text).unwrap();
+            let preview =
+                make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+            let item = preview
+                .items
+                .iter()
+                .find(|item| item.file == "genres.ini")
+                .unwrap();
+            if text.is_empty() {
+                assert!(item.supported);
+                assert!(!item.warnings.is_empty());
+                apply(
+                    dir.path(),
+                    &preview.token,
+                    &["genres.ini".into()],
+                    true,
+                    window(),
+                )
+                .unwrap();
+                assert!(crate::tag_panel::load(&dir.path().join("tag-panel.json"))
+                    .unwrap()
+                    .field_values
+                    .lists["GENRE"]
+                    .is_empty());
+                restore(dir.path(), window()).unwrap();
+            } else {
+                assert!(!item.supported);
+                assert!(apply(
+                    dir.path(),
+                    &preview.token,
+                    &["genres.ini".into()],
+                    true,
+                    window()
+                )
+                .is_err());
+            }
+            assert_eq!(native(dir.path()).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn genres_migration_precedence_is_independent_of_selection_order() {
+        let _guard = TESTS.lock().unwrap();
+        for modern in [false, true] {
+            for reverse in [false, true] {
+                let dir = tempfile::tempdir().unwrap();
+                let source = tempfile::tempdir().unwrap();
+                config(dir.path());
+                let mut retained =
+                    crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+                retained
+                    .field_values
+                    .lists
+                    .insert("MOOD".into(), vec!["Calm".into()]);
+                crate::tag_panel::save(&dir.path().join("tag-panel.json"), &retained).unwrap();
+                let before = native(dir.path()).unwrap();
+                std::fs::write(source.path().join("usrfields.ini"),"[#0]\nvalue=GENRE\ncustom_values=Legacy\nprefer_tag=1\n[#1]\nvalue=ARTIST\ncustom_values=Legacy artist\n").unwrap();
+                std::fs::write(source.path().join("genres.ini"), "Genre file=\n").unwrap();
+                std::fs::write(
+                    source.path().join("usrfieldvalues.ini"),
+                    "[#0]\nfield=GENRE\ncustom_values=Modern\nprefer_tag=1\n",
+                )
+                .unwrap();
+                let id = "a5a066496e5a1d409b6a874bb814b65b";
+                let mut cfg = (0..id.len())
+                    .step_by(2)
+                    .map(|index| u8::from_str_radix(&id[index..index + 2], 16).unwrap())
+                    .collect::<Vec<_>>();
+                cfg.extend(1u32.to_le_bytes());
+                cfg.push(0);
+                std::fs::write(source.path().join("mp3tag.cfg"), cfg).unwrap();
+                let original = input(source.path()).unwrap();
+                let preview =
+                    make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+                let mut selected = vec![
+                    "usrfields.ini".into(),
+                    "genres.ini".into(),
+                    "mp3tag.cfg".into(),
+                ];
+                if modern {
+                    selected.push("usrfieldvalues.ini".into());
+                }
+                if reverse {
+                    selected.reverse();
+                }
+                apply(dir.path(), &preview.token, &selected, true, window()).unwrap();
+                let panel = crate::tag_panel::load(&dir.path().join("tag-panel.json")).unwrap();
+                assert_eq!(
+                    panel.field_values.lists["GENRE"],
+                    [if modern { "Modern" } else { "Genre file" }]
+                );
+                assert_eq!(panel.field_values.prefer_tag_fields["GENRE"], modern);
+                assert_eq!(panel.field_values.lists["ARTIST"], ["Legacy artist"]);
+                assert_eq!(panel.field_values.lists["MOOD"], ["Calm"]);
+                assert!(!panel.field_values.prefer_tag_values);
+                restore(dir.path(), window()).unwrap();
+                assert_eq!(native(dir.path()).unwrap(), before);
+                assert_eq!(input(source.path()).unwrap(), original);
+            }
+        }
     }
 
     #[test]

@@ -63,6 +63,117 @@ pub struct FieldValuesImport {
     pub values: ImportedFieldValues,
     pub skipped: Vec<String>,
 }
+
+/// Native flat key/value escape codec (3.36.1: 29dd28 / 2b8b90),
+/// distinct from usrfieldvalues.ini's section/vertical-tab format.
+fn genre_name(input: &str) -> Result<String, String> {
+    fn hex(
+        chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
+        count: usize,
+    ) -> Result<u16, String> {
+        (0..count).try_fold(0u16, |value, _| {
+            let digit = chars
+                .next()
+                .and_then(|c| c.to_digit(16))
+                .ok_or("Invalid hexadecimal escape in genre name")?;
+            Ok(value * 16 + digit as u16)
+        })
+    }
+    let mut units = Vec::new();
+    let mut chars = input.chars().peekable();
+    while let Some(character) = chars.next() {
+        if character != '\\' {
+            units.extend(character.encode_utf16(&mut [0; 2]).iter().copied());
+            continue;
+        }
+        match chars.next().ok_or("Unfinished escape in genre name")? {
+            '0' => units.push(0),
+            'n' => units.push(10),
+            'r' => units.push(13),
+            't' => units.push(9),
+            'z' => units.push(26),
+            'u' => units.push(hex(&mut chars, 4)?),
+            'x' => {
+                let braced = chars.peek() == Some(&'{');
+                if braced {
+                    chars.next();
+                }
+                units.push(hex(&mut chars, if braced { 4 } else { 2 })?);
+                if braced && chars.next() != Some('}') {
+                    return Err("Invalid braced hexadecimal escape in genre name".into());
+                }
+            }
+            character => units.extend(character.encode_utf16(&mut [0; 2]).iter().copied()),
+        }
+    }
+    String::from_utf16(&units).map_err(|_| "Invalid UTF-16 escape in genre name".into())
+}
+
+pub fn parse_genres(input: &str) -> Result<FieldValuesImport, String> {
+    let mut names = Vec::new();
+    let mut seen = HashSet::new();
+    let mut skipped = Vec::new();
+    let mut rejected = 0usize;
+    let mut records = 0usize;
+    for (index, line) in input.trim_start_matches('\u{feff}').split('\n').enumerate() {
+        // The original removes CR before taking the first '=' token. It does
+        // not trim genre names or apply ordinary INI section/comment rules.
+        let line = line.replace('\r', "");
+        if line.is_empty() {
+            continue;
+        }
+        records += 1;
+        let key = line.split_once('=').map_or(line.as_str(), |(key, _)| key);
+        let parsed = genre_name(key).and_then(|name| {
+            if name.is_empty() {
+                return Err("Genre names must not be empty".into());
+            }
+            text(&name, "Genre name", false)?;
+            Ok(name)
+        });
+        match parsed {
+            Ok(name) => {
+                if seen.insert(name.clone()) {
+                    if names.len() == MAX_VALUES {
+                        return Err(format!(
+                            "GENRE: at most {MAX_VALUES} custom values are supported"
+                        ));
+                    }
+                    names.push(name);
+                }
+            }
+            Err(error) => {
+                rejected += 1;
+                if skipped.len() < 50 {
+                    skipped.push(format!("Genre line {}: {error}", index + 1));
+                }
+            }
+        }
+    }
+    if rejected > skipped.len() {
+        skipped.push(format!(
+            "Additional invalid genre records omitted: {}",
+            rejected - skipped.len()
+        ));
+    }
+    if names.is_empty() && records != 0 {
+        return Err(format!(
+            "The file contains no supported genre names; the current genre list is kept. {details}",
+            details = skipped.join(" ")
+        ));
+    }
+    if records == 0 {
+        skipped.push("The empty genre list replaces existing custom genres when selected.".into());
+    }
+    Ok(FieldValuesImport {
+        values: ImportedFieldValues {
+            lists: BTreeMap::from([("GENRE".into(), names)]),
+            prefer_tag_fields: BTreeMap::new(),
+        },
+        skipped,
+    })
+}
+
 pub fn parse(input: &str) -> Result<FieldValuesImport, String> {
     let mut result = FieldValuesImport {
         values: ImportedFieldValues::default(),
@@ -94,6 +205,22 @@ pub fn parse(input: &str) -> Result<FieldValuesImport, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn genres_migration_reports_invalid_records_and_never_truncates_an_oversized_list() {
+        let error = parse_genres("Bad\\u0000name=\n").err().unwrap();
+        assert!(error.contains("Genre line 1"));
+        assert!(error.contains("control characters"));
+        let excessive = (0..=MAX_VALUES)
+            .map(|index| format!("Genre{index}=\n"))
+            .collect::<String>();
+        assert!(parse_genres(&excessive).err().unwrap().contains("5000"));
+        let bad = format!("Valid=\n{}", "Bad\\u0000name=\n".repeat(1000));
+        let result = parse_genres(&bad).unwrap();
+        assert_eq!(result.values.lists["GENRE"], ["Valid"]);
+        assert_eq!(result.skipped.len(), 51);
+        assert!(result.skipped.last().unwrap().contains("950"));
+    }
 
     #[test]
     fn field_value_migration_decodes_native_lists_without_guessing_other_separators() {

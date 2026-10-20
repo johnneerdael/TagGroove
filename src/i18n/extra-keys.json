@@ -121,5 +121,6 @@
  "Show warnings from Actions",
  "Ask about unsaved changes",
  "Ask before importing cover art",
- "Confirm removing tags"
+ "Confirm removing tags",
+ "Prefer genre values from tags"
 ]
