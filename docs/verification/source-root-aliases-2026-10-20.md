@@ -38,8 +38,9 @@ original Windows or installed Windows results.
   its resolved address is absent (`taggroove-source-root-metadata-red-8h01hk5e`).
   The separator regression separately has two failures before its fix
   (`taggroove-source-root-native-separators-red-fnovglkg`).
-- The directly affected loading, ordering, playlist, workspace, startup and
-  containment cohort passes **99 tests**, zero failures or skips
+- At checkpoint `7bd8e23641b0c38b29fc5e445cd1b3edbbe9b9e7`, the directly
+  affected loading, ordering, playlist, workspace, startup and containment cohort
+  passes **99 tests**, zero failures or skips
   (`taggroove-source-root-alias-final-wodkwph5`). A separate named bundled
   diagnostic passes (`taggroove-source-root-alias-diagnostics-dimv3q_4`).
 - Independent review found missing resolved-state fixtures in ordinary-workspace
@@ -59,6 +60,32 @@ original Windows or installed Windows results.
   all **525 local links/anchors** across the seven changed Markdown files
   resolve. No broader backend or native UI suite was repeated.
 
+## PR66 root-context follow-up
+
+The first GitHub Codex code review identified that an individually loaded aliased
+file's root could follow a known rename while its header and serialized workspace
+location retained the broken old alias. Root-backed path locations now follow the
+same selected case-only/full root transformation once. Active playlist and
+working-directory references use that same mapping. Independent generic path
+rebasing remains for non-root locations; literal labels retain their data flag
+and text. Modeled chain/swap controls prevent a second receipt application.
+
+The focused pre-fix regression reports two passes and three actual stale-location
+failures (`taggroove-pr66-location-red-vd7exxx3`); the same focused cases pass
+five of five after correction (`taggroove-pr66-location-green-t4dtucob`). The
+initial affected file passes 44 tests (`taggroove-pr66-location-final-wq356p73`).
+The related active-playlist and working-directory regressions then each fail
+before the shared-context repair (`taggroove-pr66-context-red-9kv8pofe`); all
+seven focused controls pass afterward (`taggroove-pr66-context-green-v0akdsa_`).
+The final affected file passes **46 tests**, zero failures/skips, in **2.51
+seconds** (`taggroove-pr66-context-final-mmuh68qv`). Final TypeScript checking
+passes (`taggroove-pr66-context-types-ewk_j7ru`), and independent focused
+re-review reports no concrete findings. The updated guide passes its strict
+build (`taggroove-pr66-location-guide-tq86glxz`).
+These checks exercise production orchestration and saved-workspace capture in
+Node, without launching an app or running native UI tests. Earlier cohort counts
+above remain checkpoint evidence rather than a repeated whole-suite result.
+
 The final production-source SHA-256 bindings are:
 
 | Path | SHA-256 |
@@ -66,7 +93,7 @@ The final production-source SHA-256 bindings are:
 | `src-tauri/src/playlists.rs` | `eba6015f443cf8ac78dbaf6679582f57f306439b439de77bf57e2a236bbd67fd` |
 | `src/action-ui.ts` | `a77d321d0af8db45081dc09055bd38b9dd712bb6b448419ec2c0d3e10be958b8` |
 | `src/general-options.ts` | `013f93e1d2ecb01a2523bdd205e4d2d8b2148d8be5befc302dac8a43fc9218ef` |
-| `src/main.ts` | `4b828673755f253740053227e2e491881f964c0af3e11581e972187403d33dc1` |
+| `src/main.ts` | `fe5a520f31157fcc2a9d5535e39401db97d903a7947ac12c8186674fcf192f6c` |
 | `src/playlist-order.ts` | `75d6a0e1e65bc116c8c6b8724a3c32ecb824768b84a49efba4334df4e5c7f642` |
 | `src/playlist-ui.ts` | `29eb7ae5d8490cb5ecf7b33e5e132b6f4c13349f03bfc7b3c9a924ca5f0ddc6e` |
 

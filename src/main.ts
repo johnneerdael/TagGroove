@@ -1542,16 +1542,23 @@ function spliceRows(order:string[],next:string[]){
 }
 function applyRenamed(batch:Batch){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
-  rebaseSourceRoots(roots=>rebaseCaseOnly(roots,batch.moved_directories||[]));
+  const sourceRoots=new Set(listRoots);
+  const caseOnlyRoots=rebaseSourceRoots(roots=>rebaseCaseOnly(roots,batch.moved_directories||[]));
   // Listed folders, taken before files added on their own are renamed away.
   const folders=sourceFolders(listRoots.filter(root=>!(listRootKinds[root]==='file'&&isPlaylistPath(root))),listRootKinds,listRootResolved);
   if(listRoots.some(root=>listRootKinds[root]==='file'&&isPlaylistPath(root)))folders.push(...[...entries.keys()].map(path=>dirname(rowFile(path))));
   const rebase=(targets:string[])=>{const moved=resolvePathChanges(targets,batch.renamed||[],batch.moved_directories||[]);return targets.map(path=>moved.get(path)??path);};
-  rebaseSourceRoots(rebase);
-  if(loadedPlaylist)loadedPlaylist=rebase([loadedPlaylist])[0];
-  if(locationIsData)location=rebase([location])[0];
+  const renamedRoots=rebaseSourceRoots(rebase);
+  // Root contexts use the chosen alias transform; applying the receipt again can follow a swap or chain twice.
+  const rebaseContext=(path:string)=>{
+    if(!sourceRoots.has(path))return rebase([path])[0];
+    const caseOnly=caseOnlyRoots.get(path)??path;
+    return renamedRoots.get(caseOnly)??caseOnly;
+  };
+  if(loadedPlaylist)loadedPlaylist=rebaseContext(loadedPlaylist);
+  if(locationIsData)location=rebaseContext(location);
   const working=fileOps.history.current;
-  if(working){const next=rebase([working])[0];if(next!==working)fileOps.history.visit(next);}
+  if(working){const next=rebaseContext(working);if(next!==working)fileOps.history.visit(next);}
   if(sourceOrder)sourceOrder=sourceOrder.map(path=>changes.get(path)??path);
   const snapshots=[...changes].map(([from,to])=>({from,to,entry:entries.get(from)!,draft:drafts.get(from),covers:pendingCovers.get(from),selected:selected.has(from)}));
   const order=snapshots.length?[...entries.keys()].map(path=>changes.get(path)??path):[];
@@ -1575,6 +1582,7 @@ function rebaseSourceRoots(rebase:(roots:string[])=>string[]){
     return target;
   });
   listRoots=mergeSourceOrder([],next,true);listRootKinds=kinds;listRootResolved=addresses;
+  return new Map(previous.map((root,index)=>[root,next[index]]));
 }
 // Replacing the list (Change directory) happens only after the new scan succeeds.
 async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];rootKinds?:SourceRootKind[];rootResolved?:(string|null)[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {

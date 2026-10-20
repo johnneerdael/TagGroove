@@ -7,7 +7,7 @@ const load=async name=>import(`data:text/javascript;base64,${Buffer.from(transpi
 const columns=await load('columns'),order=await load('playlist-order'),{PlaylistUI,isPlaylistPath}=await load('playlist-ui'),{mergeOrder,shuffleOrder,moveSelection}=await load('list-behaviour');
 const {resolvePathChanges,rebaseCaseOnly}=await load('action-ui'),{DirectoryHistory}=await load('file-ops'),{insideFolders}=await load('general-options'),{rowFile,replaceFileRows}=await load('chapters'),{reconcileDrafts}=await load('document-state');
 const source=await readFile(new URL('src/main.ts',root),'utf8'),parsed=ts.createSourceFile('main.ts',source,ts.ScriptTarget.Latest,true);
-const functionNames=['loadPaths','scan','sourceReadContext','activeSort','setListOrder','ordered','applyColumns','clearWorkspace','removeEntries','listEnabled','listOperation','operateImpl','sortMenuItems','reorderFiles','shuffleFiles','applyRenamed','rebaseSourceRoots','executeGroups','renameFromList','accept','spliceRows','optionsApplied'];
+const functionNames=['loadPaths','scan','sourceReadContext','activeSort','setListOrder','ordered','applyColumns','clearWorkspace','removeEntries','listEnabled','listOperation','operateImpl','sortMenuItems','reorderFiles','shuffleFiles','applyRenamed','rebaseSourceRoots','executeGroups','renameFromList','accept','spliceRows','optionsApplied','captureConfigurationWorkspace'];
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&functionNames.includes(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const fileHost=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>node.declarationList.declarations).find(node=>node.name.getText(parsed)==='fileOps').initializer.arguments[0];
 const movedCallback=fileHost.properties.find(node=>node.name?.getText(parsed)==='moved').initializer.getText(parsed);
@@ -30,9 +30,9 @@ function runtime(state={}){
   const playlistUI=new PlaylistUI({invoke});
   const dependencies={state,calls,entries,selected,drafts,pendingCovers,copyOverrides,workingReadErrors,invoke,playlistUI,isPlaylistPath,...columns,...order,mergeOrder,shuffleOrder,moveSelection,resolvePathChanges,rebaseCaseOnly,DirectoryHistory,insideFolders,rowFile,replaceFileRows,reconcileDrafts};
   const code=transpile(`
-    const desktop=state.desktop??true,runtimePlatform={document_access_supported:!!state.provider};
+    const desktop=state.desktop??true,runtimePlatform={document_access_supported:!!state.provider},documentAccess={states:{}};
     let columnLayout=defaultLayout(),listRoots=[],listRootKinds={},listRootResolved={},loadedPlaylist=state.legacyPlaylist,listOrder='columns',sourceOrder,sourceGeneration=0;
-    let busy=false,errors=[],status='',location='',locationIsData=false,coverIndex=0,anchor,progressJob,dataRevision=0,orderCacheKey='',filterCacheKey='',orderCache=[],filter='';
+    let busy=false,errors=[],status='',location='',locationIsData=false,coverIndex=0,anchor,progressJob,dataRevision=0,orderCacheKey='',filterCacheKey='',orderCache=[],filter='',filterDraft;
     let collator=new Intl.Collator('en',{numeric:true});const columnValues={revision:0,retain:()=>{}},cellValue=(entry,_template)=>entry.filename,sortValueOf=path=>path;
     const tableColumns=()=>columnLayout.columns.filter(column=>column.visible);
     const cellEditor={cancel:()=>calls.push(['cell-cancel'])},folderImages={clear:()=>calls.push(['art-clear'])},optionsUI={settings:{directories:{subfolders:false}}},generalPrefs=()=>({select_added:false,keep_moved:state.keepMoved??true});
@@ -49,7 +49,7 @@ function runtime(state={}){
     const enabled=op=>op==='list-playlist-order'?!!sourceOrder&&listRoots.some(root=>listRootKinds[root]==='file'&&isPlaylistPath(root)):true;
     ${functions}
     const moved=${movedCallback},runTool=${toolCallback};
-    return{loadPaths,tool:()=>runTool({},[...selected]),refresh:()=>listOperation('refresh'),playlistOrder:()=>operateImpl('list-playlist-order'),unsorted:()=>operateImpl('list-unsorted'),canRefresh:()=>listEnabled('refresh'),
+    return{loadPaths,capture:captureConfigurationWorkspace,tool:()=>runTool({},[...selected]),refresh:()=>listOperation('refresh'),playlistOrder:()=>operateImpl('list-playlist-order'),unsorted:()=>operateImpl('list-unsorted'),canRefresh:()=>listEnabled('refresh'),
       sort:async()=>applyColumns({...columnLayout,sort:[{id:'filename',ascending:true}]},false,true),resize:async()=>applyColumns({...columnLayout,columns:columnLayout.columns.map((column,index)=>index?column:{...column,width:300})}),
       manual:()=>reorderFiles(shown=>[...shown].reverse()),moveTop:()=>reorderFiles(shown=>moveSelection(shown,selected,'top')),shuffle:shuffleFiles,menu:sortMenuItems,forgetSourceOrder:()=>{sourceOrder=undefined;},remove:path=>removeEntries([path]),select:path=>{selected.clear();selected.add(path);anchor=path;},
       clear:clearWorkspace,dirty:(path='/music/a.wav')=>drafts.set(path,{TITLE:['Pending']}),artDirty:()=>pendingCovers.set('/music/a.wav',[{digest:'pending'}]),cancel:()=>{if(progressJob)progressJob.cancelling=true;},
@@ -248,8 +248,64 @@ for(const alias of [false,true]){
     await model.loadPaths([root],{replace:true});assert.deepEqual(model.snapshot().roots,[root]);
     await model.execute();assert.deepEqual(model.snapshot().roots,[to],'Refresh must not retain the pre-rename file name');
     assert.equal(model.snapshot().rootKinds[to],'file');assert.deepEqual(model.snapshot().paths,[to]);
+    assert.equal(model.snapshot().location,to);assert.equal(model.snapshot().locationIsData,true);
+    assert.equal(model.capture().location,to);assert.equal(model.capture().location_is_data,true);
   });
 }
+
+test('root-backed rename locations follow their selected transform once across mixed roots',async()=>{
+  const a='/physical/a.wav',b='/physical/b.wav',c='/physical/c.wav',alias='/logical/a.wav';
+  for(const aliases of [false,true])for(const [renamed,expected] of [
+    [[{from:a,to:b},{from:b,to:c}],b],
+    [[{from:a,to:b},{from:b,to:a}],b],
+  ]){
+    const root=aliases?alias:a,model=runtime({scanEntries:[a,b],resolvedRoots:{[root]:a},renameBatch:{entries:[],errors:[],renamed}});
+    await model.loadPaths([root,b],{replace:true,location:root,locationIsData:true});await model.execute();
+    assert.equal(model.snapshot().location,expected);assert.equal(model.capture().location,expected);
+    assert.deepEqual(model.snapshot().roots,renamed.map(move=>move.to));
+  }
+});
+
+test('root-backed locations survive alias convergence and case-only folder moves',async()=>{
+  const alias='/logical/album',physical='/physical/album',to='/physical/ALBUM';
+  const model=runtime({directories:{[alias]:[`${physical}/one.wav`],[physical]:[`${physical}/one.wav`]},resolvedRoots:{[alias]:physical},renameBatch:{entries:[],errors:[],moved_directories:[{from:physical,to}]}});
+  await model.loadPaths([alias,physical],{replace:true,location:alias,locationIsData:true});await model.execute();
+  assert.deepEqual(model.snapshot().roots,[to]);assert.equal(model.snapshot().location,to);
+  assert.equal(model.capture().location,to);assert.equal(model.capture().location_is_data,true);
+});
+
+test('alias-root renames preserve literal labels and rebase non-root path locations normally',async()=>{
+  const root='/logical/a.wav',from='/physical/a.wav',to='/physical/renamed.wav';
+  for(const [location,locationIsData,expected] of [[root,false,root],['Chosen file',false,'Chosen file'],[from,true,to]]){
+    const model=runtime({scanEntries:[from],resolvedRoots:{[root]:from},renameBatch:{entries:[],errors:[],renamed:[{from,to}]}});
+    await model.loadPaths([root],{replace:true,location,locationIsData});await model.execute();
+    assert.deepEqual(model.snapshot().roots,[to]);assert.equal(model.snapshot().location,expected);
+    assert.equal(model.snapshot().locationIsData,locationIsData);assert.equal(model.capture().location,expected);
+    assert.equal(model.capture().location_is_data,locationIsData);
+  }
+});
+
+test('root-backed active playlists follow known folder moves through canonical and alias inputs',async()=>{
+  const physical='/physical/album',destination='/physical/renamed',playlist=`${physical}/list.m3u8`,nextPlaylist=`${destination}/list.m3u8`,song=`${physical}/one.wav`,nextSong=`${destination}/one.wav`;
+  for(const root of [playlist,'/logical/list.m3u8']){
+    const model=runtime({playlists:{[root]:{files:[song],errors:[]}},resolvedRoots:{[root]:playlist},renameBatch:{entries:[],errors:[],moved_directories:[{from:physical,to:destination}]}});
+    await model.loadPaths([root],{replace:true});await model.execute();
+    assert.deepEqual(model.snapshot().roots,[nextPlaylist]);assert.equal(model.snapshot().playlist,nextPlaylist);
+    assert.equal(model.capture().playlist,nextPlaylist);assert.equal(model.capture().location,nextPlaylist);
+    model.state.playlists[nextPlaylist]={files:[nextSong],errors:[]};await model.refresh();
+    assert.equal(model.snapshot().playlist,nextPlaylist);assert.deepEqual(model.snapshot().paths,[nextSong]);
+  }
+});
+
+test('root-backed working folders follow known and case-only moves while non-root paths keep generic rebasing',async()=>{
+  const physical='/physical/album',alias='/logical/album';
+  for(const destination of ['/physical/renamed','/physical/ALBUM'])for(const root of [physical,alias])for(const working of [root,`${physical}/child`]){
+    const model=runtime({directories:{[root]:[`${physical}/one.wav`]},resolvedRoots:{[root]:physical},workingDirectory:working,renameBatch:{entries:[],errors:[],moved_directories:[{from:physical,to:destination}]}});
+    await model.loadPaths([root],{replace:true});await model.execute();
+    const expected=working===root?destination:`${destination}/child`;
+    assert.equal(model.snapshot().workingDirectory,expected);assert.equal(model.capture().working_directory,expected);
+  }
+});
 
 for(const pending of [false,true]){
   test(`an alias-root move outside the loaded folder ${pending?'retains a pending draft':'leaves the list'}`,async()=>{

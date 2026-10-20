@@ -228,7 +228,8 @@ commands, and keep their scope separate from the filter and selection.
 Refresh retains the folder path you opened, including a symbolic link. If that
 link now points to a different folder, a successful Refresh reads its current
 target. When TagGroove itself renames an individually loaded file, it also
-updates that file's Refresh source—even if you opened it through an alias.
+updates that file's Refresh source and displayed location—even if you opened
+it through an alias. The saved workspace retains that updated location.
 Renaming the file outside TagGroove is different: Refresh does not search for
 its new name. Open the renamed file or its containing folder again.
 
