@@ -23,6 +23,11 @@ test('source folder consumers use filesystem kinds rather than suffixes or liste
   assert.deepEqual(sourceFolders(['/missing.m3u','/unknown'],{'/missing.m3u':'unknown'}),[],'unknown roots never imply a folder');
 });
 
+test('resolved source folders keep native separator semantics',()=>{
+  assert.deepEqual(sourceFolders(['/alias/song.wav'],{'/alias/song.wav':'file'},{'/alias/song.wav':'/physical/literal\\name.wav'}),['/physical']);
+  assert.deepEqual(sourceFolders(['C:\\alias\\song.wav'],{'C:\\alias\\song.wav':'file'},{'C:\\alias\\song.wav':'D:\\physical\\song.wav'}),['D:\\physical']);
+});
+
 test('root-level POSIX files and playlists retain the filesystem root as folder context',()=>{
   assert.deepEqual(sourceFolders(['/song.mp3','/album.m3u8','/'],{'/song.mp3':'file','/album.m3u8':'file','/':'directory'}),['/','/','/']);
 });

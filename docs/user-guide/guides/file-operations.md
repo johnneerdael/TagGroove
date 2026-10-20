@@ -89,6 +89,13 @@ a successfully moved file can disappear from the list. That disappearance
 is not deletion. Inspect the reported destination in the file manager or
 open the destination folder in TagGroove.
 
+Two path spellings can reach the same folder—for example, `/var` and
+`/private/var` on macOS, or a symbolic link to a music folder. TagGroove checks
+the resolved folder when deciding whether a renamed file is still inside it.
+Renaming a file within that folder therefore keeps its row even when **Keep
+moved files in the file list** is off. A real move outside still follows the
+option; a pending tag edit keeps its row available for review.
+
 Move commands now record a session **Undo Move files** step when history can
 retain the files. Inspect the result and any history notice before relying on
 Undo. Files changed elsewhere are reported and retained; other files in the

@@ -10,7 +10,7 @@ const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.
 const functionJS=name=>ts.transpileModule(parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name).getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
 function pipeline(failure,sorted=false){
   const calls=[],listed=['/Practice/old.wav'];
-  const ui=new PlaylistUI({invoke:async(command,args)=>{calls.push([command,args]);if(command==='classify_source_paths')return args.paths.map(()=>'file');assert.equal(command,'read_playlist');if(failure)throw new Error(failure);return{files:['/Practice/two.wav','/Practice/one.wav'],errors:[{path:args.path,error:'Line 4: missing.wav: file not found'}]};}});
+  const ui=new PlaylistUI({invoke:async(command,args)=>{calls.push([command,args]);if(command==='classify_source_paths')return args.paths.map(path=>({kind:'file',resolved:path}));assert.equal(command,'read_playlist');if(failure)throw new Error(failure);return{files:['/Practice/two.wav','/Practice/one.wav'],errors:[{path:args.path,error:'Line 4: missing.wav: file not found'}]};}});
   const dependencies={calls,isPlaylistPath,playlistUI:ui,publicMessage:String,render:()=>{},sourceReadContext:()=> 'fixture',
     scan:async(paths,options)=>{calls.push(['scan',paths,options]);if(options.replace)listed.splice(0,listed.length,...paths);return true;}};
   const code=`let errors=[],status='',busy=false,sourceGeneration=0,columnLayout={sort:${sorted?"[{id:'filename',ascending:true}]":'[]'}};${functionJS('loadPaths')}return{loadPaths,errors:()=>errors,status:()=>status,playlist:()=>calls.find(([command])=>command==='scan')?.[2].playlist,sort:()=>columnLayout.sort};`;

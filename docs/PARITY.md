@@ -12,6 +12,12 @@ L01–L79 preserve the external roadmap register identities; suffixes split part
 
 Implemented features leave this intake even when their native/original acceptance is still outstanding. Those limits stay in the qualification register and under the covering C records in the [coverage companion](research/remaining-gaps.md#represented-and-delivered-scopes); they are not duplicate implementation tasks.
 
+The follow-up [C25/C59 input-alias repair](verification/source-root-aliases-2026-10-20.md)
+preserves folder membership and Refresh roots across known in-app renames.
+Its focused headless evidence does not close L47a or requalify older native
+workspace receipts against the changed loading/restoration code. The 49 active
+IDs and 14 qualification identities remain unchanged.
+
 C51–C54 represent the scoped scripting/export, Lyrics3v2, playlist-filename and
 history-startup repairs in PR64. Historical L09/L45a anchors now point to their
 covering records; L10 error behavior and L38 Ape/Mpc display remain separate

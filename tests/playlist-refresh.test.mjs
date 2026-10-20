@@ -19,7 +19,7 @@ function runtime(state={}){
   state.playlists??={'/lists/one.m3u8':{files:['/music/b.wav','/music/a.wav'],errors:[]}};
   const calls=[],entries=new Map(),selected=new Set(),drafts=new Map(),pendingCovers=new Map(),copyOverrides=new Map(),workingReadErrors=new Map();
   const invoke=async(command,args)=>{calls.push([command,structuredClone(args)]);
-    if(command==='classify_source_paths'){if(state.kindGate)await state.kindGate.promise;return args.paths.map(path=>Object.hasOwn(state.directories??{},path)?'directory':state.missing?.includes(path)?'unknown':'file');}
+    if(command==='classify_source_paths'){if(state.kindGate)await state.kindGate.promise;return args.paths.map(path=>{const kind=Object.hasOwn(state.directories??{},path)?'directory':state.missing?.includes(path)?'unknown':'file';return{kind,resolved:kind==='unknown'?null:state.resolvedRoots?.[path]??path};});}
     if(command==='read_playlist'){const gate=state.readGates?.[args.path]??state.readGate;if(gate)await gate.promise;const result=state.playlists[args.path];if(result instanceof Error)throw result;if(!result)throw new Error('Unreadable playlist');return structuredClone(result);}
     if(command==='scan_files'){if(state.scanGate)await state.scanGate.promise;if(state.scanFailure)throw new Error(state.scanFailure);const expanded=state.scanEntries??args.paths.flatMap(path=>state.directories?.[path]??[path]),paths=[...new Set(expanded)].filter(path=>!state.missing?.includes(path));return{entries:paths.map(path=>({path,filename:path.split('/').pop(),fields:{TITLE:[path]},covers:[]})),errors:state.scanErrors??[]};}
     if(command==='run_tool')return {started:1};
@@ -31,7 +31,7 @@ function runtime(state={}){
   const dependencies={state,calls,entries,selected,drafts,pendingCovers,copyOverrides,workingReadErrors,invoke,playlistUI,isPlaylistPath,...columns,...order,mergeOrder,shuffleOrder,moveSelection,resolvePathChanges,rebaseCaseOnly,DirectoryHistory,insideFolders,rowFile,replaceFileRows,reconcileDrafts};
   const code=transpile(`
     const desktop=state.desktop??true,runtimePlatform={document_access_supported:!!state.provider};
-    let columnLayout=defaultLayout(),listRoots=[],listRootKinds={},loadedPlaylist=state.legacyPlaylist,listOrder='columns',sourceOrder,sourceGeneration=0;
+    let columnLayout=defaultLayout(),listRoots=[],listRootKinds={},listRootResolved={},loadedPlaylist=state.legacyPlaylist,listOrder='columns',sourceOrder,sourceGeneration=0;
     let busy=false,errors=[],status='',location='',locationIsData=false,coverIndex=0,anchor,progressJob,dataRevision=0,orderCacheKey='',filterCacheKey='',orderCache=[],filter='';
     let collator=new Intl.Collator('en',{numeric:true});const columnValues={revision:0,retain:()=>{}},cellValue=(entry,_template)=>entry.filename,sortValueOf=path=>path;
     const tableColumns=()=>columnLayout.columns.filter(column=>column.visible);
@@ -55,7 +55,7 @@ function runtime(state={}){
       clear:clearWorkspace,dirty:(path='/music/a.wav')=>drafts.set(path,{TITLE:['Pending']}),artDirty:()=>pendingCovers.set('/music/a.wav',[{digest:'pending'}]),cancel:()=>{if(progressJob)progressJob.cancelling=true;},
       execute:()=>executeGroups([{name:'Rename fixture',enabled:true,actions:[]}]),move:()=>moved(state.renameBatch,'Moved fixture'),rename:(path,name)=>renameFromList(entries.get(path),'_FILENAME_EXT',name),
       optionsChanged:()=>optionsApplied({tags:{advanced:{list_chapters:!!state.listChapters}},pages:{}},{tags:{advanced:{list_chapters:!state.listChapters}},pages:{}}),
-      snapshot:()=>({paths:ordered().map(entry=>entry.path),manual:[...entries.keys()],roots:[...listRoots],rootKinds:{...listRootKinds},playlist:loadedPlaylist,order:sourceOrder,mode:listOrder,sort:structuredClone(columnLayout.sort),selected:[...selected],errors:structuredClone(errors),drafts:[...drafts],artwork:[...pendingCovers],workingDirectory:fileOps.history.current,location,locationIsData,status})};
+      snapshot:()=>({paths:ordered().map(entry=>entry.path),manual:[...entries.keys()],roots:[...listRoots],rootKinds:{...listRootKinds},rootResolved:{...listRootResolved},playlist:loadedPlaylist,order:sourceOrder,mode:listOrder,sort:structuredClone(columnLayout.sort),selected:[...selected],errors:structuredClone(errors),drafts:[...drafts],artwork:[...pendingCovers],workingDirectory:fileOps.history.current,location,locationIsData,status})};
   `);
   return{...new Function(...Object.keys(dependencies),code)(...Object.values(dependencies)),calls,state};
 }
@@ -230,6 +230,53 @@ test('playlist-suffixed directories load and refresh as folders and keep moved-f
     await model.refresh();assert.deepEqual(model.snapshot().paths,[inside]);assert.equal(model.calls.some(([command])=>command==='read_playlist'),false);
     await model.execute();assert.deepEqual(model.snapshot().paths,[],`${extension}: moving to the parent leaves the loaded directory`);
   }
+});
+
+for(const alias of [false,true]){
+  test(`same-folder rename keeps its row with Keep moved files off through ${alias?'an alias':'a canonical'} root`,async()=>{
+    const physical='/physical/album',root=alias?'/logical/album':physical,from=`${physical}/a.wav`,to=`${physical}/renamed.wav`;
+    const model=runtime({directories:{[root]:[from]},resolvedRoots:{[root]:physical},keepMoved:false,
+      renameBatch:{entries:[{path:to,filename:'renamed.wav',fields:{},covers:[]}],errors:[],renamed:[{from,to}]}});
+    await model.loadPaths([root],{replace:true});assert.deepEqual(model.snapshot().roots,[root]);
+    await model.execute();assert.deepEqual(model.snapshot().paths,[to],'a rename inside the actual loaded folder is not a move out');
+    assert.deepEqual(model.snapshot().selected,[to]);assert.deepEqual(model.snapshot().roots,[root],'the logical folder remains the Refresh source');
+  });
+  test(`known in-app rename updates an individually added ${alias?'alias':'canonical'} file root`,async()=>{
+    const from='/physical/album/a.wav',to='/physical/album/renamed.wav',root=alias?'/logical/album/a.wav':from;
+    const model=runtime({scanEntries:[from],resolvedRoots:{[root]:from},keepMoved:true,
+      renameBatch:{entries:[{path:to,filename:'renamed.wav',fields:{},covers:[]}],errors:[],renamed:[{from,to}]}});
+    await model.loadPaths([root],{replace:true});assert.deepEqual(model.snapshot().roots,[root]);
+    await model.execute();assert.deepEqual(model.snapshot().roots,[to],'Refresh must not retain the pre-rename file name');
+    assert.equal(model.snapshot().rootKinds[to],'file');assert.deepEqual(model.snapshot().paths,[to]);
+  });
+}
+
+for(const pending of [false,true]){
+  test(`an alias-root move outside the loaded folder ${pending?'retains a pending draft':'leaves the list'}`,async()=>{
+    const root='/logical/album',from='/physical/album/a.wav',to='/physical/elsewhere/moved.wav';
+    const model=runtime({directories:{[root]:[from]},resolvedRoots:{[root]:'/physical/album'},keepMoved:false,
+      renameBatch:{entries:[{path:to,filename:'moved.wav',fields:{},covers:[]}],errors:[],renamed:[{from,to}]}});
+    await model.loadPaths([root],{replace:true});if(pending)model.dirty(from);
+    await model.move();assert.deepEqual(model.snapshot().paths,pending?[to]:[]);
+    assert.deepEqual(model.snapshot().drafts,pending?[[to,{TITLE:['Pending']}]]:[]);
+  });
+}
+
+test('Refresh retains the logical alias while resolving its current target for tool and rename context',async()=>{
+  const root='/logical/album',old='/physical/old/a.wav',fresh='/physical/new/a.wav',to='/physical/new/renamed.wav';
+  const model=runtime({directories:{[root]:[old]},resolvedRoots:{[root]:'/physical/old'},keepMoved:false});
+  await model.loadPaths([root],{replace:true});model.state.directories[root]=[fresh];model.state.resolvedRoots[root]='/physical/new';
+  await model.refresh();assert.deepEqual(model.snapshot().roots,[root]);assert.deepEqual(model.snapshot().paths,[fresh]);
+  await model.tool();assert.equal(model.calls.find(([name])=>name==='run_tool')[1].root,'/physical/new');
+  model.state.renameBatch={entries:[{path:to,filename:'renamed.wav',fields:{},covers:[]}],errors:[],renamed:[{from:fresh,to}]};
+  await model.execute();assert.deepEqual(model.snapshot().paths,[to]);assert.deepEqual(model.snapshot().roots,[root]);
+});
+
+test('alias and canonical exact-file roots converge after a known rename without losing kind metadata',async()=>{
+  const alias='/logical/a.wav',from='/physical/a.wav',to='/physical/renamed.wav';
+  const model=runtime({scanEntries:[from],resolvedRoots:{[alias]:from},renameBatch:{entries:[{path:to,filename:'renamed.wav',fields:{},covers:[]}],errors:[],renamed:[{from,to}]}});
+  await model.loadPaths([alias,from],{replace:true});assert.deepEqual(model.snapshot().roots,[alias,from]);
+  await model.execute();assert.deepEqual(model.snapshot().roots,[to]);assert.deepEqual(model.snapshot().rootKinds,{[to]:'file'});assert.deepEqual(model.snapshot().paths,[to]);
 });
 
 

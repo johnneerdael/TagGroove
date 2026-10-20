@@ -56,7 +56,10 @@ export function completeInput(input:HTMLInputElement|HTMLTextAreaElement,event:E
 
 /** Whether `path` is inside one of the list's folders. */
 export function insideFolders(path:string,folders:string[]){
-  return folders.some(folder=>{const base=folder.replace(/[\\/]+$/,'');return path===base||path.startsWith(`${base}/`)||path.startsWith(`${base}\\`);});
+  return folders.some(folder=>{
+    const posix=folder.startsWith('/')&&!folder.startsWith('//'),base=folder.replace(posix ? /\/+$/ : /[\\/]+$/,'');
+    return path===base||path.startsWith(`${base}/`)||!posix&&path.startsWith(`${base}\\`);
+  });
 }
 
 /** The release notes page of a version, for "Display release notes for new versions". */

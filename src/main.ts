@@ -50,7 +50,7 @@ import { openTagToTag } from './tag-tag-ui';
 import { ConfigListStorage, installHelperMenus } from './helper-menu';
 import { FileOpsUI, fileShortcut, startupChoice, startupOptionsPage, type FileOperation } from './file-ops';
 import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, playlistValues, type PlaylistPlan } from './playlist-ui';
-import { mergeSourceOrder, rankSourceRows, sourceFolders, type ListOrderMode, type SourceRootKind } from './playlist-order';
+import { mergeSourceOrder, rankSourceRows, sourceFolders, type ListOrderMode, type SourceRootInfo, type SourceRootKind } from './playlist-order';
 import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
 import { imageExtensions, type CoverInfo, type CoverCommand } from './cover-model';
@@ -201,7 +201,7 @@ const clipCovers = new Map<string, ClipCover>(), clipImages = new Map<string, st
 const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
-let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],listRootKinds:Record<string,SourceRootKind>={},slowEditTimer=0;
+let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],listRootKinds:Record<string,SourceRootKind>={},listRootResolved:Record<string,string>={},slowEditTimer=0;
 // Source rank and display mode belong to this workspace, not saved columns.
 let listOrder:ListOrderMode='columns',sourceOrder:string[]|undefined,sourceGeneration=0;
 let filter = '', anchor: string | undefined, busy = false, status: string|ColumnImportStatus = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
@@ -413,7 +413,7 @@ let lastActionGroups:ActionGroup[]|undefined;
 const repeatState=()=>redoOrRepeat(history,enabled('action')?lastActionGroups:undefined);
 const toolsUI=new ToolsUI({
   values:()=>optionsUI.page('tools'),mac:macPlatform,
-  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?sourceFolders(listRoots,listRootKinds)[0]??null:null}),
+  run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?sourceFolders(listRoots,listRootKinds,listRootResolved)[0]??null:null}),
   selection:()=>paths(),reason:()=>!desktop?'Tools require the desktop app.':!selected.size?'Select files first.':operationReason('file-play'),
   confirm:(text,title)=>ask(text,{title,kind:'warning'}),
   report:text=>{status=text;render();},fail:error=>{errors=[{path:'Tools',label:'Tools',error:publicMessage(error)}];status='Tool failed';render();},
@@ -554,7 +554,7 @@ let ordinaryWorkspaceReady=false,ordinaryWorkspaceSaved='',ordinaryWorkspaceRest
 let ordinaryWorkspaceState:unknown[]=[];
 function rememberOrdinaryWorkspace(force=false){
   if(!desktop||!ordinaryWorkspaceReady||configurationRecoveryActive||runtimePlatform.family!=='desktop')return;
-  const state=[entries.revision,entries.size,listRoots,listRootKinds,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+  const state=[entries.revision,entries.size,listRoots,listRootKinds,listRootResolved,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
   const same=state.every((value,index)=>value===ordinaryWorkspaceState[index]);
   if(same&&(ordinaryWorkspaceRestoreFailed||!force))return;
   ordinaryWorkspaceRestoreFailed=false;ordinaryWorkspaceState=state;
@@ -573,7 +573,7 @@ async function restoreOrdinaryWorkspace(){
   }catch(error){
     // Automatic renders and close must retain failed recovery input. A real
     // membership/order/root change starts a new ordinary workspace explicitly.
-    ordinaryWorkspaceState=[entries.revision,entries.size,listRoots,listRootKinds,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
+    ordinaryWorkspaceState=[entries.revision,entries.size,listRoots,listRootKinds,listRootResolved,sourceOrder,listOrder,loadedPlaylist,fileOps.history.current];
     ordinaryWorkspaceRestoreFailed=true;throw error;
   }
 }
@@ -614,11 +614,11 @@ async function restoreConfigurationWorkspace(workspace:ProfileWorkspace){
   const restored=workspace.paths.map(path=>available.get(path)!);
   // Recheck even captured kinds: an offline move or portable mapping can change the root type.
   const sourcePaths=workspace.playlist&&!workspace.roots.includes(workspace.playlist)?[...workspace.roots,workspace.playlist]:workspace.roots;
-  const rootKinds=await invoke<SourceRootKind[]>('classify_source_paths',{paths:sourcePaths});
+  const rootInfo=await invoke<SourceRootInfo[]>('classify_source_paths',{paths:sourcePaths}),rootKinds=rootInfo.map(info=>info.kind);
   if('version'in workspace){await invoke('set_working_directory',{path:workspace.working_directory});fileOps.history.current=workspace.working_directory??undefined;}
   clearWorkspace();accept({entries:restored,errors:[]},'Restored setup workspace',false);
   entries.clear();restored.forEach(entry=>entries.set(entry.path,entry));
-  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,rootKinds[index]]));location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist&&rootKinds[sourcePaths.indexOf(workspace.playlist)]==='file'&&isPlaylistPath(workspace.playlist)?workspace.playlist:undefined;
+  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,rootKinds[index]]));listRootResolved=Object.fromEntries(listRoots.flatMap((root,index)=>rootInfo[index].resolved?[[root,rootInfo[index].resolved!]]:[]));location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist&&rootKinds[sourcePaths.indexOf(workspace.playlist)]==='file'&&isPlaylistPath(workspace.playlist)?workspace.playlist:undefined;
   if('version'in workspace){sourceOrder=workspace.source_order??undefined;listOrder=workspace.list_order;}
   changedData();render();return true;
 }
@@ -786,7 +786,7 @@ function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
 function activeSort(){return listOrder==='columns'?columnLayout.sort:[];}
 function setListOrder(mode:ListOrderMode){listOrder=mode;orderCacheKey='';filterCacheKey='';refreshList();}
 /** Exclude hydrated artwork/cache revisions; refuse replacing new edits or a changed workspace. */
-function sourceReadContext(){return JSON.stringify([listRoots,listRootKinds,[...entries.keys()],[...drafts],[...pendingCovers]]);}
+function sourceReadContext(){return JSON.stringify([listRoots,listRootKinds,listRootResolved,[...entries.keys()],[...drafts],[...pendingCovers]]);}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
   const ms=performance.now()-start;
   perfSink()?.push({name,at:start,ms,...extra});
@@ -1544,7 +1544,7 @@ function applyRenamed(batch:Batch){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
   rebaseSourceRoots(roots=>rebaseCaseOnly(roots,batch.moved_directories||[]));
   // Listed folders, taken before files added on their own are renamed away.
-  const folders=sourceFolders(listRoots.filter(root=>!(listRootKinds[root]==='file'&&isPlaylistPath(root))),listRootKinds);
+  const folders=sourceFolders(listRoots.filter(root=>!(listRootKinds[root]==='file'&&isPlaylistPath(root))),listRootKinds,listRootResolved);
   if(listRoots.some(root=>listRootKinds[root]==='file'&&isPlaylistPath(root)))folders.push(...[...entries.keys()].map(path=>dirname(rowFile(path))));
   const rebase=(targets:string[])=>{const moved=resolvePathChanges(targets,batch.renamed||[],batch.moved_directories||[]);return targets.map(path=>moved.get(path)??path);};
   rebaseSourceRoots(rebase);
@@ -1564,12 +1564,20 @@ function applyRenamed(batch:Batch){
 }
 /** Rebase paths and their filesystem kinds together, including case-only moves. */
 function rebaseSourceRoots(rebase:(roots:string[])=>string[]){
-  const previous=listRoots;
-  listRoots=rebase(previous);
-  listRootKinds=Object.fromEntries(previous.map((root,index)=>[listRoots[index],listRootKinds[root]??'unknown']));
+  const previous=listRoots,logical=rebase(previous),resolved=rebase(previous.map(root=>listRootResolved[root]??root));
+  const kinds:Record<string,SourceRootKind>={},addresses:Record<string,string>={};
+  const next=previous.map((root,index)=>{
+    // A receipt names the scanner's resolved path. Track a known rename even
+    // when the original input reached that file through an alias.
+    const target=logical[index]!==root?logical[index]:resolved[index]!== (listRootResolved[root]??root)?resolved[index]:root;
+    if(!Object.hasOwn(kinds,target)||kinds[target]==='unknown')kinds[target]=listRootKinds[root]??'unknown';
+    if(listRootResolved[root])addresses[target]=resolved[index];
+    return target;
+  });
+  listRoots=mergeSourceOrder([],next,true);listRootKinds=kinds;listRootResolved=addresses;
 }
 // Replacing the list (Change directory) happens only after the new scan succeeds.
-async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];rootKinds?:SourceRootKind[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {
+async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[];roots?:string[];rootKinds?:SourceRootKind[];rootResolved?:(string|null)[];generation?:number;context?:string;playlist?:string}={}):Promise<boolean> {
   const generation=options.generation??++sourceGeneration,context=options.context??sourceReadContext(),roots=options.roots??newPaths;
   return !!await run('Reading audio files…',async job=>{
     const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
@@ -1584,6 +1592,8 @@ async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boo
     listRoots=mergeSourceOrder(listRoots,roots,!!options.replace);
     const incomingKinds=Object.fromEntries(roots.map((root,index)=>[root,options.rootKinds?.[index]??'unknown']));
     listRootKinds=Object.fromEntries(listRoots.map(root=>[root,incomingKinds[root]??listRootKinds[root]??'unknown']));
+    const incomingResolved=options.rootResolved?Object.fromEntries(roots.map((root,index)=>[root,options.rootResolved![index]])):{};
+    listRootResolved=Object.fromEntries(listRoots.flatMap(root=>{const resolved=Object.hasOwn(incomingResolved,root)?incomingResolved[root]:listRootResolved[root];return resolved?[[root,resolved]]:[];}));
     if(options.playlist&&!keepPlaylist&&(options.replace||empty)){loadedPlaylist=options.playlist;listOrder='playlist';}
     if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}
     if(!keepPlaylist&&(empty||!options.location)){location=options.location??(roots.length===1?roots[0]:`${roots.length} added locations`);locationIsData=options.location?options.locationIsData!==false:roots.length===1;}
@@ -1600,14 +1610,14 @@ async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:
   try{expanded=await playlistUI.expand(newPaths);}catch(error){if(generation===sourceGeneration&&context===sourceReadContext()){errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();}return false;}
   if(generation!==sourceGeneration||context!==sourceReadContext())return false;
   const playlist=expanded.playlist;
-  return scan(expanded.paths,{...options,roots:newPaths,rootKinds:expanded.rootKinds,generation,context,playlist,errors:expanded.errors,...(playlist?{location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true}:{})});
+  return scan(expanded.paths,{...options,roots:newPaths,rootKinds:expanded.rootKinds,rootResolved:expanded.rootResolved,generation,context,playlist,errors:expanded.errors,...(playlist?{location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true}:{})});
 }
 // Drop entries and everything cached for them (Remove from list, Clear list, Refresh, Delete, Change directory).
 function removeEntries(removed:string[]){
   removed.forEach(path=>{invalidateCovers(path);entries.delete(path);drafts.delete(path);pendingCovers.delete(path);copyOverrides.delete(path);workingReadErrors.delete(path);selected.delete(path);if(anchor===path)anchor=undefined;});
   columnValues.retain(path=>entries.has(path));changedData();
 }
-function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];listRootKinds={};coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
+function clearWorkspace(){sourceGeneration++;cellEditor.cancel();removeEntries([...entries.keys()]);listRoots=[];listRootKinds={};listRootResolved={};coverIndex=0;loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';}
 // Immediate mutations may change retained bytes even when publication fails.
 // Keep those local contents separate from source success and pending field intent.
 async function reconcileWorkingEntries(targets:string[]){
@@ -2141,7 +2151,7 @@ async function listOperation(op:Operation){
     if(pending&&!await messages.confirm('unsaved_changes',`${pending} file${pending===1?' has':'s have'} pending tag changes. Remove ${targets.length===1?'it':'them'} from the list and discard the changes? Files on disk are not changed.`,op==='clear-list'?'Clear list':'Remove from list'))return;
     const removed=new Set(targets),next=list.slice(Math.max(0,...list.map((path,index)=>removed.has(path)?index:-1))).find(path=>!removed.has(path))||[...list].reverse().find(path=>!removed.has(path));
     cellEditor.cancel();removeEntries(targets);
-    if(op==='clear-list'||!entries.size){listRoots=[];listRootKinds={};loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
+    if(op==='clear-list'||!entries.size){listRoots=[];listRootKinds={};listRootResolved={};loadedPlaylist=undefined;sourceOrder=undefined;listOrder='columns';location='No folder loaded';locationIsData=false;errors=[];}
     status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
     choose(next?[next]:[],next,true);return;
   }
@@ -2153,7 +2163,7 @@ async function listOperation(op:Operation){
     await run('Refreshing file list…',async job=>{
       const expanded=await playlistUI.expand(listRoots).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
       if(!expanded||generation!==sourceGeneration||context!==sourceReadContext())return;
-      const playlistKind=loadedPlaylist?(listRoots.includes(loadedPlaylist)?expanded.rootKinds[listRoots.indexOf(loadedPlaylist)]:(await invoke<SourceRootKind[]>('classify_source_paths',{paths:[loadedPlaylist]}))[0]):undefined;
+      const playlistKind=loadedPlaylist?(listRoots.includes(loadedPlaylist)?expanded.rootKinds[listRoots.indexOf(loadedPlaylist)]:(await invoke<SourceRootInfo[]>('classify_source_paths',{paths:[loadedPlaylist]}))[0].kind):undefined;
       if(generation!==sourceGeneration||context!==sourceReadContext())return;
       if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
       const batch=await invoke<Batch>('scan_files',{paths:expanded.paths,recursive:optionsUI.settings.directories.subfolders,job}).catch(error=>{if(generation!==sourceGeneration||context!==sourceReadContext())return undefined;throw error;});
@@ -2167,6 +2177,7 @@ async function listOperation(op:Operation){
       accept(batch,'Refreshed');
       sourceOrder=mergeSourceOrder([],batch.entries.map(entry=>entry.path),true);
       listRootKinds=Object.fromEntries(listRoots.map((root,index)=>[root,expanded.rootKinds[index]]));
+      listRootResolved=Object.fromEntries(listRoots.flatMap((root,index)=>expanded.rootResolved[index]?[[root,expanded.rootResolved[index]!]]:[]));
       if(loadedPlaylist&&playlistKind!=='file')loadedPlaylist=undefined;
       const refreshed=mergeSourceOrder(retainedOrder,[...sourceOrder,...entries.keys()],false).map(path=>entries.get(path)!);entries.clear();refreshed.forEach(entry=>entries.set(entry.path,entry));orderCacheKey='';filterCacheKey='';
       if(expanded.errors.length){errors=[...expanded.errors,...errors];status+=`, ${expanded.errors.length} playlist entr${expanded.errors.length===1?'y':'ies'} not loaded`;}

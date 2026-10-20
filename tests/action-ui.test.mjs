@@ -34,6 +34,13 @@ test('panel date and track fallback depends on actual format and existing raw ke
 test('directory moves include unselected siblings and exclude similarly prefixed folders',()=>{
   const moves=resolvePathChanges(['/music/album/a.flac','/music/album/b.flac','/music/album-extra/c.flac'],[],[{from:'/music/album',to:'/music/renamed'}]);assert.deepEqual([...moves],[['/music/album/a.flac','/music/renamed/a.flac'],['/music/album/b.flac','/music/renamed/b.flac']]);
 });
+test('directory receipts preserve literal POSIX backslashes and Windows path boundaries',()=>{
+  const moves=resolvePathChanges(['/physical/root/song.flac','/physical/root\\sibling/song.flac'],[],[{from:'/physical/root',to:'/physical/renamed'}]);
+  assert.deepEqual([...moves],[['/physical/root/song.flac','/physical/renamed/song.flac']]);
+  assert.deepEqual([...resolvePathChanges(['/physical/root\\/song.flac'],[],[{from:'/physical/root\\',to:'/physical/renamed\\'}])],[['/physical/root\\/song.flac','/physical/renamed\\/song.flac']]);
+  assert.deepEqual(rebaseCaseOnly(['/physical/root\\sibling','/physical/root/child'],[{from:'/physical/root',to:'/physical/ROOT'}]),['/physical/root\\sibling','/physical/ROOT/child']);
+  assert.deepEqual([...resolvePathChanges(['C:\\Music\\song.flac','C:\\Music-extra\\song.flac'],[],[{from:'C:\\Music\\',to:'C:\\Renamed\\'}])],[['C:\\Music\\song.flac','C:\\Renamed\\song.flac']]);
+});
 test('path reconciliation respects physical directory order and exact final filename mappings',()=>{
   const moves=resolvePathChanges(['/A/one.flac','/A/two.flac'],[{from:'/A/one.flac',to:'/C/final.flac'}],[{from:'/A',to:'/B'},{from:'/B',to:'/C'}]);assert.deepEqual([...moves],[['/A/one.flac','/C/final.flac'],['/A/two.flac','/C/two.flac']]);
   const swaps=resolvePathChanges(['/one.flac','/two.flac'],[{from:'/one.flac',to:'/two.flac'},{from:'/two.flac',to:'/one.flac'}],[]);assert.deepEqual([...swaps],[['/one.flac','/two.flac'],['/two.flac','/one.flac']]);

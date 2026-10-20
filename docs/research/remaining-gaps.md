@@ -8,6 +8,12 @@ Inspected merged application baseline `e4017801dd923b65e1e5e2fc0ece58706374b60d`
 
 The independent roadmap’s L01–L79 identities and R01–R20 initiatives are retained for continuity; its older `4a1a95f` baseline is context, not current-state proof. Split partially covered rows instead of declaring the containing area complete. New N01–N06 entries retain acceptance already called out in the source-installation, automation and save verification notes. Historical impact/size labels below are planning estimates (H/M/L impact; S/M/L size), not measurements or delivery promises.
 
+The subsequent [C25/C59 input-alias repair](../verification/source-root-aliases-2026-10-20.md)
+records the resolved-root implementation and focused headless evidence. It
+changes loading/restoration beyond the native replay's explicit `e401780` pin;
+that replay is historical evidence for its named baseline, not alias-aware
+native acceptance. L47a and all 49 active intake identities remain open.
+
 The exact heads and merge commits below identify the delivered scopes. Linked verification documents exist on this baseline; their earlier checkpoint counts remain historical unless explicitly tied to later source. Merging, a local check, hosted CI, publication, installed-platform behavior and original-runtime acceptance are separate claims.
 
 ### PR identities
