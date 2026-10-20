@@ -183,6 +183,170 @@ const TEXT_SPECS: &[TextSpec] = &[
         label: "Extended info format string",
     },
 ];
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum MaskKey {
+    MpegRead,
+    MpegWrite,
+    MpegRemove,
+    ApeRead,
+    ApeWrite,
+    ApeRemove,
+}
+struct MaskRule {
+    field: &'static str,
+    mask: u32,
+    label: &'static str,
+}
+struct MaskSpec {
+    identifier: [u8; 16],
+    key: MaskKey,
+    group: &'static str,
+    known: u32,
+    writable: u32,
+    rules: &'static [MaskRule],
+}
+const MASK_SPECS: &[MaskSpec] = &[
+    MaskSpec {
+        identifier: identifier(b"10d6c497feac8340a1d9b78566f9aede"),
+        key: MaskKey::MpegRead,
+        group: "mpeg",
+        known: 11,
+        writable: 0,
+        rules: &[
+            MaskRule {
+                field: "read_id3v1",
+                mask: 1,
+                label: "Mpeg: Read ID3v1",
+            },
+            MaskRule {
+                field: "read_id3v2",
+                mask: 2,
+                label: "Mpeg: Read ID3v2",
+            },
+            MaskRule {
+                field: "read_ape",
+                mask: 8,
+                label: "Mpeg: Read APE",
+            },
+        ],
+    },
+    MaskSpec {
+        identifier: identifier(b"f4a149060db0964aa32d016776713477"),
+        key: MaskKey::MpegWrite,
+        group: "mpeg",
+        known: 15,
+        writable: 11,
+        rules: &[
+            MaskRule {
+                field: "write_id3v1",
+                mask: 1,
+                label: "Mpeg: Write ID3v1",
+            },
+            MaskRule {
+                field: "write_id3v2",
+                mask: 2,
+                label: "Mpeg: Write ID3v2",
+            },
+            MaskRule {
+                field: "write_ape",
+                mask: 8,
+                label: "Mpeg: Write APEv2",
+            },
+            MaskRule {
+                field: "id3v2_only_if_needed",
+                mask: 7,
+                label: "Mpeg: ID3v2 only if ID3v1 too small",
+            },
+        ],
+    },
+    MaskSpec {
+        identifier: identifier(b"33172482169bb947865a0d6d2f644446"),
+        key: MaskKey::MpegRemove,
+        group: "mpeg",
+        known: 11,
+        writable: 0,
+        rules: &[
+            MaskRule {
+                field: "remove_id3v1",
+                mask: 1,
+                label: "Mpeg: Remove ID3v1",
+            },
+            MaskRule {
+                field: "remove_id3v2",
+                mask: 2,
+                label: "Mpeg: Remove ID3v2",
+            },
+            MaskRule {
+                field: "remove_ape",
+                mask: 8,
+                label: "Mpeg: Remove APE",
+            },
+        ],
+    },
+    MaskSpec {
+        identifier: identifier(b"ac7785e8c51b644fa377abc80a954b8b"),
+        key: MaskKey::ApeRead,
+        group: "ape",
+        known: 48,
+        writable: 0,
+        rules: &[
+            MaskRule {
+                field: "read_id3v1",
+                mask: 16,
+                label: "Ape, Mpc: Read ID3v1",
+            },
+            MaskRule {
+                field: "read_ape",
+                mask: 32,
+                label: "Ape, Mpc: Read APE",
+            },
+        ],
+    },
+    MaskSpec {
+        identifier: identifier(b"1d46a2fc85e7654794a5490bdc3e9eec"),
+        key: MaskKey::ApeWrite,
+        group: "ape",
+        known: 48,
+        writable: 48,
+        rules: &[
+            MaskRule {
+                field: "write_id3v1",
+                mask: 16,
+                label: "Ape, Mpc: Write ID3v1",
+            },
+            MaskRule {
+                field: "write_ape",
+                mask: 32,
+                label: "Ape, Mpc: Write APEv2",
+            },
+        ],
+    },
+    MaskSpec {
+        identifier: identifier(b"9e2950e85b1dbd45b4009b2ba739a744"),
+        key: MaskKey::ApeRemove,
+        group: "ape",
+        known: 112,
+        writable: 0,
+        rules: &[
+            MaskRule {
+                field: "remove_id3v1",
+                mask: 16,
+                label: "Ape, Mpc: Remove ID3v1",
+            },
+            MaskRule {
+                field: "remove_id3v2",
+                mask: 64,
+                label: "Ape, Mpc: Remove ID3v2",
+            },
+            MaskRule {
+                field: "remove_ape",
+                mask: 32,
+                label: "Ape, Mpc: Remove APE",
+            },
+        ],
+    },
+];
+const TAG_ENCODING: [u8; 16] = identifier(b"025280d33d85d942b0a8699eb8a0b3d2");
 const TEXT_LIMIT: usize = 4 * 1024 * 1024;
 fn is_false(value: &bool) -> bool {
     !value
@@ -203,6 +367,8 @@ pub struct Patch {
     booleans: BTreeMap<OptionKey, bool>,
     extended_mode: Option<&'static str>,
     text: BTreeMap<TextKey, String>,
+    masks: BTreeMap<MaskKey, u32>,
+    tag_encoding: Option<&'static str>,
 }
 pub struct Import {
     pub patch: Patch,
@@ -214,6 +380,8 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut values = BTreeMap::new();
     let mut extended_mode = None;
     let mut text = BTreeMap::new();
+    let mut masks = BTreeMap::new();
+    let mut tag_encoding_raw = None;
     let mut unknown = 0usize;
     while position < bytes.len() {
         let header_end = position
@@ -252,6 +420,26 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 2 => "ignore",
                 _ => "ask",
             });
+        } else if let Some(spec) = MASK_SPECS
+            .iter()
+            .find(|spec| header[..16] == spec.identifier)
+        {
+            let raw = u32::from_le_bytes(
+                payload
+                    .get(..4)
+                    .ok_or("Binary tag settings are incomplete")?
+                    .try_into()
+                    .unwrap(),
+            );
+            masks.insert(spec.key, raw);
+        } else if header[..16] == TAG_ENCODING {
+            tag_encoding_raw = Some(u32::from_le_bytes(
+                payload
+                    .get(..4)
+                    .ok_or("Binary tag settings are incomplete")?
+                    .try_into()
+                    .unwrap(),
+            ));
         } else if let Some(spec) = TEXT_SPECS
             .iter()
             .find(|spec| header[..16] == spec.identifier)
@@ -271,6 +459,27 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
         position = end;
     }
     let mut warnings = Vec::new();
+    masks.retain(|key, raw| {
+        let spec = MASK_SPECS.iter().find(|spec| spec.key == *key).unwrap();
+        if spec.writable != 0 && *raw & spec.writable == 0 {
+            warnings.push("A tag-write setting with no supported write type is not imported; the current write types are kept.".into());
+            return false;
+        }
+        if *raw & !spec.known != 0 {
+            warnings.push("Unmapped bits in a tag setting are not imported; only the listed switches change.".into());
+        }
+        true
+    });
+    let tag_encoding = match tag_encoding_raw {
+        Some(0) => Some("v23_latin1"),
+        Some(1) => Some("v23_utf16"),
+        Some(3) => Some("v24_utf8"),
+        Some(_) => {
+            warnings.push("The unrecognized ID3v2 version/encoding choice is not imported; the current choice is kept.".into());
+            None
+        }
+        None => None,
+    };
     if let Some(filename) = text.get(&TextKey::PlaylistFilename) {
         let bytes = filename.as_bytes();
         let windows_drive =
@@ -287,7 +496,12 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             text.remove(&TextKey::PlaylistFilename);
         }
     }
-    if values.is_empty() && extended_mode.is_none() && text.is_empty() {
+    if values.is_empty()
+        && extended_mode.is_none()
+        && text.is_empty()
+        && masks.is_empty()
+        && tag_encoding.is_none()
+    {
         if !warnings.is_empty() {
             return Err(warnings.join(" "));
         }
@@ -307,6 +521,30 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             verbatim: false,
         })
         .collect();
+    for (key, raw) in &masks {
+        let spec = MASK_SPECS.iter().find(|spec| spec.key == *key).unwrap();
+        settings.extend(spec.rules.iter().map(|rule| Setting {
+            label: rule.label.into(),
+            enabled: Some(*raw & rule.mask == rule.mask),
+            value: None,
+            verbatim: false,
+        }));
+    }
+    if let Some(encoding) = tag_encoding {
+        settings.push(Setting {
+            label: "ID3v2 version".into(),
+            enabled: None,
+            verbatim: false,
+            value: Some(
+                match encoding {
+                    "v23_latin1" => "ID3v2.3 ISO-8859-1",
+                    "v23_utf16" => "ID3v2.3 UTF-16",
+                    _ => "ID3v2.4 UTF-8",
+                }
+                .into(),
+            ),
+        });
+    }
     if let Some(mode) = extended_mode {
         settings.push(Setting {
             label: "Save mode at extended tag dialog".into(),
@@ -343,6 +581,8 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             booleans: values,
             extended_mode,
             text,
+            masks,
+            tag_encoding,
         },
         settings,
         warnings,
@@ -515,6 +755,21 @@ impl Patch {
                 name,
                 value.as_str(),
             )?;
+        }
+        if !self.masks.is_empty() || self.tag_encoding.is_some() {
+            let options = settings(&mut options, directory)?;
+            let mut tags =
+                serde_json::to_value(&options.tags).map_err(|error| error.to_string())?;
+            for (key, raw) in &self.masks {
+                let spec = MASK_SPECS.iter().find(|spec| spec.key == *key).unwrap();
+                for rule in spec.rules {
+                    tags[spec.group][rule.field] = (*raw & rule.mask == rule.mask).into();
+                }
+            }
+            if let Some(encoding) = self.tag_encoding {
+                tags["mpeg"]["id3v2_format"] = encoding.into();
+            }
+            options.tags = serde_json::from_value(tags).map_err(|error| error.to_string())?;
         }
         if let Some(options) = options {
             crate::settings::save(&directory.join("settings.json"), &options)?;
@@ -761,6 +1016,99 @@ mod tests {
             assert!(
                 matches!(parse(&record(&id,b"C:\\Playlists\\all.m3u8")),Err(reason) if reason.contains("Windows-specific"))
             );
+        }
+    }
+    #[test]
+    fn binary_settings_tag_masks_match_native_controls_and_keep_unmapped_values() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/mp3tag-settings-tags.json"
+        ))
+        .unwrap();
+        let flag = native_id("8840da8e2956d74da1853b63f6df9037");
+        for spec in fixture["masks"].as_array().unwrap() {
+            let id = native_id(spec["identifier"].as_str().unwrap());
+            let known = spec["known_mask"].as_u64().unwrap() as u32;
+            let writable = spec["writable_mask"].as_u64().unwrap() as u32;
+            for raw in [
+                0u32, 1, 2, 3, 4, 7, 8, 11, 15, 16, 32, 48, 64, 112, 127, 256,
+            ] {
+                let bytes = [record(&flag, &[1]), record(&id, &raw.to_le_bytes())].concat();
+                let parsed = parse(&bytes).unwrap();
+                let temp = tempfile::tempdir().unwrap();
+                let mut before = crate::settings::Settings::default();
+                before.tags.advanced.popularimeter_ratings = true;
+                before
+                    .pages
+                    .insert("playlist".into(), json!({"filename":"preserved.m3u8"}));
+                crate::settings::save(&temp.path().join("settings.json"), &before).unwrap();
+                parsed.patch.apply(temp.path()).unwrap();
+                let actual = crate::settings::load(&temp.path().join("settings.json")).0;
+                assert!(actual.tags.advanced.popularimeter_ratings);
+                assert_eq!(actual.pages["playlist"]["filename"], "preserved.m3u8");
+                let actual = serde_json::to_value(actual.tags).unwrap();
+                let before = serde_json::to_value(before.tags).unwrap();
+                let group = spec["group"].as_str().unwrap();
+                for rule in spec["rules"].as_array().unwrap() {
+                    let field = rule["field"].as_str().unwrap();
+                    let mask = rule["mask"].as_u64().unwrap() as u32;
+                    let expected = if writable != 0 && raw & writable == 0 {
+                        before[group][field].clone()
+                    } else {
+                        json!(raw & mask == mask)
+                    };
+                    assert_eq!(
+                        actual[group][field], expected,
+                        "{} {field} raw={raw}",
+                        spec["key"]
+                    );
+                }
+                if raw & !known != 0 || writable != 0 && raw & writable == 0 {
+                    assert!(!parsed.warnings.is_empty());
+                }
+            }
+            for length in 0..4 {
+                assert!(parse(&record(&id, &vec![0; length])).is_err());
+            }
+        }
+    }
+    #[test]
+    fn binary_settings_tag_encoding_uses_native_radio_values_and_last_record() {
+        let id = native_id("025280d33d85d942b0a8699eb8a0b3d2");
+        let flag = native_id("8840da8e2956d74da1853b63f6df9037");
+        for (raw, expected) in [
+            (0u32, "v23_latin1"),
+            (1, "v23_utf16"),
+            (3, "v24_utf8"),
+            (2, "v24_utf8"),
+            (u32::MAX, "v24_utf8"),
+        ] {
+            let bytes = [
+                record(&flag, &[1]),
+                record(&id, &0u32.to_le_bytes()),
+                record(&id, &raw.to_le_bytes()),
+            ]
+            .concat();
+            let parsed = parse(&bytes).unwrap();
+            let temp = tempfile::tempdir().unwrap();
+            let mut before = serde_json::to_value(crate::settings::Settings::default()).unwrap();
+            before["tags"]["mpeg"]["id3v2_format"] = json!("v24_utf8");
+            std::fs::write(
+                temp.path().join("settings.json"),
+                serde_json::to_vec(&before).unwrap(),
+            )
+            .unwrap();
+            parsed.patch.apply(temp.path()).unwrap();
+            let actual =
+                serde_json::to_value(crate::settings::load(&temp.path().join("settings.json")).0)
+                    .unwrap();
+            assert_eq!(actual["tags"]["mpeg"]["id3v2_format"], expected);
+            if raw == 2 || raw == u32::MAX {
+                assert_eq!(parsed.settings.len(), 1);
+                assert!(!parsed.warnings.is_empty());
+            }
+        }
+        for length in 0..4 {
+            assert!(parse(&record(&id, &vec![0; length])).is_err());
         }
     }
 }

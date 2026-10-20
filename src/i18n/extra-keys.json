@@ -93,5 +93,22 @@
  "undo directory identities could not be retained: {error}",
  "{unknown} unmapped binary setting records are not imported; their source file is unchanged.",
  "Don't create directories for playlists",
- "Show export selection dialog"
+ "Show export selection dialog",
+ "Mpeg: Read ID3v1",
+ "Mpeg: Read ID3v2",
+ "Mpeg: Read APE",
+ "Mpeg: Write ID3v1",
+ "Mpeg: Write ID3v2",
+ "Mpeg: Write APEv2",
+ "Mpeg: ID3v2 only if ID3v1 too small",
+ "Mpeg: Remove ID3v1",
+ "Mpeg: Remove ID3v2",
+ "Mpeg: Remove APE",
+ "Ape, Mpc: Read ID3v1",
+ "Ape, Mpc: Read APE",
+ "Ape, Mpc: Write ID3v1",
+ "Ape, Mpc: Write APEv2",
+ "Ape, Mpc: Remove ID3v1",
+ "Ape, Mpc: Remove ID3v2",
+ "Ape, Mpc: Remove APE"
 ]

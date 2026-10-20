@@ -88,6 +88,7 @@
  "Binary settings length overflow",
  "Binary settings record header is incomplete",
  "Binary settings record payload is incomplete",
+ "Binary tag settings are incomplete",
  "Byte 0x{byte} is undefined in codepage {codepage}",
  "Cancelled: the index was not changed.",
  "Cannot capture a directory symlink as a side file",

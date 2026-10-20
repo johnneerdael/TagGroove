@@ -109,6 +109,49 @@ The focused mode regression covers 0, 1, 2, 3 and `u32::MAX`, short payload
 refusals, extension bytes and last-record precedence. This establishes the
 static mapping and local importer behavior; original UI execution is deferred.
 
+### Packed tag read/write/remove and encoding settings
+
+Six native u32 records carry 17 switches; the version/encoding record carries
+one named choice. The
+[authored tag-setting fixture](../../tests/fixtures/mp3tag-settings-tags.json)
+binds every bit to its native object, DDX field/control and destination.
+
+| Key | Identifier | Mapped bit meanings |
+| --- | --- | --- |
+| ID3Read | `10d6c497feac8340a1d9b78566f9aede` | 1 ID3v1, 2 ID3v2, 8 APE |
+| ID3Write | `f4a149060db0964aa32d016776713477` | 1 ID3v1, 2 ID3v2, 8 APEv2; only-if-needed checkbox requires `(value & 7) == 7` |
+| ID3Remove | `33172482169bb947865a0d6d2f644446` | 1 ID3v1, 2 ID3v2, 8 APE |
+| APERead | `ac7785e8c51b644fa377abc80a954b8b` | 16 ID3v1, 32 APE |
+| APEWrite | `1d46a2fc85e7654794a5490bdc3e9eec` | 16 ID3v1, 32 APEv2 |
+| APERemove | `9e2950e85b1dbd45b4009b2ba739a744` | 16 ID3v1, 32 APE, 64 ID3v2 |
+| ID3ISO88591 | `025280d33d85d942b0a8699eb8a0b3d2` | 0 ID3v2.3 Latin-1, 1 ID3v2.3 UTF-16, 3 ID3v2.4 UTF-8 |
+
+The MPEG Init/DDX/Update functions are `0x1401ec954`, `0x1401ec854`
+and `0x1401ed5f4`; the APE equivalents are `0x1401e065c`,
+`0x1401e0598` and `0x1401e0e44`. Their shipped debug names include
+`CMTOptID3Dlg::Init` and `CMTOptAPEDlg::Init`. Native literal labels at
+`0x140954208`, `0x140954210`, `0x140954368` and `0x140954378`
+identify APE, APEv2, ID3v1 and ID3v2 controls. The extended PE dialog resources
+1066 and 1137 (English language `0x409`) bind the controls' positions/types;
+the encoding radio controls retain their actual captions. MPEG Init selects
+control `0x6dd` for 0, `0x6df` for 1 and `0x6de` otherwise; Update writes
+0, 1 or 3. Those captions establish Latin-1, UTF-16 and UTF-8 respectively.
+
+All native values are decoded as little-endian u32. Unsupported packed bits
+are reported while only the listed switches transfer. A write mask with no
+supported write type is skipped rather than manufacturing a valid write type
+or publishing settings rejected by TagGroove's existing validation. Unknown
+encoding values are skipped; this does not assume they mean the UI fallback.
+Later records replace earlier ones, including when the final value is skipped.
+Other saved options and the source bytes remain unchanged.
+
+These imported settings use the existing TagGroove save policy. MPEG Remove
+flags affect the explicit removal command; Ape/Mpc Remove flags can also strip
+ID3v2 and unwritten ID3v1/APE tags during ordinary saves
+(`crates/tag-core/src/tag_policy.rs`). The guide explicitly discloses this
+future-save effect; import itself never writes audio. Static mapping evidence
+does not establish original runtime equivalence of those save policies.
+
 ## Implementation and focused evidence
 
 `src-tauri/src/mp3tag_settings.rs` bounds-checks every header and payload,
@@ -144,6 +187,14 @@ Restore. The 29 profile regression tests, 52 profile-host/catalog tests,
 TypeScript, scoped Clippy, formatting and strict guide build passed. A read-only
 review found no concrete issues, including the default-skipped verbatim flag's
 backward-compatible journal serialization.
+
+The tag-policy slice passed 11 focused binary-settings tests. Its new cases
+exercise 96 mask/field vectors against the independent native-control fixture,
+five encoding values with last-record replacement, preservation of unrelated
+preferences, skipped unsupported choices and short u32 refusals. Scoped Clippy,
+catalog validation, formatting and the strict guide build passed. The read-only
+review found no code issue; its guide correction about Ape/Mpc ordinary-save
+removal was applied and rechecked.
 
 The mapping fixture is independently authored from static identifiers and
 codec evidence. It is not an exported private profile, a Windows runtime

@@ -1,0 +1,242 @@
+{
+  "subject_sha256": "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911",
+  "authority": "Independently authored static binding fixture; not an exported original profile or runtime differential.",
+  "codec": "little-endian u32; read0756f4/write075724",
+  "masks": [
+    {
+      "key": "ID3Read",
+      "object": "0x140ac3260",
+      "value": "0x140ac32a0",
+      "identifier": "10d6c497feac8340a1d9b78566f9aede",
+      "read_vtable": "0x140939cf0",
+      "write_vtable": "0x140939ce8",
+      "default": 3,
+      "group": "mpeg",
+      "known_mask": 11,
+      "writable_mask": 0,
+      "rules": [
+        {
+          "field": "read_id3v1",
+          "mask": 1,
+          "object_field": "0x168",
+          "control": "0x542"
+        },
+        {
+          "field": "read_id3v2",
+          "mask": 2,
+          "object_field": "0x16c",
+          "control": "0x543"
+        },
+        {
+          "field": "read_ape",
+          "mask": 8,
+          "object_field": "0x164",
+          "control": "0x614"
+        }
+      ]
+    },
+    {
+      "key": "ID3Write",
+      "object": "0x140ac3300",
+      "value": "0x140ac3340",
+      "identifier": "f4a149060db0964aa32d016776713477",
+      "read_vtable": "0x140939cf0",
+      "write_vtable": "0x140939ce8",
+      "default": 3,
+      "group": "mpeg",
+      "known_mask": 15,
+      "writable_mask": 11,
+      "rules": [
+        {
+          "field": "write_id3v1",
+          "mask": 1,
+          "object_field": "0x150",
+          "control": "0x546"
+        },
+        {
+          "field": "write_id3v2",
+          "mask": 2,
+          "object_field": "0x154",
+          "control": "0x547"
+        },
+        {
+          "field": "write_ape",
+          "mask": 8,
+          "object_field": "0x174",
+          "control": "0x615"
+        },
+        {
+          "field": "id3v2_only_if_needed",
+          "mask": 7,
+          "object_field": "0x160",
+          "control": "0x54f"
+        }
+      ]
+    },
+    {
+      "key": "ID3Remove",
+      "object": "0x140ac32b0",
+      "value": "0x140ac32f0",
+      "identifier": "33172482169bb947865a0d6d2f644446",
+      "read_vtable": "0x140939cf0",
+      "write_vtable": "0x140939ce8",
+      "default": 11,
+      "group": "mpeg",
+      "known_mask": 11,
+      "writable_mask": 0,
+      "rules": [
+        {
+          "field": "remove_id3v1",
+          "mask": 1,
+          "object_field": "0x158",
+          "control": "0x54d"
+        },
+        {
+          "field": "remove_id3v2",
+          "mask": 2,
+          "object_field": "0x15c",
+          "control": "0x54e"
+        },
+        {
+          "field": "remove_ape",
+          "mask": 8,
+          "object_field": "0x170",
+          "control": "0x616"
+        }
+      ]
+    },
+    {
+      "key": "APERead",
+      "object": "0x140ac3350",
+      "value": "0x140ac3390",
+      "identifier": "ac7785e8c51b644fa377abc80a954b8b",
+      "read_vtable": "0x140939cf0",
+      "write_vtable": "0x140939ce8",
+      "default": 48,
+      "group": "ape",
+      "known_mask": 48,
+      "writable_mask": 0,
+      "rules": [
+        {
+          "field": "read_id3v1",
+          "mask": 16,
+          "object_field": "0x154",
+          "control": "0x617"
+        },
+        {
+          "field": "read_ape",
+          "mask": 32,
+          "object_field": "0x150",
+          "control": "0x618"
+        }
+      ]
+    },
+    {
+      "key": "APEWrite",
+      "object": "0x140ac33f0",
+      "value": "0x140ac3430",
+      "identifier": "1d46a2fc85e7654794a5490bdc3e9eec",
+      "read_vtable": "0x140939cf0",
+      "write_vtable": "0x140939ce8",
+      "default": 32,
+      "group": "ape",
+      "known_mask": 48,
+      "writable_mask": 48,
+      "rules": [
+        {
+          "field": "write_id3v1",
+          "mask": 16,
+          "object_field": "0x15c",
+          "control": "0x61b"
+        },
+        {
+          "field": "write_ape",
+          "mask": 32,
+          "object_field": "0x158",
+          "control": "0x61c"
+        }
+      ]
+    },
+    {
+      "key": "APERemove",
+      "object": "0x140ac33a0",
+      "value": "0x140ac33e0",
+      "identifier": "9e2950e85b1dbd45b4009b2ba739a744",
+      "read_vtable": "0x140939cf0",
+      "write_vtable": "0x140939ce8",
+      "default": 112,
+      "group": "ape",
+      "known_mask": 112,
+      "writable_mask": 0,
+      "rules": [
+        {
+          "field": "remove_id3v1",
+          "mask": 16,
+          "object_field": "0x164",
+          "control": "0x61e"
+        },
+        {
+          "field": "remove_id3v2",
+          "mask": 64,
+          "object_field": "0x168",
+          "control": "0x621"
+        },
+        {
+          "field": "remove_ape",
+          "mask": 32,
+          "object_field": "0x160",
+          "control": "0x61f"
+        }
+      ]
+    }
+  ],
+  "encoding": {
+    "key": "ID3ISO88591",
+    "object": "0x140ac5830",
+    "value": "0x140ac5870",
+    "identifier": "025280d33d85d942b0a8699eb8a0b3d2",
+    "read_vtable": "0x140939cf0",
+    "write_vtable": "0x140939ce8",
+    "default": 1,
+    "values": {
+      "0": {
+        "stored": "v23_latin1",
+        "control": "0x6dd",
+        "title": "ID3v2.3 ISO-8859-1"
+      },
+      "1": {
+        "stored": "v23_utf16",
+        "control": "0x6df",
+        "title": "ID3v2.3 UTF-16"
+      },
+      "3": {
+        "stored": "v24_utf8",
+        "control": "0x6de",
+        "title": "ID3v2.4 UTF-8"
+      }
+    }
+  },
+  "proof": {
+    "mpeg_init": "0x1401ec954 CMTOptID3Dlg::Init",
+    "mpeg_ddx": "0x1401ec854",
+    "mpeg_update": "0x1401ed5f4",
+    "ape_init": "0x1401e065c CMTOptAPEDlg::Init",
+    "ape_ddx": "0x1401e0598",
+    "ape_update": "0x1401e0e44",
+    "literal_labels": {
+      "0x140954208": "APE",
+      "0x140954210": "APEv2",
+      "0x140954368": "ID3v1",
+      "0x140954378": "ID3v2"
+    },
+    "mpeg_resource": "dialog1066 @0x140b76d58 language0409",
+    "ape_resource": "dialog1137 @0x140b78f08 language0409",
+    "encoding_mapping": "Init0x1401ecac9 checks0->6dd,1->6df,else6de; Update0x1401ed6b9/0x1401ed6e3 emits0,1,3. PE extended dialog items retain exact encoding captions."
+  },
+  "limits": [
+    "Original generated profiles and native readback remain deferred.",
+    "All-disabled writes conflict with TagGroove current settings validation. Establish a deliberate mapping policy before applying such a record.",
+    "Do not infer unknown encoding values or unknown packed bits.",
+    "ID3 only-if-needed native checkbox requires(raw&7)==7, not merely bit4."
+  ]
+}

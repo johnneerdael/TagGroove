@@ -79,6 +79,27 @@ dialog. It is independent of saving on ordinary file-list selection.
 Notification-area behavior depends on the desktop
 platform. These are preferences, not a transfer of the original window layout.
 
+The **Mpeg** and **Ape, Mpc** Read, Write and Remove switches also transfer,
+along with **ID3v2 only if ID3v1 too small** and the supported ID3v2
+version/encoding choice. The preview lists these switches individually, even
+though Mp3tag stores each group in one binary record. Read controls what is
+displayed; Write controls what future saves write. For **Mpeg**, Remove controls
+the explicit Remove tag command; ordinary saves leave unwritten tag types
+alone. For **Ape, Mpc**, Remove also affects ordinary saves: a selected ID3v2
+tag is removed, and selected ID3v1/APE tags are removed when that save does not
+write them. Importing these choices does not write audio, but they govern
+later saves. Review the Ape, Mpc Remove choices before saving an existing
+library; for example, importing its original ID3v2 Remove choice can turn on
+removal where your current TagGroove setup had it off.
+
+TagGroove requires at least one Write type for each of those format families.
+An incoming group with no supported Write type is therefore skipped with a
+warning, keeping your current Write choices. Unknown bits and unrecognized
+version/encoding choices are reported rather than guessed. Supported settings
+in the same file can still transfer. Review these groups before editing a
+mixed-format library, especially if you deliberately disabled a tag type in
+your original setup.
+
 Playlist preferences also include automatic creation after saving/renaming,
 extended information, relative entries, confirming the filename and whether
 directories may be created. A supported playlist filename and extended-info
