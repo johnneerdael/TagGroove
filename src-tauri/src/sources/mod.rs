@@ -10,7 +10,7 @@ mod credentials;
 mod deezer;
 mod discogs;
 mod fanart;
-mod freedb;
+pub(crate) mod freedb;
 mod freedb_index;
 pub(crate) mod http;
 mod itunes;

@@ -7,6 +7,10 @@ use std::path::Path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum OptionKey {
+    Page(&'static str, &'static str),
+    LibraryEnabled,
+    LibraryRestrict,
+    CoverAnswer,
     SaveOnMove,
     NoFolderImage,
     KeepModifiedTime,
@@ -62,6 +66,42 @@ const fn identifier(text: &[u8; 32]) -> [u8; 16] {
 // Raw byte identifiers, with no UUID byte-order conversion. Bound to the
 // 3.36.1 static reader/object/serializer evidence in the migration receipt.
 const SPECS: &[Spec] = &[
+    Spec {
+        identifier: identifier(b"7bbbf22d6046a94d849c82eb792d0910"),
+        key: OptionKey::LibraryEnabled,
+        label: "Enable Library",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"65378755075c9046b6d4ac4cd6346af9"),
+        key: OptionKey::LibraryRestrict,
+        label: "Restrict Library to included directories",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"eada7c7f01da5f4a849392b72b37ef08"),
+        key: OptionKey::Page("playlist", "write_bom"),
+        label: "Write playlist byte order mark (BOM)",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"e60558750d35d148b3f22c2c229005dd"),
+        key: OptionKey::Page("export", "dont_create_directories"),
+        label: "Export: do not create directories",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"7c7d406cdfd18b48a914db716854fc2f"),
+        key: OptionKey::Page("updates", "release_notes"),
+        label: "Display release notes for new versions",
+        inverted: false,
+    },
+    Spec {
+        identifier: identifier(b"f0bb1392e33e1041801e42ce3b64f1b7"),
+        key: OptionKey::CoverAnswer,
+        label: "Keep existing covers when the import question is disabled",
+        inverted: false,
+    },
     Spec {
         identifier: identifier(b"81e9cd2aac92e14e9c71cf21ae4e0510"),
         key: OptionKey::NumberingPadding("track_digits"),
@@ -378,6 +418,10 @@ enum TextKey {
     NumberingNextField,
     NumberingResetField,
     CoverDirectory,
+    SourceCoverFilename,
+    Language,
+    GeneratorFilename,
+    GeneratorPartition,
 }
 const NUMBERING_FIELDS: [(&str, TextKey); 2] = [
     ("next_disc_on_field", TextKey::NumberingNextField),
@@ -389,6 +433,26 @@ struct TextSpec {
     label: &'static str,
 }
 const TEXT_SPECS: &[TextSpec] = &[
+    TextSpec {
+        identifier: identifier(b"f64318074ac91b4db1b909e2ce5a695c"),
+        key: TextKey::SourceCoverFilename,
+        label: "Default file name for cover art",
+    },
+    TextSpec {
+        identifier: identifier(b"1a0bfd2a930e704dac9262461ddcd9c6"),
+        key: TextKey::Language,
+        label: "Language",
+    },
+    TextSpec {
+        identifier: identifier(b"312fa18b404068489ebd20ea4183cc24"),
+        key: TextKey::GeneratorFilename,
+        label: "Generate Playlists: filename",
+    },
+    TextSpec {
+        identifier: identifier(b"0e3b78b6452b224789abc77122e2d677"),
+        key: TextKey::GeneratorPartition,
+        label: "Generate Playlists: partition",
+    },
     TextSpec {
         identifier: identifier(b"a7a810227a5a8d4db511e77851eb10dd"),
         key: TextKey::CoverDirectory,
@@ -608,6 +672,87 @@ const MASK_SPECS: &[MaskSpec] = &[
         ],
     },
 ];
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum ChoiceKey {
+    Appearance,
+    ToolbarScale,
+    UiScale,
+    Startup,
+    CoverSize,
+    FreedbComment,
+    FreedbDiscId,
+    Updates,
+}
+struct ChoiceSpec {
+    identifier: [u8; 16],
+    key: ChoiceKey,
+    label: &'static str,
+    values: &'static [(u32, &'static str)],
+}
+const CHOICE_SPECS: &[ChoiceSpec] = &[
+    ChoiceSpec {
+        identifier: identifier(b"345420b668107b40b253c362f84c07ae"),
+        key: ChoiceKey::Appearance,
+        label: "Color mode",
+        values: &[(0, "system"), (1, "dark"), (2, "light")],
+    },
+    ChoiceSpec {
+        identifier: identifier(b"2fc8d3d38c9a594394745f4bf5373c52"),
+        key: ChoiceKey::ToolbarScale,
+        label: "Toolbar scaling",
+        values: &[(0, "100"), (1, "125"), (2, "150"), (3, "175"), (4, "200")],
+    },
+    ChoiceSpec {
+        identifier: identifier(b"35de0f55b39ed3468af928dbf3a478f7"),
+        key: ChoiceKey::UiScale,
+        label: "User interface scaling",
+        values: &[
+            (100, "100"),
+            (110, "110"),
+            (120, "120"),
+            (130, "130"),
+            (140, "140"),
+            (150, "150"),
+            (160, "160"),
+            (170, "170"),
+            (180, "180"),
+            (190, "190"),
+            (200, "200"),
+        ],
+    },
+    ChoiceSpec {
+        identifier: identifier(b"73e3c9e1559ea5449bad26fadc7ea56d"),
+        key: ChoiceKey::Startup,
+        label: "Startup directory",
+        values: &[(0, "empty"), (1, "previous")],
+    },
+    ChoiceSpec {
+        identifier: identifier(b"a29cd34be23c764e89f5976ccaa2da25"),
+        key: ChoiceKey::CoverSize,
+        label: "MusicBrainz cover size",
+        values: &[(1, "original"), (2, "250"), (3, "500"), (4, "1200")],
+    },
+    ChoiceSpec {
+        identifier: identifier(b"a4b6e530061c5642a1adb455bf362784"),
+        key: ChoiceKey::FreedbComment,
+        label: "Copy disc ID to COMMENT field",
+        values: &[(0, "false"), (1, "true")],
+    },
+    ChoiceSpec {
+        identifier: identifier(b"192fa431f5594c4c9c17940c895f2eb9"),
+        key: ChoiceKey::FreedbDiscId,
+        label: "Copy disc ID to DISCID field",
+        values: &[(0, "false"), (1, "true")],
+    },
+    ChoiceSpec {
+        identifier: identifier(b"7b29e93f08c57b4abdec988fa4ab9583"),
+        key: ChoiceKey::Updates,
+        label: "Update checks on startup",
+        values: &[(0, "off"), (1, "stable"), (2, "beta")],
+    },
+];
+const FREEDB_SERVERS: [u8; 16] = identifier(b"1f60b2ade49d454cb0eeeaf43c19359e");
+const FREEDB_ACTIVE: [u8; 16] = identifier(b"2345b1c1c149ad4fbaeed1d837e96668");
 const MAPPINGS: [u8; 16] = identifier(b"41a00ac0f0ccf14f924a133d5bd6e0e7");
 const EXPORT_BOM: [u8; 16] = identifier(b"759de112c0072d48b5650c2fbec586a8");
 const TAG_ENCODING: [u8; 16] = identifier(b"025280d33d85d942b0a8699eb8a0b3d2");
@@ -636,6 +781,8 @@ pub struct Patch {
     grid: Option<&'static str>,
     export_bom: Option<bool>,
     mappings: Option<Vec<tag_core::UserFieldMapping>>,
+    choices: BTreeMap<ChoiceKey, &'static str>,
+    freedb: Option<FreedbDataset>,
 }
 pub struct Import {
     pub patch: Patch,
@@ -647,19 +794,19 @@ struct MappingList {
     reserved: bool,
     extension: bool,
 }
-fn mapping_u32(bytes: &[u8], position: &mut usize) -> Result<u32, String> {
+fn list_u32(bytes: &[u8], position: &mut usize) -> Result<u32, String> {
     let end = position
         .checked_add(4)
-        .ok_or("Binary field-mapping length overflow")?;
+        .ok_or("Binary list length overflow")?;
     let value = bytes
         .get(*position..end)
-        .ok_or("Binary field-mapping list is incomplete")?;
+        .ok_or("Binary list is incomplete")?;
     *position = end;
     Ok(u32::from_le_bytes(value.try_into().unwrap()))
 }
 fn parse_mappings(bytes: &[u8]) -> Result<MappingList, String> {
     let mut position = 0;
-    let count = mapping_u32(bytes, &mut position)? as usize;
+    let count = list_u32(bytes, &mut position)? as usize;
     if count > 4096 {
         return Err("A binary field-mapping list exceeds 4096 rows.".into());
     }
@@ -670,16 +817,16 @@ fn parse_mappings(bytes: &[u8]) -> Result<MappingList, String> {
         // The native list codec always frames five strings, although Mapping
         // load/save uses only the first three. Never decode reserved payloads.
         for output in fields.iter_mut().map(Some).chain([None, None]) {
-            let length = mapping_u32(bytes, &mut position)? as usize;
+            let length = list_u32(bytes, &mut position)? as usize;
             if length > TEXT_LIMIT {
                 return Err("A binary field-mapping field exceeds 4 MB.".into());
             }
             let end = position
                 .checked_add(length)
-                .ok_or("Binary field-mapping length overflow")?;
+                .ok_or("Binary list length overflow")?;
             let field = bytes
                 .get(position..end)
-                .ok_or("Binary field-mapping list is incomplete")?;
+                .ok_or("Binary list is incomplete")?;
             position = end;
             if let Some(output) = output {
                 let value = field.split(|byte| *byte == 0).next().unwrap();
@@ -703,6 +850,74 @@ fn parse_mappings(bytes: &[u8]) -> Result<MappingList, String> {
         extension: position != bytes.len(),
     })
 }
+#[derive(Clone)]
+struct FreedbDataset {
+    servers: Vec<serde_json::Value>,
+    index: usize,
+}
+fn parse_freedb_servers(bytes: &[u8]) -> Result<(Vec<[String; 4]>, bool), String> {
+    let mut position = 0;
+    let count = list_u32(bytes, &mut position)? as usize;
+    if count > 4096 {
+        return Err("A binary freedb server list exceeds 4096 rows.".into());
+    }
+    let mut rows = Vec::with_capacity(count);
+    for _ in 0..count {
+        let mut fields: [String; 4] = Default::default();
+        for output in &mut fields {
+            let length = list_u32(bytes, &mut position)? as usize;
+            if length > TEXT_LIMIT {
+                return Err("A binary freedb server field exceeds 4 MB.".into());
+            }
+            let end = position
+                .checked_add(length)
+                .ok_or("Binary list length overflow")?;
+            let field = bytes
+                .get(position..end)
+                .ok_or("Binary freedb server list is incomplete")?;
+            position = end;
+            *output = std::str::from_utf8(field.split(|byte| *byte == 0).next().unwrap())
+                .map_err(|_| "A binary freedb server field is not valid UTF-8.")?
+                .to_owned();
+        }
+        rows.push(fields);
+    }
+    Ok((rows, position != bytes.len()))
+}
+fn freedb_dataset(rows: Vec<[String; 4]>, index: u32) -> Option<FreedbDataset> {
+    if rows.is_empty() || index as usize >= rows.len() {
+        return None;
+    }
+    let mut servers = Vec::with_capacity(rows.len());
+    for [name, address, path, port] in rows {
+        if [&name, &address, &path, &port]
+            .iter()
+            .any(|field| field.chars().any(char::is_control))
+            || path.trim().is_empty()
+            || path.contains('\\')
+            || port.is_empty()
+            || !port.bytes().all(|b| b.is_ascii_digit())
+        {
+            return None;
+        }
+        let number = port.parse::<u16>().ok().filter(|port| *port != 0)?;
+        let settings = crate::sources::freedb::FreedbSettings {
+            protocol: "http".into(),
+            address: address.clone(),
+            path: path.clone(),
+            port: Some(number),
+            ..Default::default()
+        };
+        // Validate the same URL shape as the provider without issuing a request.
+        crate::sources::freedb::command_url(&settings, "cddb sites").ok()?;
+        servers
+            .push(json!({"name":name,"protocol":"http","address":address,"path":path,"port":port}));
+    }
+    Some(FreedbDataset {
+        servers,
+        index: index as usize,
+    })
+}
 fn portable_cover_directory(value: &str) -> bool {
     // The chooser trims evaluated output; classify the same leading text but
     // preserve the accepted authored expression without rewriting it.
@@ -724,6 +939,9 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     let mut grid_raw = None;
     let mut export_bom = None;
     let mut mappings_raw = None;
+    let mut choice_raw = BTreeMap::new();
+    let mut freedb_rows = None;
+    let mut freedb_index = None;
     let mut text = BTreeMap::new();
     let mut masks = BTreeMap::new();
     let mut tag_encoding_raw = None;
@@ -750,6 +968,23 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
                 .ok_or("Binary boolean setting has no value")?
                 != 0;
             values.insert(spec.key, value ^ spec.inverted);
+        } else if let Some(spec) = CHOICE_SPECS
+            .iter()
+            .find(|spec| header[..16] == spec.identifier)
+        {
+            let raw = u32::from_le_bytes(
+                payload
+                    .get(..4)
+                    .ok_or("Binary choice setting is incomplete")?
+                    .try_into()
+                    .unwrap(),
+            );
+            choice_raw.insert(spec.key, raw);
+        } else if header[..16] == FREEDB_SERVERS {
+            freedb_rows = Some(parse_freedb_servers(payload)?);
+        } else if header[..16] == FREEDB_ACTIVE {
+            let mut position = 0;
+            freedb_index = Some(list_u32(payload, &mut position)?);
         } else if header[..16] == MAPPINGS {
             mappings_raw = Some(parse_mappings(payload)?);
         } else if header[..16] == EXPORT_BOM {
@@ -824,6 +1059,46 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
         position = end;
     }
     let mut warnings = Vec::new();
+    let has_freedb = freedb_rows.is_some() || freedb_index.is_some();
+    let freedb = match (freedb_rows, freedb_index) {
+        (Some((rows, extension)), Some(index)) => {
+            if extension {
+                warnings
+                    .push("Trailing freedb server-list extension bytes are not imported.".into());
+            }
+            freedb_dataset(rows, index)
+        }
+        _ => None,
+    };
+    if has_freedb && freedb.is_none() {
+        warnings.push("The freedb server list and active index do not form a supported complete dataset; the entire current server list and selection are kept.".into());
+    }
+    let choices: BTreeMap<_,_> = choice_raw.into_iter().filter_map(|(key,raw)| {
+        let spec = CHOICE_SPECS.iter().find(|spec|spec.key==key).unwrap();
+        match spec.values.iter().find(|(source,_)|*source==raw) {
+            Some((_,value)) => Some((key,*value)),
+            None if key==ChoiceKey::UiScale => {
+                warnings.push("The original normalizes this unsupported UI scale to 100%; that normalized choice is imported.".into());
+                Some((key,"100"))
+            }
+            None => {
+                warnings.push("An unsupported native option choice is not imported; its current choice is kept.".into());
+                None
+            }
+        }
+    }).collect();
+    if choices.get(&ChoiceKey::Startup) == Some(&"previous") {
+        warnings.push("Previous startup directory uses TagGroove's current folder history; the original computer's history is not imported.".into());
+    }
+    let restriction = values.get(&OptionKey::LibraryRestrict).copied();
+    if restriction == Some(true) {
+        values.remove(&OptionKey::LibraryRestrict);
+        warnings.push("The restricted source library's host folder list is not imported; the current restriction is kept.".into());
+    }
+    if values.get(&OptionKey::LibraryEnabled) == Some(&true) && restriction != Some(false) {
+        values.remove(&OptionKey::LibraryEnabled);
+        warnings.push("Library enabling without an explicit unrestricted source policy is not imported; current enablement is kept until source folders can be bound.".into());
+    }
     let mappings = mappings_raw.and_then(|list| {
         if tag_core::validate_user_mappings(&list.rules).is_err() {
             warnings.push("The incoming field-mapping list is unsupported or conflicting; the entire current list is kept.".into());
@@ -935,6 +1210,30 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
     {
         warnings.push("The remembered export configuration and filename require its matching source template to be selected. Unresolved bindings keep the current configuration and filename.".into());
     }
+    text.retain(|key,value| {
+        let reason = match key {
+            TextKey::Language if !["", "English", "Dutch", "German"].contains(&value.as_str()) => Some("The source language catalog is not available as a confirmed target catalog; the current language is kept."),
+            TextKey::GeneratorPartition if tag_core::CompiledTemplate::compile(value).is_err() => Some("The invalid playlist-generator partition expression is not imported; the current expression is kept."),
+            TextKey::GeneratorFilename | TextKey::SourceCoverFilename if !portable_cover_directory(value) => Some("A host-specific or invalid playlist-generator or cover filename expression is not imported; the current expression is kept."),
+            _ => None,
+        };
+        if let Some(reason)=reason { warnings.push(reason.into()); false } else { true }
+    });
+    if text
+        .get(&TextKey::GeneratorFilename)
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        if let Some(filename) = text
+            .get(&TextKey::PlaylistFilename)
+            .filter(|value| portable_cover_directory(value))
+            .cloned()
+        {
+            text.insert(TextKey::GeneratorFilename, filename);
+        } else {
+            text.remove(&TextKey::GeneratorFilename);
+            warnings.push("The empty generator filename has no admitted source playlist filename to fall back to; the current generator filename is kept.".into());
+        }
+    }
     for (field, text_key) in NUMBERING_FIELDS {
         let enabled_key = OptionKey::NumberingFieldEnabled(field);
         match values.get(&enabled_key) {
@@ -967,6 +1266,8 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
         && grid.is_none()
         && export_bom.is_none()
         && mappings.is_none()
+        && choices.is_empty()
+        && freedb.is_none()
     {
         if !warnings.is_empty() {
             return Err(warnings.join(" "));
@@ -987,6 +1288,61 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             verbatim: false,
         })
         .collect();
+    if let Some(dataset) = &freedb {
+        settings.push(Setting {
+            label: "freedb: replace current server list".into(),
+            enabled: None,
+            value: Some(dataset.servers.len().to_string()),
+            verbatim: false,
+        });
+        for (index, row) in dataset.servers.iter().enumerate() {
+            let raw_path = row["path"].as_str().unwrap().trim();
+            let path = if raw_path.starts_with('/') {
+                raw_path.to_owned()
+            } else {
+                format!("/{raw_path}")
+            };
+            settings.push(Setting {
+                label: if index == dataset.index {
+                    "freedb: selected server"
+                } else {
+                    "freedb: server"
+                }
+                .into(),
+                enabled: None,
+                value: Some(format!(
+                    "{} — http://{}:{}{}",
+                    row["name"].as_str().unwrap(),
+                    row["address"].as_str().unwrap().trim(),
+                    row["port"].as_str().unwrap(),
+                    path
+                )),
+                verbatim: true,
+            });
+        }
+    }
+    for (key, value) in &choices {
+        let spec = CHOICE_SPECS.iter().find(|spec| spec.key == *key).unwrap();
+        let flag = matches!(key, ChoiceKey::FreedbComment | ChoiceKey::FreedbDiscId);
+        let display = match (*key, *value) {
+            (ChoiceKey::Appearance, "dark") => "Dark",
+            (ChoiceKey::Appearance, "light") => "Light",
+            (ChoiceKey::Appearance, "system") => "System",
+            (ChoiceKey::Startup, "empty") => "Empty",
+            (ChoiceKey::Startup, "previous") => "Previous directory",
+            (ChoiceKey::CoverSize, "original") => "Original size",
+            (ChoiceKey::Updates, "off") => "Off",
+            (ChoiceKey::Updates, "stable") => "Stable releases",
+            (ChoiceKey::Updates, "beta") => "Stable and beta releases",
+            _ => value,
+        };
+        settings.push(Setting {
+            label: spec.label.into(),
+            enabled: flag.then_some(*value == "true"),
+            value: (!flag).then(|| display.to_owned()),
+            verbatim: display.bytes().all(|b| b.is_ascii_digit()),
+        });
+    }
     if let Some(rules) = &mappings {
         settings.push(Setting {
             label: "Tag field mappings: replace current list".into(),
@@ -1092,6 +1448,8 @@ pub fn parse(bytes: &[u8]) -> Result<Import, String> {
             grid,
             export_bom,
             mappings,
+            choices,
+            freedb,
         },
         settings,
         warnings,
@@ -1170,6 +1528,12 @@ impl Patch {
             preferences.partition_memory = Some(expression.clone());
             preferences.partition = enabled.then_some(expression);
         }
+        if let Some(value) = self
+            .booleans
+            .get(&OptionKey::Page("export", "dont_create_directories"))
+        {
+            preferences.create_directories = !value;
+        }
         if let Some(value) = self.export_bom {
             preferences.write_bom = value;
         }
@@ -1224,6 +1588,27 @@ impl Patch {
         };
         for (key, value) in &self.booleans {
             match key {
+                OptionKey::Page(id, field) => {
+                    page(settings(&mut options, directory)?, id, field, *value)?
+                }
+                OptionKey::LibraryEnabled => page(
+                    settings(&mut options, directory)?,
+                    "library",
+                    "enabled",
+                    *value,
+                )?,
+                OptionKey::LibraryRestrict => page(
+                    settings(&mut options, directory)?,
+                    "library",
+                    "restrict",
+                    *value,
+                )?,
+                OptionKey::CoverAnswer => page(
+                    settings(&mut options, directory)?,
+                    "messages",
+                    "import_covers_choice",
+                    if *value { "preserve" } else { "replace" },
+                )?,
                 // Applied only to the final in-memory export library after
                 // template collision decisions, never via a stale disk snapshot.
                 OptionKey::ExportAppend | OptionKey::ExportMultiple => {}
@@ -1401,6 +1786,56 @@ impl Patch {
                 grid,
             )?;
         }
+        for (key, value) in &self.choices {
+            match key {
+                ChoiceKey::Appearance => {
+                    preferences.insert("opentag.appearance".into(), (*value).into());
+                }
+                ChoiceKey::ToolbarScale => page(
+                    settings(&mut options, directory)?,
+                    "appearance",
+                    "toolbar_scale",
+                    *value,
+                )?,
+                ChoiceKey::UiScale => page(
+                    settings(&mut options, directory)?,
+                    "appearance",
+                    "ui_scale",
+                    *value,
+                )?,
+                ChoiceKey::Startup => page(
+                    settings(&mut options, directory)?,
+                    "directories-startup",
+                    "startup",
+                    *value,
+                )?,
+                ChoiceKey::CoverSize => page(
+                    settings(&mut options, directory)?,
+                    "tag-sources",
+                    "musicbrainz_cover_size",
+                    *value,
+                )?,
+                ChoiceKey::FreedbComment => page(
+                    settings(&mut options, directory)?,
+                    "tag-sources-freedb",
+                    "comment_disc_id",
+                    *value == "true",
+                )?,
+                ChoiceKey::FreedbDiscId => page(
+                    settings(&mut options, directory)?,
+                    "tag-sources-freedb",
+                    "disc_id_field",
+                    *value == "true",
+                )?,
+                ChoiceKey::Updates => {
+                    let options = settings(&mut options, directory)?;
+                    page(options, "updates", "check_on_startup", *value != "off")?;
+                    if *value != "off" {
+                        page(options, "updates", "include_beta", *value == "beta")?;
+                    }
+                }
+            }
+        }
         for (key, value) in &self.text {
             match key {
                 TextKey::ExportPartition
@@ -1408,6 +1843,39 @@ impl Patch {
                 | TextKey::ExportFilename
                 | TextKey::NumberingNextField
                 | TextKey::NumberingResetField => {}
+                TextKey::Language => {
+                    let locale = match value.as_str() {
+                        "English" => "en",
+                        "Dutch" => "nl",
+                        "German" => "de",
+                        _ => "system",
+                    };
+                    page(
+                        settings(&mut options, directory)?,
+                        "language",
+                        "language",
+                        locale,
+                    )?;
+                    preferences.insert("opentag.language".into(), locale.into());
+                }
+                TextKey::SourceCoverFilename => page(
+                    settings(&mut options, directory)?,
+                    "tag-sources",
+                    "cover_filename",
+                    value.as_str(),
+                )?,
+                TextKey::GeneratorFilename => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "generator_filename",
+                    value.as_str(),
+                )?,
+                TextKey::GeneratorPartition => page(
+                    settings(&mut options, directory)?,
+                    "playlist",
+                    "generator_partition",
+                    value.as_str(),
+                )?,
                 TextKey::CoverDirectory => page(
                     settings(&mut options, directory)?,
                     "directories",
@@ -1438,6 +1906,20 @@ impl Patch {
                 TextKey::FolderSeparator => {
                     settings(&mut options, directory)?.files.folder_separator = value.clone()
                 }
+            }
+        }
+        if let Some(dataset) = &self.freedb {
+            let options = settings(&mut options, directory)?;
+            page(
+                options,
+                "tag-sources-freedb",
+                "servers",
+                json!(dataset.servers),
+            )?;
+            page(options, "tag-sources-freedb", "server", dataset.index)?;
+            let selected = &dataset.servers[dataset.index];
+            for key in ["protocol", "address", "path", "port"] {
+                page(options, "tag-sources-freedb", key, selected[key].clone())?;
             }
         }
         if let Some(rules) = &self.mappings {
@@ -1482,6 +1964,555 @@ mod tests {
             .step_by(2)
             .map(|index| u8::from_str_radix(&text[index..index + 2], 16).unwrap())
             .collect()
+    }
+    fn native_options_apply(
+        records: &[(&str, &[u8])],
+        before: &crate::settings::Settings,
+    ) -> (crate::settings::Settings, BTreeMap<String, String>, Import) {
+        let bytes: Vec<_> = records
+            .iter()
+            .flat_map(|(id, payload)| record(&native_id(id), payload))
+            .collect();
+        let parsed = parse(&bytes).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        crate::settings::save(&dir.path().join("settings.json"), before).unwrap();
+        let preferences = parsed.patch.apply(dir.path(), &BTreeMap::new()).unwrap();
+        (
+            crate::settings::load(&dir.path().join("settings.json")).0,
+            preferences,
+            parsed,
+        )
+    }
+    #[test]
+    fn native_options_dword_choices_keep_distinct_codecs_and_last_record_semantics() {
+        let cases = [
+            (
+                "345420b668107b40b253c362f84c07ae",
+                1,
+                "window",
+                "opentag.appearance",
+                "dark",
+            ),
+            (
+                "345420b668107b40b253c362f84c07ae",
+                2,
+                "window",
+                "opentag.appearance",
+                "light",
+            ),
+            (
+                "345420b668107b40b253c362f84c07ae",
+                0,
+                "window",
+                "opentag.appearance",
+                "system",
+            ),
+            (
+                "2fc8d3d38c9a594394745f4bf5373c52",
+                0,
+                "appearance",
+                "toolbar_scale",
+                "100",
+            ),
+            (
+                "2fc8d3d38c9a594394745f4bf5373c52",
+                1,
+                "appearance",
+                "toolbar_scale",
+                "125",
+            ),
+            (
+                "2fc8d3d38c9a594394745f4bf5373c52",
+                2,
+                "appearance",
+                "toolbar_scale",
+                "150",
+            ),
+            (
+                "2fc8d3d38c9a594394745f4bf5373c52",
+                3,
+                "appearance",
+                "toolbar_scale",
+                "175",
+            ),
+            (
+                "2fc8d3d38c9a594394745f4bf5373c52",
+                4,
+                "appearance",
+                "toolbar_scale",
+                "200",
+            ),
+            (
+                "35de0f55b39ed3468af928dbf3a478f7",
+                120,
+                "appearance",
+                "ui_scale",
+                "120",
+            ),
+            (
+                "35de0f55b39ed3468af928dbf3a478f7",
+                190,
+                "appearance",
+                "ui_scale",
+                "190",
+            ),
+            (
+                "35de0f55b39ed3468af928dbf3a478f7",
+                125,
+                "appearance",
+                "ui_scale",
+                "100",
+            ),
+            (
+                "73e3c9e1559ea5449bad26fadc7ea56d",
+                0,
+                "directories-startup",
+                "startup",
+                "empty",
+            ),
+            (
+                "73e3c9e1559ea5449bad26fadc7ea56d",
+                1,
+                "directories-startup",
+                "startup",
+                "previous",
+            ),
+            (
+                "a29cd34be23c764e89f5976ccaa2da25",
+                1,
+                "tag-sources",
+                "musicbrainz_cover_size",
+                "original",
+            ),
+            (
+                "a29cd34be23c764e89f5976ccaa2da25",
+                2,
+                "tag-sources",
+                "musicbrainz_cover_size",
+                "250",
+            ),
+            (
+                "a29cd34be23c764e89f5976ccaa2da25",
+                3,
+                "tag-sources",
+                "musicbrainz_cover_size",
+                "500",
+            ),
+            (
+                "a29cd34be23c764e89f5976ccaa2da25",
+                4,
+                "tag-sources",
+                "musicbrainz_cover_size",
+                "1200",
+            ),
+        ];
+        for (id, raw, page_id, field, expected) in cases {
+            let (after, prefs, _) = native_options_apply(
+                &[(id, &u32::to_le_bytes(raw))],
+                &crate::settings::Settings::default(),
+            );
+            if page_id == "window" {
+                assert_eq!(prefs[field], expected);
+            } else {
+                assert_eq!(after.pages[page_id][field], expected, "{id}:{raw}");
+            }
+        }
+        let mut before = crate::settings::Settings::default();
+        page(&mut before, "tag-sources-freedb", "comment_disc_id", true).unwrap();
+        for raw in [0u32, 1, 256] {
+            let (after, _, imported) = native_options_apply(
+                &[
+                    ("a4b6e530061c5642a1adb455bf362784", &1u32.to_le_bytes()),
+                    ("a4b6e530061c5642a1adb455bf362784", &raw.to_le_bytes()),
+                    ("192fa431f5594c4c9c17940c895f2eb9", &0u32.to_le_bytes()),
+                ],
+                &before,
+            );
+            assert_eq!(
+                after.pages["tag-sources-freedb"]["comment_disc_id"],
+                raw != 0
+            );
+            assert_eq!(after.pages["tag-sources-freedb"]["disc_id_field"], false);
+            assert_eq!(!imported.warnings.is_empty(), raw == 256);
+        }
+    }
+    #[test]
+    fn native_options_updates_preserve_product_history_and_beta_when_disabled() {
+        let mut before = crate::settings::Settings::default();
+        page(&mut before, "updates", "last_version", "9.8.7").unwrap();
+        page(&mut before, "updates", "include_beta", true).unwrap();
+        for raw in [0u32, 1, 2, 256] {
+            let (after, _, imported) = native_options_apply(
+                &[
+                    ("7b29e93f08c57b4abdec988fa4ab9583", &raw.to_le_bytes()),
+                    ("7c7d406cdfd18b48a914db716854fc2f", &[0]),
+                ],
+                &before,
+            );
+            assert_eq!(after.pages["updates"]["last_version"], "9.8.7");
+            assert_eq!(after.pages["updates"]["release_notes"], false);
+            assert_eq!(after.pages["updates"]["include_beta"], raw != 1);
+            if raw <= 2 {
+                assert_eq!(after.pages["updates"]["check_on_startup"], raw != 0);
+            } else {
+                assert!(after.pages["updates"].get("check_on_startup").is_none());
+                assert!(!imported.warnings.is_empty());
+            }
+        }
+    }
+    #[test]
+    fn native_options_library_never_enables_an_unbound_restricted_scope() {
+        let mut before = crate::settings::Settings::default();
+        page(&mut before, "library", "enabled", true).unwrap();
+        page(&mut before, "library", "restrict", true).unwrap();
+        page(
+            &mut before,
+            "library",
+            "directories",
+            json!(["/current-only"]),
+        )
+        .unwrap();
+        for (enabled, restrict, expected_enabled, expected_restrict) in [
+            (1, Some(1), true, true),
+            (0, Some(1), false, true),
+            (1, Some(0), true, false),
+            (0, Some(0), false, false),
+            (1, None, true, true),
+        ] {
+            let restriction = restrict.map(|raw| [raw]);
+            let mut records = vec![
+                ("7bbbf22d6046a94d849c82eb792d0910", vec![enabled]),
+                ("eada7c7f01da5f4a849392b72b37ef08", vec![0]),
+            ];
+            if let Some(raw) = restriction {
+                records.push(("65378755075c9046b6d4ac4cd6346af9", raw.to_vec()));
+            }
+            let refs: Vec<_> = records
+                .iter()
+                .map(|(id, raw)| (*id, raw.as_slice()))
+                .collect();
+            let (after, _, imported) = native_options_apply(&refs, &before);
+            assert_eq!(after.pages["library"]["enabled"], expected_enabled);
+            assert_eq!(after.pages["library"]["restrict"], expected_restrict);
+            assert_eq!(
+                after.pages["library"]["directories"],
+                json!(["/current-only"])
+            );
+            if restrict != Some(0) {
+                assert!(!imported.warnings.is_empty());
+            }
+        }
+        let mut disabled = before;
+        page(&mut disabled, "library", "enabled", false).unwrap();
+        let (after, _, _) = native_options_apply(
+            &[
+                ("7bbbf22d6046a94d849c82eb792d0910", &[1]),
+                ("65378755075c9046b6d4ac4cd6346af9", &[1]),
+                ("eada7c7f01da5f4a849392b72b37ef08", &[1]),
+            ],
+            &disabled,
+        );
+        assert_eq!(after.pages["library"]["enabled"], false);
+    }
+    #[test]
+    fn native_options_independent_bom_directory_and_cover_answer_flags() {
+        for raw in [0, 1, 255] {
+            let (after, _, _) = native_options_apply(
+                &[
+                    ("eada7c7f01da5f4a849392b72b37ef08", &[raw]),
+                    ("e60558750d35d148b3f22c2c229005dd", &[raw]),
+                    ("f0bb1392e33e1041801e42ce3b64f1b7", &[raw]),
+                ],
+                &crate::settings::Settings::default(),
+            );
+            assert_eq!(after.pages["playlist"]["write_bom"], raw != 0);
+            assert!(after.pages["playlist"]
+                .get("dont_create_directories")
+                .is_none());
+            assert_eq!(after.pages["export"]["dont_create_directories"], raw != 0);
+            assert_eq!(
+                after.pages["messages"]["import_covers_choice"],
+                if raw == 0 { "replace" } else { "preserve" }
+            );
+            assert!(after.pages["messages"]
+                .get("confirm_import_covers")
+                .is_none());
+        }
+    }
+    #[test]
+    fn native_options_unknown_final_enums_do_not_revive_earlier_choices() {
+        for (id, raw) in [
+            ("345420b668107b40b253c362f84c07ae", 1u32),
+            ("2fc8d3d38c9a594394745f4bf5373c52", 2),
+            ("73e3c9e1559ea5449bad26fadc7ea56d", 1),
+            ("a29cd34be23c764e89f5976ccaa2da25", 3),
+        ] {
+            let before = crate::settings::Settings::default();
+            let (after, prefs, parsed) = native_options_apply(
+                &[
+                    (id, &raw.to_le_bytes()),
+                    (id, &256u32.to_le_bytes()),
+                    ("eada7c7f01da5f4a849392b72b37ef08", &[1]),
+                ],
+                &before,
+            );
+            assert_eq!(after.pages.len(), 1);
+            assert!(prefs.is_empty());
+            assert!(!parsed.warnings.is_empty());
+            for length in 0..4 {
+                assert!(parse(&record(&native_id(id), &raw.to_le_bytes()[..length])).is_err());
+            }
+        }
+    }
+    #[test]
+    fn native_options_language_and_generator_bind_to_explicit_source_values() {
+        for (stem, language) in [
+            ("English", "en"),
+            ("Dutch", "nl"),
+            ("German", "de"),
+            ("", "system"),
+        ] {
+            let (after, prefs, _) = native_options_apply(
+                &[
+                    ("1a0bfd2a930e704dac9262461ddcd9c6", stem.as_bytes()),
+                    ("312fa18b404068489ebd20ea4183cc24", b""),
+                    ("7eaf6b64ce85a54196043a3c8cfb1d2e", b"%album%.m3u8"),
+                    ("0e3b78b6452b224789abc77122e2d677", b""),
+                    ("f64318074ac91b4db1b909e2ce5a695c", b"%album% cover"),
+                ],
+                &crate::settings::Settings::default(),
+            );
+            assert_eq!(prefs["opentag.language"], language);
+            assert_eq!(after.pages["language"]["language"], language);
+            assert_eq!(
+                after.pages["playlist"]["generator_filename"],
+                "%album%.m3u8"
+            );
+            assert_eq!(after.pages["playlist"]["generator_partition"], "");
+            assert_eq!(
+                after.pages["tag-sources"]["cover_filename"],
+                "%album% cover"
+            );
+        }
+        let mut before = crate::settings::Settings::default();
+        page(
+            &mut before,
+            "playlist",
+            "generator_filename",
+            "current.m3u8",
+        )
+        .unwrap();
+        page(&mut before, "tag-sources", "cover_filename", "old").unwrap();
+        for bad in [" /foreign/folder", "file:/outside", "C:/Music", "$if("] {
+            let (after, prefs, imported) = native_options_apply(
+                &[
+                    ("1a0bfd2a930e704dac9262461ddcd9c6", b"Dutch.lng"),
+                    ("312fa18b404068489ebd20ea4183cc24", b""),
+                    ("f64318074ac91b4db1b909e2ce5a695c", bad.as_bytes()),
+                    ("eada7c7f01da5f4a849392b72b37ef08", &[1]),
+                ],
+                &before,
+            );
+            assert!(prefs.is_empty());
+            assert!(!imported.warnings.is_empty());
+            assert_eq!(
+                after.pages["playlist"]["generator_filename"],
+                "current.m3u8"
+            );
+            assert_eq!(after.pages["tag-sources"]["cover_filename"], "old");
+        }
+        let (after, _, _) =
+            native_options_apply(&[("f64318074ac91b4db1b909e2ce5a695c", b"")], &before);
+        assert_eq!(after.pages["tag-sources"]["cover_filename"], "");
+    }
+    fn native_server_payload(rows: &[[&[u8]; 4]]) -> Vec<u8> {
+        let mut bytes = (rows.len() as u32).to_le_bytes().to_vec();
+        for row in rows {
+            for field in row {
+                bytes.extend((field.len() as u32).to_le_bytes());
+                bytes.extend_from_slice(field);
+            }
+        }
+        bytes
+    }
+    #[test]
+    fn native_options_freedb_list_and_active_row_publish_as_one_dataset() {
+        let list = native_server_payload(&[
+            [b"First", b"first.example.org", b"/~cddb/cddb.cgi", b"80"],
+            [
+                "Twee 🎵".as_bytes(),
+                b"second.example.org\0\xff",
+                b"/custom/cddb.cgi",
+                b"8880",
+            ],
+        ]);
+        let mut before = crate::settings::Settings::default();
+        page(
+            &mut before,
+            "tag-sources-freedb",
+            "email",
+            "target@example.org",
+        )
+        .unwrap();
+        page(&mut before, "tag-sources-freedb", "comment_disc_id", true).unwrap();
+        let (after, _, parsed) = native_options_apply(
+            &[
+                ("1f60b2ade49d454cb0eeeaf43c19359e", &list),
+                ("2345b1c1c149ad4fbaeed1d837e96668", &1u32.to_le_bytes()),
+            ],
+            &before,
+        );
+        let actual = &after.pages["tag-sources-freedb"];
+        assert_eq!(
+            actual["servers"],
+            json!([
+                {"name":"First","protocol":"http","address":"first.example.org","path":"/~cddb/cddb.cgi","port":"80"},
+                {"name":"Twee 🎵","protocol":"http","address":"second.example.org","path":"/custom/cddb.cgi","port":"8880"},
+            ])
+        );
+        assert_eq!(actual["server"], 1);
+        assert_eq!(actual["protocol"], "http");
+        assert_eq!(actual["address"], "second.example.org");
+        assert_eq!(actual["path"], "/custom/cddb.cgi");
+        assert_eq!(actual["port"], "8880");
+        assert_eq!(actual["email"], "target@example.org");
+        assert_eq!(actual["comment_disc_id"], true);
+        assert!(parsed.settings.iter().any(|row| row
+            .value
+            .as_deref()
+            .is_some_and(|v| v.contains("Twee 🎵"))
+            && row.verbatim));
+    }
+    #[test]
+    fn native_options_freedb_preview_uses_provider_path_normalization_without_rewriting_fields() {
+        for path in ["cddb.cgi", " /cddb.cgi "] {
+            let list =
+                native_server_payload(&[[b"Relative", b" example.org ", path.as_bytes(), b"80"]]);
+            let (after, _, parsed) = native_options_apply(
+                &[
+                    ("1f60b2ade49d454cb0eeeaf43c19359e", &list),
+                    ("2345b1c1c149ad4fbaeed1d837e96668", &[0, 0, 0, 0]),
+                ],
+                &crate::settings::Settings::default(),
+            );
+            assert!(parsed.settings.iter().any(
+                |row| row.value.as_deref() == Some("Relative — http://example.org:80/cddb.cgi")
+            ));
+            assert_eq!(after.pages["tag-sources-freedb"]["path"], path);
+            assert_eq!(
+                after.pages["tag-sources-freedb"]["address"],
+                " example.org "
+            );
+        }
+    }
+    #[test]
+    fn native_options_freedb_incomplete_or_invalid_final_dataset_keeps_current_identity() {
+        let valid = native_server_payload(&[[b"Good", b"old.example.org", b"/cddb", b"80"]]);
+        let empty = native_server_payload(&[]);
+        let mut before = crate::settings::Settings::default();
+        page(&mut before,"tag-sources-freedb","servers",json!([{"name":"Current","protocol":"https","address":"target.example.org","path":"/current","port":"443"}])).unwrap();
+        for (key, value) in [
+            ("protocol", "https"),
+            ("address", "target.example.org"),
+            ("path", "/current"),
+            ("port", "443"),
+        ] {
+            page(&mut before, "tag-sources-freedb", key, value).unwrap();
+        }
+        page(&mut before, "tag-sources-freedb", "server", 0).unwrap();
+        let bad = native_server_payload(&[[b"Secret", b"user:secret@host", b"/cddb", b"80"]]);
+        let pairs: Vec<Vec<(&str, &[u8])>> = vec![
+            vec![("1f60b2ade49d454cb0eeeaf43c19359e", &valid)],
+            vec![("2345b1c1c149ad4fbaeed1d837e96668", &[0, 0, 0, 0])],
+            vec![
+                ("1f60b2ade49d454cb0eeeaf43c19359e", &empty),
+                ("2345b1c1c149ad4fbaeed1d837e96668", &[0, 0, 0, 0]),
+            ],
+            vec![
+                ("1f60b2ade49d454cb0eeeaf43c19359e", &valid),
+                ("2345b1c1c149ad4fbaeed1d837e96668", &[1, 0, 0, 0]),
+            ],
+            vec![
+                ("1f60b2ade49d454cb0eeeaf43c19359e", &valid),
+                ("1f60b2ade49d454cb0eeeaf43c19359e", &bad),
+                ("2345b1c1c149ad4fbaeed1d837e96668", &[0, 0, 0, 0]),
+            ],
+        ];
+        for mut records in pairs {
+            records.push(("eada7c7f01da5f4a849392b72b37ef08", &[1]));
+            let (after, _, parsed) = native_options_apply(&records, &before);
+            assert_eq!(
+                after.pages["tag-sources-freedb"],
+                before.pages["tag-sources-freedb"]
+            );
+            assert!(!parsed.warnings.is_empty());
+            assert!(parsed
+                .warnings
+                .iter()
+                .all(|warning| !warning.contains("secret")));
+            assert!(parsed.settings.iter().all(|setting| !setting
+                .value
+                .as_deref()
+                .unwrap_or("")
+                .contains("secret")));
+        }
+        for (host, path, port) in [
+            ("http://host", "/cddb", "80"),
+            ("host", "/cddb?token=secret", "80"),
+            ("host", "/cddb#secret", "80"),
+            ("host", "/cddb", "65536"),
+            ("host", "/cddb", "0"),
+            ("host", "/cddb", "80x"),
+        ] {
+            let list = native_server_payload(&[[
+                b"Invalid",
+                host.as_bytes(),
+                path.as_bytes(),
+                port.as_bytes(),
+            ]]);
+            let (after, _, _) = native_options_apply(
+                &[
+                    ("1f60b2ade49d454cb0eeeaf43c19359e", &list),
+                    ("2345b1c1c149ad4fbaeed1d837e96668", &[0, 0, 0, 0]),
+                    ("eada7c7f01da5f4a849392b72b37ef08", &[1]),
+                ],
+                &before,
+            );
+            assert_eq!(
+                after.pages["tag-sources-freedb"],
+                before.pages["tag-sources-freedb"]
+            );
+        }
+        for length in 0..valid.len() {
+            assert!(parse(&record(
+                &native_id("1f60b2ade49d454cb0eeeaf43c19359e"),
+                &valid[..length]
+            ))
+            .is_err());
+        }
+        let over = 4097u32.to_le_bytes();
+        assert!(parse(&record(
+            &native_id("1f60b2ade49d454cb0eeeaf43c19359e"),
+            &over
+        ))
+        .is_err());
+    }
+    #[test]
+    fn native_options_generator_fallback_never_adopts_an_invalid_source_expression() {
+        let (after, _, parsed) = native_options_apply(
+            &[
+                ("7eaf6b64ce85a54196043a3c8cfb1d2e", b"$if("),
+                ("312fa18b404068489ebd20ea4183cc24", b""),
+                ("0e3b78b6452b224789abc77122e2d677", b"C:/Grouping"),
+            ],
+            &crate::settings::Settings::default(),
+        );
+        assert!(after.pages["playlist"].get("generator_filename").is_none());
+        assert_eq!(
+            after.pages["playlist"]["generator_partition"],
+            "C:/Grouping"
+        );
+        assert!(!parsed.warnings.is_empty());
     }
     #[test]
     fn binary_settings_migration_isolates_every_static_mapping_and_boolean_codec() {

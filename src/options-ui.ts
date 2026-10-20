@@ -52,6 +52,7 @@ export const TAGS_PAGE_DEFAULTS={save_on_move:false,no_folder_image:false,extend
 /** pages.appearance: scaling in percent and the file list grid. */
 export const APPEARANCE_DEFAULTS={toolbar_scale:'100',ui_scale:'100',grid:'off'};
 const SCALES:[string,string][]=['100','110','125','150','175','200'].map(v=>[v,`${v}%`]);
+const UI_SCALES:[string,string][]=['100','110','120','125','130','140','150','160','170','175','180','190','200'].map(v=>[v,`${v}%`]);
 
 const pageId=/^[a-z0-9][a-z0-9_-]*$/;
 export function getPath(value:unknown,path:string):unknown{return path.split('.').reduce<unknown>((current,key)=>current&&typeof current==='object'?(current as Record<string,unknown>)[key]:undefined,value);}
@@ -149,7 +150,7 @@ for(const page of [
   {id:'appearance',label:'Appearance',order:40,defaults:{...APPEARANCE_DEFAULTS},controls:[{kind:'select',path:'appearance',label:'Color mode',choices:[['system','System'],['light','Light'],['dark','Dark']]},
     {kind:'note',text:'Color mode is remembered on this device and also available in the title bar.'},
     {kind:'select',path:'pages.appearance.toolbar_scale',label:'Toolbar scaling',choices:SCALES},
-    {kind:'select',path:'pages.appearance.ui_scale',label:'User interface scaling',choices:SCALES},
+    {kind:'select',path:'pages.appearance.ui_scale',label:'User interface scaling',choices:UI_SCALES},
     {kind:'radio',path:'pages.appearance.grid',label:'Display grid lines in file view',choices:[['off','Off'],['alternate','Alternate row colors'],['lines','Grid lines']]}]},
   {id:'tags',label:'Tags',order:50,description:'Choose which tag types are read, written and removed for each format family.',defaults:{...TAGS_PAGE_DEFAULTS},controls:[
     {kind:'checkbox',path:'pages.tags.save_on_move',label:'Save tags when using arrow keys or a single mouse click'},

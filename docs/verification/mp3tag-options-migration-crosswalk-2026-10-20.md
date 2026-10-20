@@ -5,6 +5,17 @@ Pinned original: Windows Mp3tag 3.36.1 x64, SHA-256 `484794eec4e2b9a649d04eaab63
 
 This is a finite crosswalk of the target Options surface: registered page controls, all fields of backend Settings/TagOptions, custom editor schemas, buttons, and the named adjacent saved page defaults. It does **not** claim to inventory every original serialized object or original native profile feature.
 
+## Later implementation disposition
+
+This audit is frozen at its stated baseline. Its proposed exclusion of generic
+update preferences is superseded: the importer transfers startup-check,
+stable/beta and release-note choices while retaining TagGroove's endpoint and
+version history. The eleven named binding rows have also been resolved into
+six records plus the target-only global debug disposition. See the
+[twenty-record implementation receipt](mp3tag-options-bindings-migration-2026-10-20.md)
+for current behavior. The tables below retain the audit's original statuses;
+they must not be read as a live to-do list.
+
 ## Result
 
 The target surface contains twelve further source-bound native preferences beyond the existing 68 records and parent current four additions. They are listed below with exact IDs/codecs/bindings. Some support only a bounded source subset; the remainder must stay explicit. Twelve is an actionable record inventory, not a closure criterion.

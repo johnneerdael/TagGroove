@@ -249,6 +249,32 @@ index is also not mapped onto an unrelated codepage; review those choices
 manually. A raw chooser index depends on the original Windows
 locale list and cannot identify a portable codepage by itself.
 
+### Other preferences in the native settings file
+
+The preview also lists supported appearance, library, playlist and tag-source
+preferences. Review them individually before selecting the settings file:
+
+| Preference | What transfers and what to check |
+| --- | --- |
+| Color mode and language | System/light/dark and the stock English, Dutch or German catalog choice. An automatic source language becomes **System**; it follows this device's available language settings. Custom or unavailable catalogs keep your current language. |
+| Interface size | Toolbar size and whole-interface size transfer separately. UI scaling offers every 10% step from 100% to 200%, plus the existing 125% and 175% choices. An invalid original UI percentage is normalized to 100%, as in the original Options dialog, and reported. |
+| Startup folder | **Empty** and **Previous directory** transfer. Previous uses TagGroove's current history. A specific folder on the original computer is not silently substituted with a favorite folder here. |
+| Library | An explicit unrestricted source policy can transfer with enablement. Restricted source folders are not copied onto this computer. Enabling without an admitted unrestricted policy keeps current enablement and explains why; an explicit disable can still transfer. Current included folders are preserved. |
+| Playlists | The UTF-8 BOM choice transfers. Generate Playlists remembers its own filename and partition expression. An explicit empty generator filename uses the source's final admitted ordinary playlist filename; without that source value, your current generator filename stays. An empty partition remains empty. |
+| Export folders | **Do not create directories** transfers independently of the playlist folder option. It applies when you later run an export. |
+| Tag-source artwork | The cover filename expression and MusicBrainz size transfer. An explicitly blank cover filename stays blank; the existing save-cover workflow uses `folder` as its fallback. With no size record, your current size stays. |
+| Cover-import answer | The remembered answer transfers separately from whether the question is shown. **Keep existing covers** means preserve; the other answer means replace. Importing setup changes neither existing artwork nor audio. |
+| freedb servers | A nonempty, fully supported server list and its explicit valid selected index transfer together, preserving names and order. Native rows use HTTP; the importer does not silently switch them to HTTPS. Incomplete, invalid or empty datasets keep your entire current list and selection. Your email address stays unchanged. |
+| Updates | Startup checking, stable/beta preference and release-note display transfer. They control **TagGroove** releases on GitHub. Original version history, last-check data and product endpoints do not transfer. Turning checks off preserves your current beta preference. |
+
+Host-specific filename paths and invalid expressions stay out with a warning.
+Partition expressions are grouping keys, so they are validated as expressions
+rather than interpreted as folder paths. Nothing is evaluated during import:
+no playlist, export, cover file, directory or network request is created.
+After reload, inspect **Options** and **Generate Playlists…** before using the
+imported settings. **Restore setup** restores the captured previous settings,
+server list, appearance and language.
+
 For example, if the preview says **Show filter: Off**, importing it hides the
 filter after setup reload. Check that value before proceeding if you use the
 filter every day. The previous value remains available through **Restore setup**.

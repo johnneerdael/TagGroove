@@ -21,7 +21,9 @@ TagGroove does not provide Mp3tag's **Standard** versus **Original** icon-set sw
 
 ## User interface scaling
 
-**User interface scaling** has the same choices and defaults to **100%**. It zooms the whole interface, including the toolbar. Toolbar scaling remains an additional toolbar-specific factor, so raising both makes toolbar controls grow more than other controls. If the toolbar becomes too large, return its own scale to 100% before adjusting the overall scale.
+**User interface scaling** defaults to **100%**. It offers every 10% step from
+**100%** through **200%**, plus **125%** and **175%**. These choices include the
+percentages imported from an Mp3tag profile. It zooms the whole interface, including the toolbar. Toolbar scaling remains an additional toolbar-specific factor, so raising both makes toolbar controls grow more than other controls. If the toolbar becomes too large, return its own scale to 100% before adjusting the overall scale.
 
 ## Display grid lines in file view
 

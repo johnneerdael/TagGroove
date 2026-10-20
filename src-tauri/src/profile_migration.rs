@@ -2454,6 +2454,179 @@ mod tests {
         }
     }
     #[test]
+    fn native_options_bindings_apply_together_and_restore_exact_configuration_and_window() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let mut old = crate::settings::load(&dir.path().join("settings.json")).0;
+        old.pages.insert(
+            "updates".into(),
+            serde_json::json!({"last_version":"9.8.7","include_beta":false}),
+        );
+        old.pages.insert(
+            "library".into(),
+            serde_json::json!({"enabled":false,"restrict":true,"directories":["/target-only"]}),
+        );
+        old.pages.insert(
+            "tag-sources-freedb".into(),
+            serde_json::json!({"email":"target@example.org","unrelated":42}),
+        );
+        crate::settings::save(&dir.path().join("settings.json"), &old).unwrap();
+        let before = native(dir.path()).unwrap();
+        let current = window();
+        let mut servers = 2u32.to_le_bytes().to_vec();
+        for row in [
+            ["First", "first.example.org", "/one", "80"],
+            ["Second 🎵", "second.example.org", "/two", "8880"],
+        ] {
+            for field in row {
+                servers.extend((field.len() as u32).to_le_bytes());
+                servers.extend(field.as_bytes());
+            }
+        }
+        let bytes = export_setting_records(&[
+            ("345420b668107b40b253c362f84c07ae", &1u32.to_le_bytes()),
+            ("2fc8d3d38c9a594394745f4bf5373c52", &2u32.to_le_bytes()),
+            ("35de0f55b39ed3468af928dbf3a478f7", &120u32.to_le_bytes()),
+            ("7bbbf22d6046a94d849c82eb792d0910", &[1]),
+            ("65378755075c9046b6d4ac4cd6346af9", &[0]),
+            ("eada7c7f01da5f4a849392b72b37ef08", &[0]),
+            ("e60558750d35d148b3f22c2c229005dd", &[1]),
+            ("73e3c9e1559ea5449bad26fadc7ea56d", &1u32.to_le_bytes()),
+            ("f64318074ac91b4db1b909e2ce5a695c", b"%album% cover"),
+            ("a29cd34be23c764e89f5976ccaa2da25", &4u32.to_le_bytes()),
+            ("a4b6e530061c5642a1adb455bf362784", &1u32.to_le_bytes()),
+            ("192fa431f5594c4c9c17940c895f2eb9", &0u32.to_le_bytes()),
+            ("7b29e93f08c57b4abdec988fa4ab9583", &2u32.to_le_bytes()),
+            ("7c7d406cdfd18b48a914db716854fc2f", &[0]),
+            ("f0bb1392e33e1041801e42ce3b64f1b7", &[1]),
+            ("1a0bfd2a930e704dac9262461ddcd9c6", b"German"),
+            ("312fa18b404068489ebd20ea4183cc24", b""),
+            ("7eaf6b64ce85a54196043a3c8cfb1d2e", b"%album%.m3u8"),
+            ("0e3b78b6452b224789abc77122e2d677", b""),
+            ("1f60b2ade49d454cb0eeeaf43c19359e", &servers),
+            ("2345b1c1c149ad4fbaeed1d837e96668", &1u32.to_le_bytes()),
+        ]);
+        std::fs::write(source.path().join("mp3tag.cfg"), &bytes).unwrap();
+        let preview =
+            make_preview(dir.path(), source.path().to_str().unwrap(), current.clone()).unwrap();
+        let item = preview
+            .items
+            .iter()
+            .find(|item| item.file == "mp3tag.cfg")
+            .unwrap();
+        assert!(item.supported, "{:?}", item.warnings);
+        assert!(item.settings.iter().any(|setting| setting.value.as_deref()
+            == Some("Second 🎵 — http://second.example.org:8880/two")));
+        let applied = apply(
+            dir.path(),
+            &preview.token,
+            &["mp3tag.cfg".into()],
+            false,
+            current.clone(),
+        )
+        .unwrap();
+        let actual = crate::settings::load(&dir.path().join("settings.json")).0;
+        for (page, field, value) in [
+            ("appearance", "toolbar_scale", serde_json::json!("150")),
+            ("appearance", "ui_scale", serde_json::json!("120")),
+            ("library", "enabled", serde_json::json!(true)),
+            ("library", "restrict", serde_json::json!(false)),
+            (
+                "library",
+                "directories",
+                serde_json::json!(["/target-only"]),
+            ),
+            ("playlist", "write_bom", serde_json::json!(false)),
+            (
+                "playlist",
+                "generator_filename",
+                serde_json::json!("%album%.m3u8"),
+            ),
+            ("playlist", "generator_partition", serde_json::json!("")),
+            ("export", "dont_create_directories", serde_json::json!(true)),
+            (
+                "directories-startup",
+                "startup",
+                serde_json::json!("previous"),
+            ),
+            (
+                "tag-sources",
+                "cover_filename",
+                serde_json::json!("%album% cover"),
+            ),
+            (
+                "tag-sources",
+                "musicbrainz_cover_size",
+                serde_json::json!("1200"),
+            ),
+            (
+                "tag-sources-freedb",
+                "comment_disc_id",
+                serde_json::json!(true),
+            ),
+            (
+                "tag-sources-freedb",
+                "disc_id_field",
+                serde_json::json!(false),
+            ),
+            ("tag-sources-freedb", "server", serde_json::json!(1)),
+            (
+                "tag-sources-freedb",
+                "address",
+                serde_json::json!("second.example.org"),
+            ),
+            ("tag-sources-freedb", "protocol", serde_json::json!("http")),
+            ("tag-sources-freedb", "path", serde_json::json!("/two")),
+            ("tag-sources-freedb", "port", serde_json::json!("8880")),
+            (
+                "tag-sources-freedb",
+                "email",
+                serde_json::json!("target@example.org"),
+            ),
+            ("tag-sources-freedb", "unrelated", serde_json::json!(42)),
+            ("updates", "check_on_startup", serde_json::json!(true)),
+            ("updates", "include_beta", serde_json::json!(true)),
+            ("updates", "release_notes", serde_json::json!(false)),
+            ("updates", "last_version", serde_json::json!("9.8.7")),
+            (
+                "messages",
+                "import_covers_choice",
+                serde_json::json!("preserve"),
+            ),
+        ] {
+            assert_eq!(actual.pages[page][field], value, "{page}:{field}");
+        }
+        assert_eq!(
+            actual.pages["tag-sources-freedb"]["servers"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(
+            !crate::exports::load(&dir.path().join("exports.json"))
+                .unwrap()
+                .preferences
+                .create_directories
+        );
+        let pending = applied.pending.unwrap();
+        assert_eq!(pending.window.preferences["opentag.language"], "de");
+        assert_eq!(actual.pages["language"]["language"], "de");
+        assert_eq!(pending.window.preferences["opentag.appearance"], "dark");
+        assert_eq!(pending.window.workspace, current.workspace);
+        status(dir.path(), Some(&pending.id), None, None).unwrap();
+        status(dir.path(), None, Some(&pending.id), None).unwrap();
+        let restored = restore(dir.path(), pending.window).unwrap();
+        assert_eq!(restored.pending.unwrap().window, current);
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert_eq!(
+            std::fs::read(source.path().join("mp3tag.cfg")).unwrap(),
+            bytes
+        );
+    }
+    #[test]
     fn binary_numbering_switches_overlay_present_records_and_restore_browser_memory() {
         let _guard = TESTS.lock().unwrap();
         let mappings = [

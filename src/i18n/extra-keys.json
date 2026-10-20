@@ -145,5 +145,18 @@
  "Numbering: Leading zeros for tracknumbers",
  "Numbering: Leading zeros for discnumbers",
  "Tag field mappings: replace current list",
- "Tag field mapping"
+ "Tag field mapping",
+ "Empty",
+ "Export: do not create directories",
+ "Generate Playlists: filename",
+ "Generate Playlists: partition",
+ "Keep existing covers when the import question is disabled",
+ "Restrict Library to included directories",
+ "Stable and beta releases",
+ "Stable releases",
+ "Update checks on startup",
+ "Write playlist byte order mark (BOM)",
+ "freedb: replace current server list",
+ "freedb: selected server",
+ "freedb: server"
 ]
