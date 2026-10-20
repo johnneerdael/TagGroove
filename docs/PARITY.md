@@ -62,6 +62,13 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 
 C63 now represents [edited Windows action-filename protection](verification/action-filename-protection-2026-10-20.md), including source-backed cleanup and portable regressions. L54 leaves this intake; exact original Windows/runtime qualification remains with C63 and L79. C64 additionally represents [literal inline filename/folder destinations](verification/inline-filename-paths-2026-10-20.md); L47a retains only external-rename discovery on Refresh. There are **48 active IDs** and **14 separate qualification identities**.
 
+The current P1 working branch has local implementation and focused evidence for
+L07, L22a, L32, L47a, L47c, L57b, L73, L76, N03 and N05. L71 signing remains
+the implementation remainder. These ten IDs await a covering batch PR before
+leaving this intake; local checks do not establish GitHub review, merge, native
+acceptance or release publication. Their rows below distinguish that checkpoint
+from behavior still missing in the working branch.
+
 ## Uncovered work
 
 | ID | Area | Actionable remainder | Evidence |
@@ -69,7 +76,7 @@ C63 now represents [edited Windows action-filename protection](verification/acti
 | L03 | Menus | Settle the desktop File → Exit workflow; there is no File-menu item, while macOS has app-menu Quit. | [Scope and evidence](research/remaining-gaps.md#l03) |
 | L04 | Menus | Qualify Windows Properties versus the current Alt+Enter file-manager reveal route and choose the platform behavior from observed reference evidence. | [Scope and evidence](research/remaining-gaps.md#l04) |
 | L05 | Tag panel | Qualify a separate OS-window floating panel; the existing undocked panel is an in-window overlay. | [Scope and evidence](research/remaining-gaps.md#l05) |
-| L07 | Migration | Determine unsupported/undocumented columns.ini keys from populated original profiles; guided import does not extend the existing known-key parser. | [Scope and evidence](research/remaining-gaps.md#l07) |
+| L07 | Migration | The working branch confirms the pinned seven-key native column schema and repairs Numeric's default right alignment while retaining explicit overrides. Batch PR/review/CI/merge remain; populated original-profile and rendered native acceptance stay separate. | [Scope and evidence](research/remaining-gaps.md#l07) |
 | L13 | Covers | Establish Original-format fallback for TIFF/unknown input; current Adjust Cover requires JPEG or PNG for these inputs. | [Scope and evidence](research/remaining-gaps.md#l13) |
 | L14 | Actions | Observe original Remove Fields Except behavior for unmapped PRIV/GEOB/chapter frames before changing their retention. | [Scope and evidence](research/remaining-gaps.md#l14) |
 | L18 | Mobile actions | Implement provider execution for in-place tag/embedded-artwork action groups, plus file, cover-file and rename actions. Only in-place validation exists; the managed command still rejects all action groups. Qualify actual device save-back separately. | [Scope and evidence](research/remaining-gaps.md#l18) |
@@ -88,7 +95,7 @@ C63 now represents [edited Windows action-filename protection](verification/acti
 | L41 | Utils | Qualify fragmented MP4, stco→co64 growth and FLAC with leading ID3v2 before extending Optimize; assess Remove Unsupported Fields beyond ID3v2 on MP3/AAC/AIFF/WAV. | [Scope and evidence](research/remaining-gaps.md#l41) |
 | L43 | Technical fields | Complete/qualify Musepack/WavPack %_vbr% and tag sizes for WAV, AIFF, MP4, Ogg, Matroska, ASF and DSD containers. | [Scope and evidence](research/remaining-gaps.md#l43) |
 | L46 | Covers | Qualify Linux drag-out and percent-encode file URIs before relaxing the current ASCII temporary-name restriction. | [Scope and evidence](research/remaining-gaps.md#l46) |
-| L47a | File list | Discover an externally renamed individually loaded file during Refresh without guessing a neighbor or loading unrelated files. | [Scope and evidence](research/remaining-gaps.md#l47a) |
+| L47a | File list | Working-branch Refresh follows the captured identity of an individually loaded file across external renames without admitting its parent directory. Save/history token rebinding and grouped snapshots have focused coverage. Batch PR/review/CI/merge and broader original/platform acceptance remain. | [Scope and evidence](research/remaining-gaps.md#l47a) |
 | L47c | Saving | Confirmed navigation/sort guards are repaired on the working branch; batch review/merge remains. Inline, Find, Select all and directory autosave exclusions retain separate original/native qualification. | [Scope and evidence](research/remaining-gaps.md#l47c) |
 | L48 | File operations | Qualify temporary-playlist playback and a native folder-picker subfolder choice; Play currently opens each file separately and the native picker has no subfolders checkbox. | [Scope and evidence](research/remaining-gaps.md#l48) |
 | L49 | Tag panel | Qualify the dropdown changing the working directory and format-string fields; the dropdown currently selects rows. Typed-directory Enter and automatic multi-selection defaults are already implemented. | [Scope and evidence](research/remaining-gaps.md#l49) |
@@ -107,7 +114,7 @@ C63 now represents [edited Windows action-filename protection](verification/acti
 | L70 | File opening | Add Windows/Linux association declarations and qualify installed file opening and upgrade continuity; stable Windows installer identity is already configured. | [Scope and evidence](research/remaining-gaps.md#l70) |
 | L71 | Distribution | Qualify Windows signing, macOS signing/notarization and physical iOS distribution; current release packages are unsigned on Windows, ad-hoc on macOS and simulator-only on iOS. Physical iOS native-library compilation is implemented; it supplies no signed IPA, notarization or device-runtime evidence. | [Scope and evidence](research/remaining-gaps.md#l71) |
 | L72 | iOS documents | Implement/qualify provider picker, document access and save-back; runtime document access currently enables Android only. | [Scope and evidence](research/remaining-gaps.md#l72) |
-| L73 | Extended Tags | Settle staged Keep changes versus disk Save with native input/navigation/close/cancel; immediate-save currently applies only when moving between files. | [Scope and evidence](research/remaining-gaps.md#l73) |
+| L73 | Extended Tags | Working-branch Save tags writes the displayed selection; Keep changes stages it. Independent navigation modes, failed/partial rename retry and save-time editing guards have focused coverage. Batch PR/review/CI/merge and original/native input acceptance remain. | [Scope and evidence](research/remaining-gaps.md#l73) |
 | L74 | Provider documents | Implement/qualify provider playlist loading/creation, CSV/export and Undo/Redo. Read-policy implementation and pending-artwork copy are represented separately; their PRs do not enable these operations. | [Scope and evidence](research/remaining-gaps.md#l74) |
 | L76 | Distribution | Complete target-package/native/helper notice audits and reproducible builds. The working branch adds source-bound Rust/JS/Maven/native/helper material, the native source-policy repair, AppImage license/runtime notices and two-target Linux distribution capture/source-publication gates. Batch review/CI/merge and actual new-package/native evidence remain pending; producer/compiler provenance and reproducible rebuild qualifications are retained separately. C36 separately covers the Boost notice repair. | [Scope and evidence](research/remaining-gaps.md#l76) |
 | L77b | Performance | Measure and improve whole-file rewrite costs for APE, RIFF, Ogg and other remaining containers. | [Scope and evidence](research/remaining-gaps.md#l77b) |

@@ -22,7 +22,11 @@ as implementation work. The 14 qualification identities below are separate.
 Unmerged P1 batch work is recorded separately from these main-based counts:
 [L47a/L73 implementation and focused checks](../verification/file-tracking-and-extended-save-2026-10-20.md)
 and the [L07 native column schema/mapping audit](../verification/mp3tag-column-schema-2026-10-20.md).
-Their intake identities remain here until the batch has a covering PR.
+Ten P1 scopes now have local implementation and focused evidence: L07, L22a,
+L32, L47a, L47c, L57b, L73, L76, N03 and N05. L71 signing is the remaining
+implementation. Their intake identities remain here until the batch has a
+covering PR; review, merge and actual package/native/publication evidence are
+separate requirements.
 
 [L22a's action/Tag → Tag extension](../verification/associated-action-renames-2026-10-20.md)
 finishes its approved local companion-route implementation after Copy and
@@ -34,24 +38,21 @@ finishes the approved local codec/matrix scope with explicit native/older-port
 origin choices. Original-generated files/readback remain separate qualification;
 the batch still needs its covering PR, review, CI and merge.
 
-[L57b field-value migration](../verification/mp3tag-field-values-migration-2026-10-20.md)
-now has a separately verified working-branch implementation for legacy panel
-values and `usrfieldvalues.ini`. General global/binary settings remain open;
-the full L57b identity has not been closed by this slice. A further working-branch
-[binary settings slice](../verification/mp3tag-binary-settings-migration-2026-10-20.md)
-now imports 39 confirmed boolean options, the Extended Tags/grid/encoding
-choices and five text options, plus the packed tag-policy switches. The
-[advanced/genre extension](../verification/mp3tag-profile-remainders-2026-10-20.md)
-adds genres.ini and fixed precedence. [Export preference/template binding](../verification/mp3tag-export-settings-migration-2026-10-20.md)
-is now implemented on the working branch. The [numbering-memory slice](../verification/mp3tag-numbering-settings-migration-2026-10-20.md) adds nine records; field mappings and portable cover-directory/padding-off choices are also implemented. A further
-[twenty-record Options/binding extension](../verification/mp3tag-options-bindings-migration-2026-10-20.md)
-implements the confirmed remaining controls and named source bindings. The [bounded source-surface disposition](../verification/mp3tag-profile-migration-disposition-2026-10-20.md)
-now closes local implementation of that approved scope, retaining unsupported
-choices and the separate original/native qualifications. The batch has no covering PR yet.
+L57b's approved bounded local migration scope is implemented, with unsupported
+host/private/codepage/padding choices explicit. Its [scope disposition](../verification/mp3tag-profile-migration-disposition-2026-10-20.md)
+links the confirmed [field values](../verification/mp3tag-field-values-migration-2026-10-20.md),
+[binary settings](../verification/mp3tag-binary-settings-migration-2026-10-20.md),
+[advanced/genre](../verification/mp3tag-profile-remainders-2026-10-20.md),
+[export](../verification/mp3tag-export-settings-migration-2026-10-20.md),
+[numbering](../verification/mp3tag-numbering-settings-migration-2026-10-20.md),
+[mapping/cover](../verification/mp3tag-mapping-cover-settings-migration-2026-10-20.md)
+and [Options/named-binding](../verification/mp3tag-options-bindings-migration-2026-10-20.md)
+slices. The batch has no covering PR yet; original/native import, restart and
+restore qualification remains separate.
 
 The [finite Options migration crosswalk](../verification/mp3tag-options-migration-crosswalk-2026-10-20.md)
-identifies the remaining confirmed adapters and names each unresolved source
-binding separately. It does not equate target controls with parity completion.
+records mapped supported adapters and the deliberately excluded or independently
+owned bindings. It does not equate target controls with parity completion.
 
 The 48 intake rows primarily comprise **12 missing-capability scopes**,
 **19 limitations in existing behavior**, **15 unresolved compatibility questions**
@@ -105,7 +106,7 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L03](../research/remaining-gaps.md#l03) | P3 | Missing convenience | Daily | No File → Exit item; Mac app-menu Quit already works. | S / high | Mac code and close checks; Windows/Linux acceptance |
 | [L04](../research/remaining-gaps.md#l04) | P3 | Unknown compatibility | Windows users | Alt+Enter reveals files; Explorer Properties equivalence has not been observed. | R / high | Windows reference only; deferred |
 | [L05](../research/remaining-gaps.md#l05) | P3 | Limited feature | Multi-monitor editors | The floating panel stays inside the app and cannot occupy a separate OS window. | XL / medium | Mac multiwindow code and native checks; other desktops later |
-| [L07](../research/remaining-gaps.md#l07) | P1 | Unknown migration mapping | Migrating customized profiles | Undocumented columns.ini keys may import incompletely; known-key import already exists. | R / medium | Mac profile/static analysis; original populated profiles and Windows readback |
+| [L07](../research/remaining-gaps.md#l07) | P1 | Unknown migration mapping | Migrating customized profiles | Working branch confirms the pinned seven-key native column schema and repairs Numeric alignment while preserving explicit overrides; batch review/merge and original/native qualification remain. | R / medium | Mac profile/static analysis; original populated profiles and Windows readback |
 | [L13](../research/remaining-gaps.md#l13) | P2 | Limited feature | Unusual artwork inputs | Adjust Cover Original refuses TIFF/unknown formats unless JPEG/PNG is selected. | R / medium | Mac codec/fallback analysis; reference output comparison |
 | [L14](../research/remaining-gaps.md#l14) | P2 | Unknown compatibility | Advanced cleanup actions | Remove Fields Except may retain hidden frames; the original deletion policy is unresolved. | R / medium | Mac frame analysis; Windows reference writes |
 | [L18](../research/remaining-gaps.md#l18) | P3 | Missing mobile capability | Mobile action users | Provider documents cannot execute action groups; a validator is not an execution engine. | XL / medium | Mac portable host/UI; Android/iOS device save-back |
@@ -124,7 +125,7 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L41](../research/remaining-gaps.md#l41) | P2 | Limited guarded utilities | Advanced maintenance users | Optimize refuses some layouts; broader Remove Unsupported requirements are unestablished. | R → L–XL / low | Mac topology/utility work; reference/player results |
 | [L43](../research/remaining-gaps.md#l43) | P2 | Missing technical values | Custom-column/export users | Some VBR and container tag-size fields remain empty or incomplete. | M–L / medium | Mac extraction and byte-size oracles; reference display/rounding |
 | [L46](../research/remaining-gaps.md#l46) | P2 | Limited Linux workflow | Cover drag-out on Linux | File URIs lack correct encoding, so temporary filenames are restricted to ASCII. | S–M / medium | Portable URI fix on Mac; real Linux drag acceptance |
-| [L47a](../research/remaining-gaps.md#l47a) | P1 | Limited daily workflow | Filename/list users | Refresh cannot discover the new path of a file opened individually after an external rename. | L / medium | Mac source-identity implementation; Windows original and cross-platform native acceptance |
+| [L47a](../research/remaining-gaps.md#l47a) | P1 | Limited daily workflow | Filename/list users | Working-branch Refresh follows captured individual-file identity across verified external renames without loading parent folders; batch review/merge and broader original/platform qualification remain. | L / medium | Mac source-identity implementation; Windows original and cross-platform native acceptance |
 | [L47c](../research/remaining-gaps.md#l47c) | P1 | Unknown save policy | Daily editing/selection | Working-branch repair waits for navigation/order saves and retains selection/layout on failure; batch review/merge and original/native trigger qualification remain. | R / medium | Mac draft/native checks; Windows reference trigger policy |
 | [L48](../research/remaining-gaps.md#l48) | P2 | Limited playback/directory UX | Selected-file playback users | Play opens files separately instead of one ordered playlist; subfolder choice is outside the picker workflow. | M / medium | Mac playlist lifecycle/UX; each OS player/picker acceptance |
 | [L49](../research/remaining-gaps.md#l49) | P2 | Limited workflow; contract unknown | Directory/panel users | Directory dropdown selects rows instead of changing the working directory; format-string behavior is unresolved. | R / medium | Mac state/evaluation analysis; original behavior |
@@ -143,9 +144,9 @@ platform policy instead of new code, but need actual evidence before closure.
 | [L70](../research/remaining-gaps.md#l70) | P2 | Missing packaging subset | Windows/Linux installed users | Association declarations are missing; stable Windows installer identity already exists and manual opening works. | S–M local; native M / medium | Mac-authored config; Windows/Linux installed opening/upgrade/uninstall |
 | [L71](../research/remaining-gaps.md#l71) | P1 desktop; P3 iOS | Missing release integration/qualification | New desktop installations | Recorded packages are unsigned/ad-hoc; installation trust and iOS distribution need real signing/artifact evidence. | R → L desktop / medium | Mac certificates/account/artifact work; Windows signing and physical iOS elsewhere |
 | [L72](../research/remaining-gaps.md#l72) | P3 | Missing mobile capability | iOS users | The Android provider route does not supply an iOS picker, grants or save-back. | XL / low | Mac bridge/simulator contracts; physical iOS/cloud-provider tests |
-| [L73](../research/remaining-gaps.md#l73) | P1 | Unknown save interaction | Extended Tags users | Keep changes stages edits; immediate Save timing on navigation/close may differ from familiar expectations. | R / medium | Mac native edit/navigation/cancel checks; Windows reference timing |
+| [L73](../research/remaining-gaps.md#l73) | P1 | Unknown save interaction | Extended Tags users | Working-branch Save tags writes the displayed selection and Keep changes stages it; independent navigation and retry guards have focused coverage. Batch review/merge and native/original acceptance remain. | R / medium | Mac native edit/navigation/cancel checks; Windows reference timing |
 | [L74](../research/remaining-gaps.md#l74) | P3 | Missing mobile capabilities | Provider power users | Provider playlist load/create, CSV/export and Undo/Redo are not enabled by existing read/copy support. | XL / medium | Mac orchestration/UI; Android/iOS provider publication/replay |
-| [L76](../research/remaining-gaps.md#l76) | P1 release audit; P2 reproducibility | Audit/qualification | All release users | Working branch adds Rust/JS/Maven/native/helper material, repairs a confirmed native source-policy gap and gates AppImage shared texts; Linux distribution-library source delivery, helper producer provenance, rebuilt packages and reproducibility remain unqualified. | R → M–L / medium | Mac archive/notice/rebuild checks; other artifacts/native rebuilds on target OS |
+| [L76](../research/remaining-gaps.md#l76) | P1 release audit; P2 reproducibility | Audit/qualification | All release users | Working branch supplies source-bound Rust/JS/Maven/native/helper/runtime notices, the native source-policy repair and two-target Linux source-publication gates. Batch review/CI/merge and actual package/native/publication evidence remain; reproducibility stays P2. | R → M–L / medium | Mac archive/notice/rebuild checks; other artifacts/native rebuilds on target OS |
 | [L77b](../research/remaining-gaps.md#l77b) | P2 | Unknown performance cost | Large/batch libraries | Whole-file rewrites may be slow for remaining containers; impact must be measured before optimizing. | R → M measurement / medium | Mac same-corpus benchmark; other OS/reference comparisons |
 | [N03](../research/remaining-gaps.md#n03) | P1 | Unknown source preview semantics | Migrating album-parser sources | CurrentPreview grammar is confirmed and repaired on the working branch; batch review/merge and original/native/provider acceptance remain. Full-cover routing already exists. | R / medium | Mac parser/DTO analysis; original outputs/native provider comparison |
 | [N04](../research/remaining-gaps.md#n04) | P2 | Unknown automation semantics | Advanced expressions/columns | Column-function and self-reference outcomes may differ; existing evaluator/export repairs already cover named contexts. | R / medium | Mac adapter/recursion tracing; same-vector original execution |
@@ -188,8 +189,11 @@ The represented implementation records also retain bounded local acceptance:
 
 ## Recommended sequence after PR64
 
-Do not reopen a large umbrella PR. Select one coherent user outcome, define its
-acceptance and keep unrelated features in the ledger.
+The current owner instruction is to finish the eleven P1 intake scopes in one
+reviewed batch before starting P2 work. Ten scopes have local implementation;
+L71 signing remains. The baseline ordering below informs later work, rather than
+assigning those implemented scopes again. After this batch, select one coherent
+user outcome, define its acceptance and keep unrelated features in the ledger.
 
 | Order | Bounded next outcome | Candidate IDs | Why this order / exit condition |
 | --- | --- | --- | --- |
