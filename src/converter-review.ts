@@ -12,7 +12,7 @@ export type TextImportRequest = {
   mask: string;
   options: {ansi_codepage: string | null; case_sensitive_paths: boolean};
 };
-export type FilenameConversionItem = {path: string; target: string; captures: Fields};
+export type FilenameConversionItem = {path: string; target: string; captures: Fields; associated?: {from:string;to:string}[]};
 export type TextImportItem = {path: string; selection_index: number; source_line: number; fields: Fields};
 /**
  * `source_path` is the text file read, after evaluating a format-string source.
@@ -111,6 +111,14 @@ export function validateFilenameItems(request: FilenameConversionRequest, items:
     return unmatched[skipped++] === path;
   });
   if (!valid) throw new Error('The filename preview does not match the selected files. Run Preview again.');
+  const sources=new Set<string>(),targets=new Set<string>();
+  for(const row of items){
+    if(row.associated===undefined)continue;
+    if(!Array.isArray(row.associated)||row.associated.some(member=>{
+      if(!member||typeof member.from!=='string'||!member.from||typeof member.to!=='string'||!member.to||sources.has(member.from)||targets.has(member.to))return true;
+      sources.add(member.from);targets.add(member.to);return false;
+    }))throw new Error('The companion preview could not be verified. Run Preview again.');
+  }
 }
 /** Keyed records may follow source-line order; the selected files no record names are left unchanged. */
 export function validateTextItems(request: TextImportRequest, items: TextImportItem[], unmatched: string[] = []) {

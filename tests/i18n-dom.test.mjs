@@ -2144,3 +2144,18 @@ for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['wa
     dialog.close();assert.equal(listeners.size,0);
   }finally{p.close();}
 });
+
+
+test('reviewed filename converter renders exact companion paths without translating authored names',()=>{
+  const p=page();try {
+    const fieldRows=rendererVariable(parsed,'fieldRows',{esc});
+    const render=rendererVariable(parsed,'previewMarkup',{esc,fieldRows});
+    const members=[{from:'/Help/A & B.lrc',to:'/Title/<new>.lrc'},{from:'/Help/A & B.CDG',to:'/Title/<new>.CDG'}];
+    p.body.innerHTML=render([{path:'/Help/A & B.wav',target:'/Title/<new>.wav',captures:{},associated:members}],['/Unmatched.wav']);
+    const nodes=[...p.body.querySelectorAll('.associated-file')];assert.equal(nodes.length,2);
+    p.translate('nl',Object.fromEntries(members.flatMap(member=>[[member.from,'Wrong source translation'],[member.to,'Wrong destination translation']])));
+    nodes.forEach((node,index)=>{assert.equal(node.querySelector('small').textContent,members[index].from);assert.equal(node.querySelector('strong').textContent,members[index].to);});
+    assert.equal(p.body.querySelectorAll('new').length,0);
+    assert.ok(p.body.querySelector('.no-match').textContent.includes('/Unmatched.wav'));
+  } finally {p.close();}
+});

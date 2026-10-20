@@ -10,6 +10,22 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// A regular file's native identity, size and modification time. The opaque
+/// stamp uses the same native Windows IDs as durable history, with no
+/// timestamp-only fallback when a required identity is unavailable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FileIdentity(crate::file_baseline::MetadataStamp);
+impl FileIdentity {
+    pub fn read(path: &Path) -> Result<Self, String> {
+        #[cfg(not(any(unix, windows)))]
+        return Err("File identity is unavailable on this platform".into());
+        #[cfg(any(unix, windows))]
+        metadata_stamp(path)
+            .map(Self)
+            .map_err(|error| error.to_string())
+    }
+}
+
 /// Identifies a destination folder across preview and publication. Unlike a
 /// directory timestamp, identity remains valid after our own files are added.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -177,6 +193,26 @@ pub fn copy_with_receipt(source: &Path, destination: &Path) -> Result<CopyReceip
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn regular_file_identity_accepts_hard_links_and_refuses_equal_byte_replacements() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("source");
+        let link = root.path().join("alias");
+        fs::write(&path, b"same").unwrap();
+        let baseline = FileIdentity::read(&path).unwrap();
+        fs::hard_link(&path, &link).unwrap();
+        assert_eq!(FileIdentity::read(&link).unwrap(), baseline);
+        let modified = fs::metadata(&path).unwrap().modified().unwrap();
+        fs::rename(&path, root.path().join("retained")).unwrap();
+        fs::write(&path, b"same").unwrap();
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(modified))
+            .unwrap();
+        assert_ne!(FileIdentity::read(&path).unwrap(), baseline);
+    }
     #[test]
     fn receipt_removes_only_unchanged_created_copy_and_preserves_source() {
         let root = tempfile::tempdir().unwrap();

@@ -9,7 +9,7 @@ Open **File → Options… → Files** to restrict folder scans, control separat
 
 **Move or copy matching .lrc and .cdg files with audio** defaults to off. Enable it to
 include exact-basename lyrics and karaoke companions in **Tag → Filename**,
-**Move files to** and **Copy files to**. Review their source and destination paths before applying.
+**Filename → Filename**, **Move files to** and **Copy files to**. Review their source and destination paths before applying.
 Other rename commands do not use this policy. Copy keeps the originals and
 does not create a transfer Undo step. See
 [associated files](../../guides/associated-files.md) for matching rules, errors

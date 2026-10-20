@@ -3613,7 +3613,6 @@
  "{error}; incomplete copy was removed": "{error}; die unvollständige Kopie wurde entfernt",
  "{error}; copy cleanup incomplete: {cleanup}": "{error}; die Bereinigung der Kopie ist unvollständig: {cleanup}",
  "Copy could not be verified": "Die Kopie konnte nicht überprüft werden",
- "Off by default. Applies to Tag → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Other converters and action-driven renames do not use this option.": "Standardmäßig deaktiviert. Gilt für Tag → Dateiname, Dateien verschieben nach und Dateien kopieren nach. Prüfe vor dem Anwenden die Pfade der zugehörigen Dateien. Nur Dateien mit genau demselben Basisnamen und der Erweiterung .lrc oder .cdg folgen den Audiodateien. Beim Kopieren bleiben die Originale erhalten; es gibt dafür keinen Rückgängig-Schritt. Andere Konverter und aktionsgesteuertes Umbenennen verwenden diese Option nicht.",
  "A binary field-mapping field exceeds 4 MB.": "Ein binäres Feld der Feldzuordnung ist größer als 4 MB.",
  "A binary field-mapping field is not valid UTF-8.": "Ein binäres Feld der Feldzuordnung ist kein gültiges UTF-8.",
  "A binary field-mapping list exceeds 4096 rows.": "Eine binäre Feldzuordnungsliste enthält mehr als 4096 Zeilen.",
@@ -3640,5 +3639,16 @@
  "Write playlist byte order mark (BOM)": "Byte-Reihenfolge-Markierung (BOM) in Wiedergabeliste schreiben",
  "freedb: replace current server list": "freedb: aktuelle Serverliste ersetzen",
  "freedb: selected server": "freedb: ausgewählter Server",
- "freedb: server": "freedb: Server"
+ "freedb: server": "freedb: Server",
+ "A created destination folder changed; retained its contents": "Ein erstellter Zielordner wurde geändert; sein Inhalt wurde beibehalten",
+ "A moved file's source or destination folder changed; retained at destination": "Der Quell- oder Zielordner einer verschobenen Datei wurde geändert; die Datei wurde am Ziel beibehalten",
+ "A reviewed companion has no content digest": "Eine geprüfte Begleitdatei hat keine Inhaltsprüfsumme",
+ "Converter inputs or associated-file policy changed; preview again": "Die Konvertierungseingaben oder die Begleitdatei-Einstellung wurden geändert; erstellen Sie eine neue Vorschau",
+ "Destination parent is not a regular directory": "Der übergeordnete Zielordner ist kein reguläres Verzeichnis",
+ "Moved file identity could not be captured; retained at destination": "Die Identität der verschobenen Datei konnte nicht erfasst werden; die Datei wurde am Ziel beibehalten",
+ "Moved file is no longer a regular file; retained at destination": "Die verschobene Datei ist keine reguläre Datei mehr; sie wurde am Ziel beibehalten",
+ "Source has no parent directory": "Die Quelle hat keinen übergeordneten Ordner",
+ "The companion preview could not be verified. Run Preview again.": "Die Vorschau der Begleitdateien konnte nicht geprüft werden. Erstellen Sie eine neue Vorschau.",
+ "Off by default. Applies to Tag → Filename, Filename → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Inline edits, Tag → Tag and action-driven renames do not use this option.": "Standardmäßig aus. Gilt für Tag → Dateiname, Dateiname → Dateiname, Dateien verschieben nach und Dateien kopieren nach. Prüfen Sie die Pfade der Begleitdateien vor dem Anwenden. Nur Dateien mit genau demselben Basisnamen und der Erweiterung .lrc oder .cdg folgen der Audiodatei. Beim Kopieren bleiben die Originale erhalten; es gibt dafür kein Rückgängig. Inline-Bearbeitungen, Tag → Tag und Umbenennen durch Aktionen verwenden diese Option nicht.",
+ "File identity is unavailable on this platform": "Die Dateiidentität ist auf dieser Plattform nicht verfügbar"
 }

@@ -78,7 +78,10 @@ impl Item {
             snapshot,
         })
     }
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn content_hash(&self) -> Option<[u8; 32]> {
+        self.snapshot.digest
+    }
+    pub(crate) fn validate(&self) -> Result<(), String> {
         self.validate_source(self.snapshot.digest.is_some())
     }
     fn validate_metadata(&self) -> Result<(), String> {
@@ -273,7 +276,7 @@ impl Group {
         }
         Ok(())
     }
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         self.validate_members(true)
     }
     fn validate_members(&self, content: bool) -> Result<(), String> {

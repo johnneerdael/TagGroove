@@ -3600,7 +3600,6 @@
  "{error}; incomplete copy was removed": "{error}; de onvolledige kopie is verwijderd",
  "{error}; copy cleanup incomplete: {cleanup}": "{error}; het opruimen van de kopie is onvolledig: {cleanup}",
  "Copy could not be verified": "De kopie kon niet worden gecontroleerd",
- "Off by default. Applies to Tag → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Other converters and action-driven renames do not use this option.": "Standaard uitgeschakeld. Geldt voor Tag → Bestandsnaam, Bestanden verplaatsen naar en Bestanden kopiëren naar. Controleer de paden van de bijbehorende bestanden voordat je doorgaat. Alleen bestanden met exact dezelfde basisnaam en de extensie .lrc of .cdg volgen de audio. Kopiëren behoudt de originelen en heeft geen overdrachtsstap voor Ongedaan maken. Andere converters en hernoemen via acties gebruiken deze optie niet.",
  "A binary field-mapping field exceeds 4 MB.": "Een binair veld in de veldtoewijzingen is groter dan 4 MB.",
  "A binary field-mapping field is not valid UTF-8.": "Een binair veld in de veldtoewijzingen is geen geldige UTF-8.",
  "A binary field-mapping list exceeds 4096 rows.": "Een binaire lijst met veldtoewijzingen bevat meer dan 4096 regels.",
@@ -3627,5 +3626,16 @@
  "Write playlist byte order mark (BOM)": "Bytevolgordemarkering (BOM) naar afspeellijst schrijven",
  "freedb: replace current server list": "freedb: huidige serverlijst vervangen",
  "freedb: selected server": "freedb: geselecteerde server",
- "freedb: server": "freedb: server"
+ "freedb: server": "freedb: server",
+ "A created destination folder changed; retained its contents": "Een aangemaakte doelmap is gewijzigd; de inhoud is behouden",
+ "A moved file's source or destination folder changed; retained at destination": "De bron- of doelmap van een verplaatst bestand is gewijzigd; het bestand is op de doellocatie behouden",
+ "A reviewed companion has no content digest": "Een gecontroleerd bijbehorend bestand heeft geen inhoudscontrolegetal",
+ "Converter inputs or associated-file policy changed; preview again": "De conversie-invoer of de optie voor bijbehorende bestanden is gewijzigd; maak een nieuw voorbeeld",
+ "Destination parent is not a regular directory": "De bovenliggende doelmap is geen gewone map",
+ "Moved file identity could not be captured; retained at destination": "De identiteit van het verplaatste bestand kon niet worden vastgelegd; het bestand is op de doellocatie behouden",
+ "Moved file is no longer a regular file; retained at destination": "Het verplaatste bestand is geen gewoon bestand meer; het is op de doellocatie behouden",
+ "Source has no parent directory": "De bron heeft geen bovenliggende map",
+ "The companion preview could not be verified. Run Preview again.": "Het voorbeeld van de bijbehorende bestanden kon niet worden gecontroleerd. Maak een nieuw voorbeeld.",
+ "Off by default. Applies to Tag → Filename, Filename → Filename, Move files to and Copy files to. Review the companion paths before applying. Only files with exactly the same basename and a .lrc or .cdg extension follow the audio. Copy keeps originals and has no transfer Undo. Inline edits, Tag → Tag and action-driven renames do not use this option.": "Standaard uit. Geldt voor Tag → Bestandsnaam, Bestandsnaam → Bestandsnaam, Bestanden verplaatsen naar en Bestanden kopiëren naar. Controleer de paden van de bijbehorende bestanden voordat u toepast. Alleen bestanden met exact dezelfde basisnaam en een .lrc- of .cdg-extensie gaan met de audio mee. Kopiëren behoudt de originelen en kan niet met Ongedaan maken worden teruggedraaid. Inline bewerkingen, Tag → Tag en hernoemen via acties gebruiken deze optie niet.",
+ "File identity is unavailable on this platform": "Bestandsidentiteit is niet beschikbaar op dit platform"
 }

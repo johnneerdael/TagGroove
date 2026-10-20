@@ -1851,7 +1851,7 @@ function reviewedConverter(kind:'filename'|'text') {
   });
   const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt translate="no">${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':`<span translate="no">${esc(value)}</span>`}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
   const previewMarkup=(items:Item[],unmatched:string[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
-    `<div><small translate="no">${esc(item.path)}</small><strong translate="no">${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
+    `<div><small translate="no">${esc(item.path)}</small><strong translate="no">${esc(item.target)}</strong>${fieldRows(item.captures)}${(item.associated??[]).map(member=>`<div class="associated-file"><small translate="no">${esc(member.from)}</small><strong translate="no">${esc(member.to)}</strong></div>`).join('')}</div>`:
     `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong translate="no">${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}${unmatched.map(path=>`<div class="no-match"><small translate="no">${esc(path)}</small>No match, not changed</div>`).join('')}</div>`;
   previewButton.addEventListener('click',async()=>{
     let attempt:ReturnType<typeof review.begin>|undefined;

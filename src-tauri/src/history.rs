@@ -208,6 +208,7 @@ impl Changes for crate::converters::FilenameResult {
     fn renamed(&self) -> Vec<(String, String)> {
         self.renamed
             .iter()
+            .chain(&self.associated_renamed)
             .map(|r| (r.from.clone(), r.to.clone()))
             .collect()
     }
@@ -2001,6 +2002,100 @@ mod tests {
         .is_err());
         TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
     }
+    #[test]
+    fn filename_conversion_companions_share_one_history_step_and_refuse_external_edits() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let fixture = dunce::canonicalize(dir.path()).unwrap();
+        let _isolated = IsolatedHistory::new(&fixture);
+        // Keep journal writes outside the reviewed destination ancestor, as
+        // the application's cache is outside an ordinary music folder.
+        let root = fixture.join("Music");
+        std::fs::create_dir(&root).unwrap();
+        let audio = root.join("Artist - Song.wav");
+        wav(&audio, "Title");
+        let original = std::fs::read(&audio).unwrap();
+        let lyric = audio.with_extension("lrc");
+        let karaoke = audio.with_extension("CDG");
+        std::fs::write(&lyric, b"lyric").unwrap();
+        std::fs::write(&karaoke, b"karaoke").unwrap();
+        let request = crate::converters::FilenameRequest {
+            paths: vec![audio.to_string_lossy().into_owned()],
+            old_pattern: "%1 - %2".into(),
+            new_pattern: "Output\\%2 - %1".into(),
+            columns: None,
+        };
+        let preview = crate::converters::preview_filename_policy(
+            &request,
+            &crate::evaluation::EvaluationSettings::default(),
+            true,
+        )
+        .unwrap();
+        let captured =
+            crate::converters::filename_history_sources(&request, &preview.plan_token, true)
+                .unwrap();
+        assert_eq!(captured.len(), 3);
+        assert!(
+            captured.contains(&lyric.to_string_lossy().into_owned())
+                && captured.contains(&karaoke.to_string_lossy().into_owned())
+        );
+        let result = record("Filename → Filename", None, &captured, || {
+            crate::converters::apply_filename_policy(
+                &request,
+                &preview.plan_token,
+                true,
+                |_| Ok(()),
+            )
+            .map_err(|error| error.to_string())
+        })
+        .unwrap();
+        let target = std::path::PathBuf::from(&result.renamed[0].to);
+        assert_eq!(result.associated_renamed.len(), 2);
+        assert_eq!(result.result.entries.len(), 1);
+        assert_eq!(
+            history_state().unwrap().undo.unwrap().label,
+            "Filename → Filename"
+        );
+        let undone = run(undo_last());
+        assert!(
+            undone.result.errors.is_empty(),
+            "{:?}",
+            undone.result.errors
+        );
+        assert_eq!(undone.result.entries.len(), 1);
+        assert_eq!(std::fs::read(&audio).unwrap(), original);
+        assert_eq!(std::fs::read(&lyric).unwrap(), b"lyric");
+        assert_eq!(std::fs::read(&karaoke).unwrap(), b"karaoke");
+        assert!(!target.exists());
+        let redone = run(redo_last());
+        assert!(
+            redone.result.errors.is_empty(),
+            "{:?}",
+            redone.result.errors
+        );
+        assert_eq!(redone.result.entries.len(), 1);
+        assert_eq!(std::fs::read(&target).unwrap(), original);
+        assert_eq!(
+            std::fs::read(target.with_extension("lrc")).unwrap(),
+            b"lyric"
+        );
+        assert_eq!(
+            std::fs::read(target.with_extension("CDG")).unwrap(),
+            b"karaoke"
+        );
+        assert!(!audio.exists());
+        std::fs::write(target.with_extension("lrc"), b"External lyric edit").unwrap();
+        let refused = run(undo_last());
+        assert!(!refused.result.errors.is_empty());
+        assert_eq!(std::fs::read(&audio).unwrap(), original);
+        assert_eq!(
+            std::fs::read(target.with_extension("lrc")).unwrap(),
+            b"External lyric edit"
+        );
+        assert!(!lyric.exists());
+        assert_eq!(std::fs::read(&karaoke).unwrap(), b"karaoke");
+    }
+
     #[test]
     fn companion_moves_and_case_only_renames_undo_without_audio_parse_errors() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());

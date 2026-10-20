@@ -7,7 +7,8 @@ the same basename. This support is optional and applies to local desktop files.
 2. Enable **Move or copy matching .lrc and .cdg files with audio** and save the options.
    The default is off, including for existing profiles.
 3. Select the audio files. Save intended pending tag edits first.
-4. Use **Convert → Tag → Filename…** and choose **Preview**, or use
+4. Use **Convert → Tag → Filename…** or **Convert → Filename → Filename…**
+   and choose **Preview**, or use
    **Edit → Move files to…** or **Edit → Copy files to…** and choose the existing
    destination folder.
 5. Read the companion source and destination paths in the rename preview or
@@ -31,8 +32,8 @@ rejected. Two audio files sharing one companion, such as `Song.mp3` and
 `Song.flac`, are ambiguous and reject the reviewed plan.
 
 Companions do not become editable audio rows. The option currently affects
-**Tag → Filename**, **Move files to** and **Copy files to**. **Filename → Filename**,
-inline filename editing, Tag → Tag and action-driven renames keep their existing
+**Tag → Filename**, **Filename → Filename**, **Move files to** and **Copy files
+to**. Inline filename editing, Tag → Tag and action-driven renames keep their existing
 behavior. Move those companions separately when using one of those commands.
 
 ## Review, failures and undo
@@ -43,13 +44,25 @@ or an expired preview requires another review. Names that differ only in letter
 case are treated conservatively to avoid portable collisions. Rename cycles are
 rejected rather than temporarily overwriting another member of the selection.
 
-Each audio file and its companions form a move group. A group moves its
+For **Tag → Filename** and **Move files to**, each audio file and its companions
+form a move group. A group moves its
 companions first and the audio last. If a member fails during execution, the
 operation attempts to reverse the completed moves without replacing anything.
 A new occupant or an externally edited companion can prevent that rollback;
 the error reports **rollback incomplete** and the affected paths. Earlier
 successful groups can remain moved. Inspect both locations before retrying.
 This is not a single transaction across the collection.
+
+**Filename → Filename** retains its whole-batch transaction: a member or audio
+readback failure attempts to reverse every earlier audio and companion move in
+that reviewed conversion. Unmatched audio files and their companions stay put.
+Rollback checks the produced file's bytes and identity and both original and
+destination parent identities. It preserves an externally changed file, an
+occupied original name or an unknown replacement folder and reports the paths.
+After a handled failure, only empty folders created by that attempt with the
+same identities are removed. Pre-existing folders and unrelated contents stay.
+Successful Undo/Redo uses the existing file-history behavior; empty destination
+folders may remain. Inspect every reported path after a rollback refusal.
 
 Copy uses its own reviewed plan; a Move preview cannot authorize a Copy. It
 checks companion and audio bytes plus the identity of the existing destination
@@ -62,12 +75,13 @@ moved or removed by this cleanup. Inspect the named paths before retrying.
 Undo and redo record the physical companion paths as well as the audio paths,
 including changes to letter case. Files changed elsewhere are reported and
 retained. Other files in the same history step can still reverse, so an undo
-error requires inspecting both locations. History is bounded and session-only;
-keep independent backups. Copying does not create a transfer Undo step.
+error requires inspecting both locations. History is bounded;
+keep independent backups and review the [history limits](undo-history.md). Copying does not create a transfer Undo step.
 
 ## Related
 
 - [Copy, move and delete files](file-operations.md)
 - [Tag → Filename](../converters/tag-to-filename.md)
+- [Filename → Filename](../converters/filename-to-filename.md)
 - [Files options](../reference/options/files.md)
 - [Undo and history](undo-history.md)
