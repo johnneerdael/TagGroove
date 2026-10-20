@@ -4,7 +4,7 @@ For the next work sequence, use the [user-impact, effort and environment table](
 
 This is the single actionable **uncovered** list: missing behavior and unresolved semantic research for which the inspected open or merged PRs provide no covering implementation. Outstanding verification of implemented behavior belongs in the [qualification register](research/remaining-gaps.md#qualification-of-implemented-scopes), outside this intake. Represented work is excluded even while its PR is open; exclusion is not a completion claim. The [coverage companion](research/remaining-gaps.md) records delivered work, inspected PR scopes, historical row IDs, evidence and intentional limits. The [feature inventory](FEATURE-INVENTORY.md) retains the full acceptance contract.
 
-Reference: Windows x64 Mp3tag 3.36.1, executable SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Inspected merged application baseline: `main` `e4017801dd923b65e1e5e2fc0ece58706374b60d`, after [PR64](https://github.com/johnneerdael/TagGroove/pull/64), merged 2026-10-19T22:53:18Z. PRs49–64 are merged. Intake refreshed **2026-10-20**. The exact reviewed head and successful pre-merge validation are recorded in the [integration evidence](research/remaining-gaps.md#pr64-integration-evidence). Packaging, publication and native acceptance remain separate claims.
+Reference: Windows x64 Mp3tag 3.36.1, executable SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Inspected merged baseline: main `f0bc8dfa97f1c16c32b7405789ab71f7c01b1e30`, after merged PRs49–66 and the owner-authorized native source-download repair. Intake refreshed **2026-10-20**. PR64 and PR66 review/CI/merge identities are recorded in the [coverage companion](research/remaining-gaps.md); packaging, publication and native acceptance remain separate claims.
 
 The [implementation checkpoint table](research/remaining-gaps.md#pr64-implementation-checkpoints) identifies the exact commits and bounded evidence behind represented work. Planned checklists, local checks and an open PR do not establish delivery or original/native acceptance. See the [coverage and refresh rules](research/remaining-gaps.md#refresh-and-evidence-rules).
 
@@ -15,8 +15,8 @@ Implemented features leave this intake even when their native/original acceptanc
 The follow-up [C25/C59 input-alias repair](verification/source-root-aliases-2026-10-20.md)
 preserves folder membership and Refresh roots across known in-app renames.
 Its focused headless evidence does not close L47a or requalify older native
-workspace receipts against the changed loading/restoration code. The 49 active
-IDs and 14 qualification identities remain unchanged.
+workspace receipts against the changed loading/restoration code. That checkpoint
+left 49 active IDs; the C63 follow-up below now represents L54.
 
 C51–C54 represent the scoped scripting/export, Lyrics3v2, playlist-filename and
 history-startup repairs in PR64. Historical L09/L45a anchors now point to their
@@ -60,6 +60,8 @@ C61 covers full-content history and staged-write checks, including concealed ext
 
 Windows-specific work and original Windows captures are **deferred by the owner**. Retain those requirements as unqualified; continue the cross-platform work without treating deferral as completion.
 
+C63 now represents [edited Windows action-filename protection](verification/action-filename-protection-2026-10-20.md), including source-backed cleanup and portable regressions. L54 leaves this intake; exact original Windows/runtime qualification remains with C63 and L79. There are **48 active IDs** and **14 separate qualification identities**.
+
 ## Uncovered work
 
 | ID | Area | Actionable remainder | Evidence |
@@ -93,7 +95,6 @@ Windows-specific work and original Windows captures are **deferred by the owner*
 | L50 | Toolbar layouts | Implement/qualify toolbar.ini/toolbar_custom.ini layout import and user symbol choice, using a real migration profile. Individual built-in source commands are already available. | [Scope and evidence](research/remaining-gaps.md#l50) |
 | L51 | Tools | Settle original non-path placeholder support, .lnk/.bat launch behavior and the 100-file per-file launch cap. | [Scope and evidence](research/remaining-gaps.md#l51) |
 | L52 | Legacy sources | Qualify a fetched freedb server list, non-gnudb artist/album/artwork search and non-exact local lookup; current refresh restores two built-ins, network search is gnudb-only and local lookup is exact. | [Scope and evidence](research/remaining-gaps.md#l52) |
-| L54 | Rename | Capture original reserved-character substitution and prevent invalid Windows characters in _FILENAME Replace/Regex replace results; current tag-derived replacement uses underscores. | [Scope and evidence](research/remaining-gaps.md#l54) |
 | L55 | Converters | Compare relative-target resolution, two partitions sharing one output file (currently refused), and slash folder markers in the old Filename → Filename pattern. | [Scope and evidence](research/remaining-gaps.md#l55) |
 | L56a | Converters | Compare all-or-nothing Filename → Filename reviewed-plan clash handling; one clash currently refuses the complete plan. | [Scope and evidence](research/remaining-gaps.md#l56a) |
 | L56b | Actions | Qualify EBCDIC/ISO-2022 and explicit Import Text File codepages, UTF-8-valid ANSI interpretation, quality preset numbers and default field lists; current supported choices are TagGroove policy. | [Scope and evidence](research/remaining-gaps.md#l56b) |

@@ -398,6 +398,101 @@ fn action_name(name: &str, origin: NameOrigin, separator: &str) -> String {
     }
 }
 
+fn windows_edited_filename(
+    name: &str,
+    extension: Option<&str>,
+    includes_extension: bool,
+) -> Result<String, ErrorCause> {
+    let mut name = name.to_owned();
+    if !includes_extension {
+        if let Some(extension) = extension {
+            name.push('.');
+            name.push_str(extension);
+        }
+    }
+    let invalid =
+        || ErrorCause::owned("Filename action produced an invalid Windows path after cleanup");
+    let forbidden = |c: char| (c as u32) < 32 || ":/*?\"<>|".contains(c);
+    // Keep namespace prefixes separate from filename characters: changing a
+    // server/share or drive while cleaning a leaf would select another target.
+    let namespace = if name.starts_with(r"\\?\") { 4 } else { 0 };
+    let rest = &name[namespace..];
+    let unc_start = if namespace == 4
+        && rest
+            .get(..4)
+            .is_some_and(|s| s.eq_ignore_ascii_case(r"UNC\"))
+    {
+        Some(8)
+    } else if namespace == 0 && name.starts_with(r"\\") {
+        Some(2)
+    } else {
+        None
+    };
+    let prefix_end = if let Some(start) = unc_start {
+        let server_end = start + name[start..].find('\\').ok_or_else(invalid)?;
+        let share_start = server_end + 1;
+        let share_end = share_start + name[share_start..].find('\\').ok_or_else(invalid)?;
+        for component in [&name[start..server_end], &name[share_start..share_end]] {
+            if component.is_empty()
+                || component.chars().any(forbidden)
+                || component.ends_with([' ', '.'])
+            {
+                return Err(invalid());
+            }
+        }
+        share_end + 1
+    } else if rest.as_bytes().first().is_some_and(u8::is_ascii_alphabetic)
+        && rest.as_bytes().get(1) == Some(&b':')
+        && rest.as_bytes().get(2) == Some(&b'\\')
+    {
+        namespace + 3
+    } else if namespace != 0 {
+        namespace
+    } else if name.starts_with('\\') {
+        1
+    } else {
+        0
+    };
+    let components: Vec<_> = name[prefix_end..].split('\\').collect();
+    let mut cleaned = Vec::new();
+    for (index, component) in components.iter().enumerate() {
+        let last = index + 1 == components.len();
+        if !last && component.is_empty() {
+            continue;
+        }
+        // Keep authored navigation, but never introduce it by removing '?' or
+        // another invalid character from a different component.
+        if !last && matches!(*component, "." | "..") {
+            cleaned.push((*component).to_owned());
+            continue;
+        }
+        let component: String = component.chars().filter(|c| !forbidden(*c)).collect();
+        let component = component.trim_end_matches([' ', '.']);
+        if component.is_empty() {
+            return Err(invalid());
+        }
+        let stem_end = component.find('.').unwrap_or(component.len());
+        let stem = component[..stem_end]
+            .trim_end_matches(' ')
+            .to_ascii_uppercase();
+        let device = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+            // Match console aliases as whole cleaned components separately
+            // from legacy stems, preserving extension-bearing names.
+            || (stem_end == component.len() && matches!(stem.as_str(), "CONIN$" | "CONOUT$"))
+            || matches!(
+                stem.strip_prefix("COM")
+                    .or_else(|| stem.strip_prefix("LPT")),
+                Some("1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³")
+            );
+        cleaned.push(if device {
+            format!("Reserved-Windows-Filename{}", &component[stem_end..])
+        } else {
+            component.to_owned()
+        });
+    }
+    Ok(format!("{}{}", &name[..prefix_end], cleaned.join(r"\")))
+}
+
 /// The files an export must not replace for one input: the file itself, or
 /// for a chapter or cue sheet row its file and the audio it plays from (a
 /// row path is no file name on Windows).
@@ -654,8 +749,17 @@ impl NativeHost<'_> {
                 origin,
             } => {
                 let filename = action_name(filename, *origin, &self.settings.folder_separator);
+                let edited_windows = cfg!(windows) && *origin == NameOrigin::Edited;
+                let filename = if edited_windows {
+                    let extension = path
+                        .extension()
+                        .map(|extension| extension.to_string_lossy());
+                    windows_edited_filename(&filename, extension.as_deref(), *includes_extension)?
+                } else {
+                    filename
+                };
                 let mut target = relative_to_file(&filename, &path);
-                if !includes_extension {
+                if !includes_extension && !edited_windows {
                     if let Some(extension) = path.extension() {
                         let dotted = format!(".{}", extension.to_string_lossy());
                         // A generated name that already spells the extension keeps one.
@@ -1533,6 +1637,106 @@ pub fn execute_with_side_file_epochs_diagnostic(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_edited_action_filename_removes_invalid_characters_after_extension_handling() {
+        for (input, extension, includes_extension, expected) in [
+            ("AC/DC: Live?", Some("wav"), false, "ACDC Live.wav"),
+            ("A<>|*\"\n\r\tB.flac", None, true, "AB.flac"),
+            ("song.", Some("wav"), false, "song..wav"),
+            ("NUL", Some("wav"), false, "Reserved-Windows-Filename.wav"),
+            (
+                "CON.flac",
+                Some("wav"),
+                true,
+                "Reserved-Windows-Filename.flac",
+            ),
+            ("aux.tar.gz", None, true, "Reserved-Windows-Filename.tar.gz"),
+            ("COM10.flac", None, true, "COM10.flac"),
+            ("COM¹.wav", None, true, "Reserved-Windows-Filename.wav"),
+            ("C:relative?.wav", None, true, "Crelative.wav"),
+        ] {
+            assert_eq!(
+                windows_edited_filename(input, extension, includes_extension).unwrap(),
+                expected,
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn windows_edited_action_filename_protects_bare_console_aliases_without_rewriting_extensions() {
+        for (input, extension, includes_extension, expected) in [
+            ("CONIN$", None, true, "Reserved-Windows-Filename"),
+            ("conout$", None, true, "Reserved-Windows-Filename"),
+            ("ConIn$ . ", None, true, "Reserved-Windows-Filename"),
+            ("CON?OUT$", None, true, "Reserved-Windows-Filename"),
+            (
+                r"album\CONOUT$",
+                None,
+                true,
+                r"album\Reserved-Windows-Filename",
+            ),
+            ("CONIN$.wav", None, true, "CONIN$.wav"),
+            ("conout$.tar.gz", None, true, "conout$.tar.gz"),
+            ("CONIN$", Some("wav"), false, "CONIN$.wav"),
+            ("CONOUT$live.wav", None, true, "CONOUT$live.wav"),
+        ] {
+            assert_eq!(
+                windows_edited_filename(input, extension, includes_extension).unwrap(),
+                expected,
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn windows_edited_action_filename_preserves_path_boundaries_and_prefixes() {
+        for (input, expected) in [
+            (r"album\AC/DC: Live?.flac", r"album\ACDC Live.flac"),
+            (r"C:\Music\AC/DC: Live?.wav", r"C:\Music\ACDC Live.wav"),
+            (
+                r"\\server\AUX\COM1.wav",
+                r"\\server\AUX\Reserved-Windows-Filename.wav",
+            ),
+            (
+                r"\\?\C:\Music\AUX.wav",
+                r"\\?\C:\Music\Reserved-Windows-Filename.wav",
+            ),
+            (
+                r"\\?\UNC\server\share\AUX.wav",
+                r"\\?\UNC\server\share\Reserved-Windows-Filename.wav",
+            ),
+            (r"..\album\Track?.wav", r"..\album\Track.wav"),
+            (r"album\..\Track?.wav", r"album\..\Track.wav"),
+            (r"folder .\Track?.wav", r"folder\Track.wav"),
+        ] {
+            assert_eq!(
+                windows_edited_filename(input, None, true).unwrap(),
+                expected,
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn windows_edited_action_filename_refuses_empty_components_and_new_traversal() {
+        for input in [
+            "",
+            "???",
+            ".",
+            "..",
+            r"C:\",
+            r"\\server\share",
+            r"album\??\Track.wav",
+            r"album\..?\Track.wav",
+        ] {
+            assert!(
+                windows_edited_filename(input, None, true).is_err(),
+                "{input:?}"
+            );
+        }
+    }
 
     #[test]
     fn native_option_collision_preserves_an_existing_export_destination() {

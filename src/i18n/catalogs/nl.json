@@ -814,6 +814,7 @@
  "Filename output limit exceeded": "Uitvoerlimiet voor bestandsnaam overschreden",
  "Filename pattern contains no field placeholders": "Bestandsnaampatroon bevat geen veld-placeholders",
  "Filename pattern input limit exceeded": "Invoerlimiet voor bestandsnaampatroon overschreden",
+ "Filename action produced an invalid Windows path after cleanup": "De bestandsnaamactie heeft na het opschonen een ongeldig Windows-pad opgeleverd",
  "Filename transformation must produce one nonempty name": "Bestandsnaamtransformatie moet één niet-lege naam opleveren",
  "Filename → Filename": "Bestandsnaam → Bestandsnaam",
  "Filename → Filename…": "Bestandsnaam → Bestandsnaam…",

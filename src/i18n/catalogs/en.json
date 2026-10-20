@@ -1025,6 +1025,7 @@
  "File properties": "File properties",
  "File → Remove tag (⌘/Ctrl R) removes these tag types. Saving also removes a checked type that is not written.": "File → Remove tag (⌘/Ctrl R) removes these tag types. Saving also removes a checked type that is not written.",
  "Filename": "Filename",
+ "Filename action produced an invalid Windows path after cleanup": "Filename action produced an invalid Windows path after cleanup",
  "Filename and directory actions are not available for selected documents yet": "Filename and directory actions are not available for selected documents yet",
  "Filename converter output limit exceeded": "Filename converter output limit exceeded",
  "Filename converter pattern limit exceeded": "Filename converter pattern limit exceeded",

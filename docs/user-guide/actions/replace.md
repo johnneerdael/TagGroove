@@ -64,10 +64,25 @@ The replacement can therefore have wider consequences than the field list
 suggests. Keep a folder backup when using a naming target, and avoid changing
 a directory merely to fix tag text.
 
+### Filename results on Windows
+
+For `_FILENAME` (including the filename part of `_ALL`), TagGroove keeps the
+audio extension, then removes characters that Windows cannot use in the
+result: `: / * ? " < > |` and control characters. For example, replacing the
+stem with `AC/DC: Live?` produces `ACDC Live.mp3` on an MP3 file. This filename
+cleanup does not change the replacement text written to ordinary tag fields.
+
+Reserved device names such as `CON` or `NUL` become
+`Reserved-Windows-Filename`, keeping the extension. Trailing spaces/dots are
+trimmed from Windows path components. A result that loses a whole component is
+refused; an existing destination is never overwritten. A Windows backslash
+still marks a folder boundary. On macOS and Linux, valid literal characters
+such as `:`, `?` and `\` are retained.
+
 ## Gotchas
 
 - Quick-action settings are remembered. Check them before each run.
-- Literal replacement does not trim the result. A deleted word can leave
+- Literal replacement in tag text does not trim the result. A deleted word can leave
   double or trailing spaces.
 - Changes are saved when the action runs. Check operation errors and the
   **Edit → Undo** label rather than assuming the whole batch is atomic.

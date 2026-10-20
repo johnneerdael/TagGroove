@@ -827,6 +827,7 @@
  "Filename output limit exceeded": "Ausgabelimit für Dateinamen überschritten",
  "Filename pattern contains no field placeholders": "Dateinamenmuster enthält keine Feld-Platzhalter",
  "Filename pattern input limit exceeded": "Eingabelimit des Dateinamenmusters überschritten",
+ "Filename action produced an invalid Windows path after cleanup": "Die Dateinamenaktion hat nach der Bereinigung einen ungültigen Windows-Pfad erzeugt",
  "Filename transformation must produce one nonempty name": "Dateinamen-Umwandlung muss genau einen nicht leeren Namen ergeben",
  "Filename → Filename": "Dateiname → Dateiname",
  "Filename → Filename…": "Dateiname → Dateiname…",

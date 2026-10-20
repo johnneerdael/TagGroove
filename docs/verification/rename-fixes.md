@@ -37,7 +37,11 @@ Format Value and Convert → Tag - Tag (which runs Format Value) evaluate a `_FI
 
 Guess Values treats a guessed `_FILENAME` or `_DIRECTORY` as a value: separators and invalid characters are replaced, and the extension is not doubled.
 
-Case Conversion, Replace and Regular-expression replace edit the current name and keep its characters; on macOS and Linux a `\` already in a filename does not become a folder.
+Case Conversion, Replace and Regular-expression replace edit the current name;
+on macOS and Linux a `\` already in a filename does not become a folder.
+The [L54 follow-up](action-filename-protection-2026-10-20.md) adds Windows-only
+cleanup after filename-extension handling, with explicit device-name and empty
+component guards. Template/value-origin rules remain separate and unchanged.
 
 The effect records where the name came from (`ActionEffect::RenameFile/RenameDirectory.origin`: `edited`, `template`, `value`; older serialized effects default to `edited`).
 
@@ -67,5 +71,9 @@ Case-only key changes are written: the action host sends the new key, and both t
 
 - Mp3tag's handling of `: * ? " < > |` in tag values is not documented; OpenTag replaces them with `_` (unchanged).
 - An alias whose folder above differs only in case keeps the folder's stored spelling; only the last name changes.
-- Replace and Regular-expression replace on `_FILENAME` can still produce characters that are invalid on Windows; the operating system then refuses the rename.
-- The casefolded e2e steps depend on the runner's kernel and `sudo`; the macOS and Windows behaviour is covered by the cargo tests on those platforms' CI test jobs.
+- The L54 follow-up represents edited Windows filename protection; exact
+  original Windows runtime substitution, prefix/namespace corner cases and
+  physical filesystem qualification remain with its evidence/handover record.
+- Casefolded e2e steps depend on the runner's kernel and `sudo`. Current
+  premerge unit tests run on Linux; native OS acceptance belongs to postmerge
+  integration. A platform-specific test definition is not proof it executed.

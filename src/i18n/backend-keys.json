@@ -309,6 +309,7 @@
  "File is not part of this import",
  "File occurs more than once in text import selection: {path}",
  "File operation lock failed",
+ "Filename action produced an invalid Windows path after cleanup",
  "Filename and directory actions are not available for selected documents yet",
  "Filename converter output limit exceeded",
  "Filename converter pattern limit exceeded",
