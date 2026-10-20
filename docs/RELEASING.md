@@ -217,6 +217,35 @@ material. Neither path executes the application or installer. See the
 [native/installer receipt](verification/native-installer-notices-2026-10-20.md)
 for the supplier, candidate-membership and actual-release limits.
 
+Linux AppImages also need the complete standard license documents referenced
+by bundled distribution copyright files. Before the normal Linux build, run:
+
+```sh
+python3 scripts/appimage-licenses.py --stage --prepare-inspector
+```
+
+The staging command materializes the builder's `/usr/share/common-licenses`
+files, including safe local aliases, and adds immutable, hash-checked Mozilla
+fallbacks. Tauri copies that staged directory to the same path inside the
+AppImage. The command preserves unknown or externally changed staging files
+by refusing publication. Its inspection tool is checksum-pinned for both Linux
+architectures and stays outside the packaged license directory.
+
+After the existing package build, before artifact collection, run:
+
+```sh
+python3 scripts/appimage-licenses.py --verify-built x86_64-unknown-linux-gnu
+```
+
+Use `aarch64-unknown-linux-gnu` on the arm64 job. This reads the image without
+running it, checks the exact staged document bytes, and resolves every bundled
+copyright reference to `/usr/share/common-licenses/`. To inspect a retained
+image on another host, pass `--verify /path/to/file.AppImage --inspector /path/to/7zz`
+after staging a suitable host collection. See the
+[AppImage receipt](verification/appimage-license-material-2026-10-20.md)
+for the baseline defect and the distinction between archive consistency and
+the remaining source, runtime and reproducibility qualifications.
+
 For maintainers, collect each finished native prefix and assemble the source asset with:
 
 ```sh

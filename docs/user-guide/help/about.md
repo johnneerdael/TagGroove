@@ -21,6 +21,10 @@ available offline.
 **Native runtime and installer notices** includes additional audio-codec,
 Android C++ runtime and Windows installer notices. These lists preserve the
 supplier's copyright and license wording.
+Linux AppImages also carry distribution copyright files under
+`usr/share/doc/` and the standard texts they reference under
+`usr/share/common-licenses/` inside the image. These package documents supplement
+the notices shown in About. They can be read offline from an extracted image.
 Copyright and license text keeps its original language when the dialog's
 controls and headings are translated. **Sources and releases** leads to the release downloads and the
 corresponding-source archive with rebuild and relink instructions. On Android

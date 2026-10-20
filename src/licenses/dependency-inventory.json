@@ -15071,7 +15071,7 @@
     "package-lock.json": "c30e0ba323aa28d24ac5cd9fbd512afc4fe348a54be1340ec449f15c519b091a",
     "package.json": "8883ff1769db0149d420f9468f3039bc227fc777a2342273050e7a215eea479c",
     "scripts/audio-deps/sources.json": "1deed6f1d9bd7300971c8e36b94bbc47abc1f1ec2d117b43e3a9171606b68c8e",
-    "scripts/dependency-notices.py": "e3fd4d718693540dc43119117e04cf91b3f1c6088a106577892ac617765a761e",
+    "scripts/dependency-notices.py": "6da21e2461181a382895ca3a777da097996927bb3f1c5f6720bff4adef4fd27d",
     "scripts/notices/supplements.json": "9a5a91cb76b74c879f0de8c01789dd7ca2d46d14a8e6f97f044802887062f4f8",
     "src-tauri/Cargo.toml": "ffb7b15e1371426ce3170071e626257e7691a551c532c91d93f7d715dba58018"
   },

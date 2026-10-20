@@ -443,6 +443,7 @@ def publish_outputs(root, outputs, guards=None):
 
     This is not an all-files atomic commit or a power-loss transaction. Outside
     changes encountered during rollback are retained along with recovery copies.
+    Guards bind a leaf to prior bytes, or to expected absence when set to None.
     """
     entries, temporary = [], set()
     retained = set()
@@ -474,8 +475,11 @@ def publish_outputs(root, outputs, guards=None):
                         f"Unsafe notice output parent: {parent}")
             before = state(path)
             if guards and name in guards:
-                require(before is not None and path.read_bytes() == guards[name],
-                        f"Notice source changed during generation: {name}")
+                if guards[name] is None:
+                    require(before is None, f"Notice output appeared during generation: {name}")
+                else:
+                    require(before is not None and path.read_bytes() == guards[name],
+                            f"Notice source changed during generation: {name}")
             info = path.stat() if before is not None else None
             entries.append({"path": path, "content": content, "before": before,
                             "original": path.read_bytes() if before is not None else None,

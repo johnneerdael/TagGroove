@@ -64,7 +64,8 @@
       },
       "appimage": {
         "files": {
-          "/usr/share/icons/hicolor": "icons/linux/hicolor/"
+          "/usr/share/icons/hicolor": "icons/linux/hicolor/",
+          "/usr/share/common-licenses": "../target/appimage-common-licenses/"
         }
       }
     }

@@ -98,8 +98,9 @@ support and target-specific package qualification remain explicit audit topics.
 
 Static inspection of the hash-verified Linux x64 AppImage found 115 copyright
 members, including GTK/WebKit metadata, but no `usr/share/common-licenses` files
-despite references to that location. The related packaging repair and remaining
-Linux artifact checks are separate pending L76 work. Its SHA-256 is
+despite references to that location. The [working-branch packaging repair](appimage-license-material-2026-10-20.md)
+now stages these texts and verifies reference closure after packaging. Actual
+new-image delivery and remaining Linux qualifications stay separate L76 work. Its SHA-256 is
 `81fe77912a172d0c0695820dc91545ac5bd5ba1c8e4382ed68cc47ef79dad880`.
 
 New-release native integration, actual rebuilt application closure/symbol

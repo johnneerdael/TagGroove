@@ -191,6 +191,9 @@ jobs:
           $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           $global:LASTEXITCODE = 0
       - run: npm ci
+      - name: Prepare AppImage shared license material and inspector
+        if: runner.os == 'Linux'
+        run: python scripts/appimage-licenses.py --stage --prepare-inspector
       # No releaseId or tagName: this action builds only. Nothing is published
       # until the single final job validates every required platform artifact.
       - name: Build desktop packages
@@ -200,6 +203,9 @@ jobs:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --ci
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: false
+      - name: Verify AppImage copyright license references
+        if: runner.os == 'Linux'
+        run: python scripts/appimage-licenses.py --verify-built '${{ matrix.target }}'
       - name: Verify Windows installer helper notice bindings
         if: runner.os == 'Windows'
         run: python scripts/component-notices.py --check --built-platform windows

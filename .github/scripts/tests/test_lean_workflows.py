@@ -1,4 +1,5 @@
 """Execution-contract checks for the reviewed validation/release split."""
+import json
 import re
 import unittest
 from pathlib import Path
@@ -14,6 +15,29 @@ def job(source, name):
 
 
 class LeanWorkflows(unittest.TestCase):
+    def test_appimage_license_material_is_staged_before_build_and_verified_before_collection(self):
+        block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "desktop")
+        for title, command in [
+            ('Prepare AppImage shared license material and inspector', 'python scripts/appimage-licenses.py --stage --prepare-inspector'),
+            ('Verify AppImage copyright license references', "python scripts/appimage-licenses.py --verify-built '${{ matrix.target }}'"),
+        ]:
+            step = block.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+            self.assertIn("if: runner.os == 'Linux'", step)
+            self.assertIn(command, step)
+        stage = block.index('name: Prepare AppImage shared license material and inspector')
+        build = block.index('name: Build desktop packages')
+        verify = block.index('name: Verify AppImage copyright license references')
+        collect = block.index('node scripts/release.mjs collect-desktop')
+        self.assertLess(stage, build)
+        self.assertLess(build, verify)
+        self.assertLess(verify, collect)
+        config = json.loads((WORKFLOWS.parents[1] / 'src-tauri/tauri.conf.json').read_text())
+        self.assertEqual(config['bundle']['linux']['appimage']['files']['/usr/share/common-licenses'],
+                         '../target/appimage-common-licenses/')
+        tooling = job((WORKFLOWS / '_reviewed-build.yml').read_text(), 'tooling')
+        self.assertIn("python3 -m unittest discover -s scripts/tests -p 'test_*notices.py' -v", tooling)
+        self.assertIn("python3 -m unittest discover -s scripts/tests -p 'test_appimage_licenses.py' -v", tooling)
+
     def test_android_notices_match_actual_runtime_archives_before_package_collection(self):
         block = job((WORKFLOWS / "reviewed-release.yml").read_text(), "android")
         build = block.index("npm run tauri -- android build --target aarch64 --apk --ci")
