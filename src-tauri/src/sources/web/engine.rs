@@ -1696,10 +1696,9 @@ mod tests {
 
     #[test]
     fn native3361_registered_commands_and_argument_counts_are_covered() {
-        let fixture: Value = serde_json::from_str(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../tests/fixtures/web-source-native-3361-commands.json"
-        )))
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/web-source-native-3361-commands.json"
+        ))
         .unwrap();
         let expected: BTreeMap<_, _> = fixture["commands"]
             .as_array()

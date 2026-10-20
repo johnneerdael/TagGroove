@@ -91,3 +91,15 @@ execution-equivalence claim is made.
 Clippy, formatting, extraction, strict guide and ledger checks are recorded
 with the committed checkpoint. No original application, native UI, live
 provider or production audio library was used for these checks.
+
+## Cross-crate fixture path correction
+
+The later L22a test-target lint check also compiles this engine through the
+core guide harness. It reproduced a compile failure because the command snapshot
+path used `CARGO_MANIFEST_DIR`, which then referred to `crates/tag-core` instead
+of `src-tauri`. The snapshot is now included relative to this source file, so
+both consumers resolve the same committed fixture independently of the crate
+manifest. This changes test inclusion only, not parser behavior or the 67-command
+contract. Focused cross-crate compilation and the 67-command registry test passed;
+library/test-target Clippy for both affected packages also passed. Exact run
+identities are retained in the task checkpoint.
