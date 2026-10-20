@@ -112,6 +112,22 @@ unfinished separator support.
 The final local link audit checks nine changed Markdown files and 640
 links/anchors with zero errors. The W5a correction has a clear re-review.
 
+## First premerge CI correction
+
+The first reviewed-head [CI run 39358098014](https://github.com/johnneerdael/TagGroove/actions/runs/39358098014)
+failed its folder-recipe guide probe. Its contiguous source extraction copied
+the adjacent inline helper as well as the converter helper, then correctly
+rejected the unused inline helper under `rustc -D warnings`. This was a
+standalone test-probe boundary failure, not a failing filename operation.
+
+The probe now extracts only the named production converter helper and its
+pure destination dependency. It retains all written-case assertions and
+`-D warnings`. All four focused folder-recipe tests pass, including the real
+standalone helper compile (`taggroove-l47a-guide-probe-ci-fix-4ra03zs5`).
+Application source and the policy/source bindings above remain unchanged.
+The corrected PR head still requires fresh GitHub CODE approval and immutable
+premerge validation; the earlier clean review does not approve a new commit.
+
 ## Engineer handover and remaining work
 
 Use Windows with the pinned original and a source/executable-bound TagGroove
