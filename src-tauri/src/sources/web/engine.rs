@@ -2425,7 +2425,9 @@ mod tests {
         };
         let outcome = run(&script(""), "", &env);
         assert!(outcome.files.is_empty());
-        let error = outcome.result.err().expect("seed name must count");
+        let Err(error) = outcome.result else {
+            panic!("seed name must count");
+        };
         assert_eq!(error.line, 0);
         assert_eq!(error.command, "CurrentPreview");
         assert!(error.message.contains("16 MB"));
