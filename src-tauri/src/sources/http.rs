@@ -30,6 +30,27 @@ pub(super) mod fixture {
     use reqwest::ResponseBuilderExt;
     use std::collections::VecDeque;
 
+    /// Exercise process-wide acquisition fixtures without intercepting requests
+    /// from unrelated tests running concurrently in the parent test harness.
+    pub fn run_isolated(test: &str) -> bool {
+        const WORKER: &str = "TAGGROOVE_HTTP_FIXTURE_TEST";
+        if std::env::var(WORKER).as_deref() == Ok(test) {
+            return false;
+        }
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", test, "--nocapture"])
+            .env(WORKER, test)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        true
+    }
+
     pub struct Reply {
         pub url: String,
         pub status: u16,
@@ -41,6 +62,7 @@ pub(super) mod fixture {
         replies: VecDeque<Reply>,
         consumed: usize,
         misses: usize,
+        referers: Vec<Option<String>>,
     }
     static STATE: StdMutex<Option<State>> = StdMutex::new(None);
     pub struct Scope;
@@ -57,11 +79,15 @@ pub(super) mod fixture {
                 replies: replies.into(),
                 consumed: 0,
                 misses: 0,
+                referers: Vec::new(),
             });
             Self
         }
         pub fn counts(&self) -> (usize, usize, usize) {
             active_counts()
+        }
+        pub fn referers(&self) -> Vec<Option<String>> {
+            STATE.lock().unwrap().as_ref().unwrap().referers.clone()
         }
     }
     pub fn active_counts() -> (usize, usize, usize) {
@@ -101,6 +127,13 @@ pub(super) mod fixture {
             .expect("fixture request must be cloneable")
             .build()
             .expect("fixture request must build");
+        state.referers.push(
+            request
+                .headers()
+                .get(header::REFERER)
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned),
+        );
         let Some(position) = state.replies.iter().position(|r| {
             request.method() == reqwest::Method::GET && request.url().as_str() == r.url
         }) else {
@@ -226,6 +259,7 @@ type CachedClient = StdMutex<Option<(Network, reqwest::Client)>>;
 fn cached_client(
     slot: &CachedClient,
     redirect: fn() -> reqwest::redirect::Policy,
+    referer: bool,
 ) -> Result<reqwest::Client, String> {
     let network = crate::settings::network();
     let mut cached = slot.lock().map_err(|_| "Network client lock failed")?;
@@ -234,43 +268,52 @@ fn cached_client(
     }
     let client = builder(&network)?
         .redirect(redirect())
+        .referer(referer)
         .build()
         .map_err(|e| format!("Network client could not start: {e}"))?;
     *cached = Some((network, client.clone()));
     Ok(client)
 }
 
+fn trusted_redirects() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() >= 5 {
+            attempt.error("too many redirects")
+        } else if attempt.url().host_str() == Some("api.discogs.com") {
+            // Discogs has a separate no-redirect client so each API call
+            // enters the authenticated shared quota gate explicitly.
+            attempt.error("untrusted redirect")
+        } else if trusted(attempt.url()) {
+            attempt.follow()
+        } else {
+            attempt.error("untrusted redirect")
+        }
+    })
+}
+
 /// The tag source client: redirects are followed only to trusted hosts.
 fn client() -> Result<reqwest::Client, String> {
     static CLIENT: CachedClient = StdMutex::new(None);
-    cached_client(&CLIENT, || {
-        reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() >= 5 {
-                attempt.error("too many redirects")
-            } else if attempt.url().host_str() == Some("api.discogs.com") {
-                // Discogs has a separate no-redirect client so each API call
-                // enters the authenticated shared quota gate explicitly.
-                attempt.error("untrusted redirect")
-            } else if trusted(attempt.url()) {
-                attempt.follow()
-            } else {
-                attempt.error("untrusted redirect")
-            }
-        })
-    })
+    cached_client(&CLIENT, trusted_redirects, true)
+}
+
+/// Keep Traxsource's fixed site Referer when its artwork redirects to a CDN.
+fn traxsource_image_client() -> Result<reqwest::Client, String> {
+    static CLIENT: CachedClient = StdMutex::new(None);
+    cached_client(&CLIENT, trusted_redirects, false)
 }
 
 /// The freedb server is user-configured (Options → Tag Sources → freedb), so
 /// it is not on the trusted list; its client never follows redirects.
 fn freedb_client() -> Result<reqwest::Client, String> {
     static CLIENT: CachedClient = StdMutex::new(None);
-    cached_client(&CLIENT, reqwest::redirect::Policy::none)
+    cached_client(&CLIENT, reqwest::redirect::Policy::none, true)
 }
 
 /// API redirects would send a second request outside the shared quota gate.
 fn discogs_client() -> Result<reqwest::Client, String> {
     static CLIENT: CachedClient = StdMutex::new(None);
-    cached_client(&CLIENT, reqwest::redirect::Policy::none)
+    cached_client(&CLIENT, reqwest::redirect::Policy::none, true)
 }
 
 /// Requests through one gate run one at a time, at least `spacing` apart.
@@ -725,19 +768,23 @@ pub static WEB: Gate = Gate::new();
 
 fn web_client() -> Result<reqwest::Client, String> {
     static CLIENT: CachedClient = StdMutex::new(None);
-    cached_client(&CLIENT, || {
-        reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() >= 10 {
-                attempt.error("too many redirects")
-            } else if attempt.url().host_str() == Some("api.discogs.com") {
-                attempt.error("Discogs API redirects require the shared authenticated source")
-            } else if web_allowed(attempt.url()) {
-                attempt.follow()
-            } else {
-                attempt.error("unsupported redirect")
-            }
-        })
-    })
+    cached_client(
+        &CLIENT,
+        || {
+            reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() >= 10 {
+                    attempt.error("too many redirects")
+                } else if attempt.url().host_str() == Some("api.discogs.com") {
+                    attempt.error("Discogs API redirects require the shared authenticated source")
+                } else if web_allowed(attempt.url()) {
+                    attempt.follow()
+                } else {
+                    attempt.error("unsupported redirect")
+                }
+            })
+        },
+        true,
+    )
 }
 
 /// A downloaded web source page and the address it finally came from.
@@ -881,7 +928,24 @@ pub async fn image(url: &str, channel: Channel, ticket: u64) -> Result<Image, St
     if !image_target_allowed(&url, offline_test_run()) {
         return Err(OFFLINE.into());
     }
-    let service = Service::new("The image server", &IMAGES, 0);
+    let mut service = Service::new("The image server", &IMAGES, 0);
+    let traxsource = matches!(
+        url.host_str(),
+        Some(
+            "traxsource.com"
+                | "www.traxsource.com"
+                | "geo-static.traxsource.com"
+                | "geo-static2.traxsource.com"
+                | "geo-w-static.traxsource.com"
+                | "w-static.traxsource.com"
+        )
+    );
+    let client = if traxsource {
+        service.auth = Auth::Headers(vec![("Referer", "https://www.traxsource.com/".into())]);
+        traxsource_image_client()?
+    } else {
+        client
+    };
     let response = send_with(&client, &service, &url, "image/*", None, channel, ticket).await?;
     if !response.status().is_success() {
         return Err(match response.status().as_u16() {
@@ -934,7 +998,52 @@ mod tests {
     use super::*;
 
     #[test]
+    fn traxsource_artwork_fetch_sends_its_catalog_referer_only_to_traxsource_images() {
+        if fixture::run_isolated("sources::http::tests::traxsource_artwork_fetch_sends_its_catalog_referer_only_to_traxsource_images") {
+            return;
+        }
+        let mut data = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(1, 1)
+            .write_to(&mut data, image::ImageFormat::Png)
+            .unwrap();
+        let addresses = [
+            "https://geo-static.traxsource.com/cover.png",
+            "https://w-static.traxsource.com/cover.png",
+            "https://geo-media.beatportimage.com/cover.png",
+        ];
+        let scope = fixture::Scope::start(
+            addresses
+                .iter()
+                .map(|address| fixture::Reply {
+                    url: (*address).into(),
+                    status: 200,
+                    content_type: "image/png",
+                    body: data.get_ref().clone(),
+                    cancel: None,
+                })
+                .collect(),
+        );
+        for address in addresses {
+            let image =
+                tauri::async_runtime::block_on(image(address, Channel::Image, u64::MAX)).unwrap();
+            assert_eq!(image.mime, "image/png");
+        }
+        assert_eq!(
+            scope.referers(),
+            vec![
+                Some("https://www.traxsource.com/".into()),
+                Some("https://www.traxsource.com/".into()),
+                None
+            ]
+        );
+        assert_eq!(scope.counts(), (3, 0, 0));
+    }
+
+    #[test]
     fn discogs_web_requests_use_the_native_service_gate_and_credentials() {
+        if fixture::run_isolated("sources::http::tests::discogs_web_requests_use_the_native_service_gate_and_credentials") {
+            return;
+        }
         let auth = Auth::DiscogsApp {
             key: "test-app".into(),
             secret: "test-secret".into(),
@@ -967,6 +1076,9 @@ mod tests {
 
     #[test]
     fn discogs_script_credentials_never_leave_over_plaintext_or_nonstandard_ports() {
+        if fixture::run_isolated("sources::http::tests::discogs_script_credentials_never_leave_over_plaintext_or_nonstandard_ports") {
+            return;
+        }
         let service = Service {
             auth: Auth::DiscogsToken("test-personal-token".into()),
             ..Service::new("Discogs", &DISCOGS, 1100)
