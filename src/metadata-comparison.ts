@@ -18,7 +18,7 @@ export type ComparisonPreview = {
 };
 export type ComparisonSaveOutcome = {succeeded:string[];failed:{path:string;error:string}[]};
 
-const commonFields = ['ALBUM','ALBUMARTIST','ARTIST','TITLE','YEAR','TRACK','DISCNUMBER','GENRE','STYLE','BPM','INITIALKEY','COMPOSER','REMIXER','PUBLISHER','LABEL','CATALOGNUMBER','BARCODE','ISRC','COMMENT','LYRICS'];
+const commonFields = ['ALBUM','ALBUMARTIST','ARTIST','TITLE','YEAR','TRACK','DISCNUMBER','GENRE','STYLE','BPM','INITIALKEY','COMPOSER','REMIXER','PUBLISHER','LABEL','CATALOGNUMBER','BARCODE','ISRC','COMMENT','UNSYNCEDLYRICS'];
 const hasValue = (values:string[]|undefined):values is string[] => Array.isArray(values) && values.some(value => value.trim().length > 0);
 const ownValues = (fields:Fields,name:string) => Object.hasOwn(fields,name) ? fields[name] : undefined;
 const equalValues = (a:string[]|undefined,b:string[]|undefined) => JSON.stringify(a || []) === JSON.stringify(b || []);
@@ -90,7 +90,7 @@ export function buildComparisonPreview(files:SourceFile[],candidates:ComparisonC
         result.missing.push({path:file.path,field,sourceId:choice.sourceId});
       } else if (!equalValues(ownValues(existing,field),values)) {
         updates.set(field,values);
-        if (field === 'LYRICS' && candidate.release.provider === 'lrclib') rawLyrics = true;
+        if (field === 'UNSYNCEDLYRICS' && candidate.release.provider === 'lrclib') rawLyrics = true;
       }
     }
     const removeCovers = artwork.kind === 'none' && (file.covers === undefined || file.covers.length > 0);

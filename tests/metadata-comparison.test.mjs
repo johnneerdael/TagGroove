@@ -79,8 +79,8 @@ test('an unmatched source track blocks track fields while shared release fields 
 });
 
 test('LRCLIB lyrics use raw-lyrics writing only when that field is imported',()=>{
-  const c=candidate({sourceId:'native:lrclib',release:release({provider:'lrclib',tracks:[track('Two','Artist B',{LYRICS:['Line one\nLine two']}),track('One','Artist A',{LYRICS:['Another song']})]})});
-  assert.deepEqual(buildComparisonPreview(files(),[c],{LYRICS:from('native:lrclib')}).items,[{path:'/a.flac',updates:{LYRICS:['Another song']},raw_lyrics:true},{path:'/b.flac',updates:{LYRICS:['Line one\nLine two']},raw_lyrics:true}]);
+  const c=candidate({sourceId:'native:lrclib',release:release({provider:'lrclib',tracks:[track('Two','Artist B',{UNSYNCEDLYRICS:['Line one\nLine two']}),track('One','Artist A',{UNSYNCEDLYRICS:['Another song']})]})});
+  assert.deepEqual(buildComparisonPreview(files(),[c],{UNSYNCEDLYRICS:from('native:lrclib')}).items,[{path:'/a.flac',updates:{UNSYNCEDLYRICS:['Another song']},raw_lyrics:true},{path:'/b.flac',updates:{UNSYNCEDLYRICS:['Line one\nLine two']},raw_lyrics:true}]);
   assert.equal(buildComparisonPreview(files(),[c],{ALBUMARTIST:from('native:lrclib')}).items[0].raw_lyrics,undefined);
 });
 
