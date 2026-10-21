@@ -1,55 +1,155 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-dark-1600x480.svg">
-  <img src="assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-light-1600x480.svg" alt="TagGroove — Tag, Organize, Enjoy" width="100%">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-dark-1600x480.svg">
+    <img src="assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-light-1600x480.svg" alt="TagGroove. Tag, Organize, Enjoy." width="100%">
+  </picture>
+</p>
 
-# TagGroove
+<p align="center">
+  <a href="https://github.com/johnneerdael/TagGroove/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/johnneerdael/TagGroove?style=flat-square&color=FF7800&label=download"></a>
+  <a href="https://taggroove.neerdael.nl/"><img alt="User guide" src="https://img.shields.io/badge/user%20guide-online-101922?style=flat-square"></a>
+  <img alt="Desktop platforms" src="https://img.shields.io/badge/Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-101922?style=flat-square">
+  <a href="COPYING"><img alt="GPLv3 license" src="https://img.shields.io/badge/license-GPLv3-101922?style=flat-square"></a>
+</p>
 
-[![Releases](https://img.shields.io/github/v/release/johnneerdael/TagGroove?include_prereleases&color=FF7800&label=Download)](https://github.com/johnneerdael/TagGroove/releases)
-[![GPLv3 License](https://img.shields.io/badge/License-GPLv3-101922)](COPYING)
+TagGroove is a free, open source music tag editor for Windows, macOS and Linux. Fix an album's tags, find the right artwork, rename a folder of files, or turn a cleanup you do every week into a saved action group.
 
-**Tag, Organize, Enjoy.** An open source music tag editor for Windows, macOS, Linux, Android and iOS.
+Open a folder and get to work. You can edit files directly, look up missing details from music catalogs, and choose exactly which fields to keep. The everyday tagging tools work offline; online sources are there when you need them.
 
-An independently authored open source reconstruction of Mp3tag 3.36.1 using Tauri 2 and a Rust tagging engine. Exact feature and performance parity remain the project goal. The [parity ledger](docs/PARITY.md) lists missing behavior and unresolved semantics; [performance measurements](docs/PERFORMANCE.md) retain their tested scope. The [remaining-work priorities](docs/handover/PARITY-PRIORITIES.md) explain user impact, work type, effort and required environments.
+<p align="center">
+  <a href="https://github.com/johnneerdael/TagGroove/releases/latest"><b>Download</b></a> &nbsp;·&nbsp;
+  <a href="https://taggroove.neerdael.nl/getting-started/"><b>Get started</b></a> &nbsp;·&nbsp;
+  <a href="https://taggroove.neerdael.nl/"><b>User guide</b></a> &nbsp;·&nbsp;
+  <a href="https://github.com/johnneerdael/TagGroove/issues"><b>Report an issue</b></a>
+</p>
 
-The desktop editor loads audio folders, edits common and extended multi-value tags, manages embedded covers, previews filename conversion, edits ordered action groups, numbers tracks, looks up tags from online sources, and exports through MTE templates and playlists. Audio edits stage and verify a copy before replacing the file. Generated fixture tests check preservation of audio packet hashes, unknown fields and covers across multiple formats. The supplied TagGroove brand kit provides the interface identity and platform icons.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/user-guide/assets/screens/main-window-dark.png">
+    <img src="docs/user-guide/assets/screens/main-window-light.png" alt="TagGroove with an album's files, editable tags and embedded cover art" width="100%">
+  </picture>
+</p>
 
-Current remainders include a separate floating tag-panel window, mobile action execution and additional container/profile compatibility. This branch repairs the confirmed scripting, action-file, Lyrics3v2 and playlist-identity defects and adds full-content checks for observed concealed external edits during Save and Undo/Redo, persistent eligible desktop history and verified-copy interruption recovery; those repairs still require final reviewed integration. Review the [current remainders](docs/PARITY.md#uncovered-work) before migrating these workflows. Outstanding reference/platform checks for implemented features live separately in the [qualification register](docs/research/remaining-gaps.md#qualification-of-implemented-scopes).
+## What you can do
 
-## Download
+| Task | In TagGroove |
+| --- | --- |
+| Edit a whole album | Change shared fields across a selection, edit individual cells, or open extended tags for custom fields and multiple values. |
+| Fill in missing metadata | Search MusicBrainz, Discogs, Beatport, Traxsource, iTunes or Deezer. Review the result and match its tracks to your files before saving. |
+| Find the right mix | Use built-in Beatport and Traxsource track or release lookups, keep mix/version details, and open a matched track's full release. |
+| Compare catalog results | For one file, compare Discogs, Beatport and Traxsource side by side. Choose a source for each field while keeping the rest of your tags. |
+| Sort out artwork | Add, replace, extract and resize embedded covers, or look up artwork without changing text tags. |
+| Fix filenames and folders | Build names from tags, read tags from existing filenames, and preview conversions before applying them. |
+| Stop repeating the same cleanup | Save ordered action groups for replacements, regular expressions, case changes, field formatting and more. |
+| Number and export | Number tracks across albums and discs, generate playlists, and export CSV or HTML catalogs through customizable templates. |
+| Make the editor fit | Choose light or dark appearance, customize columns and the tag panel, and filter the file list by tags or file properties. |
 
-Get platform installers from the [latest GitHub release](https://github.com/johnneerdael/TagGroove/releases/latest). Reviewed merges that change shipping files enter the release pipeline; publication waits for all required packages, source archives and verification gates. Versions follow the `0.2.1`, `0.2.2`, … sequence; docs-only merges do not advance it. Release assets include checksums and identify their operating system and architecture.
+Supported formats include MP3, FLAC, M4A/MP4, AAC, ALAC, WAV, AIFF, Ogg Vorbis, Opus, WMA, WavPack, APE, DSF and DFF. Tag storage and artwork support vary by format; the [format reference](https://taggroove.neerdael.nl/reference/file-formats/) has the full list and limits.
 
-See [release automation](docs/RELEASING.md) for build targets, signing status and publishing instructions. Simulator previews are labeled separately from device installers.
+## A closer look
 
-## User guide
+<table>
+  <tr>
+    <td width="50%"><img src="docs/user-guide/assets/screens/extended-tags-dark.png" alt="Extended tags showing editable fields, multiple-value controls and cover art"><br><sub><b>The details are editable.</b> Work with custom fields, multiple values and artwork in one place.</sub></td>
+    <td width="50%"><img src="docs/user-guide/assets/screens/tag-to-filename-light.png" alt="Tag to Filename dialog showing a format string and proposed filenames"><br><sub><b>See the names first.</b> Preview what a format string will do before renaming files.</sub></td>
+  </tr>
+</table>
 
-Read the [TagGroove user guide](https://taggroove.neerdael.nl/) for your first tagging session, practical recipes, and format-string and regular-expression references. The guide is growing; unfinished topics stay out of the published site.
+For example, this filename format:
 
-See [documentation publishing](docs/PUBLISHING.md) to contribute or check a deployment.
+```text
+$num(%track%,2) - %artist% - %title%
+```
 
-## Develop
+turns `01_low_tide.mp3` into `01 - Juniper Vale - Low Tide.mp3` using the file's tags. Save the format for the next album, or build an action group when the job needs several steps. The guide includes [practical recipes](https://taggroove.neerdael.nl/cookbook/) for the usual library chores.
 
-Install the official Tauri 2 prerequisites for the target OS, current stable Rust, a C++17 compiler, and Node.js 22. The regex bridge vendors open source Boost.Regex under its included Boost Software License. FFmpeg/ffprobe enable the encoded-format fixture tests.
+## Built-in music sources
+
+Beatport and Traxsource are built in, with searches for individual tracks and complete releases. You can keep the full mix name, check the track's actual release position, and fetch the rest of the release from a track match.
+
+Discogs supports release searches by artist and album, free text, barcode or catalog number, plus direct release links. Artist-and-title search helps when you have a single track: choose the edition, then pick the exact track from its tracklist.
+
+When catalogs disagree, **Compare sources for one file…** puts Discogs, Beatport and Traxsource values next to your current tags. Take the title from one source and the label from another, or leave a field alone. Nothing is selected for replacement until you choose it. Artwork is handled separately.
+
+MusicBrainz, iTunes, Deezer, LRCLIB lyrics and AcoustID fingerprint lookup are available too. Some services need credentials, and Traxsource may need an optional challenge solver. See [tag sources](https://taggroove.neerdael.nl/tag-sources/) for setup, network use and provider limits.
+
+## Bring your Mp3tag setup
+
+Already have action groups and naming rules you like? **File → Import Mp3tag setup…** reads an Mp3tag configuration folder or backup ZIP and previews what can come across.
+
+Import supported action groups, export templates, column and tag-panel layouts, custom field values and preferences. Choose what to keep or replace; unsupported settings are reported. The import leaves your original Mp3tag setup unchanged and does not run actions or edit music files.
+
+TagGroove can also save and restore its own configuration backups. Compatibility with Mp3tag is still growing; the [migration guide](https://taggroove.neerdael.nl/getting-started/coming-from-mp3tag/) explains what is supported and what needs review.
+
+## How your files are handled
+
+TagGroove's audio metadata writer stages changes in a copy and verifies that copy before replacing the file. Preservation tests check audio packet hashes, unknown fields and covers across supported formats. This is metadata editing; it does not transcode your music.
+
+Tag-panel edits wait for **Save tags**. Actions, applied converters and source imports write when confirmed in their own dialogs. Eligible desktop operations have Undo/Redo history, but its availability depends on the operation and successful history storage. Keep backups of your music. Read [editing and saving](https://taggroove.neerdael.nl/getting-started/editing-and-saving/) and [Undo limits](https://taggroove.neerdael.nl/guides/undo-history/) before a large batch.
+
+Online lookups send search terms and identifiers to the chosen provider. AcoustID sends a locally computed fingerprint and duration. These lookups do not upload your audio files.
+
+## Install
+
+Choose your operating system and processor from the [latest release](https://github.com/johnneerdael/TagGroove/releases/latest). You do not need Rust or Node.js to use a downloaded build.
+
+| System | Download | Notes |
+| --- | --- | --- |
+| Windows, x64 | `-windows-x64-setup.exe` | Desktop installer. Unsigned; Windows may show an unknown-publisher warning. |
+| macOS, Apple silicon | `-macos-arm64.dmg` | Also available as an app archive. Check the release's signing and notarization notes. |
+| macOS, Intel | `-macos-x64.dmg` | Separate Intel build; check the same release notes. |
+| Linux, x64 or arm64 | `.AppImage`, `.deb` or `.rpm` | Unsigned. Built on Ubuntu 24.04; compatibility with older distributions is not established. |
+
+Releases include `SHA256SUMS`, a release manifest and corresponding source. The [installation guide](https://taggroove.neerdael.nl/getting-started/install/) covers package selection and platform-specific steps.
+
+Android arm64 APKs and iOS ARM64 simulator builds are also available as UI previews. Mobile document editing and save-back are still in progress. The iOS archive is for a simulator, not an iPhone or iPad installer.
+
+## Why I'm building it
+
+I'm a paying Mp3tag user on macOS. Preparing my music had me moving between four apps: Lexicon, Mp3tag, OneTagger and Mixed In Key. I started [CueRithm](https://github.com/johnneerdael/CueRithm) with the goal of replacing that four-app workflow for myself.
+
+TagGroove focuses on the tagging side: a dedicated editor I can use across operating systems. Mp3tag shaped the familiar workflows, and the project has grown to include built-in Beatport and Traxsource support, expanded Discogs searches and field-by-field catalog comparison. Importing an existing Mp3tag setup still matters; so does making the next tagging job easier.
+
+## Still in development
+
+TagGroove is pre-1.0. It does not yet match every Mp3tag workflow or container variation. A separate floating tag-panel window, mobile action execution and further compatibility work remain on the [open-work list](docs/PARITY.md). The [qualification register](docs/research/remaining-gaps.md#qualification-of-implemented-scopes) records where implemented features still need reference or platform verification.
+
+If something gets in the way of tagging your music, [open an issue](https://github.com/johnneerdael/TagGroove/issues). Include your TagGroove version, operating system, file format and the steps that caused the problem. A specific example of a job you could not finish is useful.
+
+## Documentation
+
+The [user guide](https://taggroove.neerdael.nl/) covers installation, everyday editing and the more involved jobs:
+
+- [Your first tagging session](https://taggroove.neerdael.nl/learn/first-tagging-session/)
+- [Clean up a messy library](https://taggroove.neerdael.nl/learn/clean-a-messy-library/)
+- [Build an action group](https://taggroove.neerdael.nl/learn/first-action-group/)
+- [Format strings](https://taggroove.neerdael.nl/reference/format-strings/) and [regular expressions](https://taggroove.neerdael.nl/reference/regular-expressions/)
+
+## Credits and license
+
+Mp3tag by Florian Heidenreich is the reference for many of TagGroove's editing workflows. TagGroove is an independent implementation; the original Mp3tag executable, code and vendor assets are not included. The projects are not affiliated.
+
+Beatport and Traxsource support builds on OneTagger-derived code adapted through CueRithm. Thanks to [OneTagger](https://github.com/Marekkon5/onetagger) and the other open source projects this app depends on. See [catalog source provenance](crates/catalog-sources/README.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+The combined application is GPL-3.0-only ([COPYING](COPYING)). Independently authored MIT components retain their [MIT license](LICENSE); dependencies retain their own licenses.
+
+## For developers
+
+TagGroove uses Tauri 2, a TypeScript interface and a Rust tagging engine. Start with the [contribution guide](docs/CONTRIBUTING.md) for native build prerequisites and checks, and [release documentation](docs/RELEASING.md) for packaging and signing. Source-derived inventories and reference comparisons live in [the evidence documentation](docs/evidence/).
+
+With the prerequisites installed:
 
 ```sh
 npm ci
 npm run tauri dev
 ```
 
+For local validation:
+
 ```sh
 npm run build
 npm test
 cargo clippy --workspace --all-targets --locked -- -D warnings
-npm run tauri build
 ```
 
-Builds run through the reviewed pull-request workflow (see `.github/CI_LOCKDOWN.md`) for Windows, macOS and Linux. Local macOS validation is not proof of the other platforms. Android and iOS builds exist. Android document access still needs device verification, and iOS document access and save-back are not implemented yet.
-
-## Evidence
-
-`docs/evidence/inventory.py ../` reproduces the resource-derived feature inventory against the separately supplied executable. The executable and vendor icons, templates, translations and source scripts are not part of this application. REA evidence references distinguish static observations from inferred behavior and runtime verification. Tests of this implementation are separate from original-app differential tests.
-
-## License
-
-The combined application is distributed under GPL-3.0-only because its native Beatport and Traxsource adapters adapt OneTagger-derived CueRithm code. See [COPYING](COPYING) and [catalog source provenance](crates/catalog-sources/README.md). Existing independently authored MIT components retain their [MIT license](LICENSE); third-party dependencies retain their own notices. The original Mp3tag software remains the property of its author.
+Code contributions go through the [reviewed pull-request workflow](docs/CONTRIBUTING.md#review-and-merge).
