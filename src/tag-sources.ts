@@ -1,6 +1,6 @@
 import type { OptionsDraft, OptionsPage } from './options-ui';
 import type { WebResult, WebSearchPage, WebSourceInfo } from './web-sources';
-type Fields = Record<string, string[]>;
+export type Fields = Record<string, string[]>;
 export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb'|'web'|'itunes'|'deezer'|'lrclib'|'acoustid'|'lastfm'|'fanart'|'beatport'|'traxsource';
 export type SearchMode = 'artist_album'|'text'|'release_id'|'barcode'|'catalog_number'|'toc'|'disc_id'|'files'|'fingerprint'|'artist_title'|'release';
 export type SearchResult = {id:string;release_id?:string|null;release_title?:string|null;title:string;artist:string;year:string;country:string;label:string;catalog_number:string;format:string;track_count:number|null;score:number|null;barcode:string;thumb:string|null;url:string};
@@ -9,8 +9,8 @@ export type SourceTrack = {position:string;disc:number;number:number;title:strin
 export type SourceCover = {url:string;thumb:string|null;kind:string;width:number|null;height:number|null};
 export type SourceRelease = {provider:Provider;id:string;url:string;preview_url?:string|null;title:string;artist:string;fields:Fields;tracks:SourceTrack[];covers:SourceCover[];more_covers:boolean};
 /** Selected file values as shown in the file list (native field casing already resolved). */
-export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number;fields?:Fields};
-export type ApplyItem = {path:string;updates:Fields;raw_lyrics?:boolean};
+export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number;fields?:Fields;covers?:{digest:string;thumbnail:string;description:string}[]};
+export type ApplyItem = {path:string;updates:Fields;raw_lyrics?:boolean;remove_covers?:boolean;comparison_snapshot?:string};
 /** `save_as` is Utils → Save image to disc: the file name format from Options → Tag Sources. */
 export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|null;preserve_existing?:boolean};
 export type TagSourceCredentials = {discogs_token_set:boolean;discogs_token_in_keychain:boolean;keychain_available:boolean;
