@@ -1,6 +1,6 @@
 # TagGroove licenses and third-party notices
 
-TagGroove application source is MIT licensed. Built-in audio fingerprinting links Chromaprint, FFmpeg, zlib and bzip2; non-Apple builds also use the KissFFT included with Chromaprint. Applicable component licenses and copyright notices follow. No GPL/nonfree/version3 FFmpeg components are enabled. A small recorded patch opts into upstream LGPL-marked audio components; exact original source, patches and build configuration accompany the matching release.
+The combined TagGroove application is distributed under GPL-3.0-only. Existing independently authored MIT component notices remain in force. Built-in audio fingerprinting links Chromaprint, FFmpeg, zlib and bzip2; non-Apple builds also use the KissFFT included with Chromaprint. Applicable component licenses and copyright notices follow. No GPL/nonfree/version3 FFmpeg components are enabled. A small recorded patch opts into upstream LGPL-marked audio components; exact original source, patches and build configuration accompany the matching release.
 
 The native regular-expression bridge also uses the vendored Boost.Regex library under BSL-1.0.
 
@@ -8,7 +8,7 @@ The matching release provides complete corresponding application and native-libr
 
 The application also displays these notices offline in Help > About TagGroove.
 
-## TagGroove (MIT)
+## Independently authored TagGroove components (MIT)
 
 MIT License
 
