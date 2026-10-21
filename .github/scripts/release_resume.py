@@ -37,14 +37,15 @@ def validate(api, run_id, source, changes):
     if any(not (path.startswith(('.github/', 'docs/')) or path in {'scripts/release.mjs', 'tests/release.test.mjs', 'tests/e2e/sources-4.js'})
            for path in changes):
         raise RuntimeError('Native recovery cannot reuse packages after application changes')
-    run = api.get(f'actions/runs/{run_id}')
+    run = api.get(f'actions/runs/{run_id}/attempts/1')
     workflow = api.get('actions/workflows/reviewed-release.yml')
     if (run.get('id') != int(run_id) or run.get('workflow_id') != workflow['id']
             or run.get('event') != 'workflow_dispatch' or run.get('head_branch') != 'main'
             or run.get('head_sha') != source or run.get('status') != 'completed'
             or run.get('conclusion') != 'failure' or run.get('run_attempt') != 1):
         raise RuntimeError('Recovery requires the original completed failed main release for this source')
-    jobs = api.jobs(run_id)
+    pages = api.request(f'repos/{api.repo}/actions/runs/{run_id}/attempts/1/jobs?per_page=100', paginate=True)
+    jobs = [job for page in pages for job in page['jobs']]
     for name in REQUIRED_JOBS:
         found = [job for job in jobs if job['name'] == name]
         if len(found) != 1 or found[0].get('conclusion') != 'success':

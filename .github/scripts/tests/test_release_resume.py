@@ -25,15 +25,27 @@ class ResumeTests(unittest.TestCase):
         self.artifacts = [dict(id=index, name=name, expired=False, workflow_run=dict(head_sha=SOURCE, id=123),
                                created_at='2026-10-21T00:01:00Z', updated_at='2026-10-21T00:01:00Z')
                           for index, name in enumerate(release_resume.REQUIRED_ARTIFACTS, 1)]
-        self.api.get.side_effect = lambda path: self.run if path == 'actions/runs/123' else dict(id=7)
+        self.api.get.side_effect = lambda path: self.run if path == 'actions/runs/123/attempts/1' else dict(id=7)
         self.api.jobs.return_value = self.jobs
-        self.api.request.return_value = [dict(artifacts=self.artifacts)]
+        self.artifact_pages = [dict(artifacts=self.artifacts)]
+        self.api.request.side_effect = lambda path, **kwargs: ([dict(jobs=self.api.jobs())]
+                                                             if '/attempts/1/jobs?' in path else self.artifact_pages)
 
     def check(self, changes=('tests/e2e/sources-4.js', '.github/workflows/reviewed-release.yml')):
         return release_resume.validate(self.api, '123', SOURCE, changes)
 
     def test_retains_complete_original_packages_and_only_retries_desktop_validation(self):
         self.assertEqual(self.check(), dict(resume_run_id='123', resume_artifact_ids='1,2,3,4,5,6,7,8'))
+
+    def test_a_later_retry_does_not_replace_the_original_attempt_evidence(self):
+        original = copy.deepcopy(self.run)
+        self.api.get.side_effect = lambda path: (original if path == 'actions/runs/123/attempts/1'
+                                                 else dict(id=7) if '/workflows/' in path
+                                                 else dict(original, run_attempt=2, status='in_progress'))
+        self.assertEqual(self.check()['resume_run_id'], '123')
+        self.api.get.assert_any_call('actions/runs/123/attempts/1')
+        self.api.get.assert_any_call('actions/workflows/reviewed-release.yml')
+        self.assertFalse(any(call.args == ('actions/runs/123',) for call in self.api.get.call_args_list))
 
     def test_refuses_wrong_source_fork_workflow_incomplete_and_successful_runs(self):
         for field, value in [('head_sha', 'b' * 40), ('event', 'pull_request'),
@@ -71,7 +83,7 @@ class ResumeTests(unittest.TestCase):
                     [dict(original[0], expired=True)] + original[1:],
                     [dict(original[0], workflow_run=dict(head_sha='b' * 40, id=123))] + original[1:]]
         for artifacts in variants:
-            self.api.request.return_value = [dict(artifacts=artifacts)]
+            self.artifact_pages = [dict(artifacts=artifacts)]
             with self.assertRaises(RuntimeError):
                 self.check()
 
@@ -82,7 +94,7 @@ class ResumeTests(unittest.TestCase):
             with self.subTest(patch=patch):
                 original = copy.deepcopy(self.artifacts)
                 original[0].update(patch)
-                self.api.request.return_value = [dict(artifacts=original)]
+                self.artifact_pages = [dict(artifacts=original)]
                 with self.assertRaises(RuntimeError):
                     self.check()
 

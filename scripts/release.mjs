@@ -473,7 +473,7 @@ export function nativeRecoveryNote(plan, repository, runId, harnessSha, validati
   if (!/^[1-9][0-9]*$/.test(runId) || !/^[1-9][0-9]*$/.test(validationRunId || '') ||
       !/^[0-9a-f]{40}$/.test(harnessSha || '') || !/^[\w.-]+\/[\w.-]+$/.test(repository || ''))
     throw new Error('Invalid native recovery provenance');
-  return `Platform packages, corresponding source and Android integration were retained from [release run ${runId}](https://github.com/${repository}/actions/runs/${runId}) for ${plan.commit}. Desktop native UI validation passed in [recovery run ${validationRunId}](https://github.com/${repository}/actions/runs/${validationRunId}) using the [repaired test harness](https://github.com/${repository}/tree/${harnessSha}) at ${harnessSha}. The application source and package bytes were not changed by this test repair.`;
+  return `Platform packages, corresponding source and Android integration were retained from original attempt 1 of [release run ${runId}](https://github.com/${repository}/actions/runs/${runId}) for ${plan.commit}. Desktop native UI validation passed in [recovery run ${validationRunId}](https://github.com/${repository}/actions/runs/${validationRunId}) using the [repaired test harness](https://github.com/${repository}/tree/${harnessSha}) at ${harnessSha}. The application source and package bytes were not changed by this test repair.`;
 }
 
 export async function releaseNotes({ plan, previous, root = process.cwd(), repository = process.env.GITHUB_REPOSITORY }) {
