@@ -1,6 +1,8 @@
 # Unified metadata comparison for a track or album
 
-Status: design for user review. Implementation has not started.
+Status: interaction design approved by the user through the revised interactive
+mockup on 2026-10-22. Implementation planning follows; production implementation
+has not started.
 
 ## Purpose and agreed behavior
 
@@ -136,7 +138,11 @@ behavior. Use a resizable, scrollable workspace that also fits narrow windows.
 3. Fields area: a searchable list with **Field**, **Existing**, **Use**, and
    **Result** columns. Use is Inherit, None, or a provider; Result shows what
    that choice will save. Provider options show their value/coverage, not only
-   their names. Expand long or multi-value alternatives without truncating data.
+   their names. While the selector is open, show a dedicated read-only metadata
+   value field alongside each provider. Show the existing value separately above
+   the choices. In album mode, show track 1's value as the clearly labeled example;
+   choosing that provider still uses each album track's own matched value.
+   Expand long or multi-value alternatives without truncating data.
 4. For albums, show a common existing/result value when equal, otherwise
    **Varies across N tracks** with an expandable per-track preview. Expand the
    same row to compare existing, provider, and resulting values per file.
