@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import * as releaseTools from '../scripts/release.mjs';
 import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode, shipsChanges, NON_SHIPPING_PATHS } from '../scripts/release.mjs';
 
 const sourceFixtureRoot = mkdtempSync(join(tmpdir(), 'taggroove-release-source-'));
@@ -21,6 +22,17 @@ async function fixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   return root;
 }
+
+test('source-only recovery identifies the trusted verifier without changing release identity', () => {
+  assert.equal(typeof releaseTools.verificationToolingNote, 'function');
+  const selected=plan();const tooling='c'.repeat(40);
+  const note=releaseTools.verificationToolingNote(selected,'johnneerdael/TagGroove',tooling);
+  assert.ok(note.includes(`/tree/${tooling}`));assert.ok(note.includes(selected.commit));
+  assert.ok(note.includes(`--version ${selected.version}`));
+  assert.equal(releaseTools.verificationToolingNote(selected,'johnneerdael/TagGroove',selected.commit),'');
+  assert.throws(()=>releaseTools.verificationToolingNote(selected,'johnneerdael/TagGroove','bad ref'));
+  assert.throws(()=>releaseTools.verificationToolingNote(selected,'owner/repo]bad',tooling));
+});
 
 test('branded Windows installers retain the existing install identity', async () => {
   const config = JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json', import.meta.url)));

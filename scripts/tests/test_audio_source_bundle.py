@@ -269,6 +269,14 @@ def linux_distribution_fixture(root, builder, macos_signing=False):
 
 
 class SourceBundleTests(unittest.TestCase):
+    def test_trusted_verifier_can_read_the_selected_release_checkout_policy(self):
+        f=fixture(self.f['root']/'selected-release',macos_signing=True)
+        checked=subprocess.run([sys.executable,str(SCRIPT),'--root',str(f['app']),
+            '--source-sha',f['commit'],'--version','0.1.0','--verify-macos',
+            str(f['macos_evidence']/'macos-signing-macos-arm64.json')],capture_output=True,text=True)
+        self.assertEqual(checked.returncode,0,checked.stderr)
+        self.assertEqual(json.loads(checked.stdout)['source_commit'],f['commit'])
+
     def test_archive_budget_supports_measured_complete_sources_and_keeps_all_bounds(self):
         m=self.builder
         self.assertTrue(callable(getattr(m,'archive_budget',None)), 'Missing shared producer/verifier archive budget')

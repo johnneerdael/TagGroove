@@ -638,22 +638,31 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
     count, total = archive_budget(len(data) for data in files.values())
     count, total = archive_budget([len(manifest_raw)], count=count, total=total)
     print(f"Source archive preflight: {count} members, {total} expanded bytes (limit {MAX_ARCHIVE_BYTES})", file=sys.stderr, flush=True)
+    print("Source archive: verifying original source and dependency evidence before compression", file=sys.stderr, flush=True)
     verify_contents(files, manifest, commit, version, native_evidence, linux_evidence, macos_evidence)
+    print("Source archive: integrity checks passed; starting XZ compression", file=sys.stderr, flush=True)
     prefix = "TagGroove-v" + version + "-sources/"
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     try:
+        written, next_progress = 0, 256 * 1024**2
         with tarfile.open(temporary, "w:xz", preset=1) as archive:
             for name, data in sorted({**files, "source-manifest.json": manifest_raw}.items()):
                 info = tarfile.TarInfo(prefix + safe(name))
                 info.size = len(data)
                 info.mode = modes.get(name, 0o644)
                 archive.addfile(info, io.BytesIO(data))
+                written += len(data)
+                if written >= next_progress:
+                    print(f"Source archive: compressed input {written}/{total} bytes", file=sys.stderr, flush=True)
+                    next_progress = (written // (256 * 1024**2) + 1) * 256 * 1024**2
+        print(f"Source archive: compression complete ({temporary.stat().st_size} bytes); independently verifying archive", file=sys.stderr, flush=True)
         # Independent verification reloads the archive; do not retain another
         # complete expanded copy while it checks the same multi-GiB sources.
         files.clear()
         verify_bundle(temporary, commit, version, native_evidence, linux_evidence, macos_evidence)
         temporary.replace(output)
+        print("Source archive: independent verification passed; archive ready", file=sys.stderr, flush=True)
     finally:
         temporary.unlink(missing_ok=True)
     return manifest
@@ -663,6 +672,8 @@ def verify_bundle(path, commit, version, native_evidence=None, linux_evidence=No
     identity(commit, version)
     prefix = "TagGroove-v" + version + "-sources/"
     files, modes, total, count = {}, {}, 0, 0
+    print(f"Source archive: reading and checking {Path(path).stat().st_size} compressed bytes", file=sys.stderr, flush=True)
+    next_progress = 512 * 1024**2
     with tarfile.open(path, "r:xz") as archive:
         for item in archive:
             require(item.name.startswith(prefix) and item.isfile(), "Unsafe source archive member")
@@ -672,6 +683,10 @@ def verify_bundle(path, commit, version, native_evidence=None, linux_evidence=No
             require(item.mode in (0o644, 0o755), "Unexpected source archive file mode")
             modes[name] = item.mode
             files[name] = archive.extractfile(item).read()
+            if total >= next_progress:
+                print(f"Source archive: read {total} expanded bytes in {count} members", file=sys.stderr, flush=True)
+                next_progress = (total // (512 * 1024**2) + 1) * 512 * 1024**2
+    print(f"Source archive: all {count} members read; verifying inventory, source and dependency evidence", file=sys.stderr, flush=True)
     manifest = load(files.pop("source-manifest.json"))
     require(set(manifest.get("files", {})) == set(files), "Source archive file inventory differs")
     for name, data in files.items():
@@ -681,6 +696,8 @@ def verify_bundle(path, commit, version, native_evidence=None, linux_evidence=No
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1],
+                        help="Immutable release checkout; may differ from trusted verifier tooling")
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--output", type=Path)
@@ -705,7 +722,7 @@ def main():
         native_manifest(wrapper, args.source_sha, args.version)
         print(json.dumps({"target": wrapper["target"], "manifest_sha256": sha(args.verify_native.read_bytes())}))
     elif args.verify_macos:
-        helper = macos_helper();root = Path(__file__).resolve().parents[1]
+        helper = macos_helper();root = args.root.resolve()
         receipt = load(helper.bounded(args.verify_macos, 1024*1024))
         helper.validate_receipt(receipt, helper.bounded(root/helper.POLICY, 8192), args.source_sha, args.version,
                                 receipt['platform'], load((root/'src-tauri/tauri.conf.json').read_bytes())['identifier'])
@@ -715,7 +732,7 @@ def main():
         collect_native(args.native_evidence, args.collect_native, args.source_sha, args.version, args.output)
     else:
         require(args.output is not None, "Building requires --output")
-        build_bundle(Path(__file__).resolve().parents[1], args.source_sha, args.version, args.output,
+        build_bundle(args.root.resolve(), args.source_sha, args.version, args.output,
                      args.native_evidence, vendor_dir=args.cargo_vendor, dist_dir=args.dist,
                      linux_runtime_sources=args.linux_runtime_sources, linux_evidence=args.linux_evidence,
                      macos_evidence=args.macos_evidence)
