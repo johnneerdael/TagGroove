@@ -1,9 +1,12 @@
 """Native-harness recovery never rebuilds or relabels application packages."""
 import copy
 import sys
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import release_resume
@@ -105,6 +108,49 @@ class ResumeTests(unittest.TestCase):
         self.api.get.side_effect = RuntimeError('unavailable')
         with self.assertRaises(RuntimeError):
             self.check()
+
+
+class TrustedHarnessTests(unittest.TestCase):
+    def test_readme_update_on_main_keeps_the_already_validated_harness_pinned(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            def git(*args):
+                return subprocess.check_output(['git', '-C', folder, *args], text=True).strip()
+            git('init', '-q')
+            git('config', 'user.email', 'fixture@example.invalid')
+            git('config', 'user.name', 'Fixture')
+            (root / 'README.md').write_text('original docs')
+            git('add', '.')
+            git('commit', '-qm', 'source')
+            source = git('rev-parse', 'HEAD')
+            script = root / 'tests/e2e/sources-4.js'
+            script.parent.mkdir(parents=True)
+            script.write_text('repaired test')
+            git('add', '.')
+            git('commit', '-qm', 'native test harness')
+            harness = git('rev-parse', 'HEAD')
+            (root / 'README.md').write_text('newer documentation')
+            git('commit', '-qam', 'docs on main')
+            env = dict(RESUME_RUN_ID='123', SOURCE_SHA=source, GITHUB_SHA=harness,
+                       GITHUB_REPOSITORY='fixture/repo', GITHUB_OUTPUT=str(root / 'output'))
+            old_directory = os.getcwd()
+            try:
+                os.chdir(folder)
+                with patch.dict(os.environ, env), patch.object(release_resume, 'GitHub'), \
+                     patch.object(release_resume, 'validate', return_value=dict(resume_run_id='123', resume_artifact_ids='1,2')) as validate, \
+                     patch.object(release_resume, 'write_outputs') as outputs:
+                    release_resume.main()
+                    self.assertEqual(validate.call_args.args[3], ['tests/e2e/sources-4.js'])
+                    self.assertEqual(outputs.call_args.args[1]['harness_sha'], harness)
+                    git('checkout', '--detach', '-q', source)
+                    validate.reset_mock()
+                    outputs.reset_mock()
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        release_resume.main()
+                    validate.assert_not_called()
+                    outputs.assert_not_called()
+            finally:
+                os.chdir(old_directory)
 
 
 if __name__ == '__main__':

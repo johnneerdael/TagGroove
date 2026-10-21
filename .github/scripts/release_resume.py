@@ -92,8 +92,10 @@ def main():
     selected = dict(resume_run_id='', resume_artifact_ids='')
     if run_id:
         shas(source, harness)
-        if subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() != harness:
-            raise RuntimeError('Trusted main changed; dispatch recovery from its current head')
+        current = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+        # Publishing reads fresh trusted tools, while tests remain pinned to the
+        # already validated harness. Later main updates must not replace it.
+        subprocess.run(['git', 'merge-base', '--is-ancestor', harness, current], check=True)
         subprocess.run(['git', 'merge-base', '--is-ancestor', source, harness], check=True)
         changes = subprocess.check_output(
             ['git', 'diff', '--name-only', '--no-renames', '-z', source, harness], text=True).split('\0')
