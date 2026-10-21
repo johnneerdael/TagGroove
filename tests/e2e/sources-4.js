@@ -50,7 +50,7 @@
     // A build without TagGroove's Discogs application key keeps the token guidance.
     op('source-token').click();
     let token = await waitFor(() => document.querySelector('dialog.ts-token-dialog[open]'), 5000, 'token dialog');
-    await check(/Create a token on Discogs/.test(token.textContent) && !/works without a token/.test(token.textContent), 'Discogs token text without the application key');
+    await check(/Create a personal token on Discogs/.test(token.textContent) && !/works without a token/.test(token.textContent), 'Discogs token text without the application key');
     token.querySelector('[data-close]').click();
     await waitFor(() => !token.isConnected, 5000, 'token dialog closed');
 

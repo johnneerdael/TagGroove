@@ -468,6 +468,14 @@ export function verificationToolingNote(plan, repository, toolingSha) {
   return `Release verification uses [repaired tooling](https://github.com/${repository}/tree/${toolingSha}) at ${toolingSha}. The application packages and corresponding source remain bound to ${plan.commit}. To verify this source archive, use that tooling checkout with \`python3 scripts/audio-source-bundle.py --source-sha ${plan.commit} --version ${plan.version} --verify <source-archive>\`.`;
 }
 
+export function nativeRecoveryNote(plan, repository, runId, harnessSha, validationRunId) {
+  if (!runId) return '';
+  if (!/^[1-9][0-9]*$/.test(runId) || !/^[1-9][0-9]*$/.test(validationRunId || '') ||
+      !/^[0-9a-f]{40}$/.test(harnessSha || '') || !/^[\w.-]+\/[\w.-]+$/.test(repository || ''))
+    throw new Error('Invalid native recovery provenance');
+  return `Platform packages, corresponding source and Android integration were retained from [release run ${runId}](https://github.com/${repository}/actions/runs/${runId}) for ${plan.commit}. Desktop native UI validation passed in [recovery run ${validationRunId}](https://github.com/${repository}/actions/runs/${validationRunId}) using the [repaired test harness](https://github.com/${repository}/tree/${harnessSha}) at ${harnessSha}. The application source and package bytes were not changed by this test repair.`;
+}
+
 export async function releaseNotes({ plan, previous, root = process.cwd(), repository = process.env.GITHUB_REPOSITORY }) {
   const script = fileURLToPath(new URL('../.github/scripts/release_notes.py', import.meta.url));
   // Arguments remain data: never interpolate PR text into a shell command.
@@ -637,7 +645,7 @@ async function main(command) {
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
     const published = await api.publishedReleaseTags();
     const previous = previousTag(git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n').filter(tag => published.has(tag)), plan);
-    const notes = [await releaseNotes({ plan, previous }), verificationToolingNote(plan, process.env.GITHUB_REPOSITORY, process.env.RELEASE_VERIFIER_REF)].filter(Boolean).join('\n\n');
+    const notes = [await releaseNotes({ plan, previous }), verificationToolingNote(plan, process.env.GITHUB_REPOSITORY, process.env.RELEASE_VERIFIER_REF), nativeRecoveryNote(plan, process.env.GITHUB_REPOSITORY, process.env.RELEASE_RESUME_RUN, process.env.RELEASE_NATIVE_HARNESS_REF, process.env.GITHUB_RUN_ID)].filter(Boolean).join('\n\n');
     const result = await publishRelease({ api, plan, assembled, repository: process.env.GITHUB_REPOSITORY, notes });
     console.log(result.skipped ? `${plan.tag} was already published from ${plan.commit}; nothing to do` : `Published ${plan.tag}`);
   } else throw new Error(`Unknown release command: ${command}`);

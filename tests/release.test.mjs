@@ -34,6 +34,18 @@ test('source-only recovery identifies the trusted verifier without changing rele
   assert.throws(()=>releaseTools.verificationToolingNote(selected,'owner/repo]bad',tooling));
 });
 
+test('native recovery identifies the retained package run and repaired harness without relabeling source', () => {
+  const selected=plan(), harness='d'.repeat(40);
+  const note=releaseTools.nativeRecoveryNote(selected,'johnneerdael/TagGroove','123',harness,'456');
+  assert.ok(note.includes('/actions/runs/123'));
+  assert.ok(note.includes('/actions/runs/456'));
+  assert.ok(note.includes(`/tree/${harness}`));
+  assert.ok(note.includes(selected.commit));
+  assert.equal(releaseTools.nativeRecoveryNote(selected,'johnneerdael/TagGroove','',harness,'456'),'');
+  for (const args of [['bad',harness,'456'],['123','bad','456'],['123',harness,'bad']])
+    assert.throws(()=>releaseTools.nativeRecoveryNote(selected,'johnneerdael/TagGroove',...args));
+});
+
 test('branded Windows installers retain the existing install identity', async () => {
   const config = JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json', import.meta.url)));
   assert.equal(config.bundle.windows.wix.upgradeCode.toLowerCase(), 'ed7df85b-a59c-563d-84e9-a966cbccc202');

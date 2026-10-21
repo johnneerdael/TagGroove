@@ -45,6 +45,33 @@ class LeanWorkflows(unittest.TestCase):
         self.assertIn('node .trusted-gate/scripts/release.mjs publish', publish)
         self.assertIn('RELEASE_VERIFIER_REF: ${{ steps.trusted.outputs.tool_sha }}', publish)
 
+    def test_native_recovery_skips_completed_packages_but_keeps_review_and_publication_checks(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        authorization = job(source, 'authorize')
+        self.assertIn('review_gate.py release-check', authorization)
+        self.assertIn('release_resume.py', authorization)
+        self.assertIn("if: steps.plan.outputs.skip != 'true' && needs.authorize.outputs.resume_run_id == ''", job(source, 'prepare'))
+        for name in ['desktop', 'android', 'ios', 'corresponding-source', 'user-guide']:
+            self.assertIn("needs.authorize.outputs.resume_run_id == ''", job(source, name))
+        publish = job(source, 'publish')
+        self.assertIn("!cancelled()", publish)
+        self.assertIn("needs.native-validation.result == 'success'", publish)
+        self.assertIn('artifact-ids: ${{ needs.authorize.outputs.resume_artifact_ids }}', publish)
+        self.assertIn('review_gate.py release-check', publish)
+        self.assertIn('release_resume.py', publish)
+        self.assertIn('EXPECTED_ARTIFACT_IDS', publish)
+        self.assertIn('node .trusted-gate/scripts/release.mjs publish', publish)
+
+    def test_recovery_changes_only_the_native_assertion_after_building_the_original_application(self):
+        native = (WORKFLOWS / '_reviewed-native.yml').read_text()
+        desktop = job(native, 'desktop')
+        self.assertIn('ref: ${{ inputs.source_sha }}', desktop)
+        self.assertLess(desktop.index('Build the debug app once'), desktop.index('Apply the repaired assertion'))
+        self.assertIn('ref: ${{ inputs.harness_sha }}', desktop)
+        self.assertIn('cp .native-harness/tests/e2e/sources-4.js tests/e2e/sources-4.js', desktop)
+        self.assertIn('Run native suites', desktop)
+        self.assertIn('!inputs.skip_android', job(native, 'android'))
+
     def test_notary_authentication_precedes_all_platform_builds(self):
         source = (WORKFLOWS / 'reviewed-release.yml').read_text()
         prepare = job(source, 'prepare')
@@ -59,7 +86,7 @@ class LeanWorkflows(unittest.TestCase):
         self.assertNotIn('APPLE_CERTIFICATE', step)
         self.assertLess(prepare.index('name: Resolve immutable release plan'), prepare.index('name: '+title))
         for name in ['desktop', 'android', 'ios']:
-            self.assertIn('needs: prepare', job(source, name))
+            self.assertRegex(job(source, name), r'needs: \[[^\]\n]*prepare[^\]\n]*\]')
         self.assertIn('needs: [authorize, prepare]', job(source, 'native-validation'))
 
     def test_macos_signing_is_scoped_and_verified_before_collection(self):

@@ -55,6 +55,22 @@ After merge, the release workflow builds all required application targets. Nativ
 
 Owner-authorized workflow changes and repairs for failed builds on main go directly to main. Retain the failing run and diagnosis, run focused checks, and push with a lease on the inspected main head. Preserve unrelated history. A release-producing repair uses a single-parent commit directly after the failed release source and a commit-message trailer `CI-Repair-Run: <failed-run-id>`. The trusted gate verifies the referenced completed failed main release run with successful authorization and preparation, both revisions' main ancestry and the absence of an associated merged PR before authorizing the repair. This is a separate owner-authorized repair path, not a fabricated PR review. If main has advanced beyond the failed source, validate that newer main and diagnose its build rather than rewriting intervening commits. If the failed run was dispatched from a later controller commit, a repair may preserve that exact controller as its sole parent only when a complete, bounded GitHub comparison proves the intervening changes are confined to `.github/` and `docs/`. Application changes, renames across that boundary and incomplete or truncated comparisons refuse this exception. Workflow-only/bootstrap pushes without this evidence do not authorize an application release. All native integration and publication safeguards still apply.
 
+### Retain completed packages after a native test repair
+
+When only desktop native UI validation fails, a trusted-main test-harness repair
+can resume the original release without rebuilding its completed packages. Keep
+`source_sha` and `head_sha` on the original reviewed application and set
+`resume_run_id` to the failed release run. The recovery gate requires every
+original package, corresponding-source archive and Android integration check to
+have passed, with unexpired source-bound artifacts. It refuses application
+changes, other failures and ambiguous evidence. Main tooling/test changes do not
+authorize a new application source.
+
+Recovery reruns the failed/cancelled desktop UI validation with the pinned repaired
+assertion against the original application, then independently verifies the
+retained package bytes before publication. Notes identify both runs and the
+harness commit. The guide and successful Android validation are retained.
+
 ## Validation
 
 For application work, run `npm test` and `npm run build`, plus the relevant native UI/platform suites. For CI and release-tooling changes, also run:

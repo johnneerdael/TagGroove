@@ -12,6 +12,11 @@ on:
       source_sha:
         required: true
         type: string
+      resume_run_id:
+        description: 'Retain completed packages and retry failed desktop UI validation from this release run'
+        required: false
+        default: ''
+        type: string
 permissions:
   contents: read
   pull-requests: read
@@ -35,10 +40,15 @@ jobs:
   authorize:
     if: github.ref == 'refs/heads/main' && github.workflow_ref == format('{0}/.github/workflows/reviewed-release.yml@refs/heads/main', github.repository)
     runs-on: ubuntu-24.04
+    outputs:
+      resume_run_id: ${{ steps.resume.outputs.resume_run_id }}
+      resume_artifact_ids: ${{ steps.resume.outputs.resume_artifact_ids }}
+      harness_sha: ${{ steps.resume.outputs.harness_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
           persist-credentials: false
       - name: Require reviewed merged source or evidenced failed-main repair
         env:
@@ -47,6 +57,13 @@ jobs:
           SOURCE_SHA: ${{ inputs.source_sha }}
           PR_NUMBER: ${{ inputs.pr_number }}
         run: python3 .github/scripts/review_gate.py release-check --pr "$PR_NUMBER"
+      - name: Validate retained release packages before native-only recovery
+        id: resume
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: python3 .github/scripts/release_resume.py
   prepare:
     needs: authorize
     name: Validate version, tag and source commit
@@ -78,7 +95,7 @@ jobs:
           DRY_RUN: 'false'
         run: node scripts/release.mjs prepare
       - name: Validate Apple notarization credentials before platform builds
-        if: steps.plan.outputs.skip != 'true'
+        if: steps.plan.outputs.skip != 'true' && needs.authorize.outputs.resume_run_id == ''
         env:
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
@@ -94,11 +111,13 @@ jobs:
       pr_number: ${{ inputs.pr_number }}
       head_sha: ${{ inputs.head_sha }}
       source_sha: ${{ inputs.source_sha }}
+      harness_sha: ${{ needs.authorize.outputs.harness_sha }}
+      skip_android: ${{ needs.authorize.outputs.resume_run_id != '' }}
 
   desktop:
     name: Desktop ${{ matrix.platform }}
-    needs: prepare
-    if: needs.prepare.outputs.skip != 'true'
+    needs: [authorize, prepare]
+    if: needs.prepare.outputs.skip != 'true' && needs.authorize.outputs.resume_run_id == ''
     strategy:
       fail-fast: true
       matrix:
@@ -328,8 +347,8 @@ jobs:
 
   android:
     name: Android arm64 signed release APK
-    needs: prepare
-    if: needs.prepare.outputs.skip != 'true'
+    needs: [authorize, prepare]
+    if: needs.prepare.outputs.skip != 'true' && needs.authorize.outputs.resume_run_id == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -429,8 +448,8 @@ jobs:
 
   ios:
     name: iOS arm64 simulator preview (debug, unsigned)
-    needs: prepare
-    if: needs.prepare.outputs.skip != 'true'
+    needs: [authorize, prepare]
+    if: needs.prepare.outputs.skip != 'true' && needs.authorize.outputs.resume_run_id == ''
     runs-on: macos-15
     timeout-minutes: 120
     env:
@@ -489,8 +508,8 @@ jobs:
 
   corresponding-source:
     name: Assemble complete corresponding source
-    needs: [prepare, desktop, android, ios]
-    if: needs.prepare.outputs.skip != 'true'
+    needs: [authorize, prepare, desktop, android, ios]
+    if: needs.prepare.outputs.skip != 'true' && needs.authorize.outputs.resume_run_id == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -550,8 +569,13 @@ jobs:
 
   publish:
     name: Publish complete verified release
-    needs: [prepare, desktop, android, ios, corresponding-source, native-validation]
-    if: needs.prepare.outputs.skip != 'true'
+    needs: [authorize, prepare, desktop, android, ios, corresponding-source, native-validation]
+    if: >-
+      always() && !cancelled() && needs.authorize.result == 'success' && needs.prepare.result == 'success' &&
+      needs.prepare.outputs.skip != 'true' && needs.native-validation.result == 'success' &&
+      (needs.authorize.outputs.resume_run_id != '' ||
+       (needs.desktop.result == 'success' && needs.android.result == 'success' &&
+        needs.ios.result == 'success' && needs.corresponding-source.result == 'success'))
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -577,14 +601,24 @@ jobs:
       - name: Stamp release version (not committed)
         run: node scripts/release.mjs stamp
       - uses: actions/download-artifact@v4
+        if: needs.authorize.outputs.resume_run_id == ''
         with:
           pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: needs.authorize.outputs.resume_run_id != ''
+        with:
+          run-id: ${{ needs.authorize.outputs.resume_run_id }}
+          github-token: ${{ github.token }}
+          artifact-ids: ${{ needs.authorize.outputs.resume_artifact_ids }}
           path: release-assets
           merge-multiple: true
       - uses: actions/checkout@v4
         with:
           ref: main
           path: .trusted-gate
+          fetch-depth: 0
           persist-credentials: false
       - name: Recheck review before publishing any release
         id: trusted
@@ -596,14 +630,30 @@ jobs:
         run: |
           python3 .trusted-gate/.github/scripts/review_gate.py release-check --pr "$PR_NUMBER"
           echo "tool_sha=$(git -C .trusted-gate rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Recheck retained artifact identities before recovered publication
+        if: needs.authorize.outputs.resume_run_id != ''
+        working-directory: .trusted-gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESUME_RUN_ID: ${{ needs.authorize.outputs.resume_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          EXPECTED_ARTIFACT_IDS: ${{ needs.authorize.outputs.resume_artifact_ids }}
+        run: |
+          output="$RUNNER_TEMP/native-recovery-final.txt"
+          touch "$output"
+          GITHUB_OUTPUT="$output" python3 .github/scripts/release_resume.py
+          test "$(sed -n 's/^resume_artifact_ids=//p' "$output")" = "$EXPECTED_ARTIFACT_IDS"
       - name: Verify all platforms, calculate SHA256SUMS, upload draft, then publish
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERIFIER_REF: ${{ steps.trusted.outputs.tool_sha }}
+          RELEASE_RESUME_RUN: ${{ needs.authorize.outputs.resume_run_id }}
+          RELEASE_NATIVE_HARNESS_REF: ${{ needs.authorize.outputs.harness_sha }}
         run: node .trusted-gate/scripts/release.mjs publish
 
   user-guide:
     needs: authorize
+    if: needs.authorize.outputs.resume_run_id == ''
     # Publish reviewed documentation even when no application release is needed.
     permissions:
       contents: read

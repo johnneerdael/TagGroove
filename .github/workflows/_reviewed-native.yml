@@ -11,6 +11,14 @@ on:
       source_sha:
         required: true
         type: string
+      harness_sha:
+        required: false
+        default: ''
+        type: string
+      skip_android:
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
   pull-requests: read
@@ -145,6 +153,21 @@ jobs:
           name: docs-screens
           path: docs-screens/
           if-no-files-found: error
+      - name: Check out the authorized repaired native harness
+        if: inputs.harness_sha != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.harness_sha }}
+          path: .native-harness
+          persist-credentials: false
+      - name: Apply the repaired assertion to the unchanged application
+        if: inputs.harness_sha != ''
+        env:
+          NATIVE_HARNESS_SHA: ${{ inputs.harness_sha }}
+        run: |
+          test "$(git -C .native-harness rev-parse HEAD)" = "$NATIVE_HARNESS_SHA"
+          cp .native-harness/tests/e2e/sources-4.js tests/e2e/sources-4.js
+          echo "Native test harness: $NATIVE_HARNESS_SHA; application: ${{ inputs.source_sha }}"
       - name: Run native suites
         run: |
           set -o pipefail
@@ -169,7 +192,7 @@ jobs:
           path: e2e-output/
   android:
     needs: authorize
-    if: needs.authorize.outputs.ready == 'true'
+    if: needs.authorize.outputs.ready == 'true' && !inputs.skip_android
     name: Android document integration
     runs-on: ubuntu-24.04
     timeout-minutes: 60
