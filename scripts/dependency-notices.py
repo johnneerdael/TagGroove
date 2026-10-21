@@ -276,8 +276,18 @@ def supplemental_materials(root, key, checksum, source, archive, supplements, ca
         return []
     require(supplement["archive_sha256"] == checksum, f"Supplement targets a different archive: {key}")
     if key.startswith("cargo:"):
-        require(source.get("vcs") and source["vcs"]["git"]["sha1"] == supplement["vcs_commit"],
-                f"Supplement VCS commit differs: {key}")
+        if source.get("vcs"):
+            require(source["vcs"]["git"]["sha1"] == supplement.get("vcs_commit"),
+                    f"Supplement VCS commit differs: {key}")
+        else:
+            # Older Cargo archives can predate .cargo_vcs_info.json. Retain
+            # their exact source notice instead of inventing a VCS identity.
+            require(supplement.get("archive_bound") is True and not supplement.get("vcs_commit")
+                    and any("archive_member" in item for item in supplement["materials"]),
+                    f"Legacy archive supplement needs an exact source header: {key}")
+            require(all("archive_member" in item or (item.get("license_reference") and item.get("source_url"))
+                        for item in supplement["materials"]),
+                    f"Legacy supplement needs archive headers or explicit standard license references: {key}")
     result = []
     for item in supplement["materials"]:
         raw = (root / safe(item["source_file"])).read_bytes()

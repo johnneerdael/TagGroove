@@ -146,7 +146,7 @@ test('edited values apply to the album, every track or one track', () => {
 
 test('tag source options pages cover freedb and the local freedb folder', async () => {
   const pages = tagSourcesOptionsPages(async () => '/data/freedb');
-  assert.deepEqual(pages.map(page => [page.id, page.parent]), [['tag-sources', undefined], ['tag-sources-freedb', 'tag-sources'], ['tag-sources-local-freedb', 'tag-sources'], ['tag-sources-online', 'tag-sources']]);
+  assert.deepEqual(pages.map(page => [page.id, page.parent]), [['tag-sources', undefined], ['tag-sources-freedb', 'tag-sources'], ['tag-sources-local-freedb', 'tag-sources'], ['tag-sources-catalog', 'tag-sources'], ['tag-sources-online', 'tag-sources']]);
   const freedb = pages[1];
   assert.equal(freedb.defaults.address, 'gnudb.gnudb.org');
   const draft = port => ({pages: {'tag-sources-freedb': {address: 'gnudb.gnudb.org', port}}});

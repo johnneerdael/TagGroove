@@ -11,6 +11,9 @@ matching before importing it.
 | --- | --- |
 | **MusicBrainz…** | Search or look up a MusicBrainz release and review its fields/tracks |
 | **Discogs…** | Search or look up a Discogs release |
+| **Discogs Artist + Title…** | Find releases by the performing artist and track title; choose the exact track before saving |
+| **Beatport…** / **Traxsource…** | Search tracks and complete releases, or open a track’s exact release |
+| **Compare sources for one file…** | Compare explicitly chosen Discogs/Beatport/Traxsource candidates and choose a source per field |
 | **Discogs Release ID…** | Open a specific release using its ID/address rather than a broad search |
 | **freedb…** | Query the configured server by selected-file track layout, or search gnudb by artist and album |
 | **freedb (local)…** | Search a configured local freedb database/index; Primary+L |

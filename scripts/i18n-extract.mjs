@@ -368,7 +368,7 @@ export function extract() {
 
 // Backend messages shown in the UI: error texts of the Rust commands, with `{}` values as placeholders.
 // They are a snapshot (src/i18n/backend-keys.json, `--backend` refreshes it): a message added later shows in English.
-const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src', 'crates/audio-fingerprint/src'];
+const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src', 'crates/audio-fingerprint/src', 'crates/catalog-sources/src'];
 const BACKEND_MESSAGE = /(?:\bErr\(|\.ok_or\(|ok_or_else\(\|\|\s*|map_err\(\|[^|]*\|\s*)\s*(?:\{\s*)?(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"/g;
 // Exclude test-injection prose, not production diagnostics with technical tokens.
 const INTERNAL = /Injected|fixture/i;

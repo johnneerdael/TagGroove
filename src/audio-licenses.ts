@@ -1,3 +1,5 @@
+import catalogLicense from '../crates/catalog-sources/COPYING?raw';
+import catalogProvenance from '../crates/catalog-sources/README.md?raw';
 import license0 from './licenses/audio/chromaprint-LICENSE.md?raw';
 import license1 from './licenses/audio/chromaprint-src_3rdparty_kissfft_COPYING?raw';
 import license2 from './licenses/audio/chromaprint-src_3rdparty_kissfft_LICENSES_BSD-3-Clause?raw';
@@ -12,6 +14,8 @@ import androidNotices from '../THIRD_PARTY_ANDROID.md?raw';
 import nativeNotices from '../THIRD_PARTY_NATIVE.md?raw';
 import linuxNotices from '../THIRD_PARTY_LINUX.md?raw';
 export const audioLicenses = [
+  {title:"Catalog sources — GPLv3 license",text:catalogLicense},
+  {title:"Catalog sources — provenance and notices",text:catalogProvenance},
   {title:"Chromaprint 1.6.2 — license and notices",text:license0},
   {title:"KissFFT — copyright notices",text:license1},
   {title:"KissFFT — BSD 3-Clause license",text:license2},

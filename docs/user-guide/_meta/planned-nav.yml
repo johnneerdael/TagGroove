@@ -99,6 +99,7 @@ nav:
       - tag-sources/index.md
       - MusicBrainz: tag-sources/musicbrainz.md
       - Discogs: tag-sources/discogs.md
+      - Beatport and Traxsource: tag-sources/catalog.md
       - freedb and gnudb: tag-sources/freedb.md
       - Local freedb: tag-sources/local-freedb.md
       - iTunes / Apple Music: tag-sources/itunes.md

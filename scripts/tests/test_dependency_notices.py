@@ -15,6 +15,32 @@ SCRIPT = Path(__file__).resolve().parents[1] / "dependency-notices.py"
 
 
 class DependencyNotices(unittest.TestCase):
+    def test_legacy_archive_supplement_requires_exact_source_header_without_claiming_a_vcs_commit(self):
+        m = self.module()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = b'// Copyright Example. Licensed under Apache-2.0.\n'
+            archive = root / 'legacy.crate'
+            with tarfile.open(archive, 'w:gz') as handle:
+                member = tarfile.TarInfo('legacy-1.0.0/lib.rs')
+                member.size = len(raw)
+                handle.addfile(member, io.BytesIO(raw))
+            (root / 'header.txt').write_bytes(raw)
+            checksum = m.sha(archive.read_bytes())
+            item = {'path':'lib.rs.header','source_file':'header.txt','sha256':m.sha(raw),
+                    'archive_member':'legacy-1.0.0/lib.rs','header_prefix_bytes':len(raw)}
+            supplements = {'cargo:legacy@1.0.0': {'archive_sha256':checksum,'archive_bound':True,'materials':[item]}}
+            source = {'vcs':None}
+            result = m.supplemental_materials(root,'cargo:legacy@1.0.0',checksum,source,archive,supplements,{})
+            self.assertEqual(result[0]['text'], raw.decode())
+            supplements['cargo:legacy@1.0.0']['materials'] = [{k:v for k,v in item.items() if k not in ('archive_member','header_prefix_bytes')}]
+            with self.assertRaisesRegex(ValueError, 'header'):
+                m.supplemental_materials(root,'cargo:legacy@1.0.0',checksum,source,archive,supplements,{})
+            supplements['cargo:legacy@1.0.0']['materials'] = [item]
+            item['header_prefix_bytes'] -= 1
+            with self.assertRaisesRegex(ValueError, 'header differs'):
+                m.supplemental_materials(root,'cargo:legacy@1.0.0',checksum,source,archive,supplements,{})
+
     def test_rendered_payload_has_one_final_newline_and_preserves_source_text(self):
         m = self.module()
         raw = 'Copyright Example\r\nPermission text.\r\n\r\n'

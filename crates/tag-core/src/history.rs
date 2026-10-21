@@ -214,10 +214,10 @@ fn unwatch_owned<'a>(
     paths
         .into_iter()
         .filter_map(|path| {
-            if !tracking
+            if tracking
                 .watched
                 .get(path)
-                .is_some_and(|entry| entry.owner == owner)
+                .is_none_or(|entry| entry.owner != owner)
             {
                 return None;
             }

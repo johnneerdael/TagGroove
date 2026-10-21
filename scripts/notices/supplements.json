@@ -566,6 +566,66 @@
           "git_blob_sha1": "4d75472566358fac0eed03625b37d1837a33dfe2"
         }
       ]
+    },
+    "cargo:fxhash@0.2.1": {
+      "archive_sha256": "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c",
+      "archive_bound": true,
+      "materials": [
+        {
+          "path": "lib.rs.header",
+          "source_file": "src/licenses/supplements/5d392ff1ac69a18c9beb41720ecbfd56f7792a1ec4321428e73757d4283f5a61.txt",
+          "sha256": "5d392ff1ac69a18c9beb41720ecbfd56f7792a1ec4321428e73757d4283f5a61",
+          "archive_member": "fxhash-0.2.1/lib.rs",
+          "header_prefix_bytes": 466
+        },
+        {
+          "path": "Apache-2.0.txt",
+          "source_file": "src/licenses/supplements/005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d.txt",
+          "sha256": "005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d",
+          "source_url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "license_reference": "Apache-2.0"
+        }
+      ]
+    },
+    "cargo:mac@0.1.1": {
+      "archive_sha256": "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4",
+      "materials": [
+        {
+          "path": "Cargo.toml.header",
+          "source_file": "src/licenses/supplements/f2c9d191282c0255b02d36f7c864f15edaa933820945244c269459460b9df4a8.txt",
+          "sha256": "f2c9d191282c0255b02d36f7c864f15edaa933820945244c269459460b9df4a8",
+          "archive_member": "mac-0.1.1/Cargo.toml",
+          "header_prefix_bytes": 258
+        },
+        {
+          "path": "Apache-2.0.txt",
+          "source_file": "src/licenses/supplements/005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d.txt",
+          "sha256": "005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d",
+          "license_reference": "Apache-2.0",
+          "source_url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "archive_bound": true
+    },
+    "cargo:selectors@0.31.0": {
+      "archive_sha256": "5685b6ae43bfcf7d2e7dfcfb5d8e8f61b46442c902531e41a32a9a8bf0ee0fb6",
+      "materials": [
+        {
+          "path": "lib.rs.header",
+          "source_file": "src/licenses/supplements/766674381e88a468d55e07de3596987391cf0e8beebe51baf4fddf11078785b3.txt",
+          "sha256": "766674381e88a468d55e07de3596987391cf0e8beebe51baf4fddf11078785b3",
+          "archive_member": "selectors-0.31.0/lib.rs",
+          "header_prefix_bytes": 206
+        },
+        {
+          "path": "MPL-2.0.txt",
+          "source_file": "src/licenses/supplements/3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04.txt",
+          "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+          "license_reference": "MPL-2.0",
+          "source_url": "https://www.mozilla.org/media/MPL/2.0/index.txt"
+        }
+      ],
+      "vcs_commit": "7f8df16fddb15b6ac9097f8ab25caffff1a7095e"
     }
   }
 }

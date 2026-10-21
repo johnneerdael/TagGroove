@@ -1,7 +1,7 @@
 //! Application keys of online services, built into release builds from the
 //! build environment (CI passes repository secrets as `OPENTAG_*` variables).
 //! A build without them compiles normally: Discogs then falls back to a
-//! personal token or anonymous requests, and the key-gated sources wait for a
+//! personal token, and the key-gated sources wait for a
 //! key the user enters in Tag Sources → API keys…. The values never reach the
 //! webview, which only learns whether a key exists.
 
@@ -34,7 +34,7 @@ pub fn fanart() -> Option<&'static str> {
 }
 
 /// How Discogs requests authenticate: the user's personal token first, then
-/// TagGroove's application key and secret, else anonymously.
+/// TagGroove's application key and secret. Missing credentials must not be sent.
 pub fn discogs_auth(token: &str, app: Option<(&str, &str)>) -> super::http::Auth {
     use super::http::Auth;
     let token = token.trim();
@@ -47,6 +47,15 @@ pub fn discogs_auth(token: &str, app: Option<(&str, &str)>) -> super::http::Auth
             secret: secret.to_owned(),
         },
         None => Auth::None,
+    }
+}
+
+/// Only a user's token qualifies for the authenticated-user budget. The
+/// application's key shares the conservative 25 requests/minute tier.
+pub fn discogs_spacing(auth: &super::http::Auth) -> u64 {
+    match auth {
+        super::http::Auth::DiscogsToken(token) if !token.trim().is_empty() => 1100,
+        _ => 2500,
     }
 }
 
@@ -90,5 +99,20 @@ mod tests {
         assert_eq!(choose(" user ", Some("built")).as_deref(), Some("user"));
         assert_eq!(choose("", Some("built")).as_deref(), Some("built"));
         assert_eq!(choose("", None), None);
+    }
+    #[test]
+    fn discogs_application_and_user_credentials_have_distinct_budgets() {
+        use super::super::http::Auth;
+        let app = Auth::DiscogsApp {
+            key: "application".into(),
+            secret: "secret".into(),
+        };
+        assert_eq!(discogs_spacing(&app), 2500);
+        assert_eq!(discogs_spacing(&Auth::None), 2500);
+        assert_eq!(
+            discogs_spacing(&Auth::DiscogsToken("personal".into())),
+            1100
+        );
+        assert_eq!(discogs_spacing(&Auth::DiscogsToken(String::new())), 2500);
     }
 }

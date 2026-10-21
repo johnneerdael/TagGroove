@@ -8,6 +8,17 @@ import {spawnSync} from 'node:child_process';
 import ts from 'typescript';
 const python=process.env.PYTHON||(process.platform==='win32'?'python':'python3');
 
+test('installer notice header states the combined application license and preserves MIT component terms',async()=>{
+  const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
+  const {license}=JSON.parse(await read('package.json'));
+  const notices=(await read('THIRD_PARTY_NOTICES.md')).replace(/\r\n/g,'\n');
+  const header=notices.split('\n## ')[0];
+  assert.ok(header.includes(`The combined TagGroove application is distributed under ${license}.`));
+  assert.doesNotMatch(header,/TagGroove application source is MIT licensed/);
+  const component=notices.split('## Independently authored TagGroove components (MIT)\n')[1]?.split('\n## ')[0];
+  assert.equal(component?.trim(),(await read('LICENSE')).trim(),'retain the complete original MIT grant for independent components');
+});
+
 test('installer notices use a current escaped Unicode RTF without changing the source text',async()=>{
   const bundle=JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json',import.meta.url),'utf8')).bundle;
   assert.equal(bundle.licenseFile,'../THIRD_PARTY_NOTICES.rtf');

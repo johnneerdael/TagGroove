@@ -1,6 +1,6 @@
 # TagGroove licenses and third-party notices
 
-TagGroove application source is MIT licensed. Built-in audio fingerprinting links Chromaprint, FFmpeg, zlib and bzip2; non-Apple builds also use the KissFFT included with Chromaprint. Applicable component licenses and copyright notices follow. No GPL/nonfree/version3 FFmpeg components are enabled. A small recorded patch opts into upstream LGPL-marked audio components; exact original source, patches and build configuration accompany the matching release.
+The combined TagGroove application is distributed under GPL-3.0-only. Existing independently authored MIT component notices remain in force. Built-in audio fingerprinting links Chromaprint, FFmpeg, zlib and bzip2; non-Apple builds also use the KissFFT included with Chromaprint. Applicable component licenses and copyright notices follow. No GPL/nonfree/version3 FFmpeg components are enabled. A small recorded patch opts into upstream LGPL-marked audio components; exact original source, patches and build configuration accompany the matching release.
 
 The native regular-expression bridge also uses the vendored Boost.Regex library under BSL-1.0.
 
@@ -8,7 +8,7 @@ The matching release provides complete corresponding application and native-libr
 
 The application also displays these notices offline in Help > About TagGroove.
 
-## TagGroove (MIT)
+## Independently authored TagGroove components (MIT)
 
 MIT License
 
@@ -925,6 +925,721 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+<!-- BEGIN CATALOG SOURCE NOTICES -->
+
+## Native catalog sources
+
+The combined TagGroove application is distributed under GPL-3.0-only.
+Existing independently authored MIT component notices remain in force.
+
+# Catalog metadata acquisition
+
+License: GPL-3.0-only. See `COPYING`.
+
+Adapted from selected OneTagger providers vendored by CueRithm:
+https://github.com/Marekkon5/onetagger
+Base commit: `36523f71f2d9a5947912f3cb930f1a31fcb2e3ee`.
+Beatport catalog API adaptation: OneTagger PR526, pinned by CueRithm at
+`rosgr100/onetagger@f7adb26a2e0790b0ff751bee04a05c1c20dbd009`.
+CueRithm donor revision: `cbc866c3b5bcc395906b5713f64f0dc53b05177c`.
+CueRithm donor: `vendor/onetagger/providers/{beatport,traxsource,http}.rs`.
+
+Preserve the upstream GPL notice and license with redistribution. The upstream
+authors retain their copyrights.
+
+This crate adapts catalog queries, metadata structures, Traxsource selectors,
+challenge detection and the optional FlareSolverr-compatible transport. It adds
+complete Traxsource releases, exact track-to-release navigation, application
+pagination, bounded async requests and cancellation. It imports no tag writer,
+matching engine, UI, audio library, browser cookies or executable hooks.
+
+All fixtures are invented minimal examples. No captured HAR content, credentials
+from a browser, or user data is included. The upstream-distributed Beatport public
+application credentials are catalog application identifiers, not user credentials.
+The host supplies proxy/timeout/TLS/redirect policy and offline endpoint routing.
+Solver requests contain only a public catalog URL and timeout; solver use is opt-in.
+Challenge state and the Beatport token are retained only in application memory.
+
+Validation uses parsers and loopback HTTP fixtures; it makes no live catalog calls.
+
+
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+  The licenses for most software and other practical works are designed
+to take away your freedom to share and change the works.  By contrast,
+the GNU General Public License is intended to guarantee your freedom to
+share and change all versions of a program--to make sure it remains free
+software for all its users.  We, the Free Software Foundation, use the
+GNU General Public License for most of our software; it applies also to
+any other work released this way by its authors.  You can apply it to
+your programs, too.
+
+  When we speak of free software, we are referring to freedom, not
+price.  Our General Public Licenses are designed to make sure that you
+have the freedom to distribute copies of free software (and charge for
+them if you wish), that you receive source code or can get it if you
+want it, that you can change the software or use pieces of it in new
+free programs, and that you know you can do these things.
+
+  To protect your rights, we need to prevent others from denying you
+these rights or asking you to surrender the rights.  Therefore, you have
+certain responsibilities if you distribute copies of the software, or if
+you modify it: responsibilities to respect the freedom of others.
+
+  For example, if you distribute copies of such a program, whether
+gratis or for a fee, you must pass on to the recipients the same
+freedoms that you received.  You must make sure that they, too, receive
+or can get the source code.  And you must show them these terms so they
+know their rights.
+
+  Developers that use the GNU GPL protect your rights with two steps:
+(1) assert copyright on the software, and (2) offer you this License
+giving you legal permission to copy, distribute and/or modify it.
+
+  For the developers' and authors' protection, the GPL clearly explains
+that there is no warranty for this free software.  For both users' and
+authors' sake, the GPL requires that modified versions be marked as
+changed, so that their problems will not be attributed erroneously to
+authors of previous versions.
+
+  Some devices are designed to deny users access to install or run
+modified versions of the software inside them, although the manufacturer
+can do so.  This is fundamentally incompatible with the aim of
+protecting users' freedom to change the software.  The systematic
+pattern of such abuse occurs in the area of products for individuals to
+use, which is precisely where it is most unacceptable.  Therefore, we
+have designed this version of the GPL to prohibit the practice for those
+products.  If such problems arise substantially in other domains, we
+stand ready to extend this provision to those domains in future versions
+of the GPL, as needed to protect the freedom of users.
+
+  Finally, every program is threatened constantly by software patents.
+States should not allow patents to restrict development and use of
+software on general-purpose computers, but in those that do, we wish to
+avoid the special danger that patents applied to a free program could
+make it effectively proprietary.  To prevent this, the GPL assures that
+patents cannot be used to render the program non-free.
+
+  The precise terms and conditions for copying, distribution and
+modification follow.
+
+                       TERMS AND CONDITIONS
+
+  0. Definitions.
+
+  "This License" refers to version 3 of the GNU General Public License.
+
+  "Copyright" also means copyright-like laws that apply to other kinds of
+works, such as semiconductor masks.
+
+  "The Program" refers to any copyrightable work licensed under this
+License.  Each licensee is addressed as "you".  "Licensees" and
+"recipients" may be individuals or organizations.
+
+  To "modify" a work means to copy from or adapt all or part of the work
+in a fashion requiring copyright permission, other than the making of an
+exact copy.  The resulting work is called a "modified version" of the
+earlier work or a work "based on" the earlier work.
+
+  A "covered work" means either the unmodified Program or a work based
+on the Program.
+
+  To "propagate" a work means to do anything with it that, without
+permission, would make you directly or secondarily liable for
+infringement under applicable copyright law, except executing it on a
+computer or modifying a private copy.  Propagation includes copying,
+distribution (with or without modification), making available to the
+public, and in some countries other activities as well.
+
+  To "convey" a work means any kind of propagation that enables other
+parties to make or receive copies.  Mere interaction with a user through
+a computer network, with no transfer of a copy, is not conveying.
+
+  An interactive user interface displays "Appropriate Legal Notices"
+to the extent that it includes a convenient and prominently visible
+feature that (1) displays an appropriate copyright notice, and (2)
+tells the user that there is no warranty for the work (except to the
+extent that warranties are provided), that licensees may convey the
+work under this License, and how to view a copy of this License.  If
+the interface presents a list of user commands or options, such as a
+menu, a prominent item in the list meets this criterion.
+
+  1. Source Code.
+
+  The "source code" for a work means the preferred form of the work
+for making modifications to it.  "Object code" means any non-source
+form of a work.
+
+  A "Standard Interface" means an interface that either is an official
+standard defined by a recognized standards body, or, in the case of
+interfaces specified for a particular programming language, one that
+is widely used among developers working in that language.
+
+  The "System Libraries" of an executable work include anything, other
+than the work as a whole, that (a) is included in the normal form of
+packaging a Major Component, but which is not part of that Major
+Component, and (b) serves only to enable use of the work with that
+Major Component, or to implement a Standard Interface for which an
+implementation is available to the public in source code form.  A
+"Major Component", in this context, means a major essential component
+(kernel, window system, and so on) of the specific operating system
+(if any) on which the executable work runs, or a compiler used to
+produce the work, or an object code interpreter used to run it.
+
+  The "Corresponding Source" for a work in object code form means all
+the source code needed to generate, install, and (for an executable
+work) run the object code and to modify the work, including scripts to
+control those activities.  However, it does not include the work's
+System Libraries, or general-purpose tools or generally available free
+programs which are used unmodified in performing those activities but
+which are not part of the work.  For example, Corresponding Source
+includes interface definition files associated with source files for
+the work, and the source code for shared libraries and dynamically
+linked subprograms that the work is specifically designed to require,
+such as by intimate data communication or control flow between those
+subprograms and other parts of the work.
+
+  The Corresponding Source need not include anything that users
+can regenerate automatically from other parts of the Corresponding
+Source.
+
+  The Corresponding Source for a work in source code form is that
+same work.
+
+  2. Basic Permissions.
+
+  All rights granted under this License are granted for the term of
+copyright on the Program, and are irrevocable provided the stated
+conditions are met.  This License explicitly affirms your unlimited
+permission to run the unmodified Program.  The output from running a
+covered work is covered by this License only if the output, given its
+content, constitutes a covered work.  This License acknowledges your
+rights of fair use or other equivalent, as provided by copyright law.
+
+  You may make, run and propagate covered works that you do not
+convey, without conditions so long as your license otherwise remains
+in force.  You may convey covered works to others for the sole purpose
+of having them make modifications exclusively for you, or provide you
+with facilities for running those works, provided that you comply with
+the terms of this License in conveying all material for which you do
+not control copyright.  Those thus making or running the covered works
+for you must do so exclusively on your behalf, under your direction
+and control, on terms that prohibit them from making any copies of
+your copyrighted material outside their relationship with you.
+
+  Conveying under any other circumstances is permitted solely under
+the conditions stated below.  Sublicensing is not allowed; section 10
+makes it unnecessary.
+
+  3. Protecting Users' Legal Rights From Anti-Circumvention Law.
+
+  No covered work shall be deemed part of an effective technological
+measure under any applicable law fulfilling obligations under article
+11 of the WIPO copyright treaty adopted on 20 December 1996, or
+similar laws prohibiting or restricting circumvention of such
+measures.
+
+  When you convey a covered work, you waive any legal power to forbid
+circumvention of technological measures to the extent such circumvention
+is effected by exercising rights under this License with respect to
+the covered work, and you disclaim any intention to limit operation or
+modification of the work as a means of enforcing, against the work's
+users, your or third parties' legal rights to forbid circumvention of
+technological measures.
+
+  4. Conveying Verbatim Copies.
+
+  You may convey verbatim copies of the Program's source code as you
+receive it, in any medium, provided that you conspicuously and
+appropriately publish on each copy an appropriate copyright notice;
+keep intact all notices stating that this License and any
+non-permissive terms added in accord with section 7 apply to the code;
+keep intact all notices of the absence of any warranty; and give all
+recipients a copy of this License along with the Program.
+
+  You may charge any price or no price for each copy that you convey,
+and you may offer support or warranty protection for a fee.
+
+  5. Conveying Modified Source Versions.
+
+  You may convey a work based on the Program, or the modifications to
+produce it from the Program, in the form of source code under the
+terms of section 4, provided that you also meet all of these conditions:
+
+    a) The work must carry prominent notices stating that you modified
+    it, and giving a relevant date.
+
+    b) The work must carry prominent notices stating that it is
+    released under this License and any conditions added under section
+    7.  This requirement modifies the requirement in section 4 to
+    "keep intact all notices".
+
+    c) You must license the entire work, as a whole, under this
+    License to anyone who comes into possession of a copy.  This
+    License will therefore apply, along with any applicable section 7
+    additional terms, to the whole of the work, and all its parts,
+    regardless of how they are packaged.  This License gives no
+    permission to license the work in any other way, but it does not
+    invalidate such permission if you have separately received it.
+
+    d) If the work has interactive user interfaces, each must display
+    Appropriate Legal Notices; however, if the Program has interactive
+    interfaces that do not display Appropriate Legal Notices, your
+    work need not make them do so.
+
+  A compilation of a covered work with other separate and independent
+works, which are not by their nature extensions of the covered work,
+and which are not combined with it such as to form a larger program,
+in or on a volume of a storage or distribution medium, is called an
+"aggregate" if the compilation and its resulting copyright are not
+used to limit the access or legal rights of the compilation's users
+beyond what the individual works permit.  Inclusion of a covered work
+in an aggregate does not cause this License to apply to the other
+parts of the aggregate.
+
+  6. Conveying Non-Source Forms.
+
+  You may convey a covered work in object code form under the terms
+of sections 4 and 5, provided that you also convey the
+machine-readable Corresponding Source under the terms of this License,
+in one of these ways:
+
+    a) Convey the object code in, or embodied in, a physical product
+    (including a physical distribution medium), accompanied by the
+    Corresponding Source fixed on a durable physical medium
+    customarily used for software interchange.
+
+    b) Convey the object code in, or embodied in, a physical product
+    (including a physical distribution medium), accompanied by a
+    written offer, valid for at least three years and valid for as
+    long as you offer spare parts or customer support for that product
+    model, to give anyone who possesses the object code either (1) a
+    copy of the Corresponding Source for all the software in the
+    product that is covered by this License, on a durable physical
+    medium customarily used for software interchange, for a price no
+    more than your reasonable cost of physically performing this
+    conveying of source, or (2) access to copy the
+    Corresponding Source from a network server at no charge.
+
+    c) Convey individual copies of the object code with a copy of the
+    written offer to provide the Corresponding Source.  This
+    alternative is allowed only occasionally and noncommercially, and
+    only if you received the object code with such an offer, in accord
+    with subsection 6b.
+
+    d) Convey the object code by offering access from a designated
+    place (gratis or for a charge), and offer equivalent access to the
+    Corresponding Source in the same way through the same place at no
+    further charge.  You need not require recipients to copy the
+    Corresponding Source along with the object code.  If the place to
+    copy the object code is a network server, the Corresponding Source
+    may be on a different server (operated by you or a third party)
+    that supports equivalent copying facilities, provided you maintain
+    clear directions next to the object code saying where to find the
+    Corresponding Source.  Regardless of what server hosts the
+    Corresponding Source, you remain obligated to ensure that it is
+    available for as long as needed to satisfy these requirements.
+
+    e) Convey the object code using peer-to-peer transmission, provided
+    you inform other peers where the object code and Corresponding
+    Source of the work are being offered to the general public at no
+    charge under subsection 6d.
+
+  A separable portion of the object code, whose source code is excluded
+from the Corresponding Source as a System Library, need not be
+included in conveying the object code work.
+
+  A "User Product" is either (1) a "consumer product", which means any
+tangible personal property which is normally used for personal, family,
+or household purposes, or (2) anything designed or sold for incorporation
+into a dwelling.  In determining whether a product is a consumer product,
+doubtful cases shall be resolved in favor of coverage.  For a particular
+product received by a particular user, "normally used" refers to a
+typical or common use of that class of product, regardless of the status
+of the particular user or of the way in which the particular user
+actually uses, or expects or is expected to use, the product.  A product
+is a consumer product regardless of whether the product has substantial
+commercial, industrial or non-consumer uses, unless such uses represent
+the only significant mode of use of the product.
+
+  "Installation Information" for a User Product means any methods,
+procedures, authorization keys, or other information required to install
+and execute modified versions of a covered work in that User Product from
+a modified version of its Corresponding Source.  The information must
+suffice to ensure that the continued functioning of the modified object
+code is in no case prevented or interfered with solely because
+modification has been made.
+
+  If you convey an object code work under this section in, or with, or
+specifically for use in, a User Product, and the conveying occurs as
+part of a transaction in which the right of possession and use of the
+User Product is transferred to the recipient in perpetuity or for a
+fixed term (regardless of how the transaction is characterized), the
+Corresponding Source conveyed under this section must be accompanied
+by the Installation Information.  But this requirement does not apply
+if neither you nor any third party retains the ability to install
+modified object code on the User Product (for example, the work has
+been installed in ROM).
+
+  The requirement to provide Installation Information does not include a
+requirement to continue to provide support service, warranty, or updates
+for a work that has been modified or installed by the recipient, or for
+the User Product in which it has been modified or installed.  Access to a
+network may be denied when the modification itself materially and
+adversely affects the operation of the network or violates the rules and
+protocols for communication across the network.
+
+  Corresponding Source conveyed, and Installation Information provided,
+in accord with this section must be in a format that is publicly
+documented (and with an implementation available to the public in
+source code form), and must require no special password or key for
+unpacking, reading or copying.
+
+  7. Additional Terms.
+
+  "Additional permissions" are terms that supplement the terms of this
+License by making exceptions from one or more of its conditions.
+Additional permissions that are applicable to the entire Program shall
+be treated as though they were included in this License, to the extent
+that they are valid under applicable law.  If additional permissions
+apply only to part of the Program, that part may be used separately
+under those permissions, but the entire Program remains governed by
+this License without regard to the additional permissions.
+
+  When you convey a copy of a covered work, you may at your option
+remove any additional permissions from that copy, or from any part of
+it.  (Additional permissions may be written to require their own
+removal in certain cases when you modify the work.)  You may place
+additional permissions on material, added by you to a covered work,
+for which you have or can give appropriate copyright permission.
+
+  Notwithstanding any other provision of this License, for material you
+add to a covered work, you may (if authorized by the copyright holders of
+that material) supplement the terms of this License with terms:
+
+    a) Disclaiming warranty or limiting liability differently from the
+    terms of sections 15 and 16 of this License; or
+
+    b) Requiring preservation of specified reasonable legal notices or
+    author attributions in that material or in the Appropriate Legal
+    Notices displayed by works containing it; or
+
+    c) Prohibiting misrepresentation of the origin of that material, or
+    requiring that modified versions of such material be marked in
+    reasonable ways as different from the original version; or
+
+    d) Limiting the use for publicity purposes of names of licensors or
+    authors of the material; or
+
+    e) Declining to grant rights under trademark law for use of some
+    trade names, trademarks, or service marks; or
+
+    f) Requiring indemnification of licensors and authors of that
+    material by anyone who conveys the material (or modified versions of
+    it) with contractual assumptions of liability to the recipient, for
+    any liability that these contractual assumptions directly impose on
+    those licensors and authors.
+
+  All other non-permissive additional terms are considered "further
+restrictions" within the meaning of section 10.  If the Program as you
+received it, or any part of it, contains a notice stating that it is
+governed by this License along with a term that is a further
+restriction, you may remove that term.  If a license document contains
+a further restriction but permits relicensing or conveying under this
+License, you may add to a covered work material governed by the terms
+of that license document, provided that the further restriction does
+not survive such relicensing or conveying.
+
+  If you add terms to a covered work in accord with this section, you
+must place, in the relevant source files, a statement of the
+additional terms that apply to those files, or a notice indicating
+where to find the applicable terms.
+
+  Additional terms, permissive or non-permissive, may be stated in the
+form of a separately written license, or stated as exceptions;
+the above requirements apply either way.
+
+  8. Termination.
+
+  You may not propagate or modify a covered work except as expressly
+provided under this License.  Any attempt otherwise to propagate or
+modify it is void, and will automatically terminate your rights under
+this License (including any patent licenses granted under the third
+paragraph of section 11).
+
+  However, if you cease all violation of this License, then your
+license from a particular copyright holder is reinstated (a)
+provisionally, unless and until the copyright holder explicitly and
+finally terminates your license, and (b) permanently, if the copyright
+holder fails to notify you of the violation by some reasonable means
+prior to 60 days after the cessation.
+
+  Moreover, your license from a particular copyright holder is
+reinstated permanently if the copyright holder notifies you of the
+violation by some reasonable means, this is the first time you have
+received notice of violation of this License (for any work) from that
+copyright holder, and you cure the violation prior to 30 days after
+your receipt of the notice.
+
+  Termination of your rights under this section does not terminate the
+licenses of parties who have received copies or rights from you under
+this License.  If your rights have been terminated and not permanently
+reinstated, you do not qualify to receive new licenses for the same
+material under section 10.
+
+  9. Acceptance Not Required for Having Copies.
+
+  You are not required to accept this License in order to receive or
+run a copy of the Program.  Ancillary propagation of a covered work
+occurring solely as a consequence of using peer-to-peer transmission
+to receive a copy likewise does not require acceptance.  However,
+nothing other than this License grants you permission to propagate or
+modify any covered work.  These actions infringe copyright if you do
+not accept this License.  Therefore, by modifying or propagating a
+covered work, you indicate your acceptance of this License to do so.
+
+  10. Automatic Licensing of Downstream Recipients.
+
+  Each time you convey a covered work, the recipient automatically
+receives a license from the original licensors, to run, modify and
+propagate that work, subject to this License.  You are not responsible
+for enforcing compliance by third parties with this License.
+
+  An "entity transaction" is a transaction transferring control of an
+organization, or substantially all assets of one, or subdividing an
+organization, or merging organizations.  If propagation of a covered
+work results from an entity transaction, each party to that
+transaction who receives a copy of the work also receives whatever
+licenses to the work the party's predecessor in interest had or could
+give under the previous paragraph, plus a right to possession of the
+Corresponding Source of the work from the predecessor in interest, if
+the predecessor has it or can get it with reasonable efforts.
+
+  You may not impose any further restrictions on the exercise of the
+rights granted or affirmed under this License.  For example, you may
+not impose a license fee, royalty, or other charge for exercise of
+rights granted under this License, and you may not initiate litigation
+(including a cross-claim or counterclaim in a lawsuit) alleging that
+any patent claim is infringed by making, using, selling, offering for
+sale, or importing the Program or any portion of it.
+
+  11. Patents.
+
+  A "contributor" is a copyright holder who authorizes use under this
+License of the Program or a work on which the Program is based.  The
+work thus licensed is called the contributor's "contributor version".
+
+  A contributor's "essential patent claims" are all patent claims
+owned or controlled by the contributor, whether already acquired or
+hereafter acquired, that would be infringed by some manner, permitted
+by this License, of making, using, or selling its contributor version,
+but do not include claims that would be infringed only as a
+consequence of further modification of the contributor version.  For
+purposes of this definition, "control" includes the right to grant
+patent sublicenses in a manner consistent with the requirements of
+this License.
+
+  Each contributor grants you a non-exclusive, worldwide, royalty-free
+patent license under the contributor's essential patent claims, to
+make, use, sell, offer for sale, import and otherwise run, modify and
+propagate the contents of its contributor version.
+
+  In the following three paragraphs, a "patent license" is any express
+agreement or commitment, however denominated, not to enforce a patent
+(such as an express permission to practice a patent or covenant not to
+sue for patent infringement).  To "grant" such a patent license to a
+party means to make such an agreement or commitment not to enforce a
+patent against the party.
+
+  If you convey a covered work, knowingly relying on a patent license,
+and the Corresponding Source of the work is not available for anyone
+to copy, free of charge and under the terms of this License, through a
+publicly available network server or other readily accessible means,
+then you must either (1) cause the Corresponding Source to be so
+available, or (2) arrange to deprive yourself of the benefit of the
+patent license for this particular work, or (3) arrange, in a manner
+consistent with the requirements of this License, to extend the patent
+license to downstream recipients.  "Knowingly relying" means you have
+actual knowledge that, but for the patent license, your conveying the
+covered work in a country, or your recipient's use of the covered work
+in a country, would infringe one or more identifiable patents in that
+country that you have reason to believe are valid.
+
+  If, pursuant to or in connection with a single transaction or
+arrangement, you convey, or propagate by procuring conveyance of, a
+covered work, and grant a patent license to some of the parties
+receiving the covered work authorizing them to use, propagate, modify
+or convey a specific copy of the covered work, then the patent license
+you grant is automatically extended to all recipients of the covered
+work and works based on it.
+
+  A patent license is "discriminatory" if it does not include within
+the scope of its coverage, prohibits the exercise of, or is
+conditioned on the non-exercise of one or more of the rights that are
+specifically granted under this License.  You may not convey a covered
+work if you are a party to an arrangement with a third party that is
+in the business of distributing software, under which you make payment
+to the third party based on the extent of your activity of conveying
+the work, and under which the third party grants, to any of the
+parties who would receive the covered work from you, a discriminatory
+patent license (a) in connection with copies of the covered work
+conveyed by you (or copies made from those copies), or (b) primarily
+for and in connection with specific products or compilations that
+contain the covered work, unless you entered into that arrangement,
+or that patent license was granted, prior to 28 March 2007.
+
+  Nothing in this License shall be construed as excluding or limiting
+any implied license or other defenses to infringement that may
+otherwise be available to you under applicable patent law.
+
+  12. No Surrender of Others' Freedom.
+
+  If conditions are imposed on you (whether by court order, agreement or
+otherwise) that contradict the conditions of this License, they do not
+excuse you from the conditions of this License.  If you cannot convey a
+covered work so as to satisfy simultaneously your obligations under this
+License and any other pertinent obligations, then as a consequence you may
+not convey it at all.  For example, if you agree to terms that obligate you
+to collect a royalty for further conveying from those to whom you convey
+the Program, the only way you could satisfy both those terms and this
+License would be to refrain entirely from conveying the Program.
+
+  13. Use with the GNU Affero General Public License.
+
+  Notwithstanding any other provision of this License, you have
+permission to link or combine any covered work with a work licensed
+under version 3 of the GNU Affero General Public License into a single
+combined work, and to convey the resulting work.  The terms of this
+License will continue to apply to the part which is the covered work,
+but the special requirements of the GNU Affero General Public License,
+section 13, concerning interaction through a network will apply to the
+combination as such.
+
+  14. Revised Versions of this License.
+
+  The Free Software Foundation may publish revised and/or new versions of
+the GNU General Public License from time to time.  Such new versions will
+be similar in spirit to the present version, but may differ in detail to
+address new problems or concerns.
+
+  Each version is given a distinguishing version number.  If the
+Program specifies that a certain numbered version of the GNU General
+Public License "or any later version" applies to it, you have the
+option of following the terms and conditions either of that numbered
+version or of any later version published by the Free Software
+Foundation.  If the Program does not specify a version number of the
+GNU General Public License, you may choose any version ever published
+by the Free Software Foundation.
+
+  If the Program specifies that a proxy can decide which future
+versions of the GNU General Public License can be used, that proxy's
+public statement of acceptance of a version permanently authorizes you
+to choose that version for the Program.
+
+  Later license versions may give you additional or different
+permissions.  However, no additional obligations are imposed on any
+author or copyright holder as a result of your choosing to follow a
+later version.
+
+  15. Disclaimer of Warranty.
+
+  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
+HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY
+OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
+IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
+ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+
+  16. Limitation of Liability.
+
+  IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
+WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS
+THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY
+GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE
+USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF
+DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD
+PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS),
+EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGES.
+
+  17. Interpretation of Sections 15 and 16.
+
+  If the disclaimer of warranty and limitation of liability provided
+above cannot be given local legal effect according to their terms,
+reviewing courts shall apply local law that most closely approximates
+an absolute waiver of all civil liability in connection with the
+Program, unless a warranty or assumption of liability accompanies a
+copy of the Program in return for a fee.
+
+                     END OF TERMS AND CONDITIONS
+
+            How to Apply These Terms to Your New Programs
+
+  If you develop a new program, and you want it to be of the greatest
+possible use to the public, the best way to achieve this is to make it
+free software which everyone can redistribute and change under these terms.
+
+  To do so, attach the following notices to the program.  It is safest
+to attach them to the start of each source file to most effectively
+state the exclusion of warranty; and each file should have at least
+the "copyright" line and a pointer to where the full notice is found.
+
+    <one line to give the program's name and a brief idea of what it does.>
+    Copyright (C) <year>  <name of author>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Also add information on how to contact you by electronic and paper mail.
+
+  If the program does terminal interaction, make it output a short
+notice like this when it starts in an interactive mode:
+
+    <program>  Copyright (C) <year>  <name of author>
+    This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+    This is free software, and you are welcome to redistribute it
+    under certain conditions; type `show c' for details.
+
+The hypothetical commands `show w' and `show c' should show the appropriate
+parts of the General Public License.  Of course, your program's commands
+might be different; for a GUI interface, you would use an "about box".
+
+  You should also get your employer (if you work as a programmer) or school,
+if any, to sign a "copyright disclaimer" for the program, if necessary.
+For more information on this, and how to apply and follow the GNU GPL, see
+<https://www.gnu.org/licenses/>.
+
+  The GNU General Public License does not permit incorporating your program
+into proprietary programs.  If your program is a subroutine library, you
+may consider it more useful to permit linking proprietary applications with
+the library.  If this is what you want to do, use the GNU Lesser General
+Public License instead of this License.  But first, please read
+<https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+<!-- END CATALOG SOURCE NOTICES -->
+
 <!-- BEGIN GENERATED DEPENDENCY NOTICES -->
 
 # Dependency licenses and notices
@@ -933,454 +1648,473 @@ Generated from checksum-bound package material. Source-declared target candidate
 
 ## Component index
 
-- adler2 2.0.1 (cargo; normal-dependency candidate): 0BSD OR MIT OR Apache-2.0. Material: N0167, N0175, N0043.
-- aes 0.8.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0296.
-- aho-corasick 1.1.5 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0157.
-- alloc-no-stdlib 3.0.0 (cargo; normal-dependency candidate): BSD-3-Clause. Material: N0230.
-- alloc-stdlib 0.3.0 (cargo; normal-dependency candidate): BSD-3-Clause. Material: N0230.
-- android_system_properties 0.1.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0039, N0159.
-- anyhow 1.0.104 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- arboard 3.6.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0288.
-- arrayvec 0.7.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0094.
-- async-broadcast 0.7.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0268, N0046.
-- async-channel 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- async-executor 1.14.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- async-fs 2.2.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- async-io 2.6.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- async-lock 3.4.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- async-process 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- async-signal 0.2.14 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- async-task 4.7.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- atk-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- atk 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- atomic-waker 1.1.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043, N0121.
-- base64 0.21.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0023.
-- base64 0.22.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0023.
-- base64 0.23.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0213.
-- bit-set 0.8.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0160, N0292.
-- bit-vec 0.8.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0160, N0292.
-- bitflags 1.3.2 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0204, N0124.
-- bitflags 2.13.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- block-buffer 0.10.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0254.
-- block-padding 0.3.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0254.
-- block2 0.6.2 (cargo; normal-dependency candidate): MIT. Material: N0158.
-- blocking 1.7.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- brotli-decompressor 6.0.1 (cargo; normal-dependency candidate): BSD-3-Clause/MIT. Material: N0230.
-- brotli 9.0.0 (cargo; normal-dependency candidate): BSD-3-Clause AND MIT. Material: N0230, N0078.
-- bs58 0.5.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0204, N0086.
-- bumpalo 3.20.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0125.
-- bytemuck 1.25.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0267, N0196, N0163.
-- byteorder-lite 0.1.0 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0024, N0157.
-- byteorder 1.5.0 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0157.
-- bytes 1.12.1 (cargo; normal-dependency candidate): MIT. Material: N0090.
-- cairo-rs 0.18.5 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- cairo-sys-rs 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- camino 1.2.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0043.
-- cargo-platform 0.1.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0175, N0043.
-- cargo_metadata 0.19.2 (cargo; normal-dependency candidate): MIT. Material: N0043.
-- cbc 0.1.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0123.
-- cesu8 1.1.0 (cargo; normal-dependency candidate): Apache-2.0/MIT. Material: N0112.
-- cfb 0.14.0 (cargo; normal-dependency candidate): MIT. Material: N0280.
-- cfg-if 1.0.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0075.
-- chrono 0.4.45 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0188.
-- cipher 0.4.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0111.
-- clipboard-win 5.4.1 (cargo; normal-dependency candidate): BSL-1.0. Material: N0244.
-- color_quant 1.1.0 (cargo; normal-dependency candidate): MIT. Material: N0106.
-- combine 4.6.8 (cargo; normal-dependency candidate): MIT. Material: N0191.
-- concurrent-queue 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- cookie 0.18.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0287.
-- core-foundation-sys 0.8.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0120.
-- core-foundation 0.10.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0120.
-- core-foundation 0.9.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0120.
-- core-graphics-types 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0120.
-- core-graphics 0.24.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0281, N0204, N0120.
-- core-graphics 0.25.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0281, N0204, N0120.
-- core_detect 1.0.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0147, N0165.
-- cpufeatures 0.2.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0216.
-- crc32fast 1.5.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0236, N0119.
-- crossbeam-channel 0.5.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0102, N0218.
-- crossbeam-utils 0.8.23 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0102.
-- crypto-common 0.1.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0072.
-- cssparser 0.37.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0298.
-- ctor 1.0.13 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0210, N0228.
-- data-encoding 2.11.1 (cargo; normal-dependency candidate): MIT. Material: N0225.
-- dbus-secret-service 4.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0020.
-- dbus 0.9.12 (cargo; normal-dependency candidate): Apache-2.0/MIT. Material: N0089, N0262.
-- defmt 1.1.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0160, N0054.
-- deranged 0.5.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0283, N0040.
-- derive_more 2.1.1 (cargo; normal-dependency candidate): MIT. Material: N0174.
-- digest 0.10.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0198.
-- dirs-sys 0.5.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0253, N0132.
-- dirs 7.0.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0253, N0132.
-- dispatch2 0.3.1 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- dlopen2 0.8.2 (cargo; normal-dependency candidate): MIT. Material: N0077.
-- dom_query 0.28.0 (cargo; normal-dependency candidate): MIT. Material: N0144.
-- dpi 0.1.2 (cargo; normal-dependency candidate): Apache-2.0 AND MIT. Material: N0134, N0201.
-- drag 2.1.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0199.
+- adler2 2.0.1 (cargo; normal-dependency candidate): 0BSD OR MIT OR Apache-2.0. Material: N0169, N0177, N0044.
+- aes 0.8.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0301.
+- aho-corasick 1.1.5 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0159.
+- alloc-no-stdlib 3.0.0 (cargo; normal-dependency candidate): BSD-3-Clause. Material: N0234.
+- alloc-stdlib 0.3.0 (cargo; normal-dependency candidate): BSD-3-Clause. Material: N0234.
+- android_system_properties 0.1.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0040, N0161.
+- anyhow 1.0.104 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- arboard 3.6.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0293.
+- arrayvec 0.7.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0095.
+- async-broadcast 0.7.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0272, N0047.
+- async-channel 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- async-executor 1.14.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- async-fs 2.2.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- async-io 2.6.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- async-lock 3.4.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- async-process 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- async-signal 0.2.14 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- async-task 4.7.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- atk-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- atk 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- atomic-waker 1.1.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044, N0123.
+- base64 0.21.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0023.
+- base64 0.22.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0023.
+- base64 0.23.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0215.
+- bit-set 0.8.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0162, N0297.
+- bit-vec 0.8.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0162, N0297.
+- bitflags 1.3.2 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0206, N0126.
+- bitflags 2.13.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- block-buffer 0.10.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0258.
+- block-padding 0.3.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0258.
+- block2 0.6.2 (cargo; normal-dependency candidate): MIT. Material: N0160.
+- blocking 1.7.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- brotli-decompressor 6.0.1 (cargo; normal-dependency candidate): BSD-3-Clause/MIT. Material: N0234.
+- brotli 9.0.0 (cargo; normal-dependency candidate): BSD-3-Clause AND MIT. Material: N0234, N0079.
+- bs58 0.5.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0206, N0087.
+- bumpalo 3.20.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0127.
+- bytemuck 1.25.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0271, N0198, N0165.
+- byteorder-lite 0.1.0 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0024, N0159.
+- byteorder 1.5.0 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0159.
+- bytes 1.12.1 (cargo; normal-dependency candidate): MIT. Material: N0091.
+- cairo-rs 0.18.5 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- cairo-sys-rs 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- camino 1.2.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0044.
+- cargo-platform 0.1.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0177, N0044.
+- cargo_metadata 0.19.2 (cargo; normal-dependency candidate): MIT. Material: N0044.
+- cbc 0.1.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0125.
+- cesu8 1.1.0 (cargo; normal-dependency candidate): Apache-2.0/MIT. Material: N0113.
+- cfb 0.14.0 (cargo; normal-dependency candidate): MIT. Material: N0284.
+- cfg-if 1.0.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0076.
+- chrono 0.4.45 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0190.
+- cipher 0.4.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0112.
+- clipboard-win 5.4.1 (cargo; normal-dependency candidate): BSL-1.0. Material: N0248.
+- color_quant 1.1.0 (cargo; normal-dependency candidate): MIT. Material: N0107.
+- combine 4.6.8 (cargo; normal-dependency candidate): MIT. Material: N0193.
+- concurrent-queue 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- cookie 0.18.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0057, N0291.
+- core-foundation-sys 0.8.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0122.
+- core-foundation 0.10.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0122.
+- core-foundation 0.9.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0122.
+- core-graphics-types 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0122.
+- core-graphics 0.24.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0285, N0206, N0122.
+- core-graphics 0.25.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0285, N0206, N0122.
+- core_detect 1.0.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0149, N0167.
+- cpufeatures 0.2.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0218.
+- crc32fast 1.5.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0240, N0121.
+- crossbeam-channel 0.5.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0103, N0221.
+- crossbeam-utils 0.8.23 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0103.
+- crypto-common 0.1.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0073.
+- cssparser 0.35.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0303.
+- cssparser 0.37.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0303.
+- ctor 1.0.13 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0212, N0232.
+- data-encoding 2.11.1 (cargo; normal-dependency candidate): MIT. Material: N0228.
+- dbus-secret-service 4.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0020.
+- dbus 0.9.12 (cargo; normal-dependency candidate): Apache-2.0/MIT. Material: N0090, N0266.
+- defmt 1.1.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0162, N0055.
+- deranged 0.5.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0287, N0041.
+- derive_more 2.1.1 (cargo; normal-dependency candidate): MIT. Material: N0176.
+- digest 0.10.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0200.
+- dirs-sys 0.5.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0257, N0134.
+- dirs 7.0.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0257, N0134.
+- dispatch2 0.3.1 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- dlopen2 0.8.2 (cargo; normal-dependency candidate): MIT. Material: N0078.
+- dom_query 0.28.0 (cargo; normal-dependency candidate): MIT. Material: N0146.
+- dpi 0.1.2 (cargo; normal-dependency candidate): Apache-2.0 AND MIT. Material: N0136, N0203.
+- drag 2.1.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0201.
 - dtoa-short 0.3.5 (cargo; normal-dependency candidate): MPL-2.0. Material: N0035.
-- dtoa 1.0.11 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- dunce 1.0.5 (cargo; normal-dependency candidate): CC0-1.0 OR MIT-0 OR Apache-2.0. Material: N0202.
-- dyn-clone 1.0.20 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- embed_plist 1.2.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0248, N0257.
-- encoding_rs 0.8.42 (cargo; normal-dependency candidate): (Apache-2.0 OR MIT) AND BSD-3-Clause. Material: N0025, N0248, N0081, N0161.
-- endi 1.1.1 (cargo; normal-dependency candidate): MIT. Material: N0043.
-- enumflags2 0.7.12 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0083, N0064.
-- equivalent 1.0.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0140.
-- erased-serde 0.4.10 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- errno 0.3.14 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0169.
-- error-code 3.4.0 (cargo; normal-dependency candidate): BSL-1.0. Material: N0244.
-- event-listener-strategy 0.5.4 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- event-listener 5.4.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- fallible-iterator 0.3.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0236, N0013.
-- fallible-streaming-iterator 0.1.9 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0236, N0182.
-- fastrand 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- fax 0.2.7 (cargo; normal-dependency candidate): MIT. Material: N0139.
-- fdeflate 0.3.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0240.
-- field-offset 0.3.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0195.
-- flate2 1.1.10 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0006.
-- fnv 1.0.7 (cargo; normal-dependency candidate): Apache-2.0 / MIT. Material: N0204, N0127.
-- foldhash 0.2.0 (cargo; normal-dependency candidate): Zlib. Material: N0217.
-- foreign-types-shared 0.3.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0236, N0070.
-- foreign-types 0.5.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0236, N0070.
-- form_urlencoded 1.2.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0038.
-- futures-channel 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0055, N0128.
-- futures-core 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0055, N0128.
-- futures-executor 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0055, N0128.
-- futures-io 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0055, N0128.
-- futures-lite 2.6.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043, N0121.
-- futures-sink 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0055, N0128.
-- futures-task 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0055, N0128.
-- futures-util 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0055, N0128.
-- gdk-pixbuf-sys 0.18.0 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- gdk-pixbuf 0.18.5 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- gdk-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- gdk 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- gdkwayland-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- gdkx11-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- gdkx11 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- generic-array 0.14.7 (cargo; normal-dependency candidate): MIT. Material: N0229.
-- gethostname 1.1.0 (cargo; normal-dependency candidate): Apache-2.0. Material: N0204.
-- getrandom 0.2.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0212, N0087.
-- getrandom 0.3.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0212, N0058.
-- getrandom 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0212, N0099.
-- gif 0.14.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0147, N0148.
-- gio-sys 0.18.1 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- gio 0.18.4 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- glib-sys 0.18.1 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- glib 0.18.5 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- glob 0.3.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- gobject-sys 0.18.0 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- gtk-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- gtk 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- half 2.7.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0097.
-- hashbrown 0.12.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0302.
-- hashbrown 0.17.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0302.
-- hashlink 0.12.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0232, N0274.
-- heck 0.5.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0153.
-- hex 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0236, N0294.
-- hkdf 0.12.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0105, N0251.
-- hmac 0.12.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0198.
-- html5ever 0.39.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0168.
-- http-body-util 0.1.5 (cargo; normal-dependency candidate): MIT. Material: N0044.
-- http-body 1.1.0 (cargo; normal-dependency candidate): MIT. Material: N0044.
-- http 1.5.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0178, N0260.
-- httparse 1.10.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0076.
-- hyper-rustls 0.27.10 (cargo; normal-dependency candidate): Apache-2.0 OR ISC OR MIT. Material: N0204, N0156, N0138.
-- hyper-util 0.1.21 (cargo; normal-dependency candidate): MIT. Material: N0197.
-- hyper 1.12.0 (cargo; normal-dependency candidate): MIT. Material: N0063.
-- iana-time-zone 0.1.65 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0131, N0256.
-- icu_collections 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- icu_locale_core 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- icu_normalizer 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- icu_normalizer_data 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- icu_properties 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- icu_properties_data 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- icu_provider 2.3.1 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- idna 1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0220.
-- idna_adapter 1.2.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0177.
-- image-webp 0.2.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0240.
-- image 0.25.10 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0240.
-- indexmap 1.9.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0282.
-- indexmap 2.14.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0282.
-- infer 0.22.0 (cargo; normal-dependency candidate): MIT. Material: N0053.
-- inout 0.1.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0065.
-- ipnet 2.12.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0170, N0092.
-- is-docker 0.2.0 (cargo; normal-dependency candidate): MIT. Material: N0141.
-- is-wsl 0.4.0 (cargo; normal-dependency candidate): MIT. Material: N0141.
-- itoa 1.0.18 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- javascriptcore-rs-sys 1.1.1 (cargo; normal-dependency candidate): MIT. Material: N0152.
-- javascriptcore-rs 1.1.2 (cargo; normal-dependency candidate): MIT. Material: N0100.
-- jiff-core 0.1.1 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0157.
-- jiff-tzdb-platform 0.1.3 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0157.
-- jiff-tzdb 0.1.9 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0157.
-- jiff 0.2.38 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0157.
-- jni-sys 0.3.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0236, N0033.
-- jni-sys 0.4.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0236, N0033.
-- jni 0.21.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0204, N0301.
-- jni 0.22.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0301.
-- json-patch 4.2.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0222, N0171.
-- jsonptr 0.7.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0062, N0061.
-- keyboard-types 0.8.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0147, N0067.
-- keyring 3.6.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0149, N0028.
-- libappindicator-sys 0.9.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0278.
-- libappindicator 0.9.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0278.
-- libc 0.2.190 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0026.
-- libdbus-sys 0.2.7 (cargo; normal-dependency candidate): Apache-2.0/MIT. Material: N0089, N0262, N0271, N0237.
-- libloading 0.7.4 (cargo; normal-dependency candidate): ISC. Material: N0219.
-- libsqlite3-sys 0.38.2 (cargo; normal-dependency candidate): MIT. Material: N0231, N0276.
-- linux-raw-sys 0.12.1 (cargo; normal-dependency candidate): Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT. Material: N0069, N0204, N0052, N0043.
-- litemap 0.8.3 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- lock_api 0.4.14 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0243.
-- lofty 0.25.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0071, N0014.
-- log 0.4.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- markup5ever 0.39.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0168.
-- md-5 0.10.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0224.
-- memchr 2.8.3 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0157.
-- memoffset 0.9.1 (cargo; normal-dependency candidate): MIT. Material: N0068.
-- mime 0.3.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0263.
-- miniz_oxide 0.8.9 (cargo; normal-dependency candidate): MIT OR Zlib OR Apache-2.0. Material: N0082, N0021, N0150, N0015.
-- miniz_oxide 0.9.1 (cargo; normal-dependency candidate): MIT OR Zlib OR Apache-2.0. Material: N0082, N0021, N0150, N0015.
+- dtoa 1.0.11 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- dunce 1.0.5 (cargo; normal-dependency candidate): CC0-1.0 OR MIT-0 OR Apache-2.0. Material: N0204.
+- dyn-clone 1.0.20 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- ego-tree 0.10.0 (cargo; normal-dependency candidate): ISC. Material: N0219.
+- embed_plist 1.2.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0252, N0261.
+- encoding_rs 0.8.42 (cargo; normal-dependency candidate): (Apache-2.0 OR MIT) AND BSD-3-Clause. Material: N0025, N0252, N0082, N0163.
+- endi 1.1.1 (cargo; normal-dependency candidate): MIT. Material: N0044.
+- enumflags2 0.7.12 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0084, N0065.
+- equivalent 1.0.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0142.
+- erased-serde 0.4.10 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- errno 0.3.14 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0171.
+- error-code 3.4.0 (cargo; normal-dependency candidate): BSL-1.0. Material: N0248.
+- event-listener-strategy 0.5.4 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- event-listener 5.4.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- fallible-iterator 0.3.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0240, N0013.
+- fallible-streaming-iterator 0.1.9 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0240, N0184.
+- fastrand 2.5.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- fax 0.2.7 (cargo; normal-dependency candidate): MIT. Material: N0141.
+- fdeflate 0.3.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0244.
+- field-offset 0.3.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0208, N0197.
+- flate2 1.1.10 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0006.
+- fnv 1.0.7 (cargo; normal-dependency candidate): Apache-2.0 / MIT. Material: N0206, N0129.
+- foldhash 0.2.0 (cargo; normal-dependency candidate): Zlib. Material: N0220.
+- foreign-types-shared 0.3.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0240, N0071.
+- foreign-types 0.5.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0240, N0071.
+- form_urlencoded 1.2.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0039.
+- futf 0.1.5 (cargo; normal-dependency candidate): MIT / Apache-2.0. Material: N0206, N0119.
+- futures-channel 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0130.
+- futures-core 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0130.
+- futures-executor 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0130.
+- futures-io 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0130.
+- futures-lite 2.6.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044, N0123.
+- futures-sink 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0130.
+- futures-task 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0130.
+- futures-util 0.3.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0056, N0130.
+- fxhash 0.2.1 (cargo; normal-dependency candidate): Apache-2.0/MIT. Material: N0116, N0002.
+- gdk-pixbuf-sys 0.18.0 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- gdk-pixbuf 0.18.5 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- gdk-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- gdk 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- gdkwayland-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- gdkx11-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- gdkx11 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- generic-array 0.14.7 (cargo; normal-dependency candidate): MIT. Material: N0233.
+- gethostname 1.1.0 (cargo; normal-dependency candidate): Apache-2.0. Material: N0206.
+- getopts 0.2.24 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- getrandom 0.2.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0214, N0088.
+- getrandom 0.3.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0214, N0059.
+- getrandom 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0214, N0100.
+- gif 0.14.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0149, N0150.
+- gio-sys 0.18.1 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- gio 0.18.4 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- glib-sys 0.18.1 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- glib 0.18.5 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- glob 0.3.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- gobject-sys 0.18.0 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- gtk-sys 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- gtk 0.18.2 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- half 2.7.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0208, N0098.
+- hashbrown 0.12.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0307.
+- hashbrown 0.17.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0307.
+- hashlink 0.12.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0236, N0278.
+- heck 0.5.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0155.
+- hex 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0240, N0299.
+- hkdf 0.12.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0106, N0255.
+- hmac 0.12.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0200.
+- html5ever 0.35.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0170.
+- html5ever 0.39.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0170.
+- http-body-util 0.1.5 (cargo; normal-dependency candidate): MIT. Material: N0045.
+- http-body 1.1.0 (cargo; normal-dependency candidate): MIT. Material: N0045.
+- http 1.5.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0180, N0264.
+- httparse 1.10.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0077.
+- hyper-rustls 0.27.10 (cargo; normal-dependency candidate): Apache-2.0 OR ISC OR MIT. Material: N0206, N0158, N0140.
+- hyper-util 0.1.21 (cargo; normal-dependency candidate): MIT. Material: N0199.
+- hyper 1.12.0 (cargo; normal-dependency candidate): MIT. Material: N0064.
+- iana-time-zone 0.1.65 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0133, N0260.
+- icu_collections 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- icu_locale_core 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- icu_normalizer 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- icu_normalizer_data 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- icu_properties 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- icu_properties_data 2.3.0 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- icu_provider 2.3.1 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- idna 1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0223.
+- idna_adapter 1.2.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0179.
+- image-webp 0.2.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0244.
+- image 0.25.10 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0244.
+- indexmap 1.9.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0286.
+- indexmap 2.14.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0286.
+- infer 0.22.0 (cargo; normal-dependency candidate): MIT. Material: N0054.
+- inout 0.1.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0066.
+- ipnet 2.12.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0172, N0093.
+- is-docker 0.2.0 (cargo; normal-dependency candidate): MIT. Material: N0143.
+- is-wsl 0.4.0 (cargo; normal-dependency candidate): MIT. Material: N0143.
+- itoa 1.0.18 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- javascriptcore-rs-sys 1.1.1 (cargo; normal-dependency candidate): MIT. Material: N0154.
+- javascriptcore-rs 1.1.2 (cargo; normal-dependency candidate): MIT. Material: N0101.
+- jiff-core 0.1.1 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0159.
+- jiff-tzdb-platform 0.1.3 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0159.
+- jiff-tzdb 0.1.9 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0159.
+- jiff 0.2.38 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0159.
+- jni-sys 0.3.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0240, N0033.
+- jni-sys 0.4.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0240, N0033.
+- jni 0.21.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0206, N0306.
+- jni 0.22.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0306.
+- json-patch 4.2.0 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0225, N0173.
+- jsonptr 0.7.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0063, N0062.
+- keyboard-types 0.8.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0149, N0068.
+- keyring 3.6.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0151, N0028.
+- libappindicator-sys 0.9.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0282.
+- libappindicator 0.9.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0282.
+- libc 0.2.190 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0026.
+- libdbus-sys 0.2.7 (cargo; normal-dependency candidate): Apache-2.0/MIT. Material: N0090, N0266, N0275, N0241.
+- libloading 0.7.4 (cargo; normal-dependency candidate): ISC. Material: N0222.
+- libsqlite3-sys 0.38.2 (cargo; normal-dependency candidate): MIT. Material: N0235, N0280.
+- linux-raw-sys 0.12.1 (cargo; normal-dependency candidate): Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT. Material: N0070, N0206, N0053, N0044.
+- litemap 0.8.3 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- lock_api 0.4.14 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0247.
+- lofty 0.25.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0072, N0014.
+- log 0.4.34 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- mac 0.1.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0292, N0002.
+- markup5ever 0.35.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0170.
+- markup5ever 0.39.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0170.
+- md-5 0.10.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0227.
+- memchr 2.8.3 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0024, N0159.
+- memoffset 0.9.1 (cargo; normal-dependency candidate): MIT. Material: N0069.
+- mime 0.3.17 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0267.
+- miniz_oxide 0.8.9 (cargo; normal-dependency candidate): MIT OR Zlib OR Apache-2.0. Material: N0083, N0021, N0152, N0015.
+- miniz_oxide 0.9.1 (cargo; normal-dependency candidate): MIT OR Zlib OR Apache-2.0. Material: N0083, N0021, N0152, N0015.
 - mio 1.2.4 (cargo; normal-dependency candidate): MIT. Material: N0012.
-- moxcms 0.8.1 (cargo; normal-dependency candidate): BSD-3-Clause OR Apache-2.0. Material: N0184, N0059.
-- muda 0.20.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0060, N0227.
-- ndk-context 0.1.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0097.
-- ndk-sys 0.6.0+11769913 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0097.
-- ndk 0.9.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0097.
-- new_debug_unreachable 1.0.6 (cargo; normal-dependency candidate): MIT. Material: N0293.
-- nix 0.29.0 (cargo; normal-dependency candidate): MIT. Material: N0130.
-- num-bigint 0.4.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- num-complex 0.4.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- num-conv 0.2.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0266.
-- num-format 0.4.4 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0166, N0215.
-- num-integer 0.1.47 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- num-iter 0.1.46 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- num-rational 0.4.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- num-traits 0.2.19 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- num 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- num_enum 0.7.6 (cargo; normal-dependency candidate): BSD-3-Clause OR MIT OR Apache-2.0. Material: N0122, N0018, N0043.
-- objc2-app-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-cloud-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-core-data 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-core-foundation 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-core-graphics 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-core-image 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-core-location 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-core-text 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-core-video 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-encode 4.1.0 (cargo; normal-dependency candidate): MIT. Material: N0158.
-- objc2-exception-helper 0.1.1 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-foundation 0.3.2 (cargo; normal-dependency candidate): MIT. Material: N0049, N0042.
-- objc2-io-surface 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-quartz-core 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-ui-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-user-notifications 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2-web-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0158.
-- objc2 0.6.5 (cargo; normal-dependency candidate): MIT. Material: N0158.
-- ogg_pager 0.7.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0071, N0014.
-- once_cell 1.21.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0043.
-- open 5.4.4 (cargo; normal-dependency candidate): MIT. Material: N0272.
-- openssl-probe 0.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0075.
-- option-ext 0.2.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0129.
-- ordered-stream 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0043.
-- pango-sys 0.18.0 (cargo; normal-dependency candidate): MIT. Material: N0181.
-- pango 0.18.3 (cargo; normal-dependency candidate): MIT. Material: N0258, N0181.
-- parking 2.2.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043, N0190.
-- parking_lot 0.12.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0243.
-- parking_lot_core 0.9.12 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0243.
-- percent-encoding 2.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0220.
+- moxcms 0.8.1 (cargo; normal-dependency candidate): BSD-3-Clause OR Apache-2.0. Material: N0186, N0060.
+- muda 0.20.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0061, N0230.
+- ndk-context 0.1.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0098.
+- ndk-sys 0.6.0+11769913 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0098.
+- ndk 0.9.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0098.
+- new_debug_unreachable 1.0.6 (cargo; normal-dependency candidate): MIT. Material: N0298.
+- nix 0.29.0 (cargo; normal-dependency candidate): MIT. Material: N0132.
+- num-bigint 0.4.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- num-complex 0.4.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- num-conv 0.2.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0270.
+- num-format 0.4.4 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0168, N0217.
+- num-integer 0.1.47 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- num-iter 0.1.46 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- num-rational 0.4.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- num-traits 0.2.19 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- num 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- num_enum 0.7.6 (cargo; normal-dependency candidate): BSD-3-Clause OR MIT OR Apache-2.0. Material: N0124, N0018, N0044.
+- objc2-app-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-cloud-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-core-data 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-core-foundation 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-core-graphics 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-core-image 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-core-location 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-core-text 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-core-video 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-encode 4.1.0 (cargo; normal-dependency candidate): MIT. Material: N0160.
+- objc2-exception-helper 0.1.1 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-foundation 0.3.2 (cargo; normal-dependency candidate): MIT. Material: N0050, N0043.
+- objc2-io-surface 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-quartz-core 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-ui-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-user-notifications 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2-web-kit 0.3.2 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0160.
+- objc2 0.6.5 (cargo; normal-dependency candidate): MIT. Material: N0160.
+- ogg_pager 0.7.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0072, N0014.
+- once_cell 1.21.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0044.
+- open 5.4.4 (cargo; normal-dependency candidate): MIT. Material: N0276.
+- openssl-probe 0.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0076.
+- option-ext 0.2.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0131.
+- ordered-stream 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0044.
+- pango-sys 0.18.0 (cargo; normal-dependency candidate): MIT. Material: N0183.
+- pango 0.18.3 (cargo; normal-dependency candidate): MIT. Material: N0262, N0183.
+- parking 2.2.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044, N0192.
+- parking_lot 0.12.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0247.
+- parking_lot_core 0.9.12 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0247.
+- percent-encoding 2.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0223.
+- phf 0.11.3 (cargo; normal-dependency candidate): MIT. Material: N0016.
 - phf 0.13.1 (cargo; normal-dependency candidate): MIT. Material: N0016.
+- phf_shared 0.11.3 (cargo; normal-dependency candidate): MIT. Material: N0016.
 - phf_shared 0.13.1 (cargo; normal-dependency candidate): MIT. Material: N0016.
-- pin-project-lite 0.2.17 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0043.
-- piper 0.2.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0043.
-- plist 1.10.1 (cargo; normal-dependency candidate): MIT. Material: N0109.
-- png 0.18.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0277.
-- polling 3.11.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
-- potential_utf 0.1.6 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
+- pin-project-lite 0.2.17 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0044.
+- piper 0.2.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0044.
+- plist 1.10.1 (cargo; normal-dependency candidate): MIT. Material: N0110.
+- png 0.18.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0281.
+- polling 3.11.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
+- potential_utf 0.1.6 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
 - powerfmt 0.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0027, N0011.
-- ppv-lite86 0.2.21 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0005, N0093.
-- precomputed-hash 0.1.1 (cargo; normal-dependency candidate): MIT. Material: N0154.
-- proc-macro2 1.0.107 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- pure-rust-locales 0.8.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0270.
-- pxfm 0.1.30 (cargo; normal-dependency candidate): BSD-3-Clause OR Apache-2.0. Material: N0184, N0059.
-- quick-error 2.0.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0236, N0010.
-- quick-xml 0.42.0 (cargo; normal-dependency candidate): MIT. Material: N0286.
-- quote 1.0.47 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- rand 0.8.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0185, N0073, N0036.
-- rand 0.9.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0185, N0073, N0036.
-- rand_chacha 0.3.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0185, N0212, N0036.
-- rand_chacha 0.9.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0185, N0073, N0036.
-- rand_core 0.6.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0185, N0135, N0036.
-- rand_core 0.9.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0185, N0135, N0036.
-- raw-window-handle 0.6.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0 OR Zlib. Material: N0021, N0192, N0214.
-- ref-cast 1.0.27 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- regex-automata 0.4.18 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- regex-syntax 0.8.11 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124, N0142.
-- regex 1.13.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0124.
-- reqwest 0.13.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0143, N0261.
-- rfd 0.16.0 (cargo; normal-dependency candidate): MIT. Material: N0126.
-- ring 0.17.14 (cargo; normal-dependency candidate): Apache-2.0 AND ISC. Material: N0221, N0002, N0285, N0204, N0136, N0200.
-- rusqlite 0.40.2 (cargo; normal-dependency candidate): MIT. Material: N0231.
-- rustc-hash 2.1.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0189, N0066.
-- rustix 1.1.5 (cargo; normal-dependency candidate): Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT. Material: N0074, N0204, N0052, N0043.
-- rustls-native-certs 0.8.5 (cargo; normal-dependency candidate): Apache-2.0 OR ISC OR MIT. Material: N0255, N0204, N0156, N0138.
-- rustls-pki-types 1.15.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0091, N0186.
-- rustls-platform-verifier-android 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0032.
-- rustls-platform-verifier 0.7.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0032.
-- rustls-webpki 0.103.15 (cargo; normal-dependency candidate): ISC. Material: N0110.
-- rustls 0.23.46 (cargo; normal-dependency candidate): Apache-2.0 OR ISC OR MIT. Material: N0204, N0156, N0138.
-- same-file 1.0.6 (cargo; normal-dependency candidate): Unlicense/MIT. Material: N0004, N0245, N0157.
+- ppv-lite86 0.2.21 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0005, N0094.
+- precomputed-hash 0.1.1 (cargo; normal-dependency candidate): MIT. Material: N0156.
+- proc-macro2 1.0.107 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- pure-rust-locales 0.8.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0274.
+- pxfm 0.1.30 (cargo; normal-dependency candidate): BSD-3-Clause OR Apache-2.0. Material: N0186, N0060.
+- quick-error 2.0.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0240, N0010.
+- quick-xml 0.42.0 (cargo; normal-dependency candidate): MIT. Material: N0290.
+- quote 1.0.47 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- rand 0.8.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0187, N0074, N0037.
+- rand 0.9.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0187, N0074, N0037.
+- rand_chacha 0.3.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0187, N0214, N0037.
+- rand_chacha 0.9.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0187, N0074, N0037.
+- rand_core 0.6.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0187, N0137, N0037.
+- rand_core 0.9.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0187, N0137, N0037.
+- raw-window-handle 0.6.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0 OR Zlib. Material: N0021, N0194, N0216.
+- ref-cast 1.0.27 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- regex-automata 0.4.18 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- regex-syntax 0.8.11 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126, N0144.
+- regex 1.13.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0126.
+- reqwest 0.13.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0145, N0265.
+- rfd 0.16.0 (cargo; normal-dependency candidate): MIT. Material: N0128.
+- ring 0.17.14 (cargo; normal-dependency candidate): Apache-2.0 AND ISC. Material: N0224, N0002, N0289, N0206, N0138, N0202.
+- rusqlite 0.40.2 (cargo; normal-dependency candidate): MIT. Material: N0235.
+- rustc-hash 2.1.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0191, N0067.
+- rustix 1.1.5 (cargo; normal-dependency candidate): Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT. Material: N0075, N0206, N0053, N0044.
+- rustls-native-certs 0.8.5 (cargo; normal-dependency candidate): Apache-2.0 OR ISC OR MIT. Material: N0259, N0206, N0158, N0140.
+- rustls-pki-types 1.15.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0092, N0188.
+- rustls-platform-verifier-android 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0032.
+- rustls-platform-verifier 0.7.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0032.
+- rustls-webpki 0.103.15 (cargo; normal-dependency candidate): ISC. Material: N0111.
+- rustls 0.23.46 (cargo; normal-dependency candidate): Apache-2.0 OR ISC OR MIT. Material: N0206, N0158, N0140.
+- ryu 1.0.23 (cargo; normal-dependency candidate): Apache-2.0 OR BSL-1.0. Material: N0124, N0248.
+- same-file 1.0.6 (cargo; normal-dependency candidate): Unlicense/MIT. Material: N0004, N0249, N0159.
 - schemars 0.8.22 (cargo; normal-dependency candidate): MIT. Material: N0030.
 - schemars 0.9.0 (cargo; normal-dependency candidate): MIT. Material: N0030.
 - schemars 1.2.3 (cargo; normal-dependency candidate): MIT. Material: N0030.
-- scopeguard 1.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0299.
-- secret-service 4.0.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0020.
-- security-framework-sys 2.17.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0187.
-- security-framework 3.7.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0187.
-- selectors 0.38.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0080, N0146.
-- semver 1.0.28 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- serde-untagged 0.1.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- serde 1.0.229 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- serde_core 1.0.229 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- serde_json 1.0.154 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- serde_spanned 1.1.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0045, N0137.
-- serde_with 3.24.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0145.
-- serialize-to-javascript 0.1.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0269.
-- servo_arc 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0043.
-- sha1 0.10.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0224.
-- sha2-asm 0.6.4 (cargo; normal-dependency candidate): MIT. Material: N0164.
-- sha2 0.10.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0211, N0224.
-- signal-hook-registry 1.4.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0095.
-- simd-adler32 0.3.10 (cargo; normal-dependency candidate): MIT. Material: N0085.
-- simd_cesu8 1.2.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0043.
+- scopeguard 1.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0304.
+- scraper 0.24.0 (cargo; normal-dependency candidate): ISC. Material: N0036.
+- secret-service 4.0.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0020.
+- security-framework-sys 2.17.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0189.
+- security-framework 3.7.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0189.
+- selectors 0.31.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0148, N0081.
+- selectors 0.38.0 (cargo; normal-dependency candidate): MPL-2.0. Material: N0081, N0148.
+- semver 1.0.28 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- serde-untagged 0.1.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- serde 1.0.229 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- serde_core 1.0.229 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- serde_json 1.0.154 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- serde_spanned 1.1.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0046, N0139.
+- serde_urlencoded 0.7.1 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0124, N0231.
+- serde_with 3.24.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0147.
+- serialize-to-javascript 0.1.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0273.
+- servo_arc 0.4.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0044.
+- sha1 0.10.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0227.
+- sha2-asm 0.6.4 (cargo; normal-dependency candidate): MIT. Material: N0166.
+- sha2 0.10.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0213, N0227.
+- signal-hook-registry 1.4.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0096.
+- simd-adler32 0.3.10 (cargo; normal-dependency candidate): MIT. Material: N0086.
+- simd_cesu8 1.2.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0044.
 - simdutf8 0.1.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0019, N0029.
-- siphasher 1.0.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0242, N0248, N0297.
-- slab 0.4.12 (cargo; normal-dependency candidate): MIT. Material: N0180.
-- smallvec 1.16.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0017.
-- socket2 0.6.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0075.
-- softbuffer 0.4.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0203, N0008.
-- soup3-sys 0.5.0 (cargo; normal-dependency candidate): MIT. Material: N0152.
-- soup3 0.5.0 (cargo; normal-dependency candidate): MIT. Material: N0152.
-- stable_deref_trait 1.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0115.
-- static_assertions 1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0248, N0275.
-- string_cache 0.9.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0120.
-- subtle 2.6.1 (cargo; normal-dependency candidate): BSD-3-Clause. Material: N0249.
-- swift-rs 1.0.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0183, N0290.
-- syn 3.0.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
+- siphasher 1.0.4 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0246, N0252, N0302.
+- slab 0.4.12 (cargo; normal-dependency candidate): MIT. Material: N0182.
+- smallvec 1.16.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0017.
+- socket2 0.6.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0076.
+- softbuffer 0.4.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0205, N0008.
+- soup3-sys 0.5.0 (cargo; normal-dependency candidate): MIT. Material: N0154.
+- soup3 0.5.0 (cargo; normal-dependency candidate): MIT. Material: N0154.
+- stable_deref_trait 1.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0117.
+- static_assertions 1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0252, N0279.
+- string_cache 0.8.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0122.
+- string_cache 0.9.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0122.
+- subtle 2.6.1 (cargo; normal-dependency candidate): BSD-3-Clause. Material: N0253.
+- swift-rs 1.0.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0185, N0295.
+- syn 3.0.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
 - sync_wrapper 1.0.2 (cargo; normal-dependency candidate): Apache-2.0. Material: N0021.
-- sys-locale 0.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0239, N0113.
-- system-configuration-sys 0.6.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0001.
-- system-configuration 0.7.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0001.
-- tao 0.37.1 (cargo; normal-dependency candidate): Apache-2.0. Material: N0134, N0007.
-- tauri-plugin-dialog 2.8.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0279, N0019, N0173.
-- tauri-plugin-fs 2.7.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0279, N0019, N0173.
-- tauri-plugin-opener 2.7.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0279, N0019, N0173.
-- tauri-plugin-single-instance 2.5.4 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0279, N0019, N0226.
-- tauri-runtime-wry 2.12.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0194.
-- tauri-runtime 2.12.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0194.
-- tauri-utils 2.10.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0194.
-- tauri 2.12.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0194.
-- tempfile 3.27.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0176.
-- tendril 0.5.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0117.
-- thiserror 1.0.69 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- thiserror 2.0.21 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- tiff 0.11.3 (cargo; normal-dependency candidate): MIT. Material: N0037, N0238.
-- time-core 0.1.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0047.
-- time 0.3.55 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0047.
-- tinystr 0.8.4 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- tinyvec 1.13.3 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0248, N0300, N0163.
-- tokio-rustls 0.26.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0247, N0264.
-- tokio-util 0.7.20 (cargo; normal-dependency candidate): MIT. Material: N0048.
-- tokio 1.53.3 (cargo; normal-dependency candidate): MIT. Material: N0048.
-- toml 1.1.8+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0045, N0137.
-- toml_datetime 1.1.2+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0045, N0137.
-- toml_parser 1.1.5+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0045, N0137.
-- toml_writer 1.1.3+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0045, N0137.
-- tower-http 0.6.11 (cargo; normal-dependency candidate): MIT. Material: N0096.
-- tower-layer 0.3.3 (cargo; normal-dependency candidate): MIT. Material: N0084.
-- tower-service 0.3.3 (cargo; normal-dependency candidate): MIT. Material: N0084.
-- tower 0.5.3 (cargo; normal-dependency candidate): MIT. Material: N0084.
-- tracing-core 0.1.36 (cargo; normal-dependency candidate): MIT. Material: N0172, N0104.
-- tracing 0.1.44 (cargo; normal-dependency candidate): MIT. Material: N0172.
+- sys-locale 0.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0243, N0114.
+- system-configuration-sys 0.6.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0001.
+- system-configuration 0.7.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0001.
+- tao 0.37.1 (cargo; normal-dependency candidate): Apache-2.0. Material: N0136, N0007.
+- tauri-plugin-dialog 2.8.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0283, N0019, N0175.
+- tauri-plugin-fs 2.7.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0283, N0019, N0175.
+- tauri-plugin-opener 2.7.2 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0283, N0019, N0175.
+- tauri-plugin-single-instance 2.5.4 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0283, N0019, N0229.
+- tauri-runtime-wry 2.12.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0196.
+- tauri-runtime 2.12.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0196.
+- tauri-utils 2.10.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0196.
+- tauri 2.12.3 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0021, N0196.
+- tempfile 3.27.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0178.
+- tendril 0.4.3 (cargo; normal-dependency candidate): MIT/Apache-2.0. Material: N0206, N0119.
+- tendril 0.5.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0119.
+- thiserror 1.0.69 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- thiserror 2.0.21 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- tiff 0.11.3 (cargo; normal-dependency candidate): MIT. Material: N0038, N0242.
+- time-core 0.1.9 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0048.
+- time 0.3.55 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0021, N0048.
+- tinystr 0.8.4 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- tinyvec 1.13.3 (cargo; normal-dependency candidate): Zlib OR Apache-2.0 OR MIT. Material: N0252, N0305, N0165.
+- tokio-rustls 0.26.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0251, N0268.
+- tokio-util 0.7.20 (cargo; normal-dependency candidate): MIT. Material: N0049.
+- tokio 1.53.3 (cargo; normal-dependency candidate): MIT. Material: N0049.
+- toml 1.1.8+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0046, N0139.
+- toml_datetime 1.1.2+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0046, N0139.
+- toml_parser 1.1.5+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0046, N0139.
+- toml_writer 1.1.3+spec-1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0046, N0139.
+- tower-http 0.6.11 (cargo; normal-dependency candidate): MIT. Material: N0097.
+- tower-layer 0.3.3 (cargo; normal-dependency candidate): MIT. Material: N0085.
+- tower-service 0.3.3 (cargo; normal-dependency candidate): MIT. Material: N0085.
+- tower 0.5.3 (cargo; normal-dependency candidate): MIT. Material: N0085.
+- tracing-core 0.1.36 (cargo; normal-dependency candidate): MIT. Material: N0174, N0105.
+- tracing 0.1.44 (cargo; normal-dependency candidate): MIT. Material: N0174.
 - trash 5.2.9 (cargo; normal-dependency candidate): MIT. Material: N0034.
-- tray-icon 0.25.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0060, N0133.
-- try-lock 0.2.5 (cargo; normal-dependency candidate): MIT. Material: N0241.
-- typeid 1.0.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0122, N0043.
-- typenum 1.20.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0259, N0098, N0209.
-- unicode-ident 1.0.27 (cargo; normal-dependency candidate): (MIT OR Apache-2.0) AND Unicode-3.0. Material: N0122, N0043, N0295.
-- unicode-normalization 0.1.25 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0041, N0204, N0153.
-- unicode-segmentation 1.13.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0041, N0204, N0153.
-- untrusted 0.9.0 (cargo; normal-dependency candidate): ISC. Material: N0151.
-- url 2.5.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0220.
-- urlencoding 2.1.3 (cargo; normal-dependency candidate): MIT. Material: N0108.
-- urlpattern 0.6.0 (cargo; normal-dependency candidate): MIT. Material: N0114.
-- utf8_iter 1.0.4 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0235, N0248, N0081.
-- uuid 1.28.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0088.
-- walkdir 2.5.0 (cargo; normal-dependency candidate): Unlicense/MIT. Material: N0004, N0024, N0157.
-- want 0.3.2 (cargo; normal-dependency candidate): MIT. Material: N0205.
-- web-time 1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0101, N0291.
-- web_atoms 0.2.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0204, N0168.
-- webkit2gtk-sys 2.0.2 (cargo; normal-dependency candidate): MIT. Material: N0057.
-- webkit2gtk 2.0.2 (cargo; normal-dependency candidate): MIT. Material: N0079.
-- webpki-roots 1.0.9 (cargo; normal-dependency candidate): CDLA-Permissive-2.0. Material: N0265.
+- tray-icon 0.25.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0061, N0135.
+- try-lock 0.2.5 (cargo; normal-dependency candidate): MIT. Material: N0245.
+- typeid 1.0.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- typenum 1.20.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0263, N0099, N0211.
+- unicode-ident 1.0.27 (cargo; normal-dependency candidate): (MIT OR Apache-2.0) AND Unicode-3.0. Material: N0124, N0044, N0300.
+- unicode-normalization 0.1.25 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0042, N0206, N0155.
+- unicode-segmentation 1.13.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0042, N0206, N0155.
+- unicode-width 0.2.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0042, N0206, N0155.
+- untrusted 0.9.0 (cargo; normal-dependency candidate): ISC. Material: N0153.
+- url 2.5.8 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0223.
+- urlencoding 2.1.3 (cargo; normal-dependency candidate): MIT. Material: N0109.
+- urlpattern 0.6.0 (cargo; normal-dependency candidate): MIT. Material: N0115.
+- utf-8 0.7.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0124, N0044.
+- utf8_iter 1.0.4 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0239, N0252, N0082.
+- uuid 1.28.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0089.
+- walkdir 2.5.0 (cargo; normal-dependency candidate): Unlicense/MIT. Material: N0004, N0024, N0159.
+- want 0.3.2 (cargo; normal-dependency candidate): MIT. Material: N0207.
+- web-time 1.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0102, N0296.
+- web_atoms 0.1.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0170.
+- web_atoms 0.2.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0206, N0170.
+- webkit2gtk-sys 2.0.2 (cargo; normal-dependency candidate): MIT. Material: N0058.
+- webkit2gtk 2.0.2 (cargo; normal-dependency candidate): MIT. Material: N0080.
+- webpki-roots 1.0.9 (cargo; normal-dependency candidate): CDLA-Permissive-2.0. Material: N0269.
 - webview2-com-sys 0.39.1 (cargo; normal-dependency candidate): MIT. Material: N0022.
 - webview2-com 0.39.1 (cargo; normal-dependency candidate): MIT. Material: N0022.
-- weezl 0.1.12 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0147, N0103.
-- winapi-util 0.1.11 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0245, N0157.
-- window-vibrancy 0.8.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0118, N0155.
-- windows-collections 0.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-core 0.52.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-core 0.58.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-core 0.62.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-future 0.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-link 0.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-numerics 0.3.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-registry 0.6.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-result 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-result 0.4.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-strings 0.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-strings 0.5.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-sys 0.60.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-sys 0.61.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-targets 0.52.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-targets 0.53.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-threading 0.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows-version 0.1.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows 0.52.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows 0.62.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows_x86_64_msvc 0.52.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- windows_x86_64_msvc 0.53.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0233, N0234.
-- winnow 1.0.4 (cargo; normal-dependency candidate): MIT. Material: N0246.
-- writeable 0.6.4 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- wry 0.57.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0204, N0284, N0051.
-- x11-dl 2.21.0 (cargo; normal-dependency candidate): MIT. Material: N0043.
-- x11 2.21.0 (cargo; normal-dependency candidate): MIT. Material: N0043.
-- x11rb-protocol 0.13.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0248, N0207.
-- x11rb 0.13.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0248, N0207.
-- xdg-home 1.3.0 (cargo; normal-dependency candidate): MIT. Material: N0043.
-- yoke 0.8.3 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- zbus 4.4.0 (cargo; normal-dependency candidate): MIT. Material: N0050.
-- zbus 5.19.0 (cargo; normal-dependency candidate): MIT. Material: N0050.
-- zbus_names 3.0.0 (cargo; normal-dependency candidate): MIT. Material: N0043.
-- zbus_names 4.3.4 (cargo; normal-dependency candidate): MIT. Material: N0050.
-- zcheapstr 1.1.0 (cargo; normal-dependency candidate): MIT. Material: N0107.
-- zerocopy 0.8.63 (cargo; normal-dependency candidate): BSD-2-Clause OR Apache-2.0 OR MIT. Material: N0193, N0162, N0031.
-- zerofrom 0.1.8 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- zeroize 1.9.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0248, N0179.
-- zerotrie 0.2.5 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
-- zerovec 0.11.8 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0289.
+- weezl 0.1.12 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0149, N0104.
+- winapi-util 0.1.11 (cargo; normal-dependency candidate): Unlicense OR MIT. Material: N0004, N0249, N0159.
+- window-vibrancy 0.8.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0120, N0157.
+- windows-collections 0.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-core 0.52.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-core 0.58.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-core 0.62.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-future 0.3.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-link 0.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-numerics 0.3.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-registry 0.6.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-result 0.2.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-result 0.4.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-strings 0.1.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-strings 0.5.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-sys 0.60.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-sys 0.61.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-targets 0.52.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-targets 0.53.5 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-threading 0.2.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows-version 0.1.7 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows 0.52.0 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows 0.62.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows_x86_64_msvc 0.52.6 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- windows_x86_64_msvc 0.53.1 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0237, N0238.
+- winnow 1.0.4 (cargo; normal-dependency candidate): MIT. Material: N0250.
+- writeable 0.6.4 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- wry 0.57.0 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0206, N0288, N0052.
+- x11-dl 2.21.0 (cargo; normal-dependency candidate): MIT. Material: N0044.
+- x11 2.21.0 (cargo; normal-dependency candidate): MIT. Material: N0044.
+- x11rb-protocol 0.13.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0252, N0209.
+- x11rb 0.13.2 (cargo; normal-dependency candidate): MIT OR Apache-2.0. Material: N0252, N0209.
+- xdg-home 1.3.0 (cargo; normal-dependency candidate): MIT. Material: N0044.
+- yoke 0.8.3 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- zbus 4.4.0 (cargo; normal-dependency candidate): MIT. Material: N0051.
+- zbus 5.19.0 (cargo; normal-dependency candidate): MIT. Material: N0051.
+- zbus_names 3.0.0 (cargo; normal-dependency candidate): MIT. Material: N0044.
+- zbus_names 4.3.4 (cargo; normal-dependency candidate): MIT. Material: N0051.
+- zcheapstr 1.1.0 (cargo; normal-dependency candidate): MIT. Material: N0108.
+- zerocopy 0.8.63 (cargo; normal-dependency candidate): BSD-2-Clause OR Apache-2.0 OR MIT. Material: N0195, N0164, N0031.
+- zerofrom 0.1.8 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- zeroize 1.9.1 (cargo; normal-dependency candidate): Apache-2.0 OR MIT. Material: N0252, N0181.
+- zerotrie 0.2.5 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
+- zerovec 0.11.8 (cargo; normal-dependency candidate): Unicode-3.0. Material: N0294.
 - zip 2.6.1 (cargo; normal-dependency candidate): MIT. Material: N0009.
-- zlib-rs 0.6.8 (cargo; normal-dependency candidate): Zlib. Material: N0273.
-- zmij 1.0.23 (cargo; normal-dependency candidate): MIT. Material: N0043.
+- zlib-rs 0.6.8 (cargo; normal-dependency candidate): Zlib. Material: N0277.
+- zmij 1.0.23 (cargo; normal-dependency candidate): MIT. Material: N0044.
 - zopfli 0.8.4 (cargo; normal-dependency candidate): Apache-2.0. Material: N0003.
-- zune-core 0.5.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0 OR Zlib. Material: N0239, N0252, N0250.
-- zune-jpeg 0.5.15 (cargo; normal-dependency candidate): MIT OR Apache-2.0 OR Zlib. Material: N0239, N0252, N0250.
-- zvariant 4.2.0 (cargo; normal-dependency candidate): MIT. Material: N0050.
-- zvariant 5.15.0 (cargo; normal-dependency candidate): MIT. Material: N0050.
-- zvariant_utils 4.2.0 (cargo; normal-dependency candidate): MIT. Material: N0043.
-- @tauri-apps/api 2.12.3 (npm; runtime dependency): Apache-2.0 OR MIT. Material: N0021, N0194, N0116.
-- @tauri-apps/plugin-dialog 2.8.2 (npm; runtime dependency): MIT OR Apache-2.0. Material: N0279, N0019, N0173.
-- esbuild 0.28.2 (npm; frontend helper provider): MIT. Material: N0223.
-- vite 7.3.7 (npm; frontend helper provider): MIT. Material: N0208.
+- zune-core 0.5.3 (cargo; normal-dependency candidate): MIT OR Apache-2.0 OR Zlib. Material: N0243, N0256, N0254.
+- zune-jpeg 0.5.15 (cargo; normal-dependency candidate): MIT OR Apache-2.0 OR Zlib. Material: N0243, N0256, N0254.
+- zvariant 4.2.0 (cargo; normal-dependency candidate): MIT. Material: N0051.
+- zvariant 5.15.0 (cargo; normal-dependency candidate): MIT. Material: N0051.
+- zvariant_utils 4.2.0 (cargo; normal-dependency candidate): MIT. Material: N0044.
+- @tauri-apps/api 2.12.3 (npm; runtime dependency): Apache-2.0 OR MIT. Material: N0021, N0196, N0118.
+- @tauri-apps/plugin-dialog 2.8.2 (npm; runtime dependency): MIT OR Apache-2.0. Material: N0283, N0019, N0175.
+- esbuild 0.28.2 (npm; frontend helper provider): MIT. Material: N0226.
+- vite 7.3.7 (npm; frontend helper provider): MIT. Material: N0210.
 
 ## Notice material
 
@@ -3665,7 +4399,25 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   This Source Code Form is "Incompatible With Secondary Licenses", as
   defined by the Mozilla Public License, v. 2.0.
 
-### N0036 - SHA-256 209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b
+### N0036 - SHA-256 1f485f0d6125658861351e3d6084ea90fefe78f89450be9915044b7c56d5a75a
+
+Copyright © 2016, June McEnroe <june@causal.agency>
+Copyright © 2017, Vivek Kushwaha <yoursvivek@gmail.com>
+Copyright © 2024-2025, rust-scraper Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+### N0037 - SHA-256 209fbbe0ad52d9235e37badf9cadfe4dbdc87203179c0899e738b39ade42177b
 
 Copyright 2018 Developers of the Rand project
 Copyright (c) 2014 The Rust Project Developers
@@ -3694,7 +4446,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0037 - SHA-256 20c097d0de27e2adc179140a3d542091951a030699c7e1c78655f2a2d08d4e3e
+### N0038 - SHA-256 20c097d0de27e2adc179140a3d542091951a030699c7e1c78655f2a2d08d4e3e
 
 MIT License
 
@@ -3718,7 +4470,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0038 - SHA-256 20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e
+### N0039 - SHA-256 20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e
 
 Copyright (c) 2013-2016 The rust-url developers
 
@@ -3746,7 +4498,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0039 - SHA-256 216486f29671a4262efe32af6d84a75bef398127f8c5f369b5c8305983887a06
+### N0040 - SHA-256 216486f29671a4262efe32af6d84a75bef398127f8c5f369b5c8305983887a06
 
 Copyright 2016 Nicolas Silva
 
@@ -3762,7 +4514,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0040 - SHA-256 231c837c45eb53f108fb48929e488965bc4fcc14e9ea21d35f50e6b99d98685b
+### N0041 - SHA-256 231c837c45eb53f108fb48929e488965bc4fcc14e9ea21d35f50e6b99d98685b
 
 Copyright (c) 2024 Jacob Pratt et al.
 
@@ -3784,7 +4536,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0041 - SHA-256 23860c2a7b5d96b21569afedf033469bab9fe14a1b24a35068b8641c578ce24d
+### N0042 - SHA-256 23860c2a7b5d96b21569afedf033469bab9fe14a1b24a35068b8641c578ce24d
 
 Licensed under the Apache License, Version 2.0
 <LICENSE-APACHE or
@@ -3794,7 +4546,7 @@ at your option. All files in the project carrying such
 notice may not be copied, modified, or distributed except
 according to those terms.
 
-### N0042 - SHA-256 23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423
+### N0043 - SHA-256 23d608079a47693a26dfc8a5cb01894ad0136a50714d46221d9380aa4a4b4423
 
 #![cfg(feature = "NSString")]
 use objc2::{rc::Retained, runtime::ProtocolObject};
@@ -3814,7 +4566,7 @@ fn copy_mutable() {
     let _: Retained<ProtocolObject<dyn NSMutableCopying>> = protocol_object.mutableCopy();
 }
 
-### N0043 - SHA-256 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3
+### N0044 - SHA-256 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -3840,7 +4592,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0044 - SHA-256 248378d0a3383c173fb925f17141b88e71580b3ba17ddc6ac3d2a344683232ab
+### N0045 - SHA-256 248378d0a3383c173fb925f17141b88e71580b3ba17ddc6ac3d2a344683232ab
 
 Copyright (c) 2019-2026 Sean McArthur & Hyper Contributors
 
@@ -3868,7 +4620,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0045 - SHA-256 249fdb6694467dd615b259f7ddde07be3f8ae5a72cecebb0e24f6629af4215fe
+### N0046 - SHA-256 249fdb6694467dd615b259f7ddde07be3f8ae5a72cecebb0e24f6629af4215fe
 
                                  Apache License
                            Version 2.0, January 2004
@@ -4072,7 +4824,7 @@ DEALINGS IN THE SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0046 - SHA-256 24e5860bf589d8501643e6ea51ffb3df66db2867492b09033d486183efbfa970
+### N0047 - SHA-256 24e5860bf589d8501643e6ea51ffb3df66db2867492b09033d486183efbfa970
 
 The MIT License (MIT)
 
@@ -4096,7 +4848,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0047 - SHA-256 2537228d9a1b44a5dc595241349cae7090b326c8de165aaf89bfddef4a00d0fc
+### N0048 - SHA-256 2537228d9a1b44a5dc595241349cae7090b326c8de165aaf89bfddef4a00d0fc
 
 Copyright (c) Jacob Pratt et al.
 
@@ -4118,7 +4870,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0048 - SHA-256 253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552
+### N0049 - SHA-256 253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552
 
 MIT License
 
@@ -4142,7 +4894,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0049 - SHA-256 259b22f571b54fed25f68ec5abd8eda223e7b0547a806f13ba797a0eabecd64f
+### N0050 - SHA-256 259b22f571b54fed25f68ec5abd8eda223e7b0547a806f13ba797a0eabecd64f
 
 use objc2::extern_protocol;
 use objc2::rc::Retained;
@@ -4386,7 +5138,7 @@ extern_protocol!(
     }
 );
 
-### N0050 - SHA-256 260e4ff3fc493695880c90774283eb1e3d018f898fabe655bbd52dd2cbd2fcad
+### N0051 - SHA-256 260e4ff3fc493695880c90774283eb1e3d018f898fabe655bbd52dd2cbd2fcad
 
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 
@@ -4414,7 +5166,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0051 - SHA-256 26235c41e314fb0da35b33b2bb5bcbc4dd523839f8eeca52efcd43586f441fb5
+### N0052 - SHA-256 26235c41e314fb0da35b33b2bb5bcbc4dd523839f8eeca52efcd43586f441fb5
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
@@ -4437,7 +5189,7 @@ PackageDownloadLocation: git+https://github.com/tauri-apps/wry.git
 PackageDownloadLocation: git+ssh://github.com/tauri-apps/wry.git
 Creator: Person: Daniel Thompson-Yvetot
 
-### N0052 - SHA-256 268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5
+### N0053 - SHA-256 268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5
 
 
                                  Apache License
@@ -4659,7 +5411,7 @@ prospectively choose to deem waived or otherwise exclude such Section(s) of
 the License, but only in their entirety and only with respect to the Combined
 Software.
 
-### N0053 - SHA-256 270b0d81891aa44c7e8726cf9432dade9556a01c848bacd2f3ef839c9c1a1859
+### N0054 - SHA-256 270b0d81891aa44c7e8726cf9432dade9556a01c848bacd2f3ef839c9c1a1859
 
 MIT License
 
@@ -4683,7 +5435,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0054 - SHA-256 2710a622a896bba67356913d4d0492cab5465f61b2ecce6d880aeb483834fb50
+### N0055 - SHA-256 2710a622a896bba67356913d4d0492cab5465f61b2ecce6d880aeb483834fb50
 
 Copyright (c) Ferrous Systems
 
@@ -4711,7 +5463,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0055 - SHA-256 275c491d6d1160553c32fd6127061d7f9606c3ea25abfad6ca3f6ed088785427
+### N0056 - SHA-256 275c491d6d1160553c32fd6127061d7f9606c3ea25abfad6ca3f6ed088785427
 
                               Apache License
                         Version 2.0, January 2004
@@ -4916,7 +5668,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0056 - SHA-256 2773e20df8f4c52a026b5b578c7f2457341f5aa3fb6612fd87e1d2e1bd8f48ad
+### N0057 - SHA-256 2773e20df8f4c52a026b5b578c7f2457341f5aa3fb6612fd87e1d2e1bd8f48ad
 
                               Apache License
                         Version 2.0, January 2004
@@ -5121,7 +5873,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0057 - SHA-256 281b72cb008466810da31680e72005b9899c7e9d7705b909c86098260e12aa7d
+### N0058 - SHA-256 281b72cb008466810da31680e72005b9899c7e9d7705b909c86098260e12aa7d
 
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
 
@@ -5142,7 +5894,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0058 - SHA-256 29e9fe5074bd27e0e5d5d110394fbbcd841baee2651a3c4b4560a632702cede4
+### N0059 - SHA-256 29e9fe5074bd27e0e5d5d110394fbbcd841baee2651a3c4b4560a632702cede4
 
 Copyright (c) 2018-2025 The rust-random Project Developers
 Copyright (c) 2014 The Rust Project Developers
@@ -5171,7 +5923,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0059 - SHA-256 2aa92cada6431e75615e3fe6cb1a9082c98f777d48ae1c087c0da0e37f7b8bff
+### N0060 - SHA-256 2aa92cada6431e75615e3fe6cb1a9082c98f777d48ae1c087c0da0e37f7b8bff
 
 Copyright (c) Radzivon Bartoshyk. All rights reserved.
 
@@ -5200,7 +5952,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### N0060 - SHA-256 2ab5537b8c0cb1d475e2145b6a7994b04e7c71e6e5bd836f7f9c47c221a5ad9a
+### N0061 - SHA-256 2ab5537b8c0cb1d475e2145b6a7994b04e7c71e6e5bd836f7f9c47c221a5ad9a
 
 MIT License
 
@@ -5224,7 +5976,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0061 - SHA-256 2bc107bdc18a74263d20bdefdb8073e17bc1a01b6b374dc5835683a33ee5ba7d
+### N0062 - SHA-256 2bc107bdc18a74263d20bdefdb8073e17bc1a01b6b374dc5835683a33ee5ba7d
 
 MIT License
 
@@ -5248,7 +6000,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0062 - SHA-256 2cf31f2ae7f3feba667d50fc1d4d21ecf217703c04c3068b83c9a73b6dde723a
+### N0063 - SHA-256 2cf31f2ae7f3feba667d50fc1d4d21ecf217703c04c3068b83c9a73b6dde723a
 
                                  Apache License
                            Version 2.0, January 2004
@@ -5452,7 +6204,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0063 - SHA-256 2d01890414494742ba4a509fcec8efa40f6d8be22cbd72be7cff08d6fda4ec89
+### N0064 - SHA-256 2d01890414494742ba4a509fcec8efa40f6d8be22cbd72be7cff08d6fda4ec89
 
 Copyright (c) 2014-2026 Sean McArthur
 
@@ -5474,7 +6226,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0064 - SHA-256 2e3edd2716fb15616e867bd53f724f0906732242e9ae76bb1faad1d88f7eeebd
+### N0065 - SHA-256 2e3edd2716fb15616e867bd53f724f0906732242e9ae76bb1faad1d88f7eeebd
 
 Copyright (c) 2017-2023 Maik Klein, Maja Kądziołka
 
@@ -5502,7 +6254,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0065 - SHA-256 304b898acad7f02e03d6d8832d682a3b43ee729ab5d3a069af5a36979083b6b4
+### N0066 - SHA-256 304b898acad7f02e03d6d8832d682a3b43ee729ab5d3a069af5a36979083b6b4
 
 Copyright (c) 2022 The RustCrypto Project Developers
 Copyright (c) 2022 Artyom Pavlov
@@ -5531,7 +6283,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0066 - SHA-256 30fefc3a7d6a0041541858293bcbea2dde4caa4c0a5802f996a7f7e8c0085652
+### N0067 - SHA-256 30fefc3a7d6a0041541858293bcbea2dde4caa4c0a5802f996a7f7e8c0085652
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -5557,7 +6309,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0067 - SHA-256 31dbbab009f1b2e59a1622d5955dfafc38ebe834000215b49d954c6f85fe927c
+### N0068 - SHA-256 31dbbab009f1b2e59a1622d5955dfafc38ebe834000215b49d954c6f85fe927c
 
 Copyright (c) 2017 Pyfisch
 
@@ -5579,7 +6331,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0068 - SHA-256 3234ac55816264ee7b6c7ee27efd61cf0a1fe775806870e3d9b4c41ea73c5cb1
+### N0069 - SHA-256 3234ac55816264ee7b6c7ee27efd61cf0a1fe775806870e3d9b4c41ea73c5cb1
 
 Copyright (c) 2017 Gilad Naaman
 
@@ -5601,7 +6353,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0069 - SHA-256 3290ae0fbc9ddb77d2239121d710f0bb9d31b3b4744e6d97fe01e652b4c1870b
+### N0070 - SHA-256 3290ae0fbc9ddb77d2239121d710f0bb9d31b3b4744e6d97fe01e652b4c1870b
 
 Short version for non-lawyers:
 
@@ -5633,7 +6385,7 @@ is licensed under:
 
 at your option.
 
-### N0070 - SHA-256 333ea3aaa3cadb819f4acd9f9153f9feee060a995ca8710f32bc5bd9a4b91734
+### N0071 - SHA-256 333ea3aaa3cadb819f4acd9f9153f9feee060a995ca8710f32bc5bd9a4b91734
 
 Copyright (c) 2017 The foreign-types Developers
 
@@ -5655,7 +6407,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0071 - SHA-256 33ee463a651c2dd0417e68e97d97c811c7bb19280c2116bff9906fe8d2718551
+### N0072 - SHA-256 33ee463a651c2dd0417e68e97d97c811c7bb19280c2116bff9906fe8d2718551
 
                                  Apache License
                            Version 2.0, January 2004
@@ -5859,7 +6611,7 @@ SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0072 - SHA-256 3521672491a3479422d5fe1aca6645dd2984090f85da6e5205abfb18fb7a6897
+### N0073 - SHA-256 3521672491a3479422d5fe1aca6645dd2984090f85da6e5205abfb18fb7a6897
 
 Copyright (c) 2021 RustCrypto Developers
 
@@ -5887,7 +6639,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0073 - SHA-256 35242e7a83f69875e6edeff02291e688c97caafe2f8902e4e19b49d3e78b4cab
+### N0074 - SHA-256 35242e7a83f69875e6edeff02291e688c97caafe2f8902e4e19b49d3e78b4cab
 
                               Apache License
                         Version 2.0, January 2004
@@ -6066,7 +6818,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 END OF TERMS AND CONDITIONS
 
-### N0074 - SHA-256 377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9
+### N0075 - SHA-256 377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9
 
 Short version for non-lawyers:
 
@@ -6098,7 +6850,7 @@ is licensed under:
 
 at your option.
 
-### N0075 - SHA-256 378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397
+### N0076 - SHA-256 378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397
 
 Copyright (c) 2014 Alex Crichton
 
@@ -6126,7 +6878,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0076 - SHA-256 391a5396cec6230bfabd4ef4eb2350eb895bc5efce377a2218f5702ed020d3e3
+### N0077 - SHA-256 391a5396cec6230bfabd4ef4eb2350eb895bc5efce377a2218f5702ed020d3e3
 
 Copyright (c) 2015-2025 Sean McArthur
 
@@ -6148,7 +6900,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0077 - SHA-256 39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2
+### N0078 - SHA-256 39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2
 
 MIT License
 
@@ -6174,7 +6926,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0078 - SHA-256 3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94
+### N0079 - SHA-256 3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94
 
 Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
 
@@ -6196,7 +6948,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0079 - SHA-256 3f39c032be4639be635da96d77c4d0f4393c3595a164450ffd86f3d17701ec10
+### N0080 - SHA-256 3f39c032be4639be635da96d77c4d0f4393c3595a164450ffd86f3d17701ec10
 
 Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
 Copyright (c) 2017-2021, The Gtk-rs Project Developers.
@@ -6219,7 +6971,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0080 - SHA-256 3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04
+### N0081 - SHA-256 3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04
 
 Mozilla Public License Version 2.0
 ==================================
@@ -6595,7 +7347,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   This Source Code Form is "Incompatible With Secondary Licenses", as
   defined by the Mozilla Public License, v. 2.0.
 
-### N0081 - SHA-256 3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c
+### N0082 - SHA-256 3fa4ca83dcc9237839b1bdeb2e6d16bdfb5ec0c5ce42b24694d8bbf0dcbef72c
 
 Copyright Mozilla Foundation
 
@@ -6623,7 +7375,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0082 - SHA-256 4108245a1f2df9d4e94df8abed5b4ba0759bb2f9b40a6b939f1be141077ae50b
+### N0083 - SHA-256 4108245a1f2df9d4e94df8abed5b4ba0759bb2f9b40a6b939f1be141077ae50b
 
 MIT License
 
@@ -6651,7 +7403,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0083 - SHA-256 41ba8a366e4129d0b7551f8b98211f59635b2e30c0a3c7845e828e2a7ce42064
+### N0084 - SHA-256 41ba8a366e4129d0b7551f8b98211f59635b2e30c0a3c7845e828e2a7ce42064
 
 Apache License
 
@@ -6722,7 +7474,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0084 - SHA-256 4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482
+### N0085 - SHA-256 4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482
 
 Copyright (c) 2019 Tower Contributors
 
@@ -6750,7 +7502,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0085 - SHA-256 42a35170233e83e18856792e748de4c1ce4a63b2afce9a370c89ef3fe23f9f2d
+### N0086 - SHA-256 42a35170233e83e18856792e748de4c1ce4a63b2afce9a370c89ef3fe23f9f2d
 
 MIT License
 
@@ -6774,7 +7526,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0086 - SHA-256 42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969
+### N0087 - SHA-256 42d3bf7e7d4d49d72c0555d14ed99c3ee7ce9ce3cbffbc38bbafe8c103f50969
 
 MIT License
 Copyright (c) 2016 The roaring-rs developers.
@@ -6797,7 +7549,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0087 - SHA-256 42fa16951ce7f24b5a467a40e5b449a1d41e662f97ca779864f053f39e097737
+### N0088 - SHA-256 42fa16951ce7f24b5a467a40e5b449a1d41e662f97ca779864f053f39e097737
 
 Copyright (c) 2018-2024 The rust-random Project Developers
 Copyright (c) 2014 The Rust Project Developers
@@ -6826,7 +7578,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0088 - SHA-256 436bc5a105d8e57dcd8778730f3754f7bf39c14d2f530e4cde4bd2d17a83ec3d
+### N0089 - SHA-256 436bc5a105d8e57dcd8778730f3754f7bf39c14d2f530e4cde4bd2d17a83ec3d
 
 Copyright (c) 2014 The Rust Project Developers
 Copyright (c) 2018 Ashley Mannix, Christopher Armstrong, Dylan DPC, Hunar Roop Kahlon
@@ -6855,7 +7607,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0089 - SHA-256 453745410e3be8cf25d56872ea2aec975a78e6c9f217443d0bf908a5bce7c8ff
+### N0090 - SHA-256 453745410e3be8cf25d56872ea2aec975a78e6c9f217443d0bf908a5bce7c8ff
 
 Apache License
                            Version 2.0, January 2004
@@ -7059,7 +7811,7 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0090 - SHA-256 45f522cacecb1023856e46df79ca625dfc550c94910078bd8aec6e02880b3d42
+### N0091 - SHA-256 45f522cacecb1023856e46df79ca625dfc550c94910078bd8aec6e02880b3d42
 
 Copyright (c) 2018 Carl Lerche
 
@@ -7087,7 +7839,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0091 - SHA-256 45fd05c4865e7c350b98ad7ac50e1b15462d49af4a91e9b0c9dd933dc9a69742
+### N0092 - SHA-256 45fd05c4865e7c350b98ad7ac50e1b15462d49af4a91e9b0c9dd933dc9a69742
 
                               Apache License
                         Version 2.0, January 2004
@@ -7291,7 +8043,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0092 - SHA-256 47dc9ff29128ddfb4d6a0435383c9f89120bc374dbcc1dd00b933a0b28aa7865
+### N0093 - SHA-256 47dc9ff29128ddfb4d6a0435383c9f89120bc374dbcc1dd00b933a0b28aa7865
 
 Copyright 2017 Juniper Networks, Inc.
 
@@ -7301,7 +8053,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0093 - SHA-256 4cada0bd02ea3692eee6f16400d86c6508bbd3bafb2b65fed0419f36d4f83e8f
+### N0094 - SHA-256 4cada0bd02ea3692eee6f16400d86c6508bbd3bafb2b65fed0419f36d4f83e8f
 
 Copyright (c) 2019 The CryptoCorrosion Contributors
 
@@ -7329,7 +8081,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0094 - SHA-256 4da95ec4ecb65b738d470b7d762894ad9c97da93e6cbfb18b570fc2c96f4b871
+### N0095 - SHA-256 4da95ec4ecb65b738d470b7d762894ad9c97da93e6cbfb18b570fc2c96f4b871
 
 Copyright (c) Ulrik Sverdrup "bluss" 2015-2023
 
@@ -7357,7 +8109,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0095 - SHA-256 503558bfefe66ca15e4e3f7955b3cb0ec87fd52f29bf24b336af7bd00e946d5c
+### N0096 - SHA-256 503558bfefe66ca15e4e3f7955b3cb0ec87fd52f29bf24b336af7bd00e946d5c
 
 Copyright (c) 2017 tokio-jsonrpc developers
 
@@ -7385,7 +8137,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0096 - SHA-256 5049cf464977eff4b4fcfa7988d84e74116956a3eb9d5f1d451b3f828f945233
+### N0097 - SHA-256 5049cf464977eff4b4fcfa7988d84e74116956a3eb9d5f1d451b3f828f945233
 
 Copyright (c) 2019-2021 Tower Contributors
 
@@ -7413,7 +8165,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0097 - SHA-256 508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1
+### N0098 - SHA-256 508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1
 
 MIT License
 
@@ -7435,7 +8187,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0098 - SHA-256 516b24e051bf5630880ebbd55c40a25ce9552ebaf8970a53e8976eb70e522406
+### N0099 - SHA-256 516b24e051bf5630880ebbd55c40a25ce9552ebaf8970a53e8976eb70e522406
 
                               Apache License
                         Version 2.0, January 2004
@@ -7639,7 +8391,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0099 - SHA-256 523a42c25d245dde9c015f882cec7f4555aad883382a6cf19b4b7d9b2cd5419b
+### N0100 - SHA-256 523a42c25d245dde9c015f882cec7f4555aad883382a6cf19b4b7d9b2cd5419b
 
 Copyright (c) 2018-2026 The rust-random Project Developers
 Copyright (c) 2014 The Rust Project Developers
@@ -7668,7 +8420,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0100 - SHA-256 5444779e62a6f136892955bab2727694509b2cc1c0cd0f394d5edc7ff9203cd1
+### N0101 - SHA-256 5444779e62a6f136892955bab2727694509b2cc1c0cd0f394d5edc7ff9203cd1
 
 The MIT License (MIT)
 
@@ -7693,7 +8445,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0101 - SHA-256 54a744942eb3fa63a74d8d359989ed6962c04f3f10ff20cfa08ff8aa7efbe4e6
+### N0102 - SHA-256 54a744942eb3fa63a74d8d359989ed6962c04f3f10ff20cfa08ff8aa7efbe4e6
 
                                  Apache License
                            Version 2.0, January 2004
@@ -7897,7 +8649,7 @@ SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0102 - SHA-256 5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab
+### N0103 - SHA-256 5734ed989dfca1f625b40281ee9f4530f91b2411ec01cb748223e7eb87e201ab
 
 The MIT License (MIT)
 
@@ -7927,7 +8679,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0103 - SHA-256 573f5227db835cd30bbdd3aed3f82615f80119a4d5c82b4daf642dbfe2b6afde
+### N0104 - SHA-256 573f5227db835cd30bbdd3aed3f82615f80119a4d5c82b4daf642dbfe2b6afde
 
 The MIT License (MIT)
 
@@ -7951,7 +8703,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0104 - SHA-256 58545fed1565e42d687aecec6897d35c6d37ccb71479a137c0deb2203e125c79
+### N0105 - SHA-256 58545fed1565e42d687aecec6897d35c6d37ccb71479a137c0deb2203e125c79
 
 The MIT License (MIT)
 
@@ -7975,7 +8727,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0105 - SHA-256 59013a5c8d3a19c26a457579105915a5d51bb0c09d579f8cdedf12e4203c3018
+### N0106 - SHA-256 59013a5c8d3a19c26a457579105915a5d51bb0c09d579f8cdedf12e4203c3018
 
                               Apache License
                         Version 2.0, January 2004
@@ -8179,7 +8931,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0106 - SHA-256 592dc80f1a865d20d61a2006a2d29ce34a2bc28cd7e868ab300fdeed6da154ca
+### N0107 - SHA-256 592dc80f1a865d20d61a2006a2d29ce34a2bc28cd7e868ab300fdeed6da154ca
 
 The MIT License (MIT)
 
@@ -8203,7 +8955,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0107 - SHA-256 59871bb1612f8a0569655c10b995636827eceab42c6578cebdc45ad2922e0142
+### N0108 - SHA-256 59871bb1612f8a0569655c10b995636827eceab42c6578cebdc45ad2922e0142
 
 Copyright (c) 2026 Zeeshan Ali Khan & zcheapstr contributors
 
@@ -8231,7 +8983,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0108 - SHA-256 5a952e4a62a3022a7f39e9f0eb8d0638addd3efffb3f4092890923668152296e
+### N0109 - SHA-256 5a952e4a62a3022a7f39e9f0eb8d0638addd3efffb3f4092890923668152296e
 
 © 2016 Bertram Truong
 © 2021 Kornel Lesiński
@@ -8254,7 +9006,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0109 - SHA-256 5b0ae40d1a35f7ae6591a28e44771240e6a88cb03a66c9189a45b9681639b466
+### N0110 - SHA-256 5b0ae40d1a35f7ae6591a28e44771240e6a88cb03a66c9189a45b9681639b466
 
 Copyright (c) 2015 Edward Barnard
 
@@ -8276,7 +9028,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0110 - SHA-256 5b698ca13897be3afdb7174256fa1574f8c6892b8bea1a66dd6469d3fe27885a
+### N0111 - SHA-256 5b698ca13897be3afdb7174256fa1574f8c6892b8bea1a66dd6469d3fe27885a
 
 Except as otherwise noted, this project is licensed under the following
 (ISC-style) terms:
@@ -8298,7 +9050,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 The files under third-party/chromium are licensed as described in
 third-party/chromium/LICENSE.
 
-### N0111 - SHA-256 5c7bd92d1f096f12203dc1b601e3cb17484fa1b023e30b6b8edcc80e416237ec
+### N0112 - SHA-256 5c7bd92d1f096f12203dc1b601e3cb17484fa1b023e30b6b8edcc80e416237ec
 
 Copyright (c) 2016-2020 RustCrypto Developers
 
@@ -8326,7 +9078,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0112 - SHA-256 5ca77347e58205d3b543c04a9c5bdd11d20a9f3108a7b246640edffa999b5f35
+### N0113 - SHA-256 5ca77347e58205d3b543c04a9c5bdd11d20a9f3108a7b246640edffa999b5f35
 
 Short version for non-lawyers:
 
@@ -8751,7 +9503,7 @@ their own copyright notices and license terms:
   of this file. The only difference is the retention of
   copyright itself, held by the contributor.
 
-### N0113 - SHA-256 5cc390ab5e5e6507f467368cbab1297552d64bfd863f4b496c7928508bcfefd8
+### N0114 - SHA-256 5cc390ab5e5e6507f467368cbab1297552d64bfd863f4b496c7928508bcfefd8
 
 MIT License
 
@@ -8775,7 +9527,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0114 - SHA-256 5cf1c9dc617e4cad7fa03181ff893601ad5243aa3be527ef39034e1cd6377676
+### N0115 - SHA-256 5cf1c9dc617e4cad7fa03181ff893601ad5243aa3be527ef39034e1cd6377676
 
 MIT License
 
@@ -8799,7 +9551,19 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0115 - SHA-256 5e05b024f653a5ce199e77cbbbd42fb5553562ec714b819421ed0c3e552a75d7
+### N0116 - SHA-256 5d392ff1ac69a18c9beb41720ecbfd56f7792a1ec4321428e73757d4283f5a61
+
+// Copyright 2015 The Rust Project Developers. See the COPYRIGHT
+// file at the top-level directory of this distribution and at
+// http://rust-lang.org/COPYRIGHT.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+### N0117 - SHA-256 5e05b024f653a5ce199e77cbbbd42fb5553562ec714b819421ed0c3e552a75d7
 
 Copyright (c) 2017 Robert Grosse
 
@@ -8827,7 +9591,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0116 - SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008
+### N0118 - SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
@@ -8850,7 +9614,7 @@ PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
 PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 
-### N0117 - SHA-256 60a7062291b01ba068f300612cdbdc20382ac1d4934f07bcdd7167c15299f309
+### N0119 - SHA-256 60a7062291b01ba068f300612cdbdc20382ac1d4934f07bcdd7167c15299f309
 
 Copyright (c) 2015 Keegan McAllister
 
@@ -8878,7 +9642,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0118 - SHA-256 617b85f62a4f1b6a62d3d9f28f6d7003b7f68a70b7675a8174bbcc68401ac62d
+### N0120 - SHA-256 617b85f62a4f1b6a62d3d9f28f6d7003b7f68a70b7675a8174bbcc68401ac62d
 
 MIT License
 
@@ -8902,7 +9666,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0119 - SHA-256 61d383b05b87d78f94d2937e2580cce47226d17823c0430fbcad09596537efcf
+### N0121 - SHA-256 61d383b05b87d78f94d2937e2580cce47226d17823c0430fbcad09596537efcf
 
 MIT License
 
@@ -8926,7 +9690,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0120 - SHA-256 62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3
+### N0122 - SHA-256 62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3
 
 Copyright (c) 2012-2013 Mozilla Foundation
 
@@ -8954,7 +9718,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0121 - SHA-256 6226d0632e2e1a80c23597e964da9812ae193c535fe058154afb034e94167aa5
+### N0123 - SHA-256 6226d0632e2e1a80c23597e964da9812ae193c535fe058154afb034e94167aa5
 
 ===============================================================================
 
@@ -9002,7 +9766,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0122 - SHA-256 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a
+### N0124 - SHA-256 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a
 
                               Apache License
                         Version 2.0, January 2004
@@ -9181,7 +9945,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 END OF TERMS AND CONDITIONS
 
-### N0123 - SHA-256 63af4bea227c94d021e99427f6ca3a4b8efddadcca93ab6130f708cf6138cf68
+### N0125 - SHA-256 63af4bea227c94d021e99427f6ca3a4b8efddadcca93ab6130f708cf6138cf68
 
 Copyright (c) 2018-2022 RustCrypto Developers
 Copyright (c) 2018 Artyom Pavlov
@@ -9210,7 +9974,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0124 - SHA-256 6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb
+### N0126 - SHA-256 6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb
 
 Copyright (c) 2014 The Rust Project Developers
 
@@ -9238,7 +10002,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0125 - SHA-256 65f94e99ddaf4f5d1782a6dae23f35d4293a9a01444a13135a6887017d353cee
+### N0127 - SHA-256 65f94e99ddaf4f5d1782a6dae23f35d4293a9a01444a13135a6887017d353cee
 
 Copyright (c) 2019 Nick Fitzgerald
 
@@ -9266,7 +10030,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0126 - SHA-256 65fc947f4bac882a2cd104ef73c246b1b037059df9f2b3a58b7f77f0b9e56071
+### N0128 - SHA-256 65fc947f4bac882a2cd104ef73c246b1b037059df9f2b3a58b7f77f0b9e56071
 
 MIT License
 
@@ -9290,7 +10054,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0127 - SHA-256 65fdb6c76cd61612070c066eec9ecdb30ee74fb27859d0d9af58b9f499fd0c3e
+### N0129 - SHA-256 65fdb6c76cd61612070c066eec9ecdb30ee74fb27859d0d9af58b9f499fd0c3e
 
 Copyright (c) 2017 Contributors
 
@@ -9318,7 +10082,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0128 - SHA-256 6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd
+### N0130 - SHA-256 6652c868f35dfe5e8ef636810a4e576b9d663f3a17fb0f5613ad73583e1b88fd
 
 Copyright (c) 2016 Alex Crichton
 Copyright (c) 2017 The Tokio Authors
@@ -9347,7 +10111,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0129 - SHA-256 66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172
+### N0131 - SHA-256 66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172
 
 Mozilla Public License Version 2.0
 ==================================
@@ -9723,7 +10487,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   This Source Code Form is "Incompatible With Secondary Licenses", as
   defined by the Mozilla Public License, v. 2.0.
 
-### N0130 - SHA-256 66e3ee1fa7f909ad3c612d556f2a0cdabcd809ad6e66f3b0605015ac64841b70
+### N0132 - SHA-256 66e3ee1fa7f909ad3c612d556f2a0cdabcd809ad6e66f3b0605015ac64841b70
 
 The MIT License (MIT)
 
@@ -9747,7 +10511,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0131 - SHA-256 696759d65dfe558ff7d9f031c76db19ec5c0767470fb67c4e8d990820d1e99c9
+### N0133 - SHA-256 696759d65dfe558ff7d9f031c76db19ec5c0767470fb67c4e8d990820d1e99c9
 
                               Apache License
                         Version 2.0, January 2004
@@ -9951,7 +10715,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0132 - SHA-256 6a2e0ade09a7d5f816f11566fee2b151b32235a7fad52b41d49cce96f833c1a9
+### N0134 - SHA-256 6a2e0ade09a7d5f816f11566fee2b151b32235a7fad52b41d49cce96f833c1a9
 
 Copyright (c) 2018-2019 dirs-rs contributors
 
@@ -9973,7 +10737,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0133 - SHA-256 6c1e5d0ccf5e8951401cb964036ae664d52fc8d1148173b53bc54fc534f5d404
+### N0135 - SHA-256 6c1e5d0ccf5e8951401cb964036ae664d52fc8d1148173b53bc54fc534f5d404
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
@@ -9995,7 +10759,7 @@ PackageDownloadLocation: git+https://github.com/tauri-apps/tray-icon.git
 PackageDownloadLocation: git+ssh://github.com/tauri-apps/tray-icon.git
 Creator: Person: Daniel Thompson-Yvetot
 
-### N0134 - SHA-256 6dc0e068dcf3a5bc8e054205b85b7720e1d49265bbc64bf515d2cf79197df69a
+### N0136 - SHA-256 6dc0e068dcf3a5bc8e054205b85b7720e1d49265bbc64bf515d2cf79197df69a
 
 Apache License
                            Version 2.0, January 2004
@@ -10199,7 +10963,7 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0135 - SHA-256 6df43f6f4b5d4587f3d8d71e45532c688fd168afa5fe89d571cb32fa09c4ef51
+### N0137 - SHA-256 6df43f6f4b5d4587f3d8d71e45532c688fd168afa5fe89d571cb32fa09c4ef51
 
                               Apache License
                         Version 2.0, January 2004
@@ -10389,7 +11153,7 @@ APPENDIX: How to apply the Apache License to your work.
    same "printed page" as the copyright notice for easier
    identification within third-party archives.
 
-### N0136 - SHA-256 6ee2ed6c77710de911761acd5fc1ad1da00f476beb1a7ef27e78c2d1858deafc
+### N0138 - SHA-256 6ee2ed6c77710de911761acd5fc1ad1da00f476beb1a7ef27e78c2d1858deafc
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -10415,7 +11179,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0137 - SHA-256 6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6
+### N0139 - SHA-256 6efb0476a1cc085077ed49357026d8c173bf33017278ef440f222fb9cbcb66e6
 
 Copyright (c) Individual contributors
 
@@ -10437,7 +11201,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0138 - SHA-256 709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c
+### N0140 - SHA-256 709e3175b4212f7b13aa93971c9f62ff8c69ec45ad8c6532a7e0c41d7a7d6f8c
 
 Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com>
 
@@ -10465,7 +11229,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0139 - SHA-256 7101390b4c8edd752f4c0de47f35d61b44d9cf0ee8dd032115e25644e277cfff
+### N0141 - SHA-256 7101390b4c8edd752f4c0de47f35d61b44d9cf0ee8dd032115e25644e277cfff
 
 Copyright © 2021 The pdf-rs contributers.
 
@@ -10475,7 +11239,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0140 - SHA-256 7365cc8878a1d7ce155a58c4ca09c3d7a6be413efa5334a80ea842912b669349
+### N0142 - SHA-256 7365cc8878a1d7ce155a58c4ca09c3d7a6be413efa5334a80ea842912b669349
 
 Copyright (c) 2016--2023
 
@@ -10503,7 +11267,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0141 - SHA-256 7377e48a67377f0baa9ccee6425e125eb7b96d5b8e706f4c99479ca4ffa21b77
+### N0143 - SHA-256 7377e48a67377f0baa9ccee6425e125eb7b96d5b8e706f4c99479ca4ffa21b77
 
 MIT License
 
@@ -10527,7 +11291,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0142 - SHA-256 74db5baf44a41b1000312c673544b3374e4198af5605c7f9080a402cec42cfa3
+### N0144 - SHA-256 74db5baf44a41b1000312c673544b3374e4198af5605c7f9080a402cec42cfa3
 
 UNICODE, INC. LICENSE AGREEMENT - DATA FILES AND SOFTWARE
 
@@ -10587,7 +11351,7 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in these Data Files or Software without prior
 written authorization of the copyright holder.
 
-### N0143 - SHA-256 751963a8b88c0e3a9f27e98933079fbcf09b9998b2c13ac49c2e4d58444520d6
+### N0145 - SHA-256 751963a8b88c0e3a9f27e98933079fbcf09b9998b2c13ac49c2e4d58444520d6
 
                               Apache License
                         Version 2.0, January 2004
@@ -10791,7 +11555,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0144 - SHA-256 7554701d1e74fc434f68c522b1dd743c8c16d816a4b761b5213f367b898884c8
+### N0146 - SHA-256 7554701d1e74fc434f68c522b1dd743c8c16d816a4b761b5213f367b898884c8
 
 MIT License
 
@@ -10821,7 +11585,7 @@ This project contains portions of code and architectural concepts originally
 derived from the "nipper" project (https://github.com/importcjj/nipper), 
 developed by Chen Jiaju, licensed under the MIT License and the Apache License 2.0 (dual licensed).
 
-### N0145 - SHA-256 7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545
+### N0147 - SHA-256 7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545
 
 Copyright (c) 2015
 
@@ -10849,13 +11613,13 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0146 - SHA-256 766674381e88a468d55e07de3596987391cf0e8beebe51baf4fddf11078785b3
+### N0148 - SHA-256 766674381e88a468d55e07de3596987391cf0e8beebe51baf4fddf11078785b3
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-### N0147 - SHA-256 769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb
+### N0149 - SHA-256 769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb
 
                               Apache License
                         Version 2.0, January 2004
@@ -11059,7 +11823,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0148 - SHA-256 77257f3d2181236b1aee78920238062ae64efe13c5d858b2db126e79c9e1b14f
+### N0150 - SHA-256 77257f3d2181236b1aee78920238062ae64efe13c5d858b2db126e79c9e1b14f
 
 The MIT License (MIT)
 
@@ -11083,7 +11847,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0149 - SHA-256 78ebc2ea2a1cec9cbec2e1a6fc15e73474fe22bdad7575518e7f4628651d49c4
+### N0151 - SHA-256 78ebc2ea2a1cec9cbec2e1a6fc15e73474fe22bdad7575518e7f4628651d49c4
 
                               Apache License
                         Version 2.0, January 2004
@@ -11287,7 +12051,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0150 - SHA-256 799e9ca9d179295ef372f25d3769cdda7d25bb2668add6a6a1e22d1e4c678b8d
+### N0152 - SHA-256 799e9ca9d179295ef372f25d3769cdda7d25bb2668add6a6a1e22d1e4c678b8d
 
 MIT License
 
@@ -11314,7 +12078,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0151 - SHA-256 7abd9b6960dcf7d4d0a48606a5b71bfe37d472db68d70637f3a58a56785f1621
+### N0153 - SHA-256 7abd9b6960dcf7d4d0a48606a5b71bfe37d472db68d70637f3a58a56785f1621
 
 // Copyright 2015-2016 Brian Smith.
 //
@@ -11330,7 +12094,7 @@ SOFTWARE.
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-### N0152 - SHA-256 7ade43ec5e1a5e43000aa871d290dff4c0e9e2e16b7f6bea2ecf091e3d056d31
+### N0154 - SHA-256 7ade43ec5e1a5e43000aa871d290dff4c0e9e2e16b7f6bea2ecf091e3d056d31
 
 The MIT License (MIT)
 
@@ -11354,7 +12118,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0153 - SHA-256 7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0
+### N0155 - SHA-256 7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0
 
 Copyright (c) 2015 The Rust Project Developers
 
@@ -11382,7 +12146,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0154 - SHA-256 7ca6700600dfa9c9497bf5556365067daa802c871ea78239f129309c7a2048f7
+### N0156 - SHA-256 7ca6700600dfa9c9497bf5556365067daa802c871ea78239f129309c7a2048f7
 
 MIT License
 
@@ -11406,7 +12170,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0155 - SHA-256 7ccef0d35e8507fa02d7e904a5277d62723f9ec576d52f6a865cab7b4dbf12ad
+### N0157 - SHA-256 7ccef0d35e8507fa02d7e904a5277d62723f9ec576d52f6a865cab7b4dbf12ad
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
@@ -11428,7 +12192,7 @@ PackageDownloadLocation: git+https://github.com/tauri-apps/window-vibrancy.git
 PackageDownloadLocation: git+ssh://github.com/tauri-apps/window-vibrancy.git
 Creator: Person: Daniel Thompson-Yvetot
 
-### N0156 - SHA-256 7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4
+### N0158 - SHA-256 7cfafc877eccc46c0e346ccbaa5c51bb6b894d2b818e617d970211e232785ad4
 
 ISC License (ISC)
 Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
@@ -11446,7 +12210,7 @@ PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
 ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 
-### N0157 - SHA-256 7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c
+### N0159 - SHA-256 7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c
 
 This is free and unencumbered software released into the public domain.
 
@@ -11473,7 +12237,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <http://unlicense.org/>
 
-### N0158 - SHA-256 7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54
+### N0160 - SHA-256 7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54
 
 # License
 
@@ -11510,7 +12274,7 @@ required `.tbd` files, which is why we choose to still use the normal SPDX
 identifiers in the crates (Xcode is required to use the crates, and when using
 Xcode you have already agreed to the Xcode license).
 
-### N0159 - SHA-256 80f275e90d799911ed3830a7f242a2ef5a4ade2092fe0aa07bfb2d2cf2f2b95e
+### N0161 - SHA-256 80f275e90d799911ed3830a7f242a2ef5a4ade2092fe0aa07bfb2d2cf2f2b95e
 
 The MIT License (MIT)
 
@@ -11533,7 +12297,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0160 - SHA-256 8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90
+### N0162 - SHA-256 8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90
 
                               Apache License
                         Version 2.0, January 2004
@@ -11737,7 +12501,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0161 - SHA-256 838118388fe5c2e7f1dbbaeed13e1c7f3ebf88be91319c7c1d77c18e987d1a50
+### N0163 - SHA-256 838118388fe5c2e7f1dbbaeed13e1c7f3ebf88be91319c7c1d77c18e987d1a50
 
 Copyright © WHATWG (Apple, Google, Mozilla, Microsoft).
 
@@ -11766,7 +12530,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### N0162 - SHA-256 83c1763356e822adde0a2cae748d938a73fdc263849ccff6b27776dff213bd32
+### N0164 - SHA-256 83c1763356e822adde0a2cae748d938a73fdc263849ccff6b27776dff213bd32
 
 Copyright 2019 The Fuchsia Authors.
 
@@ -11793,7 +12557,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### N0163 - SHA-256 84b34dd7608f7fb9b17bd588a6bf392bf7de504e2716f024a77d89f1b145a151
+### N0165 - SHA-256 84b34dd7608f7fb9b17bd588a6bf392bf7de504e2716f024a77d89f1b145a151
 
 Copyright (c) 2019 Daniel "Lokathor" Gee.
 
@@ -11807,7 +12571,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 3. This notice may not be removed or altered from any source distribution.
 
-### N0164 - SHA-256 85010e75aef5bdcd10b9ce39e8865dfab508f620f9ddb6ca6e54833fe97f36fa
+### N0166 - SHA-256 85010e75aef5bdcd10b9ce39e8865dfab508f620f9ddb6ca6e54833fe97f36fa
 
 Copyright (c) 2020 RustCrypto Developers
 Copyright (c) 2017 Project Nayuki, Artyom Pavlov
@@ -11836,7 +12600,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0165 - SHA-256 8569ebf6bf52937b961d9c9c934d8400a2bb6b09651a9afacbb3fc18fe5c09b1
+### N0167 - SHA-256 8569ebf6bf52937b961d9c9c934d8400a2bb6b09651a9afacbb3fc18fe5c09b1
 
 Copyright (c) 2017-2020 The Rust Project Developers
 
@@ -11864,7 +12628,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0166 - SHA-256 85b4b709fb003d925dc6198eb91c24147c0c90417248917b95e19690313e9e51
+### N0168 - SHA-256 85b4b709fb003d925dc6198eb91c24147c0c90417248917b95e19690313e9e51
 
                               Apache License
                         Version 2.0, January 2004
@@ -12068,7 +12832,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0167 - SHA-256 861399f8c21c042b110517e76dc6b63a2b334276c8cf17412fc3c8908ca8dc17
+### N0169 - SHA-256 861399f8c21c042b110517e76dc6b63a2b334276c8cf17412fc3c8908ca8dc17
 
 Copyright (C) Jonas Schievink <jonasschievink@gmail.com>
 
@@ -12083,7 +12847,7 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
 AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
 OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-### N0168 - SHA-256 86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3
+### N0170 - SHA-256 86dd7f026f916daf7511e39951ad8ea8cf55a8db67ae64060dacf829761c18f3
 
 Copyright (c) 2014 The html5ever Project Developers
 
@@ -12111,7 +12875,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0169 - SHA-256 8764a597675778ddfd4e25f81b08a05dbcf089ac05662df7613fe67f150e3aa2
+### N0171 - SHA-256 8764a597675778ddfd4e25f81b08a05dbcf089ac05662df7613fe67f150e3aa2
 
 Copyright (c) 2014 Chris Wong
 
@@ -12139,7 +12903,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0170 - SHA-256 87d9feb9238c6bd8e0024fc4733b06cff036f89f36d93b7df1c8a0549bbb7a5b
+### N0172 - SHA-256 87d9feb9238c6bd8e0024fc4733b06cff036f89f36d93b7df1c8a0549bbb7a5b
 
                                  Apache License
                            Version 2.0, January 2004
@@ -12343,7 +13107,7 @@ DEALINGS IN THE SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0171 - SHA-256 87f7527b1066337751f7f4d717089bf514ff8f7ee7d66c4c5b891b09e744ec11
+### N0173 - SHA-256 87f7527b1066337751f7f4d717089bf514ff8f7ee7d66c4c5b891b09e744ec11
 
 MIT License
 
@@ -12367,7 +13131,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0172 - SHA-256 898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1
+### N0174 - SHA-256 898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1
 
 Copyright (c) 2019 Tokio Contributors
 
@@ -12395,7 +13159,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0173 - SHA-256 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607
+### N0175 - SHA-256 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607
 
 MIT License
 
@@ -12419,7 +13183,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0174 - SHA-256 8a35369f3ca263b3c62fbb5032947e53b6bfebc6c8a4d1bb982de1c069f6fba5
+### N0176 - SHA-256 8a35369f3ca263b3c62fbb5032947e53b6bfebc6c8a4d1bb982de1c069f6fba5
 
 The MIT License (MIT)
 
@@ -12443,7 +13207,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0175 - SHA-256 8ada45cd9f843acf64e4722ae262c622a2b3b3007c7310ef36ac1061a30f6adb
+### N0177 - SHA-256 8ada45cd9f843acf64e4722ae262c622a2b3b3007c7310ef36ac1061a30f6adb
 
                               Apache License
                         Version 2.0, January 2004
@@ -12647,7 +13411,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0176 - SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36
+### N0178 - SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36
 
 Copyright (c) 2015 Steven Allen
 
@@ -12675,7 +13439,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0177 - SHA-256 8b43ce8accd61e9d370b5ca9e9c4f953279b5c239926c62315b40e24df51b726
+### N0179 - SHA-256 8b43ce8accd61e9d370b5ca9e9c4f953279b5c239926c62315b40e24df51b726
 
 Copyright (c) The rust-url developers
 
@@ -12703,7 +13467,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0178 - SHA-256 8bb1b50b0e5c9399ae33bd35fab2769010fa6c14e8860c729a52295d84896b7a
+### N0180 - SHA-256 8bb1b50b0e5c9399ae33bd35fab2769010fa6c14e8860c729a52295d84896b7a
 
                               Apache License
                         Version 2.0, January 2004
@@ -12907,7 +13671,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0179 - SHA-256 8c7516d4b27b1e495be5e38b612298b63de48d05f49cdac94f70f3cd70f8864b
+### N0181 - SHA-256 8c7516d4b27b1e495be5e38b612298b63de48d05f49cdac94f70f3cd70f8864b
 
 Copyright (c) 2018-2026 The RustCrypto Project Developers
 
@@ -12935,7 +13699,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0180 - SHA-256 8ce0830173fdac609dfb4ea603fdc002c2f4af0dc9b1a005653f5da9cf534b18
+### N0182 - SHA-256 8ce0830173fdac609dfb4ea603fdc002c2f4af0dc9b1a005653f5da9cf534b18
 
 Copyright (c) 2019 Carl Lerche
 
@@ -12963,7 +13727,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0181 - SHA-256 8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb
+### N0183 - SHA-256 8cf56d10131ce201cf69ab74b111d3ebac1acca3833d7efb39ae357224b70edb
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -12983,7 +13747,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0182 - SHA-256 8dcec5569a9be5b0e086c80faed6f1aefa670af0ec29cecc2f714303096887e0
+### N0184 - SHA-256 8dcec5569a9be5b0e086c80faed6f1aefa670af0ec29cecc2f714303096887e0
 
 Copyright (c) 2016 The fallible-streaming-iterator Developers
 
@@ -13005,7 +13769,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0183 - SHA-256 908a661cf763bddfa04f2739bea561be62a246f03ad53fcb2272d3ddbd1d943f
+### N0185 - SHA-256 908a661cf763bddfa04f2739bea561be62a246f03ad53fcb2272d3ddbd1d943f
 
                                  Apache License
                            Version 2.0, January 2004
@@ -13209,7 +13973,7 @@ SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0184 - SHA-256 90bf2d659c43045111b65c733ab2a6d4cbcb422a098368c8c58a9ba3db4ed0c5
+### N0186 - SHA-256 90bf2d659c43045111b65c733ab2a6d4cbcb422a098368c8c58a9ba3db4ed0c5
 
                                  Apache License
                            Version 2.0, January 2004
@@ -13413,7 +14177,7 @@ SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0185 - SHA-256 90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5
+### N0187 - SHA-256 90eb64f0279b0d9432accfa6023ff803bc4965212383697eee27a0f426d5f8d5
 
 Copyrights in the Rand project are retained by their contributors. No
 copyright assignment is required to contribute to the Rand project.
@@ -13428,7 +14192,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 The Rand project includes code from the Rust project
 published under these same licenses.
 
-### N0186 - SHA-256 9117d922e667125508dde62b02c1f57ed22f5ad21eb536aa2e2d99e1c796e639
+### N0188 - SHA-256 9117d922e667125508dde62b02c1f57ed22f5ad21eb536aa2e2d99e1c796e639
 
 Copyright (c) 2023 Dirkjan Ochtman <dirkjan@ochtman.nl>
 
@@ -13456,7 +14220,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0187 - SHA-256 91e934255ba3b2f21103d68c5581c23ef34aa95c4628e4405b8c901935e11c69
+### N0189 - SHA-256 91e934255ba3b2f21103d68c5581c23ef34aa95c4628e4405b8c901935e11c69
 
 The MIT License (MIT)
 
@@ -13479,7 +14243,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0188 - SHA-256 946c9835d8034d24404f8cfec5f4654cee5dad17e944afc3d06d742cf2882831
+### N0190 - SHA-256 946c9835d8034d24404f8cfec5f4654cee5dad17e944afc3d06d742cf2882831
 
 Rust-chrono is dual-licensed under The MIT License [1] and
 Apache 2.0 License [2]. Copyright (c) 2014--2026, Kang Seonghoon and
@@ -13721,7 +14485,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ~~~~
 
-### N0189 - SHA-256 95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc
+### N0191 - SHA-256 95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc
 
                               Apache License
                         Version 2.0, January 2004
@@ -13900,7 +14664,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 END OF TERMS AND CONDITIONS
 
-### N0190 - SHA-256 9a6d7a3c1b8edcc706c4b6c37f8dae9a77f02c7f9051df603f975db136b55419
+### N0192 - SHA-256 9a6d7a3c1b8edcc706c4b6c37f8dae9a77f02c7f9051df603f975db136b55419
 
 ===============================================================================
 
@@ -13912,7 +14676,7 @@ http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 option. All files in the project carrying such notice may not be
 copied, modified, or distributed except according to those terms.
 
-### N0191 - SHA-256 9bbc1b3dc4674a9ebb12c2a62f54fe3c08672539717f8d05828f684b6cc419a3
+### N0193 - SHA-256 9bbc1b3dc4674a9ebb12c2a62f54fe3c08672539717f8d05828f684b6cc419a3
 
 The MIT License (MIT)
 
@@ -13936,7 +14700,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0192 - SHA-256 9c5a80639a57c1c945570e7ebbca0706305849ce3c098021325cca9db2f7acc4
+### N0194 - SHA-256 9c5a80639a57c1c945570e7ebbca0706305849ce3c098021325cca9db2f7acc4
 
 MIT License
 
@@ -13960,7 +14724,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0193 - SHA-256 9d185ac6703c4b0453974c0d85e9eee43e6941009296bb1f5eb0b54e2329e9f3
+### N0195 - SHA-256 9d185ac6703c4b0453974c0d85e9eee43e6941009296bb1f5eb0b54e2329e9f3
 
                                  Apache License
                            Version 2.0, January 2004
@@ -14164,7 +14928,7 @@ SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0194 - SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d
+### N0196 - SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d
 
 MIT License
 
@@ -14188,7 +14952,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0195 - SHA-256 9dd44491b4cf95dcfa2963943b3ae91bff9a78d13049a9e0b53e0d0b0a9c8f4e
+### N0197 - SHA-256 9dd44491b4cf95dcfa2963943b3ae91bff9a78d13049a9e0b53e0d0b0a9c8f4e
 
 MIT License
 
@@ -14212,7 +14976,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0196 - SHA-256 9df9ba60a11af705f2e451b53762686e615d86f76b169cf075c3237730dbd7e2
+### N0198 - SHA-256 9df9ba60a11af705f2e451b53762686e615d86f76b169cf075c3237730dbd7e2
 
 MIT License
 
@@ -14224,7 +14988,7 @@ The above copyright notice and this permission notice (including the next paragr
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0197 - SHA-256 9e0a97848ea543aef745c98e84fde696a9a3e0735538f6daefdd3cb1942effc1
+### N0199 - SHA-256 9e0a97848ea543aef745c98e84fde696a9a3e0735538f6daefdd3cb1942effc1
 
 Copyright (c) 2023-2025 Sean McArthur
 
@@ -14246,7 +15010,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0198 - SHA-256 9e0dfd2dd4173a530e238cb6adb37aa78c34c6bc7444e0e10c1ab5d8881f63ba
+### N0200 - SHA-256 9e0dfd2dd4173a530e238cb6adb37aa78c34c6bc7444e0e10c1ab5d8881f63ba
 
 Copyright (c) 2017 Artyom Pavlov
 
@@ -14274,7 +15038,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0199 - SHA-256 9e17784d32fbb3ac50c6c543c307d0fbcb16969585cb4cee8839b50e774708f9
+### N0201 - SHA-256 9e17784d32fbb3ac50c6c543c307d0fbcb16969585cb4cee8839b50e774708f9
 
 MIT License
 
@@ -14298,7 +15062,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0200 - SHA-256 9eacbcb81be660840c714a560a9d65ba07913db98dd4baf969f78dd499fdd60f
+### N0202 - SHA-256 9eacbcb81be660840c714a560a9d65ba07913db98dd4baf969f78dd499fdd60f
 
 The Apache License, Version 2.0 (Apache-2.0)
 
@@ -14316,7 +15080,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0201 - SHA-256 9eff396a99bafd208e7126602420d6864f6066c08b84485a5b032320a9c01997
+### N0203 - SHA-256 9eff396a99bafd208e7126602420d6864f6066c08b84485a5b032320a9c01997
 
 rust-lang/libm as a whole is available for use under the MIT license:
 
@@ -14370,7 +15134,7 @@ and labelled as such in comments in the individual source files. All
 have been licensed under extremely permissive terms.
 ------------------------------------------------------------------------------
 
-### N0202 - SHA-256 a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499
+### N0204 - SHA-256 a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499
 
 Creative Commons Legal Code
 
@@ -14494,7 +15258,7 @@ express Statement of Purpose.
     party to this document and has no duty or obligation with respect to
     this CC0 or use of the Work.
 
-### N0203 - SHA-256 a4445427440043e8ce6fadf7a43fb906cb0d7f6c573a560a9f142cf9f9bf8ff4
+### N0205 - SHA-256 a4445427440043e8ce6fadf7a43fb906cb0d7f6c573a560a9f142cf9f9bf8ff4
 
 Apache License
                            Version 2.0, January 2004
@@ -14698,7 +15462,7 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0204 - SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2
+### N0206 - SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2
 
                               Apache License
                         Version 2.0, January 2004
@@ -14902,7 +15666,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0205 - SHA-256 a65f5d0a945d267751344c95665945b90c030ea107faf5c85d518929886187da
+### N0207 - SHA-256 a65f5d0a945d267751344c95665945b90c030ea107faf5c85d518929886187da
 
 Copyright (c) 2018-2019 Sean McArthur
 
@@ -14924,7 +15688,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0206 - SHA-256 a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9
+### N0208 - SHA-256 a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9
 
                                  Apache License
                            Version 2.0, January 2004
@@ -15103,7 +15867,7 @@ THE SOFTWARE.
 
    END OF TERMS AND CONDITIONS
 
-### N0207 - SHA-256 a72561f47c1f665535930f606739d9098a6186802d5e2e8ec491faf00f4add5b
+### N0209 - SHA-256 a72561f47c1f665535930f606739d9098a6186802d5e2e8ec491faf00f4add5b
 
 Copyright 2019 x11rb Contributers
 
@@ -15131,7 +15895,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0208 - SHA-256 a77a1c089806b39ad339535bdf3677f636c91d96693e8ad7b11fe733f650ea64
+### N0210 - SHA-256 a77a1c089806b39ad339535bdf3677f636c91d96693e8ad7b11fe733f650ea64
 
 # Vite core license
 Vite is released under the MIT license:
@@ -17254,7 +18018,7 @@ Repository: https://github.com/websockets/ws
 > IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 > CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0209 - SHA-256 a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f
+### N0211 - SHA-256 a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f
 
 The MIT License (MIT)
 
@@ -17278,7 +18042,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0210 - SHA-256 a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae
+### N0212 - SHA-256 a8ad31b1c3f40dca5a84119351b8fa8ddc868edd77fad8a8ebf6d8f2d16fa4ae
 
 Apache License
                            Version 2.0, January 2004
@@ -17482,7 +18246,7 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0211 - SHA-256 a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5
+### N0213 - SHA-256 a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5
 
                               Apache License
                         Version 2.0, January 2004
@@ -17686,7 +18450,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0212 - SHA-256 aaff376532ea30a0cd5330b9502ad4a4c8bf769c539c87ffe78819d188a18ebf
+### N0214 - SHA-256 aaff376532ea30a0cd5330b9502ad4a4c8bf769c539c87ffe78819d188a18ebf
 
                               Apache License
                         Version 2.0, January 2004
@@ -17890,7 +18654,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0213 - SHA-256 ab499c75a0f0da8e0fe83bf9ba3a27e5c39705310f07107c6c66b69958d2401c
+### N0215 - SHA-256 ab499c75a0f0da8e0fe83bf9ba3a27e5c39705310f07107c6c66b69958d2401c
 
 The MIT License (MIT)
 
@@ -17914,7 +18678,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0214 - SHA-256 ae895c8576e682f310fb70d93d9f99b1dd82872094c54a8f6cdfe2ca5c2d6ecb
+### N0216 - SHA-256 ae895c8576e682f310fb70d93d9f99b1dd82872094c54a8f6cdfe2ca5c2d6ecb
 
 Copyright (c) 2020 Osspial
 
@@ -17928,7 +18692,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 3. This notice may not be removed or altered from any source distribution.
 
-### N0215 - SHA-256 ae99cdb8d466ad2b1c6fa9a9e1c83f16efb29f5f94a236bacd0068e3ea34d9a8
+### N0217 - SHA-256 ae99cdb8d466ad2b1c6fa9a9e1c83f16efb29f5f94a236bacd0068e3ea34d9a8
 
 MIT License
 
@@ -17952,7 +18716,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0216 - SHA-256 ae9baa7beea910273c2f384c2a6b721fb7bd02bda3436074a1072e4ee689f985
+### N0218 - SHA-256 ae9baa7beea910273c2f384c2a6b721fb7bd02bda3436074a1072e4ee689f985
 
 Copyright (c) 2020-2025 The RustCrypto Project Developers
 
@@ -17980,7 +18744,23 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0217 - SHA-256 b1181a40b2a7b25cf66fd01481713bc1005df082c53ef73e851e55071b102744
+### N0219 - SHA-256 b10d8ab9d88b85d1aa12e6ec6e5de876bb72881a24e54405ddb6d205c5644ef9
+
+Copyright © 2016, June McEnroe <june@causal.agency>
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+### N0220 - SHA-256 b1181a40b2a7b25cf66fd01481713bc1005df082c53ef73e851e55071b102744
 
 Copyright (c) 2024 Orson Peters
 
@@ -18002,7 +18782,7 @@ the following restrictions:
 
 3. This notice may not be removed or altered from any source distribution.
 
-### N0218 - SHA-256 b16db96b93b1d7cf7bea533f572091ec6bca3234fbe0a83038be772ff391a44c
+### N0221 - SHA-256 b16db96b93b1d7cf7bea533f572091ec6bca3234fbe0a83038be772ff391a44c
 
 ===============================================================================
 
@@ -18598,7 +19378,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0219 - SHA-256 b29f8b01452350c20dd1af16ef83b598fea3053578ccc1c7a0ef40e57be2620f
+### N0222 - SHA-256 b29f8b01452350c20dd1af16ef83b598fea3053578ccc1c7a0ef40e57be2620f
 
 Copyright © 2015, Simonas Kazlauskas
 
@@ -18613,7 +19393,7 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF 
 NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 
-### N0220 - SHA-256 b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5
+### N0223 - SHA-256 b38f11f6096706e6de553dabe2a7ed142d59b6fa8c97e290c67496154745cdd5
 
 Copyright (c) 2013-2025 The rust-url developers
 
@@ -18641,7 +19421,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0221 - SHA-256 b3d734001a94efff3579978d953391aa7115f877657d25eb54037a43875d078a
+### N0224 - SHA-256 b3d734001a94efff3579978d953391aa7115f877657d25eb54037a43875d078a
 
 *ring* uses an "ISC" license, like BoringSSL used to use, for new code
 files. See LICENSE-other-bits for the text of that license.
@@ -18653,7 +19433,7 @@ license. In each case, the license info is at the top of the file.
 See src/polyfill/once_cell/LICENSE-APACHE and src/polyfill/once_cell/LICENSE-MIT
 for the license to code that was sourced from the once_cell project.
 
-### N0222 - SHA-256 b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1
+### N0225 - SHA-256 b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1
 
                                  Apache License
                            Version 2.0, January 2004
@@ -18857,7 +19637,7 @@ for the license to code that was sourced from the once_cell project.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0223 - SHA-256 b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681
+### N0226 - SHA-256 b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681
 
 MIT License
 
@@ -18881,7 +19661,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0224 - SHA-256 b4eb00df6e2a4d22518fcaa6a2b4646f249b3a3c9814509b22bd2091f1392ff1
+### N0227 - SHA-256 b4eb00df6e2a4d22518fcaa6a2b4646f249b3a3c9814509b22bd2091f1392ff1
 
 Copyright (c) 2006-2009 Graydon Hoare
 Copyright (c) 2009-2013 Mozilla Foundation
@@ -18911,7 +19691,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0225 - SHA-256 b68ad1a3367b825447089e1f8d6829b97f47a89eb78d2f4ebaef4672f5606186
+### N0228 - SHA-256 b68ad1a3367b825447089e1f8d6829b97f47a89eb78d2f4ebaef4672f5606186
 
 The MIT License (MIT)
 
@@ -18936,7 +19716,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0226 - SHA-256 b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d
+### N0229 - SHA-256 b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d
 
 MIT License
 
@@ -18960,7 +19740,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0227 - SHA-256 b99f9d43803f2ac979c50949df630bd8eeaf2fcd1b9fdb9093710d70f5dfb63d
+### N0230 - SHA-256 b99f9d43803f2ac979c50949df630bd8eeaf2fcd1b9fdb9093710d70f5dfb63d
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
@@ -18982,7 +19762,35 @@ PackageDownloadLocation: git+https://github.com/tauri-apps/muda.git
 PackageDownloadLocation: git+ssh://github.com/tauri-apps/muda.git
 Creator: Person: Daniel Thompson-Yvetot
 
-### N0228 - SHA-256 bccaa8b6c09f94e81f06696e179dbe058464bbdfbc823b6d49cada1d71e84ac3
+### N0231 - SHA-256 b9eb266294324f672cbe945fe8f2e32f85024f0d61a1a7d14382cdde0ac44769
+
+Copyright (c) 2016 Anthony Ramine
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+### N0232 - SHA-256 bccaa8b6c09f94e81f06696e179dbe058464bbdfbc823b6d49cada1d71e84ac3
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -18990,7 +19798,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0229 - SHA-256 c09aae9d3c77b531f56351a9947bc7446511d6b025b3255312d3e3442a9a7583
+### N0233 - SHA-256 c09aae9d3c77b531f56351a9947bc7446511d6b025b3255312d3e3442a9a7583
 
 The MIT License (MIT)
 
@@ -19014,7 +19822,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0230 - SHA-256 c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae
+### N0234 - SHA-256 c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae
 
 Copyright (c) 2016 Dropbox, Inc.
 All rights reserved.
@@ -19029,7 +19837,7 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### N0231 - SHA-256 c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f
+### N0235 - SHA-256 c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f
 
 Copyright (c) 2014 The rusqlite developers
 
@@ -19051,7 +19859,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0232 - SHA-256 c144680885b29e4719e2a51f0aab5439a1e02d980692b5aaf086cae12727f28b
+### N0236 - SHA-256 c144680885b29e4719e2a51f0aab5439a1e02d980692b5aaf086cae12727f28b
 
                               Apache License
                         Version 2.0, January 2004
@@ -19255,7 +20063,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0233 - SHA-256 c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b
+### N0237 - SHA-256 c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b
 
                                  Apache License
                            Version 2.0, January 2004
@@ -19459,7 +20267,7 @@ limitations under the License.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0234 - SHA-256 c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383
+### N0238 - SHA-256 c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383
 
     MIT License
 
@@ -19483,7 +20291,7 @@ limitations under the License.
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE
 
-### N0235 - SHA-256 c30152c94a6d75e021adbc52b3a52470366a46edb917e17deae3259251af244c
+### N0239 - SHA-256 c30152c94a6d75e021adbc52b3a52470366a46edb917e17deae3259251af244c
 
 Copyright Mozilla Foundation
 
@@ -19528,7 +20336,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
 <http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 <LICENSE-MIT> or <http://opensource.org/licenses/MIT>, at your option.
 
-### N0236 - SHA-256 c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08
+### N0240 - SHA-256 c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08
 
                                  Apache License
                            Version 2.0, January 2004
@@ -19732,7 +20540,7 @@ licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0237 - SHA-256 c666ec2313dba24523ccad88f4c04ea4b24fad6545263a35b1d4ab2b08efe50a
+### N0241 - SHA-256 c666ec2313dba24523ccad88f4c04ea4b24fad6545263a35b1d4ab2b08efe50a
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions
@@ -19757,7 +20565,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### N0238 - SHA-256 c6d1d56bb6e2fe4f0aed4aa8553261dd65247db6db50c87c9e9f3fbe095e2202
+### N0242 - SHA-256 c6d1d56bb6e2fe4f0aed4aa8553261dd65247db6db50c87c9e9f3fbe095e2202
 
 subsubifd.tif:
   url: https://data.kitware.com/api/v1/file/hashsum/sha512/372ca32735c8a8fdbe2286dabead9e779da63f10ba81eda84625e5273f76d74ca1a47a978f67e9c00c12f7f72009c7b2c07a641e643bb0c463812f4ae7f15d6e/download
@@ -19768,7 +20576,7 @@ usda/*.tif
   credit: NAIP on AWS was accessed on 2026-01-28 from https://registry.opendata.aws/naip.
   license: Public Domain
 
-### N0239 - SHA-256 c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4
+### N0243 - SHA-256 c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4
 
                                  Apache License
                            Version 2.0, January 2004
@@ -19972,7 +20780,7 @@ usda/*.tif
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0240 - SHA-256 c77a4cf9da729987d0fe7ccd811e3bd27393914ddf3d23467c18cc22954513b3
+### N0244 - SHA-256 c77a4cf9da729987d0fe7ccd811e3bd27393914ddf3d23467c18cc22954513b3
 
 MIT License
 
@@ -20000,7 +20808,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0241 - SHA-256 c816a0749cdc6bf062a5111c159723de51b2bfac66a1dac2655abd9e6b1583eb
+### N0245 - SHA-256 c816a0749cdc6bf062a5111c159723de51b2bfac66a1dac2655abd9e6b1583eb
 
 Copyright (c) 2018-2023 Sean McArthur
 Copyright (c) 2016 Alex Crichton
@@ -20023,7 +20831,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0242 - SHA-256 c962ee4d1d05ddc138b202b2540219ebc57893fcf97b364852094a9a94ce1365
+### N0246 - SHA-256 c962ee4d1d05ddc138b202b2540219ebc57893fcf97b364852094a9a94ce1365
 
 Copyright 2012-2016 The Rust Project Developers.
 Copyright 2016-2026 Frank Denis.
@@ -20033,7 +20841,7 @@ http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 option.
 
-### N0243 - SHA-256 c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5
+### N0247 - SHA-256 c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5
 
 Copyright (c) 2016 The Rust Project Developers
 
@@ -20061,7 +20869,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0244 - SHA-256 c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566
+### N0248 - SHA-256 c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566
 
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -20087,7 +20895,7 @@ FOR ANY DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0245 - SHA-256 cb3c929a05e6cbc9de9ab06a4c57eeb60ca8c724bef6c138c87d3a577e27aa14
+### N0249 - SHA-256 cb3c929a05e6cbc9de9ab06a4c57eeb60ca8c724bef6c138c87d3a577e27aa14
 
 The MIT License (MIT)
 
@@ -20111,7 +20919,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0246 - SHA-256 cb5aedb296c5246d1f22e9099f925a65146f9f0d6b4eebba97fd27a6cdbbab2d
+### N0250 - SHA-256 cb5aedb296c5246d1f22e9099f925a65146f9f0d6b4eebba97fd27a6cdbbab2d
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -20132,7 +20940,7 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0247 - SHA-256 cc117d90b498b32b11a886f279b359da16a73c3b01efbb2f5cc004b20262334e
+### N0251 - SHA-256 cc117d90b498b32b11a886f279b359da16a73c3b01efbb2f5cc004b20262334e
 
                               Apache License
                         Version 2.0, January 2004
@@ -20336,7 +21144,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0248 - SHA-256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+### N0252 - SHA-256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
 
 
                                  Apache License
@@ -20541,7 +21349,7 @@ limitations under the License.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0249 - SHA-256 d1fc1bc0d155df60b2e7705b6b2ae02a05c96f948e1cec6e2fb86360b09f346b
+### N0253 - SHA-256 d1fc1bc0d155df60b2e7705b6b2ae02a05c96f948e1cec6e2fb86360b09f346b
 
 Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
 Copyright (c) 2016-2024 Isis Agora Lovecruft. All rights reserved.
@@ -20573,7 +21381,7 @@ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 
-### N0250 - SHA-256 d201d14804d3bcd3b944147173175e4abfbd838b7c8069b6bd3452496bf13e6c
+### N0254 - SHA-256 d201d14804d3bcd3b944147173175e4abfbd838b7c8069b6bd3452496bf13e6c
 
 zlib License
 
@@ -20595,7 +21403,7 @@ freely, subject to the following restrictions:
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 
-### N0251 - SHA-256 d288f9c9b4590446ec18c22ead8f8b5a12a3d4025b68f62dc9015063eb9cca69
+### N0255 - SHA-256 d288f9c9b4590446ec18c22ead8f8b5a12a3d4025b68f62dc9015063eb9cca69
 
 Copyright (c) 2015-2018 Vlad Filippov
 Copyright (c) 2018-2021 RustCrypto Developers
@@ -20624,7 +21432,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0252 - SHA-256 d30047bca3b516639339a3c279bb84c3483124fb5a9dafe3c75056a85090e745
+### N0256 - SHA-256 d30047bca3b516639339a3c279bb84c3483124fb5a9dafe3c75056a85090e745
 
 MIT License
 
@@ -20648,7 +21456,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0253 - SHA-256 d3174ad63e721d4c9dccb8ad4320848992d314369bc46319720b5802c9153fe9
+### N0257 - SHA-256 d3174ad63e721d4c9dccb8ad4320848992d314369bc46319720b5802c9153fe9
 
                               Apache License
                         Version 2.0, January 2004
@@ -20825,7 +21633,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
    incurred by, or claims asserted against, such Contributor by reason
    of your accepting any such warranty or additional liability.
 
-### N0254 - SHA-256 d5c22aa3118d240e877ad41c5d9fa232f9c77d757d4aac0c2f943afc0a95e0ef
+### N0258 - SHA-256 d5c22aa3118d240e877ad41c5d9fa232f9c77d757d4aac0c2f943afc0a95e0ef
 
 Copyright (c) 2018-2019 The RustCrypto Project Developers
 
@@ -20853,7 +21661,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0255 - SHA-256 d75967ce788187f83c3bd3328210974acfc443d4dc44909f1d7e34f21623a0c6
+### N0259 - SHA-256 d75967ce788187f83c3bd3328210974acfc443d4dc44909f1d7e34f21623a0c6
 
 Rustls is distributed under the following three licenses:
 
@@ -20865,7 +21673,7 @@ These are included as LICENSE-APACHE, LICENSE-MIT and LICENSE-ISC
 respectively.  You may use this software under the terms of any
 of these licenses, at your option.
 
-### N0256 - SHA-256 da28ccc6b158fc2d8cccc74e99794b1cff1d29bd7bbeb019442fcf0c04c6cad9
+### N0260 - SHA-256 da28ccc6b158fc2d8cccc74e99794b1cff1d29bd7bbeb019442fcf0c04c6cad9
 
 Copyright (c) 2020 Andrew D. Straw
 
@@ -20893,7 +21701,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0257 - SHA-256 daacc37f680c7dd0a758ac99a109f2f57d9f21d3683df9e9245055922842a695
+### N0261 - SHA-256 daacc37f680c7dd0a758ac99a109f2f57d9f21d3683df9e9245055922842a695
 
 MIT License
 
@@ -20917,7 +21725,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0258 - SHA-256 dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d
+### N0262 - SHA-256 dae402989de65164815b7e2b6bc2b9576285434c3785934c8b6ece0fa055960d
 
 The gtk-rs Project is licensed under the MIT license, see the LICENSE file or
 <http://opensource.org/licenses/MIT>.
@@ -20934,11 +21742,11 @@ executables that link to those libraries may be subject to terms of the GNU
 LGPL or other licenses. For more information check the license of each GNOME
 library.
 
-### N0259 - SHA-256 db11fec9946737df39ca3898d9cd8c10ec6f6c3a884a6802b0ad0b81b4e8f23a
+### N0263 - SHA-256 db11fec9946737df39ca3898d9cd8c10ec6f6c3a884a6802b0ad0b81b4e8f23a
 
 MIT OR Apache-2.0
 
-### N0260 - SHA-256 dc91f8200e4b2a1f9261035d4c18c33c246911a6c0f7b543d75347e61b249cff
+### N0264 - SHA-256 dc91f8200e4b2a1f9261035d4c18c33c246911a6c0f7b543d75347e61b249cff
 
 Copyright (c) 2017 http-rs authors
 
@@ -20966,7 +21774,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0261 - SHA-256 dd87e27dfbaa888cb77ea34592648a7743636b8dce07e49543bddda0fcfc73bc
+### N0265 - SHA-256 dd87e27dfbaa888cb77ea34592648a7743636b8dce07e49543bddda0fcfc73bc
 
 Copyright (c) 2016-2026 Sean McArthur
 
@@ -20988,7 +21796,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0262 - SHA-256 de3911c2d98c8bd2d701ee721347053d9b55995a11f9a8c955e44d3ca1b376bf
+### N0266 - SHA-256 de3911c2d98c8bd2d701ee721347053d9b55995a11f9a8c955e44d3ca1b376bf
 
 Copyright (c) 2014-2018 David Henningsson <diwic@ubuntu.com> and other contributors
 
@@ -21010,7 +21818,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0263 - SHA-256 df9cfd06d8a44d9a671eadd39ffd97f166481da015a30f45dfd27886209c5922
+### N0267 - SHA-256 df9cfd06d8a44d9a671eadd39ffd97f166481da015a30f45dfd27886209c5922
 
 Copyright (c) 2014 Sean McArthur
 
@@ -21032,7 +21840,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0264 - SHA-256 e20fa2b8e0a2565f24a792b94b4bf4b6c2b9d36f781d8a9516e218a036e6677a
+### N0268 - SHA-256 e20fa2b8e0a2565f24a792b94b4bf4b6c2b9d36f781d8a9516e218a036e6677a
 
 Copyright (c) 2017 quininer kel
 
@@ -21060,7 +21868,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0265 - SHA-256 e271993808fec50ab29350b39539cdec611a9103f827e0aa26d61da70e2d33f8
+### N0269 - SHA-256 e271993808fec50ab29350b39539cdec611a9103f827e0aa26d61da70e2d33f8
 
 # Community Data License Agreement - Permissive - Version 2.0
 
@@ -21124,7 +21932,7 @@ agreement.
 of Data, including for example machine learning models and models'
 insights.
 
-### N0266 - SHA-256 e2e245f2b566d0bfafb0f6a04c16b82d710c4e6e7d799e39bb4ef6e541b85b98
+### N0270 - SHA-256 e2e245f2b566d0bfafb0f6a04c16b82d710c4e6e7d799e39bb4ef6e541b85b98
 
 Copyright (c) Jacob Pratt
 
@@ -21146,7 +21954,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0267 - SHA-256 e3ba223bb1423f0aad8c3dfce0fe3148db48926d41e6fbc3afbbf5ff9e1c89cb
+### N0271 - SHA-256 e3ba223bb1423f0aad8c3dfce0fe3148db48926d41e6fbc3afbbf5ff9e1c89cb
 
 Apache License
 Version 2.0, January 2004
@@ -21210,7 +22018,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-### N0268 - SHA-256 e4705ddab847449a2cdcb3c88b005ea10330aa249d9148ca2eef9c84c5d29895
+### N0272 - SHA-256 e4705ddab847449a2cdcb3c88b005ea10330aa249d9148ca2eef9c84c5d29895
 
                                  Apache License
                            Version 2.0, January 2004
@@ -21403,7 +22211,7 @@ limitations under the License.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0269 - SHA-256 e53a7165e8bc3ced5e5628404b3d2d28ecc14ad720f1c09ba28385d5151ecf93
+### N0273 - SHA-256 e53a7165e8bc3ced5e5628404b3d2d28ecc14ad720f1c09ba28385d5151ecf93
 
 MIT License
 
@@ -21427,7 +22235,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0270 - SHA-256 e5e0b1806c945a4120cd43cd1c9eafe1465c1b7df4d390949ac0530a0d5ef358
+### N0274 - SHA-256 e5e0b1806c945a4120cd43cd1c9eafe1465c1b7df4d390949ac0530a0d5ef358
 
 MIT License
 
@@ -21451,7 +22259,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0271 - SHA-256 e61807cd1c32ff4e7bd5b4b61dd21997c6dc5642cf19316124fe38d50e1f9fa3
+### N0275 - SHA-256 e61807cd1c32ff4e7bd5b4b61dd21997c6dc5642cf19316124fe38d50e1f9fa3
 
 dbus is licensed to you under your choice of the Academic Free
 License version 2.1, or the GNU General Public License version 2
@@ -22006,7 +22814,7 @@ consider it more useful to permit linking proprietary applications with the
 library.  If this is what you want to do, use the GNU Library General
 Public License instead of this License.
 
-### N0272 - SHA-256 e63690624d604aa626c3c62b6ead1a9f4a916d2260ac8132022acbafe2556045
+### N0276 - SHA-256 e63690624d604aa626c3c62b6ead1a9f4a916d2260ac8132022acbafe2556045
 
 The MIT License (MIT)
 =====================
@@ -22034,7 +22842,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
-### N0273 - SHA-256 e72111c52b7d96ebe25348dee19f0744f444d3c95ae6b1ecb6ccaecc5bce05ba
+### N0277 - SHA-256 e72111c52b7d96ebe25348dee19f0744f444d3c95ae6b1ecb6ccaecc5bce05ba
 
 (C) 2024 Trifecta Tech Foundation 
 
@@ -22056,7 +22864,7 @@ freely, subject to the following restrictions:
 
 3. This notice may not be removed or altered from any source distribution.
 
-### N0274 - SHA-256 e915669a595b11a200873df8286561881b0e04932f6412a585db6297ba0bc97c
+### N0278 - SHA-256 e915669a595b11a200873df8286561881b0e04932f6412a585db6297ba0bc97c
 
 This work is derived in part from the `linked-hash-map` crate, Copyright (c)
 2015 The Rust Project Developers
@@ -22085,7 +22893,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0275 - SHA-256 ea084a2373ebc1f0902c09266e7bf25a05ab3814c1805bb017ffa7308f90c061
+### N0279 - SHA-256 ea084a2373ebc1f0902c09266e7bf25a05ab3814c1805bb017ffa7308f90c061
 
 MIT License
 
@@ -22109,7 +22917,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0276 - SHA-256 ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131
+### N0280 - SHA-256 ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131
 
 Copyright (c) 2008-2020 Zetetic LLC
 All rights reserved.
@@ -22136,7 +22944,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### N0277 - SHA-256 eaf40297c75da471f7cda1f3458e8d91b4b2ec866e609527a13acfa93b638652
+### N0281 - SHA-256 eaf40297c75da471f7cda1f3458e8d91b4b2ec866e609527a13acfa93b638652
 
 Copyright (c) 2015 nwin
 
@@ -22164,7 +22972,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0278 - SHA-256 eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b
+### N0282 - SHA-256 eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b
 
 MIT License
 
@@ -22189,7 +22997,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0279 - SHA-256 eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef
+### N0283 - SHA-256 eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0
@@ -22212,7 +23020,7 @@ PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
 PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 
-### N0280 - SHA-256 ebaac853b53fec0ed475796f533ce676912a4df9ad9d8a621fa76d5060591e10
+### N0284 - SHA-256 ebaac853b53fec0ed475796f533ce676912a4df9ad9d8a621fa76d5060591e10
 
 MIT License
 
@@ -22236,7 +23044,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0281 - SHA-256 ec82b96487e9e778ee610c7ab245162464782cfa1f555c2299333f8dbe5c036a
+### N0285 - SHA-256 ec82b96487e9e778ee610c7ab245162464782cfa1f555c2299333f8dbe5c036a
 
 Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -22244,7 +23052,7 @@ http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 option. All files in the project carrying such notice may not be
 copied, modified, or distributed except according to those terms.
 
-### N0282 - SHA-256 ecc269ef87fd38a1d98e30bfac9ba964a9dbd9315c3770fed98d4d7cb5882055
+### N0286 - SHA-256 ecc269ef87fd38a1d98e30bfac9ba964a9dbd9315c3770fed98d4d7cb5882055
 
 Copyright (c) 2016--2017
 
@@ -22272,7 +23080,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0283 - SHA-256 edd65bdd88957a205c47d53fa499eed8865a70320f0f03f6391668cb304ea376
+### N0287 - SHA-256 edd65bdd88957a205c47d53fa499eed8865a70320f0f03f6391668cb304ea376
 
 
                                  Apache License
@@ -22477,7 +23285,7 @@ DEALINGS IN THE SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-### N0284 - SHA-256 ef88893533af22ffbb68ceef0724ba1389518df26165a34f3c99ad30b884df4f
+### N0288 - SHA-256 ef88893533af22ffbb68ceef0724ba1389518df26165a34f3c99ad30b884df4f
 
 MIT License
 
@@ -22501,7 +23309,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0285 - SHA-256 f025ccfb7dfb6bdfedc75ca0f67acc69e6fb4998143d834f7c2f38a29989680f
+### N0289 - SHA-256 f025ccfb7dfb6bdfedc75ca0f67acc69e6fb4998143d834f7c2f38a29989680f
 
 Copyright 2015-2025 Brian Smith.
 
@@ -22517,7 +23325,7 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
 OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-### N0286 - SHA-256 f0cf9b1c62bbe3bd3a69f5f79c7158f513f612b4940a0a812d1db39d605318bc
+### N0290 - SHA-256 f0cf9b1c62bbe3bd3a69f5f79c7158f513f612b4940a0a812d1db39d605318bc
 
 The MIT License (MIT)
 
@@ -22543,7 +23351,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-### N0287 - SHA-256 f28420c1906af38be726cd7842798f0194b27c41d6051c0d1e9ee348b8a4a0ea
+### N0291 - SHA-256 f28420c1906af38be726cd7842798f0194b27c41d6051c0d1e9ee348b8a4a0ea
 
 Copyright (c) 2017 Sergio Benitez
 Copyright (c) 2014 Alex Crichton
@@ -22572,7 +23380,19 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0288 - SHA-256 f35468024534e0f4f16bb94cd0e88c87fbd1314f919c2645a07d350fb77b40c0
+### N0292 - SHA-256 f2c9d191282c0255b02d36f7c864f15edaa933820945244c269459460b9df4a8
+
+[package]
+
+name = "mac"
+version = "0.1.1"
+authors = ["Jonathan Reem <jonathan.reem@gmail.com>"]
+repository = "https://github.com/reem/rust-mac.git"
+description = "A collection of great and ubiqutitous macros."
+readme = "README.md"
+license = "MIT/Apache-2.0"
+
+### N0293 - SHA-256 f35468024534e0f4f16bb94cd0e88c87fbd1314f919c2645a07d350fb77b40c0
 
 MIT License
 
@@ -22596,7 +23416,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0289 - SHA-256 f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2
+### N0294 - SHA-256 f367c1b8e1aa262435251e442901da4607b4650e0e63a026f5044473ecfb90f2
 
 UNICODE LICENSE V3
 
@@ -22645,7 +23465,7 @@ SPDX-License-Identifier: Unicode-3.0
 Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
 ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 
-### N0290 - SHA-256 f3c3e9f4febe81ff14ccc233c344e6e60051290d1c1e5a2c670d63cc3608a5bb
+### N0295 - SHA-256 f3c3e9f4febe81ff14ccc233c344e6e60051290d1c1e5a2c670d63cc3608a5bb
 
 Copyright (c) 2023 The swift-rs Developers
 
@@ -22667,7 +23487,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0291 - SHA-256 f428305bbf2e70fbd807af0f3c7ac1b7acfb95311640f451e9d2e48db6d7e96b
+### N0296 - SHA-256 f428305bbf2e70fbd807af0f3c7ac1b7acfb95311640f451e9d2e48db6d7e96b
 
 MIT License
 
@@ -22691,7 +23511,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0292 - SHA-256 f51ac2c59a222f7476ce507ca879960e2b64ea64bb2786eefdbeb7b0b538d1b7
+### N0297 - SHA-256 f51ac2c59a222f7476ce507ca879960e2b64ea64bb2786eefdbeb7b0b538d1b7
 
 Copyright (c) 2023 The Rust Project Developers
 
@@ -22719,7 +23539,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0293 - SHA-256 f7715d38a3fa1b4ac97c5729740752505a39cb92ee83ab5b102aeb5eaa7cdea4
+### N0298 - SHA-256 f7715d38a3fa1b4ac97c5729740752505a39cb92ee83ab5b102aeb5eaa7cdea4
 
 Copyright (c) 2015 Jonathan Reem
 
@@ -22747,7 +23567,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0294 - SHA-256 f7bdb3426d045cd50efd4953026e3eb5a83d0199f458a075602611b9344da5b9
+### N0299 - SHA-256 f7bdb3426d045cd50efd4953026e3eb5a83d0199f458a075602611b9344da5b9
 
 Copyright (c) 2013-2014 The Rust Project Developers.
 Copyright (c) 2015-2020 The rust-hex Developers
@@ -22770,7 +23590,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0295 - SHA-256 f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1
+### N0300 - SHA-256 f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1
 
 UNICODE LICENSE V3
 
@@ -22812,7 +23632,7 @@ not be used in advertising or otherwise to promote the sale, use or other
 dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
 
-### N0296 - SHA-256 f7e8ab639afef15573680c97f796166835cbeb3865175882fea41c60d106b733
+### N0301 - SHA-256 f7e8ab639afef15573680c97f796166835cbeb3865175882fea41c60d106b733
 
 Copyright (c) 2018 Artyom Pavlov
 
@@ -22840,7 +23660,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0297 - SHA-256 f9c4c77baa3828004ee54b8a4f2db2e88ed44a6237a493965bf551fac0fcb62d
+### N0302 - SHA-256 f9c4c77baa3828004ee54b8a4f2db2e88ed44a6237a493965bf551fac0fcb62d
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22860,7 +23680,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0298 - SHA-256 fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85
+### N0303 - SHA-256 fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85
 
 Mozilla Public License Version 2.0
 ==================================
@@ -23236,7 +24056,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   This Source Code Form is "Incompatible With Secondary Licenses", as
   defined by the Mozilla Public License, v. 2.0.
 
-### N0299 - SHA-256 fb77f0a9c53e473abe5103c8632ef9f0f2874d4fb3f17cb2d8c661aab9cee9d7
+### N0304 - SHA-256 fb77f0a9c53e473abe5103c8632ef9f0f2874d4fb3f17cb2d8c661aab9cee9d7
 
 Copyright (c) 2016-2019 Ulrik Sverdrup "bluss" and scopeguard developers
 
@@ -23264,7 +24084,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-### N0300 - SHA-256 fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc
+### N0305 - SHA-256 fd80a26fbb3f644af1fa994134446702932968519797227e07a1368dea80f0bc
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -23272,7 +24092,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### N0301 - SHA-256 fea1d5bf3dd71605ce5d7d2ff695c1837e914c77195e523a86b5391716477960
+### N0306 - SHA-256 fea1d5bf3dd71605ce5d7d2ff695c1837e914c77195e523a86b5391716477960
 
 The MIT License (MIT)
 
@@ -23296,7 +24116,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-### N0302 - SHA-256 ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2
+### N0307 - SHA-256 ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2
 
 Copyright (c) 2016 Amanieu d'Antras
 

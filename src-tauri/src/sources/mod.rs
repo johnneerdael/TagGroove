@@ -6,6 +6,7 @@
 //! further sources plug in by adding a module that produces them, as
 //! `freedb` does for gnudb and local freedb folders.
 mod acoustid;
+mod catalog;
 mod credentials;
 mod deezer;
 mod discogs;
@@ -141,7 +142,11 @@ fn freedb_service(settings: &freedb::FreedbSettings) -> http::Service {
 /// Each service's own gate and spacing, from its published limits.
 fn service(provider: Provider, discogs_token: String) -> http::Service {
     match provider {
-        Provider::Freedb | Provider::LocalFreedb | Provider::Web => {
+        Provider::Freedb
+        | Provider::LocalFreedb
+        | Provider::Web
+        | Provider::Beatport
+        | Provider::Traxsource => {
             freedb_service(&freedb::settings_from(&crate::settings::current()))
         }
         // MusicBrainz allows one request per second per client. AcoustID
@@ -150,14 +155,10 @@ fn service(provider: Provider, discogs_token: String) -> http::Service {
             retry_busy: true,
             ..http::Service::new("MusicBrainz", &http::MUSICBRAINZ, 1100)
         },
-        // Discogs allows 60 authenticated or 25 anonymous requests per minute.
+        // Use the application's 25/minute budget unless a user token is present.
         Provider::Discogs => {
             let auth = keys::discogs_auth(&discogs_token, keys::discogs_app());
-            let spacing = if matches!(auth, http::Auth::None) {
-                2500
-            } else {
-                1100
-            };
+            let spacing = keys::discogs_spacing(&auth);
             http::Service {
                 auth,
                 ..http::Service::new("Discogs", &http::DISCOGS, spacing)
@@ -209,6 +210,11 @@ fn fanart_service(user: &str) -> Result<http::Service, String> {
 const WEB_COMMANDS: &str = "Web sources are searched by their script.";
 
 #[tauri::command]
+pub fn tag_source_catalog_reset() -> Result<(), String> {
+    catalog::reset()
+}
+
+#[tauri::command]
 pub async fn tag_source_search(
     app: tauri::AppHandle,
     provider: Provider,
@@ -218,6 +224,9 @@ pub async fn tag_source_search(
     http::claim(Channel::Search, ticket);
     match provider {
         Provider::Web => Err(WEB_COMMANDS.into()),
+        Provider::Beatport | Provider::Traxsource => {
+            catalog::search(provider, &query, ticket).await
+        }
         Provider::Freedb | Provider::LocalFreedb => {
             freedb_search(&app, provider, query, ticket).await
         }
@@ -670,6 +679,9 @@ pub async fn tag_source_release(
     http::claim(Channel::Release, ticket);
     let service = service(provider, discogs_token(&app, provider).await?);
     match provider {
+        Provider::Beatport | Provider::Traxsource => {
+            catalog::release(provider, &input, ticket).await
+        }
         Provider::Musicbrainz | Provider::Acoustid => {
             let id = musicbrainz::release_id(&input)?;
             let body = http::json(

@@ -19,11 +19,25 @@ direct release lookup. Then check the
 **Covers: Discogs…** writes artwork without changing text fields. Available
 images and thumbnails depend on authentication and what Discogs supplies.
 
+## Find a track by artist and title
+
+Select one file and choose **Tag Sources → Discogs Artist + Title…**, or choose
+**Artist and track title** in the ordinary Discogs dialog. The query starts
+with the file's performing artist and complete title, including the mix/version.
+Search returns releases that may contain that track, with edition information
+such as label, catalog number and year.
+
+Choose a release and select **Next**. For a release with several tracks, choose
+the exact row using **Use track for this file**. The file remains unmatched
+until a track is selected; the release's first track is not chosen automatically.
+Check the proposed title, track position and fields before saving.
+
 ## Authentication
 
 Open **Tag Sources → Discogs access token…** to see this build's setup.
 Requests use your personal token first, then a built-in application key if
-available, or otherwise anonymous access. Not every build includes an
+available. Without either credential, API lookups report a setup error; they
+do not silently fall back to anonymous access. Not every build includes an
 application key.
 
 Create a personal access token in your Discogs account's **Settings →
@@ -37,9 +51,14 @@ it stays in the private configuration file. Mobile builds use the file.
 The token moves when you save the dialog; keychain failures are reported
 rather than silently deleting the token.
 
-Anonymous requests are spaced about 2.5 seconds apart; authenticated requests
-about 1.1 seconds apart and can supply search thumbnails. Check or replace a
-rejected token. A quota error may still require waiting. TagGroove uses release
+TagGroove application credentials allow at most **25 requests per minute**;
+a saved personal token allows at most **60 requests per minute**. Requests are
+spaced about 2.5 seconds apart for application access and 1.1 seconds apart for
+user authentication. Search, pagination, release details and other Discogs API
+requests share the same request gate, including Discogs API calls made by
+installed `.src` web sources. Switching source commands does not start a new
+budget. Search thumbnails depend on authentication and provider data. Check or
+replace a rejected token. A quota error may still require waiting. TagGroove uses release
 lookups, not account collection management or an OAuth sign-in flow.
 
 ## Related

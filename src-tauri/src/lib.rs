@@ -1833,6 +1833,7 @@ pub fn run() {
             settings::load_settings,
             settings::save_settings,
             sources::tag_source_search,
+            sources::tag_source_catalog_reset,
             sources::tag_source_release,
             sources::acoustid_file_matches,
             sources::audio_fingerprint_backend,

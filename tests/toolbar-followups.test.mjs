@@ -21,7 +21,9 @@ const art=(digest='front')=>({index:0,digest,mime:'image/jpeg',picture_type:'Cov
 
 test('daily toolbar choices append hidden while existing commands, visible defaults and imported names survive',()=>{
   const ids=Object.keys(toolbar.TOOLBAR_COMMANDS);
-  assert.deepEqual(ids.slice(69),followups);
+  const catalogSources=['source-beatport','source-traxsource','source-discogs-artist-title','source-compare'];
+  assert.deepEqual(ids.slice(69),[...followups,...catalogSources]);
+  assert.deepEqual(toolbar.defaultToolbar().items.filter(item=>catalogSources.includes(item.id)),catalogSources.map(id=>({id,visible:false})));
   assert.deepEqual(toolbar.defaultToolbar().items.filter(item=>followups.includes(item.id)),followups.map(id=>({id,visible:false})));
   assert.deepEqual(toolbar.visibleItems(toolbar.defaultToolbar().items).filter(item=>!toolbar.isDivider(item.id)).map(item=>item.id),['folder','files','save','reload','filename-tags','tags-filename','groups','number']);
   const saved={shown:false,items:[{id:'save',label:'  My saved name  ',visible:true},{id:'separator-8',visible:true},{id:'folder',visible:false}]};

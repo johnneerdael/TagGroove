@@ -73,7 +73,12 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
             format!("catno:{}", lucene(&query.text))
         }
         SearchMode::CatalogNumber => String::new(),
-        SearchMode::Toc | SearchMode::DiscId | SearchMode::Files | SearchMode::Fingerprint => {
+        SearchMode::ArtistTitle
+        | SearchMode::Release
+        | SearchMode::Toc
+        | SearchMode::DiscId
+        | SearchMode::Files
+        | SearchMode::Fingerprint => {
             return Err("MusicBrainz searches by artist, album or text.".into())
         }
     };
@@ -223,6 +228,7 @@ fn parse_results(body: &Value) -> Vec<SearchResult> {
                 thumb: Some(front_thumb_url(&id)),
                 url: format!("https://musicbrainz.org/release/{id}"),
                 id,
+                ..Default::default()
             }
         })
         .filter(|result| is_mbid(&result.id))

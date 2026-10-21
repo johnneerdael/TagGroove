@@ -7,7 +7,7 @@ and performance goals do not establish complete Mp3tag parity today.
 
 ## Identify the application you are using
 
-Choose **Help → About TagGroove** to see the application's version and MIT
+Choose **Help → About TagGroove** to see the application's version and GPLv3
 license identification. Include that version, your operating system and the
 operation used when reporting a problem. A similar-looking screenshot or an
 old source checkout does not identify the package installed on your computer.
@@ -63,12 +63,14 @@ response time or recovery of personal files.
 
 ## License and credits
 
-The independently authored TagGroove application and associated repository
-documentation carry the project's
-[MIT license](https://github.com/johnneerdael/TagGroove/blob/main/LICENSE).
-Read that file for its permission, notice and warranty terms. Third-party
-components retain their own licenses; the project license does not replace
-their notices or license the original Mp3tag software.
+The combined TagGroove application carries the project's
+[GPL-3.0-only license](https://github.com/johnneerdael/TagGroove/blob/main/COPYING).
+Its native Beatport and Traxsource adapters adapt OneTagger-derived CueRithm
+code; their complete license and provenance are available in About.
+Existing independently authored components retain their
+[MIT notices](https://github.com/johnneerdael/TagGroove/blob/main/LICENSE).
+Third-party components retain their own licenses. These notices do not license
+the original Mp3tag software.
 
 The application uses Tauri for its native/web interface and Rust for the
 metadata engine. The regex bridge includes Boost.Regex under its accompanying
