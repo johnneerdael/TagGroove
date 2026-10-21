@@ -238,7 +238,7 @@ test('new sources: menu commands, search types, columns and key gating', () => {
   assert.equal(lastSourceOperation('source-lrclib', null), 'source-lrclib', 'Ctrl+I repeats the new sources');
   assert.deepEqual(searchModes('lrclib').map(([mode]) => mode), ['files', 'text', 'release_id']);
   assert.deepEqual(searchModes('acoustid').map(([mode]) => mode), ['fingerprint']);
-  assert.deepEqual(searchModes('itunes').map(([mode]) => mode), ['artist_album', 'text', 'release_id', 'barcode']);
+  assert.deepEqual(searchModes('itunes').map(([mode]) => mode), ['artist_album', 'artist_title', 'text', 'release_id', 'barcode']);
   assert.deepEqual(searchModes('discogs', true), [['release_id', 'Release ID or address']]);
   assert.ok(searchModes('musicbrainz').some(([mode]) => mode === 'catalog_number'));
   assert.equal(resultColumns('musicbrainz'), null, 'the original sources keep their columns');

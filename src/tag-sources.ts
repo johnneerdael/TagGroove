@@ -3,7 +3,7 @@ import type { WebResult, WebSearchPage, WebSourceInfo } from './web-sources';
 export type Fields = Record<string, string[]>;
 export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb'|'web'|'itunes'|'deezer'|'lrclib'|'acoustid'|'lastfm'|'fanart'|'beatport'|'traxsource';
 export type SearchMode = 'artist_album'|'text'|'release_id'|'barcode'|'catalog_number'|'toc'|'disc_id'|'files'|'fingerprint'|'artist_title'|'release';
-export type SearchResult = {id:string;release_id?:string|null;release_title?:string|null;title:string;artist:string;year:string;country:string;label:string;catalog_number:string;format:string;track_count:number|null;score:number|null;barcode:string;thumb:string|null;url:string};
+export type SearchResult = {id:string;track_id?:string|null;release_id?:string|null;release_title?:string|null;title:string;artist:string;year:string;country:string;label:string;catalog_number:string;format:string;track_count:number|null;score:number|null;barcode:string;thumb:string|null;url:string};
 export type SearchPage = {results:SearchResult[];total:number|null};
 export type SourceTrack = {position:string;disc:number;number:number;title:string;artist:string;length:number|null;fields:Fields};
 export type SourceCover = {url:string;thumb:string|null;kind:string;width:number|null;height:number|null};
@@ -406,13 +406,14 @@ export function searchModes(provider:Provider, releaseOnly = false):[SearchMode,
   switch (provider) {
     case 'beatport': case 'traxsource': return [['artist_title','Track: artist and title'],['release','Release: artist and title'],['release_id','Track or release ID / address']];
     case 'discogs': return [['artist_album','Artist and album'],['artist_title','Artist and track title'],['text','Free text'],['release_id','Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
-    case 'itunes': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Album ID or Apple Music address'],['barcode','Barcode (UPC)']];
-    case 'deezer': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Album ID or address'],['barcode','Barcode (UPC)']];
-    case 'lastfm': return [['artist_album','Artist and album'],['text','Album title words'],['release_id','MusicBrainz release ID']];
+    case 'musicbrainz': return [['artist_album','Artist and album'],['artist_title','Artist and track title'],['text','Free text'],['release_id','Release ID (MBID) or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
+    case 'itunes': return [['artist_album','Artist and album'],['artist_title','Artist and track title'],['text','Free text'],['release_id','Album ID or Apple Music address'],['barcode','Barcode (UPC)']];
+    case 'deezer': return [['artist_album','Artist and album'],['artist_title','Artist and track title'],['text','Free text'],['release_id','Album ID or address'],['barcode','Barcode (UPC)']];
+    case 'lastfm': return [['artist_album','Artist and album'],['artist_title','Artist and track title'],['text','Album title words'],['release_id','MusicBrainz release ID']];
     case 'fanart': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Release group ID or address']];
     case 'lrclib': return [['files','Each selected file (title, artist, album, length)'],['text','Free text'],['release_id','Lyrics record ID']];
     case 'acoustid': return [['fingerprint','Audio fingerprints of the selected files']];
-    default: return [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
+    default: return [['artist_album','Artist and album'],['text','Free text'],['release_id','Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
   }
 }
 type ResultColumn = [label:string, value:(r:SearchResult)=>string, className?:string];
@@ -887,7 +888,7 @@ export class TagSourcesUI {
     const toc = discToc(files.map(f => f.length));
     const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover', suggestKey = 'opentag.tagSources.suggestSorting';
     let results:SearchResult[] = [], total:number|null = null, lastQuery:Record<string,unknown>|null = null, chosen = -1;
-    let selectedTrackId:string|undefined;
+    let selectedTrackId:string|undefined, selectedSearchTrackId:string|undefined;
     let release:SourceRelease|undefined, slots:(string|null)[] = [], enabled = new Set<string>(), trackField = 'TITLE';
     /** AcoustID: the recordings each file was identified as. */
     let fingerprints:Record<string,FileRecording[]>|null = null;
@@ -1075,7 +1076,7 @@ export class TagSourcesUI {
     };
     const search = async (more = false, auto = false) => {
       clearError();
-      if (!more) selectedTrackId = undefined;
+      if (!more) { selectedTrackId = undefined; selectedSearchTrackId = undefined; }
       if (web) { await searchWeb(); return; }
       const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode;
       const query:Record<string,unknown> = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,title:$<HTMLInputElement>('#ts-title').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0,...(perFile ? {files:fileSignatures(files)} : {})};
@@ -1102,7 +1103,7 @@ export class TagSourcesUI {
         status(mode === 'files' && shown ? `${results[0].title}.` : shown ? `${shown} ${mode === 'artist_title' && (provider === 'beatport' || provider === 'traxsource') ? `track${shown === 1 ? '' : 's'}` : provider === 'lrclib' ? `lyrics record${shown === 1 ? '' : 's'}` : `release${shown === 1 ? '' : 's'}`} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb && mode === 'toc' && provider === 'freedb' ? 'No disc with this track layout was found. Try searching by artist and album.' : freedb && mode === 'artist_album' ? `No disc with ${files.length} track${files.length === 1 ? '' : 's'} matches this artist and album.` : freedb ? 'No disc with this ID was found.' : mode === 'fingerprint' ? 'AcoustID knows no release for these files.' : 'No releases found. Try fewer words, another spelling or a different search type.');
         // Ctrl+Shift+I: a single result opens without the list; so does the
         // lookup of the selected files' lyrics, which always has one.
-        if ((auto || mode === 'files') && !more && shown === 1) void loadRelease(results[0].id);
+        if ((auto || mode === 'files') && !more && shown === 1) void loadRelease(results[0].id,null,results[0].track_id || undefined);
         if (more) { choose(chosen); dialog.querySelector<HTMLTableRowElement>(`.ts-results tr[data-index="${shown-found.results.length}"]`)?.scrollIntoView({block:'nearest'}); }
         else { $('.ts-chosen').innerHTML = ''; if (shown) choose(0); else syncSearch(); }
       } catch (e) {
@@ -1126,7 +1127,7 @@ export class TagSourcesUI {
         working = false; status('Search failed.'); error(e); syncSearch();
       }
     };
-    const loadRelease = async (input:string, previewUrl:string|null = null) => {
+    const loadRelease = async (input:string, previewUrl:string|null = null, trackId?:string) => {
       if (!input.trim()) { error('Enter a {name} release ID or address.',true); return; }
       clearError();
       const ticket = releaseTicket = nextTicket();
@@ -1134,6 +1135,7 @@ export class TagSourcesUI {
       try {
         const loaded = web ? await this.host.invoke<SourceRelease>('web_source_release',{source:web.id,url:input,previewUrl,ticket}) : await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket,...(provider === 'lrclib' ? {files:fileSignatures(files)} : {})});
         if (ticket !== releaseTicket || !dialog.open) return;
+        if (trackId) selectedSearchTrackId = trackId;
         // Addresses and typed IDs share the backend's canonical track identity.
         if ((provider === 'beatport' || provider === 'traxsource') && loaded.id.startsWith('track:')) selectedTrackId = loaded.id;
         working = false;
@@ -1180,14 +1182,14 @@ export class TagSourcesUI {
         if ((event.target as Element).closest('#ts-more')) { void search(true); return; }
         const row = (event.target as Element).closest<HTMLTableRowElement>('tr[data-index]'); if (row) choose(Number(row.dataset.index));
       });
-      $('.ts-result-area').addEventListener('dblclick',event => { const row = (event.target as Element).closest<HTMLTableRowElement>('tr[data-index]'); if (row && !working) void loadRelease(results[Number(row.dataset.index)].id,webRows[Number(row.dataset.index)]?.preview || null); });
+      $('.ts-result-area').addEventListener('dblclick',event => { const row = (event.target as Element).closest<HTMLTableRowElement>('tr[data-index]'); if (row && !working) { const index=Number(row.dataset.index); void loadRelease(results[index].id,webRows[index]?.preview || null,results[index].track_id || undefined); } });
       $('.ts-result-area').addEventListener('keydown',event => {
         const key = (event as KeyboardEvent).key;
         if (!(event.target as Element).closest('tr[data-index]')) return;
         if (key === 'ArrowDown' || key === 'ArrowUp') { event.preventDefault(); choose(Math.max(0,Math.min(results.length-1,chosen+(key === 'ArrowDown' ? 1 : -1))),true); }
-        if (key === 'Enter' && chosen >= 0 && !working) { event.preventDefault(); void loadRelease(results[chosen].id,webRows[chosen]?.preview || null); }
+        if (key === 'Enter' && chosen >= 0 && !working) { event.preventDefault(); void loadRelease(results[chosen].id,webRows[chosen]?.preview || null,results[chosen].track_id || undefined); }
       });
-      $('#ts-next').addEventListener('click',() => { if (chosen >= 0) void loadRelease(results[chosen].id,webRows[chosen]?.preview || null); });
+      $('#ts-next').addEventListener('click',() => { if (chosen >= 0) void loadRelease(results[chosen].id,webRows[chosen]?.preview || null,results[chosen].track_id || undefined); });
       syncSearch();
       if (chosen >= 0) choose(chosen);
     };
@@ -1312,9 +1314,10 @@ export class TagSourcesUI {
       // The selected files' lyrics hold one track per file, in file list order.
       slots = pairFiles(loaded,(t,f) => initialSlots(t,f,suggest));
       if (files.length === 1 && lastQuery?.mode === 'artist_title' && loaded.tracks.length > 1) slots = loaded.tracks.map(() => null);
-      if (selectedTrackId && loaded.id.startsWith('release:') && files.length === 1) {
-        const key = provider === 'beatport' ? 'BEATPORT_TRACK_ID' : 'TRAXSOURCE_TRACK_ID';
-        const index = loaded.tracks.findIndex(track => track.fields[key]?.[0] === selectedTrackId!.slice(6));
+      const identity = selectedSearchTrackId || selectedTrackId?.slice(6);
+      if (identity && files.length === 1) {
+        const matches = loaded.tracks.flatMap((track,index) => Object.entries(track.fields).some(([key,values]) => /(?:TRACK_?ID|RELEASETRACKID)$/.test(key) && values.includes(identity)) ? [index] : []);
+        const index = matches.length === 1 ? matches[0] : -1;
         slots = loaded.tracks.map((_,i) => i === index ? files[0].path : null);
       }
       trackField = trackFields().includes('TITLE') ? 'TITLE' : trackFields()[0];

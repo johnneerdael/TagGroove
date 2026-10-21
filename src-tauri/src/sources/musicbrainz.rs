@@ -3,6 +3,29 @@ use super::model::*;
 use serde_json::Value;
 use tag_core::Fields;
 
+#[cfg(test)]
+mod comparison_track_tests {
+    use super::*;
+    #[test]
+    fn track_query_uses_recording_title_and_performing_artist() {
+        let query = SearchQuery {
+            mode: SearchMode::ArtistTitle,
+            artist: "Artist A".into(),
+            title: "One (Extended Mix)".into(),
+            album: "Wrong compilation".into(),
+            ..Default::default()
+        };
+        let url = reqwest::Url::parse(&search_query(&query).unwrap()).unwrap();
+        assert_eq!(url.path(), "/ws/2/recording/");
+        let values: std::collections::HashMap<_, _> = url.query_pairs().collect();
+        assert_eq!(
+            values["query"],
+            "recording:\"One (Extended Mix)\" AND artist:\"Artist A\""
+        );
+        assert_eq!(values["fmt"], "json");
+    }
+}
+
 pub const API: &str = "https://musicbrainz.org/ws/2";
 const RELEASE_INCLUDES: &str = "artist-credits+labels+recordings+release-groups+genres+isrcs+recording-level-rels+work-rels+work-level-rels+artist-rels";
 
@@ -50,6 +73,16 @@ pub(super) fn lucene(value: &str) -> String {
 
 pub fn search_query(query: &SearchQuery) -> Result<String, String> {
     let lucene_query = match query.mode {
+        SearchMode::ArtistTitle => {
+            let mut parts = Vec::new();
+            if !query.title.trim().is_empty() {
+                parts.push(format!("recording:{}", lucene(&query.title)));
+            }
+            if !query.artist.trim().is_empty() {
+                parts.push(format!("artist:{}", lucene(&query.artist)));
+            }
+            parts.join(" AND ")
+        }
         SearchMode::ArtistAlbum => {
             let mut parts = Vec::new();
             if !query.album.trim().is_empty() {
@@ -73,8 +106,7 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
             format!("catno:{}", lucene(&query.text))
         }
         SearchMode::CatalogNumber => String::new(),
-        SearchMode::ArtistTitle
-        | SearchMode::Release
+        SearchMode::Release
         | SearchMode::Toc
         | SearchMode::DiscId
         | SearchMode::Files
@@ -86,7 +118,14 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
         return Err("Enter an artist, album or search text.".into());
     }
     let url = reqwest::Url::parse_with_params(
-        &format!("{API}/release/"),
+        &format!(
+            "{API}/{}/",
+            if query.mode == SearchMode::ArtistTitle {
+                "recording"
+            } else {
+                "release"
+            }
+        ),
         &[
             ("query", lucene_query.as_str()),
             ("fmt", "json"),
@@ -201,6 +240,143 @@ pub fn parse_search(body: &Value) -> SearchPage {
     let results = parse_results(body);
     let total = body.get("count").and_then(Value::as_u64).map(|n| n as u32);
     SearchPage { results, total }
+}
+
+pub fn parse_track_search(body: &Value) -> Result<SearchPage, String> {
+    let recordings = body
+        .get("recordings")
+        .and_then(Value::as_array)
+        .ok_or("MusicBrainz returned an unexpected recording search response.")?;
+    let mut results = Vec::new();
+    for recording in recordings {
+        let track_id = text(recording, "id");
+        let title = text(recording, "title");
+        if !is_mbid(&track_id) || title.is_empty() {
+            continue;
+        }
+        let releases: Vec<_> = list(recording, "releases")
+            .iter()
+            .filter(|release| is_mbid(&text(release, "id")))
+            .collect();
+        let row = |release: Option<&Value>| {
+            let release_id = release.map(|value| text(value, "id"));
+            SearchResult {
+                id: release_id
+                    .clone()
+                    .unwrap_or_else(|| format!("recording:{track_id}")),
+                track_id: Some(track_id.clone()),
+                release_id: release_id.clone(),
+                release_title: release
+                    .map(|value| text(value, "title"))
+                    .filter(|value| !value.is_empty()),
+                title: title.clone(),
+                artist: credit(recording),
+                format: "Track".into(),
+                track_count: Some(1),
+                year: release
+                    .map(|value| year(&text(value, "date")))
+                    .unwrap_or_default(),
+                country: release
+                    .map(|value| text(value, "country"))
+                    .unwrap_or_default(),
+                score: recording
+                    .get("score")
+                    .and_then(Value::as_u64)
+                    .map(|value| value as u32),
+                thumb: release_id.map(|id| front_thumb_url(&id)),
+                url: format!("https://musicbrainz.org/recording/{track_id}"),
+                ..Default::default()
+            }
+        };
+        if releases.is_empty() {
+            results.push(row(None));
+        } else {
+            results.extend(releases.into_iter().map(|release| row(Some(release))));
+        }
+    }
+    if !recordings.is_empty() && results.is_empty() {
+        return Err("MusicBrainz returned no usable recording identities.".into());
+    }
+    // One recording can yield several editions; its recording count is not a result-row total.
+    Ok(SearchPage {
+        total: if results.is_empty() { Some(0) } else { None },
+        results,
+    })
+}
+
+pub fn recording_url(id: &str) -> String {
+    format!("{API}/recording/{id}?fmt=json&inc=artist-credits+isrcs+genres+work-rels+work-level-rels+artist-rels")
+}
+
+pub fn parse_recording(body: &Value, _size: CoverSize) -> Result<SourceRelease, String> {
+    let id = text(body, "id");
+    let title = text(body, "title");
+    if !is_mbid(&id) || title.is_empty() {
+        return Err("MusicBrainz returned an unexpected recording.".into());
+    }
+    let artist = credit(body);
+    let mut fields = Fields::new();
+    put_one(&mut fields, "TITLE", title.clone());
+    put_one(&mut fields, "ARTIST", artist.clone());
+    put_one(&mut fields, "MUSICBRAINZ_TRACKID", id.clone());
+    put(&mut fields, "MUSICBRAINZ_ARTISTID", credit_ids(body));
+    put(
+        &mut fields,
+        "ISRC",
+        list(body, "isrcs")
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect(),
+    );
+    put(
+        &mut fields,
+        "MUSICBRAINZ_WORKID",
+        work_relations(body).map(|work| text(work, "id")).collect(),
+    );
+    put(
+        &mut fields,
+        "COMPOSER",
+        work_relations(body)
+            .flat_map(|work| list(work, "relations"))
+            .filter(|relation| {
+                text(relation, "target-type") == "artist" && text(relation, "type") == "composer"
+            })
+            .filter_map(|relation| {
+                relation
+                    .pointer("/artist/name")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .collect(),
+    );
+    if let Some(value) = genre(body) {
+        put_one(&mut fields, "GENRE", value);
+    }
+    Ok(SourceRelease {
+        provider: Provider::Musicbrainz,
+        id: format!("recording:{id}"),
+        url: format!("https://musicbrainz.org/recording/{id}"),
+        preview_url: None,
+        title: title.clone(),
+        artist: artist.clone(),
+        fields: Fields::new(),
+        covers: Vec::new(),
+        more_covers: false,
+        tracks: vec![SourceTrack {
+            position: String::new(),
+            disc: 1,
+            number: 0,
+            title,
+            artist,
+            length: body
+                .get("length")
+                .and_then(Value::as_f64)
+                .filter(|value| *value > 0.0)
+                .map(|value| value / 1000.0),
+            fields,
+        }],
+    })
 }
 fn parse_results(body: &Value) -> Vec<SearchResult> {
     list(body, "releases")
