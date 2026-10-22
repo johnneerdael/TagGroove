@@ -166,12 +166,22 @@ export class ComparisonSearchSession {
       if (!append && results.length) await this.loadResult(sourceId,exact.length===1?exact[0]:results[0],false);
       // When the last page has arrived, the one exact match among everything loaded is accepted, or selected when it
       // only appeared on a later page, unless the person has already chosen a result.
-      else if (append && !canMore && !current.confirmed && exact.length===1) await this.loadResult(sourceId,exact[0],false);
+      else if (append && !canMore && !current.confirmed && exact.length===1) {
+        const loaded=this.states.get(sourceId)!;
+        // Already the loaded candidate: accept it as it is instead of fetching the same release again.
+        if (loaded.candidate && loaded.resultKey===comparisonResultKey(exact[0])) this.publish({...loaded,confirmed:true,status:this.complete(loaded.candidate)?'ready':'needs-match'});
+        else await this.loadResult(sourceId,exact[0],false);
+      }
     } catch(error) {
       if(valid())this.publish({...this.states.get(sourceId)!,status:'failed',error});
     }
   }
 
+  /** Every selected file has its track, or the source only supplies shared fields or artwork. */
+  private complete(candidate:ComparisonCandidate):boolean {
+    const release=candidate.release,sharedOnly=!release.tracks.length && (release.covers.length>0 || Object.keys(release.fields).length>0);
+    return sharedOnly || this.files.every(file=>candidate.tracks[file.path]!=null);
+  }
   /** The results that are the album (or track) that was asked for, by artist and title. */
   private exactResults(source:ComparisonSource,results:ComparisonSearchResult[]):ComparisonSearchResult[] {
     if(source.web)return [];
@@ -217,10 +227,8 @@ export class ComparisonSearchSession {
         this.annotateFingerprints(release,tracks,fingerprints);
       }
       const candidate:ComparisonCandidate={sourceId,revision:++this.revision,release,tracks};
-      const matched=this.files.every(file=>tracks[file.path]!=null);
-      const sharedOnly=!release.tracks.length && (release.covers.length>0 || Object.keys(release.fields).length>0);
       const accepted=confirmed || state.results.length===1 && (state.total===null || state.total<=1) || this.onlyExactResult(state,result);
-      this.publish({...this.states.get(sourceId)!,candidate,fingerprints,confirmed:accepted,resultKey:comparisonResultKey(result),status:(matched||sharedOnly)&&accepted?'ready':'needs-match'});
+      this.publish({...this.states.get(sourceId)!,candidate,fingerprints,confirmed:accepted,resultKey:comparisonResultKey(result),status:this.complete(candidate)&&accepted?'ready':'needs-match'});
     }catch(error){if(valid())this.publish({...this.states.get(sourceId)!,status:'failed',error});}
   }
 

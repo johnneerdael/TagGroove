@@ -374,3 +374,18 @@ test('a result the person chooses while more results are loading is not replaced
   const state=s.value.states.get('native:deezer');
   assert.equal(state.resultKey,'d2|');assert.equal(state.confirmed,true);
 });
+
+test('when the last page arrives the loaded exact match is accepted without fetching its release again',async()=>{
+  const loaded=[];
+  const s=session(async(command,args)=>{
+    if(command==='tag_source_search')return args.query.page===0?{results:[row('e1'),row('e2',{title:'Other'})],total:4}:{results:[row('e3',{title:'Another'}),row('e4',{title:'Different'})],total:4};
+    if(command==='tag_source_release'){loaded.push(args.input);return release('deezer');}
+    assert.fail(command);
+  });
+  await s.value.search([source('deezer')],'album',files,terms);
+  assert.equal(s.value.states.get('native:deezer').status,'needs-match');
+  await s.value.more('native:deezer');
+  const state=s.value.states.get('native:deezer');
+  assert.deepEqual(loaded,['e1']);                       // loaded once, not again after the last page
+  assert.equal(state.canMore,false);assert.equal(state.status,'ready');assert.equal(state.confirmed,true);assert.equal(state.resultKey,'e1|');
+});
