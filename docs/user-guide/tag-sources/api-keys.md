@@ -38,7 +38,9 @@ Last.fm does not ask you for a key. TagGroove uses its own application key, and
 the **Last.fm account** section of the dialog only signs you in:
 
 1. Choose **Sign in to Last.fm…**. Your browser opens Last.fm's page that asks
-   whether TagGroove may access your account.
+   whether TagGroove may access your account. Where TagGroove cannot open a
+   browser, such as on a phone or tablet, it shows the address instead: open it in
+   a browser yourself.
 2. Approve it on that page, then return to TagGroove and choose **Finish**.
 3. The section now says **Signed in as** and your Last.fm user name.
 

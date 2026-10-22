@@ -770,6 +770,7 @@ export class TagSourcesUI {
       return `<fieldset class="ts-key" data-key="lastfm"><legend>Last.fm account</legend>
         <p class="ts-key-state" role="status" id="ts-lastfm-state">${html(state)} Album tags become GENRE. Non-commercial use.</p>
         <p class="ts-lastfm-steps" id="ts-lastfm-steps" hidden></p>
+        <input class="ts-lastfm-url" id="ts-lastfm-url" readonly hidden aria-label="Last.fm approval address">
         <div class="action-input"><button type="button" id="ts-lastfm-start" ${canSignIn && !user ? '' : 'hidden'}>Sign in to Last.fm…</button><button type="button" id="ts-lastfm-finish" hidden>Finish</button><button type="button" id="ts-lastfm-out" ${user ? '' : 'hidden'}>Sign out</button></div></fieldset>`;
     };
     dialog.innerHTML = `<header>API keys</header><div class="dialog-content">
@@ -789,14 +790,14 @@ export class TagSourcesUI {
       p.textContent = message.replace(/^Error: /,'');
     };
     // Last.fm's desktop sign-in: open Last.fm in the browser, approve TagGroove there, then finish here.
-    const lastfm = {state:dialog.querySelector<HTMLElement>('#ts-lastfm-state')!, steps:dialog.querySelector<HTMLElement>('#ts-lastfm-steps')!,
+    const lastfm = {state:dialog.querySelector<HTMLElement>('#ts-lastfm-state')!, steps:dialog.querySelector<HTMLElement>('#ts-lastfm-steps')!, url:dialog.querySelector<HTMLInputElement>('#ts-lastfm-url')!,
       start:dialog.querySelector<HTMLButtonElement>('#ts-lastfm-start')!, finish:dialog.querySelector<HTMLButtonElement>('#ts-lastfm-finish')!, out:dialog.querySelector<HTMLButtonElement>('#ts-lastfm-out')!};
     let lastfmToken = '';
     const lastfmShow = (next:TagSourceCredentials) => {
       credentials = next; this.credentials = next;
       const user = next.lastfm_user || '';
       lastfm.state.textContent = user ? `Signed in as ${user}. Album tags become GENRE. Non-commercial use.` : 'Last.fm works without signing in. Sign in to make requests as your Last.fm account. Album tags become GENRE. Non-commercial use.';
-      lastfm.steps.hidden = true; lastfm.finish.hidden = true; lastfm.start.hidden = !next.lastfm_can_sign_in || !!user; lastfm.out.hidden = !user;
+      lastfm.steps.hidden = true; lastfm.url.hidden = true; lastfm.finish.hidden = true; lastfm.start.hidden = !next.lastfm_can_sign_in || !!user; lastfm.out.hidden = !user;
       this.host.changed?.();
     };
     lastfm.start.addEventListener('click',async () => {
@@ -804,8 +805,12 @@ export class TagSourcesUI {
       try {
         const request = await this.host.invoke<{token:string;url:string}>('lastfm_sign_in_start');
         lastfmToken = request.token;
-        await this.host.invoke('tag_source_open_page',{url:request.url});
-        lastfm.steps.textContent = 'Approve TagGroove on the Last.fm page that opened in your browser, then come back here and choose Finish.';
+        // Where no browser can be opened for TagGroove (a phone or tablet, or no default browser) the address is shown to open by hand.
+        let opened = true;
+        try { await this.host.invoke('tag_source_open_page',{url:request.url}); } catch { opened = false; }
+        lastfm.steps.textContent = opened ? 'Approve TagGroove on the Last.fm page that opened in your browser, then come back here and choose Finish.'
+          : 'TagGroove could not open a browser. Open the address below in a browser, approve TagGroove on the Last.fm page, then come back here and choose Finish.';
+        lastfm.url.value = request.url; lastfm.url.hidden = opened;
         lastfm.steps.hidden = false; lastfm.start.hidden = true; lastfm.finish.hidden = false;
       } catch (e) { showError(String(e)); }
       lastfm.start.disabled = false;
