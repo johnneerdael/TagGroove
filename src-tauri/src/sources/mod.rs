@@ -7,6 +7,8 @@
 //! `freedb` does for gnudb and local freedb folders.
 mod acoustid;
 mod catalog;
+mod comparison;
+mod comparison_write_tests;
 mod credentials;
 mod deezer;
 mod discogs;
@@ -20,7 +22,6 @@ mod lastfm;
 mod lrclib;
 mod model;
 mod musicbrainz;
-#[cfg(test)]
 mod track_search_tests;
 pub(crate) mod web;
 
@@ -944,6 +945,18 @@ pub fn tag_source_cancel(ticket: u64) {
 }
 
 #[tauri::command]
+pub async fn tag_source_comparison_snapshot(
+    paths: Vec<String>,
+    ticket: u64,
+) -> Result<String, String> {
+    crate::io(move || comparison::capture(&paths, ticket)).await
+}
+#[tauri::command]
+pub fn tag_source_comparison_cancel(ticket: u64) {
+    comparison::cancel(ticket);
+}
+
+#[tauri::command]
 pub async fn load_tag_source_settings(
     app: tauri::AppHandle,
 ) -> Result<credentials::CredentialsView, String> {
@@ -962,13 +975,17 @@ pub async fn save_tag_source_settings(
         .map_err(|e| e.to_string())?
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct ApplyItem {
     pub path: String,
     pub updates: Fields,
     /// LRCLIB supplies raw text, rather than ID3's language||lyrics syntax.
     #[serde(default)]
     pub raw_lyrics: bool,
+    #[serde(default)]
+    pub remove_covers: bool,
+    #[serde(default)]
+    pub comparison_snapshot: Option<String>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ApplyCover {
@@ -992,8 +1009,13 @@ fn validate_items(items: &[ApplyItem], cover: bool) -> Result<(), String> {
         if !seen.insert(item.path.as_str()) {
             return Err("A file is matched to more than one track.".into());
         }
-        if item.updates.is_empty() && !cover {
+        if item.updates.is_empty() && !cover && !item.remove_covers {
             return Err("Choose at least one field or the cover to write.".into());
+        }
+        if item.remove_covers && cover {
+            return Err(
+                "Choose either removing existing artwork or importing artwork, not both.".into(),
+            );
         }
         if item.updates.keys().any(|key| key.trim().is_empty()) {
             return Err("Field names cannot be empty.".into());
@@ -1143,16 +1165,35 @@ fn write_import_diagnostic(
                     .and_then(|p| updates.get(p))
                     .copied()
                     .ok_or("File is not part of this import")?;
-                crate::mutate_document(path, |working| {
+                let snapshot = fields.comparison_snapshot.as_deref();
+                let baseline = snapshot
+                    .map(|token| comparison::begin(token, path))
+                    .transpose()?;
+                let written = crate::mutate_document(path, |working| {
+                    if let Some(baseline) = &baseline {
+                        baseline.verify(working)?;
+                        comparison::current(snapshot.unwrap(), path)?;
+                    }
                     let cover = cover_target(working, cover_path.as_deref(), options.preserve)?;
-                    apply_one(
+                    let mut entry = apply_one(
                         working,
                         &fields.updates,
                         cover,
                         options.replace,
                         fields.raw_lyrics,
-                    )
-                })
+                    )?;
+                    if fields.remove_covers {
+                        entry = tag_core::remove_all_covers_with_options(
+                            working,
+                            &crate::settings::tag_options(),
+                        )?;
+                    }
+                    Ok(entry)
+                });
+                if let Some(token) = snapshot {
+                    comparison::finish(token, path, written.is_ok());
+                }
+                written
             });
             let mut diagnostics = Vec::new();
             if let (Some(template), Some(image)) = (&options.save_as, image) {
@@ -1453,11 +1494,13 @@ mod tests {
                 path: missing.to_string_lossy().into_owned(),
                 updates: Fields::new(),
                 raw_lyrics: false,
+                ..Default::default()
             },
             ApplyItem {
                 path: audio.to_string_lossy().into_owned(),
                 updates: Fields::from([("TITLE".into(), vec!["Help".into()])]),
                 raw_lyrics: false,
+                ..Default::default()
             },
         ];
         let mut bytes = Vec::new();
@@ -1657,6 +1700,7 @@ mod tests {
             raw_lyrics: false,
             path: path.into(),
             updates,
+            ..Default::default()
         };
         let some: Fields = [("TITLE".to_string(), vec!["x".to_string()])].into();
         assert!(validate_items(&[], false).is_err());
@@ -1678,6 +1722,7 @@ mod tests {
             raw_lyrics: false,
             path: audio.to_string_lossy().into(),
             updates: [("TITLE".to_string(), vec!["New".to_string()])].into(),
+            ..Default::default()
         }];
         let error = tauri::async_runtime::block_on(tag_source_apply(
             items,
@@ -1707,6 +1752,7 @@ mod tests {
             raw_lyrics: false,
             path: path.to_string_lossy().into(),
             updates: [("TITLE".to_string(), vec![title.to_string()])].into(),
+            ..Default::default()
         };
         let result = tauri::async_runtime::block_on(tag_source_apply(
             vec![item(&a, "One"), item(&b, "Two")],
@@ -1795,6 +1841,7 @@ mod tests {
             path: path.clone(),
             updates: [("ALBUM".into(), vec!["Fresh Album".into()])].into(),
             raw_lyrics: false,
+            ..Default::default()
         }];
         let evaluation = crate::evaluation_settings(Some(vec![crate::evaluation::ColumnSpec {
             name: "Imported column".into(),
@@ -1869,6 +1916,7 @@ mod tests {
             raw_lyrics: false,
             path: audio.to_string_lossy().into_owned(),
             updates: [("ALBUM".to_string(), vec!["Album".to_string()])].into(),
+            ..Default::default()
         }];
         let save = |template: &str| ImportCover {
             replace: true,

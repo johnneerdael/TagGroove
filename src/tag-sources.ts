@@ -641,6 +641,7 @@ type TagSourcesHost = {
   onLanguageChange?:(listener:()=>void)=>()=>void;
   invoke:Invoke;files:()=>SourceFile[];reason:()=>string;
   apply:(items:ApplyItem[], cover:ApplyCover|null)=>Promise<void>;
+  applyComparison?:(items:ApplyItem[],cover:ApplyCover|null)=>Promise<import('./metadata-comparison').ComparisonSaveOutcome>;
   /** Saved Options → Tag Sources values (`pages.tag-sources`). */
   options:()=>Record<string,unknown>;
   /** Save dialog for Utils → Extract cover. */

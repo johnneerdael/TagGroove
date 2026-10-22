@@ -538,6 +538,12 @@ const tagSourcesUI=new TagSourcesUI({batchError:error=>error instanceof BatchFai
     if(!result)throw new BatchFailure(errors,'Tag source data could not be written.',{paths:false,plain:publicMessage});
     if(result.errors.length)throw new BatchFailure(result.errors,'Tag source data could not be written.',{name:displayName,plain:publicMessage});
   },
+  applyComparison:async(items,cover)=>{
+    const targets=items.map(item=>item.path);
+    const result=await run('Writing chosen metadata…',async()=>{let batch:Batch;try{batch=await invoke<Batch>('tag_source_apply',{items,cover,columns:columnSpecs(targets)});}catch(error){await reconcileWorkingEntries(targets);throw error;}accept(batch,'Compared metadata');await reconcileWorkingEntries(batch.errors.map(error=>error.path));return batch;});
+    if(!result)throw new BatchFailure(errors,'Compared metadata could not be written.',{paths:false,plain:publicMessage});
+    return {succeeded:result.entries.map(entry=>entry.path),failed:result.errors.map(error=>({path:error.path,error:error.error}))};
+  },
 });
 /** The last used tag source when it was a web source that is still installed. */
 const lastWebSource=()=>{const id=tagSourcesUI.lastWeb;return id?webSourcesUI.source(id):undefined;};

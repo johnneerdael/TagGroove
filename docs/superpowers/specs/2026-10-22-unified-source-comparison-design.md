@@ -1,8 +1,7 @@
 # Unified metadata comparison for a track or album
 
 Status: interaction design approved by the user through the revised interactive
-mockup on 2026-10-22. Implementation planning follows; production implementation
-has not started.
+mockup on 2026-10-22. The user approved Native execution; production implementation is in progress.
 
 ## Purpose and agreed behavior
 
