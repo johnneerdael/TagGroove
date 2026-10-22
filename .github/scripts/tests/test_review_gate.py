@@ -769,6 +769,16 @@ class WorkflowTrustTests(unittest.TestCase):
                     self.assertIn('xcodegen', before_build)
                     self.assertIn('targets: aarch64-apple-ios-sim', before_build)
 
+    def test_android_sdk_install_retries_a_truncated_download_then_fails(self):
+        for workflow in ('_reviewed-native.yml', 'reviewed-release.yml'):
+            with self.subTest(workflow=workflow):
+                source = (ROOT.parent / 'workflows' / workflow).read_text()
+                install = source.split("until sdkmanager 'platforms;android-37.0'")[1].split('done\n')[0]
+                self.assertIn("'build-tools;37.0.0' 'ndk;28.2.13676358'; do", install)
+                self.assertIn('[ "$attempt" -lt 3 ] || exit 1', install)
+                self.assertIn('sleep $((15 * attempt))', install)
+                self.assertNotIn('|| true', install)
+
     def test_documentation_is_checked_only_after_review_when_present(self):
         import re
         source = (ROOT.parent / 'workflows/_reviewed-build.yml').read_text()

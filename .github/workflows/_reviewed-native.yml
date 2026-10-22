@@ -233,7 +233,14 @@ jobs:
           cmdline-tools-version: '15859902'
       - name: Install Android build dependencies
         run: |
-          sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358'
+          # The NDK archive can arrive truncated ("Error reading Zip content"); retry, then fail.
+          attempt=1
+          until sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358'; do
+            [ "$attempt" -lt 3 ] || exit 1
+            echo "sdkmanager failed (attempt $attempt)"
+            sleep $((15 * attempt))
+            attempt=$((attempt + 1))
+          done
           echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
         with:
