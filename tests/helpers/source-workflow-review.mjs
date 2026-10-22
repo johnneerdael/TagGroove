@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFile,writeFile} from 'node:fs/promises';
 import {closeSync} from 'node:fs';
-import ts from 'typescript';
+import {loadProductionModule} from './load-production-module.mjs';
 import {Window} from 'happy-dom';
 import http from 'node:http';
 import https from 'node:https';
@@ -62,9 +62,7 @@ try {
   const window=new Window({url:'https://workflow.invalid/'});
   window.fetch=deny;window.XMLHttpRequest.prototype.open=deny;
   for(const key of ['window','document','Node','NodeFilter','Element','HTMLElement','HTMLInputElement','HTMLTextAreaElement','HTMLButtonElement','MutationObserver','MouseEvent','Event'])globalThis[key]=key==='window'?window:window[key];
-  const source=await readFile(new URL('../../src/tag-sources.ts',import.meta.url),'utf8');
-  const javascript=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-  const {TagSourcesUI}=await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+  const {TagSourcesUI}=await loadProductionModule('tag-sources.ts');
   const calls=[],applied=[];
   let selectedResultIndex=null;
   const ui=new TagSourcesUI({files:()=>input.files,reason:()=>'',options:()=>({cover_filename:'folder'}),pickSave:async()=>{throw Error('Unexpected picker');},evaluate:async()=> 'Fixture Artist',

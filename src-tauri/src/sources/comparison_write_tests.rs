@@ -270,3 +270,35 @@ fn provider_document_changes_invalidate_the_comparison_without_bypassing_save_ba
         ["Changed after review"]
     );
 }
+
+#[test]
+fn captured_view_returns_the_actual_existing_metadata_in_selection_order() {
+    let _serial = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
+    let dir = tempfile::tempdir().unwrap();
+    let a = dir.path().join("a.wav");
+    let b = dir.path().join("b.wav");
+    wav(&a);
+    wav(&b);
+    tag_core::write_fields_summary(
+        &a,
+        &Fields::from([("COMMENT".into(), vec!["Actual current note".into()])]),
+    )
+    .unwrap();
+    let view = super::comparison::capture_view(
+        &[
+            b.to_string_lossy().into_owned(),
+            a.to_string_lossy().into_owned(),
+        ],
+        ticket(),
+    )
+    .unwrap();
+    assert_eq!(view.files[0].path, b.to_string_lossy());
+    assert_eq!(view.files[1].fields["COMMENT"], ["Actual current note"]);
+    assert!(!view.token.is_empty());
+    let json = serde_json::to_value(view).unwrap();
+    assert_eq!(
+        json["files"][1]["fields"]["COMMENT"],
+        json!(["Actual current note"])
+    );
+    assert!(json["files"][1].get("identity").is_none());
+}

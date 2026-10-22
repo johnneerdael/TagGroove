@@ -35,9 +35,10 @@ export function comparisonSources(credentials:TagSourceCredentials|null,listing:
     let setupReason:string|undefined;
     if (definition.key) {
       const key=definition.key;
-      if (!credentials) setupReason='Checking API key settings.';
+      if (!credentials) setupReason='API key settings are unavailable. Check Tag Sources → API keys.';
       else if (!credentials[`${key}_key_set`] && !credentials[`${key}_built_in`]) setupReason=`${definition.label} needs an API key.`;
     }
+    if (provider==='discogs' && !credentials) setupReason='API key settings are unavailable. Check Tag Sources → API keys.';
     if (provider==='discogs' && credentials && !credentials.discogs_app_key && !credentials.discogs_token_set) setupReason='Discogs needs application credentials or a personal access token.';
     if (provider==='local_freedb' && setup.localFreedbAvailable===false) setupReason='Choose the local freedb database folder in Options.';
     return {id:`native:${provider}`,provider:provider as NativeProvider,label:definition.label,selected:!setupReason && definition.selected!==false,...(setupReason?{setupReason}:{})};

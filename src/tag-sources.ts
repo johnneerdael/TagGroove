@@ -1,3 +1,4 @@
+import { MetadataComparisonUI } from './metadata-comparison-ui';
 import type { OptionsDraft, OptionsPage } from './options-ui';
 import type { WebResult, WebSearchPage, WebSourceInfo } from './web-sources';
 export type Fields = Record<string, string[]>;
@@ -642,6 +643,7 @@ type TagSourcesHost = {
   invoke:Invoke;files:()=>SourceFile[];reason:()=>string;
   apply:(items:ApplyItem[], cover:ApplyCover|null)=>Promise<void>;
   applyComparison?:(items:ApplyItem[],cover:ApplyCover|null)=>Promise<import('./metadata-comparison').ComparisonSaveOutcome>;
+  loadExistingCovers?:(path:string)=>Promise<NonNullable<SourceFile['covers']>>;
   /** Saved Options → Tag Sources values (`pages.tag-sources`). */
   options:()=>Record<string,unknown>;
   /** Save dialog for Utils → Extract cover. */
@@ -686,109 +688,19 @@ export class TagSourcesUI {
     await this.open(request.provider,{coversOnly:request.coversOnly,releaseId:request.releaseId,artistTitle:request.artistTitle,quick});
   }
 
-  /** Compare explicitly chosen metadata candidates for exactly one local file. */
+  /** Compare metadata for one selected track or the selected files of an album. */
   async compare() {
-    if (this.showing) return;
-    const reason = this.host.reason(), files = this.host.files();
-    if (reason) throw new Error(reason);
-    if (files.length !== 1) throw new Error('Select exactly one file to compare sources.');
-    this.showing = true;
-    const file = structuredClone(files[0]);
-    const current:Fields = file.fields || {TITLE:[file.title],ARTIST:[file.artist],ALBUM:[file.album],ALBUMARTIST:[file.album_artist],TRACK:[file.track],DISCNUMBER:[file.disc]};
-    const candidates:{provider:Provider;release:SourceRelease;track:SourceTrack;fields:Fields}[] = [];
-    const choices = new Map<string,number>();
-    let results:SearchResult[] = [], loaded:SourceRelease|undefined, ticket = 0, writing = false, working = false;
-    const dialog = document.createElement('dialog');
-    dialog.className = 'tag-source-dialog ts-compare-dialog';
-    dialog.setAttribute('aria-label','Compare tag sources');
-    dialog.innerHTML = `<header>Compare tag sources</header><div class="dialog-content">
-      <p>Compare metadata for <strong translate="no">${html(file.name)}</strong>. Choose a result and its track for each source, then choose the fields to save. Keep current is selected by default.</p>
-      <div class="ts-search"><label class="field"><span>SOURCE</span><select id="ts-compare-provider"><option value="beatport">Beatport</option><option value="traxsource">Traxsource</option><option value="discogs">Discogs</option></select></label><div class="field-pair"><label class="field"><span>ARTIST</span><input id="ts-compare-artist" value="${html(file.artist)}"></label><label class="field"><span>TITLE</span><input id="ts-compare-title" value="${html(file.title)}"></label></div><button id="ts-compare-search">Search</button></div>
-      <p class="ts-status" role="status" aria-live="polite">Search a source, then choose the matching result.</p><div class="ts-compare-results"></div><div class="ts-compare-tracks"></div><div class="ts-compare-fields"></div><p class="dialog-error" role="alert"></p></div>
-      <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-compare-save" disabled>Save chosen fields</button></div>`;
-    document.body.append(dialog);
-    const $ = <T extends HTMLElement = HTMLElement>(selector:string) => dialog.querySelector<T>(selector)!;
-    const provider = () => $<HTMLSelectElement>('#ts-compare-provider').value as Provider;
-    const validFile = () => { const selected = this.host.files(); return selected.length === 1 && selected[0].path === file.path; };
-    const error = (value:unknown) => { $('.dialog-error').textContent = String(value).replace(/^Error: /,''); };
-    const sync = () => {
-      $<HTMLButtonElement>('#ts-compare-save').disabled = writing || working || !choices.size;
-      dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('.dialog-content input,.dialog-content select,.dialog-content button').forEach(control => control.disabled = writing || working);
-      $<HTMLButtonElement>('[data-close]').disabled = writing;
-    };
-    const renderFields = () => {
-      const names = [...new Set([...Object.keys(current),...candidates.flatMap(candidate => Object.keys(candidate.fields))])].sort((a,b) => (fieldOrder.indexOf(a) < 0 ? fieldOrder.length : fieldOrder.indexOf(a))-(fieldOrder.indexOf(b) < 0 ? fieldOrder.length : fieldOrder.indexOf(b)) || a.localeCompare(b));
-      $('.ts-compare-fields').innerHTML = candidates.length ? `<h3>Choose fields</h3><div class="ts-comparison-area"><table class="ts-table ts-comparison" aria-label="Metadata comparison"><thead><tr><th>Field</th><th>Current file</th>${candidates.map(candidate => `<th>${html(providerName(candidate.provider))}<small translate="no">${html(candidate.track.title)} · ${html(candidate.release.title)}</small></th>`).join('')}<th>Save from</th></tr></thead><tbody>${names.map(name => `<tr><th scope="row" translate="no">${html(name)}</th><td translate="no">${html((current[name] || []).join(MULTI))}</td>${candidates.map(candidate => `<td translate="no">${html((candidate.fields[name] || []).join(MULTI))}</td>`).join('')}<td><select data-choice="${html(name)}" aria-label="Save ${html(name)} from"><option value="">Keep current</option>${candidates.map((candidate,i) => candidate.fields[name]?.length ? `<option value="${i}" ${choices.get(name) === i ? 'selected' : ''}>${html(providerName(candidate.provider))}</option>` : '').join('')}</select></td></tr>`).join('')}</tbody></table></div>` : '';
-      sync();
-    };
-    const addCandidate = (release:SourceRelease, track:SourceTrack) => {
-      const candidate = {provider:release.provider,release,track,fields:structuredClone({...release.fields,...track.fields})};
-      const index = candidates.findIndex(existing => existing.provider === release.provider);
-      if (index < 0) candidates.push(candidate);
-      else { candidates[index] = candidate; for (const [name,choice] of choices) if (choice === index) choices.delete(name); }
-      $('.ts-status').textContent = `${providerName(release.provider)} candidate selected: ${track.title}. Search another source to compare, or choose fields below.`;
-      renderFields();
-    };
-    const renderTracks = (release:SourceRelease) => {
-      loaded = release;
-      $('.ts-compare-tracks').innerHTML = `<h3 translate="no">${html(release.artist)} – ${html(release.title)}</h3>${catalogReleaseInput(release) ? '<p><button id="ts-compare-open-release">Open full release</button></p>' : ''}<p>Select the exact track, including its mix or version.</p><ol class="ts-candidate-list">${release.tracks.map((track,i) => `<li><button data-compare-track="${i}"><span translate="no">${html(track.position)} · ${html(track.artist)} – ${html(track.title)}</span></button></li>`).join('')}</ol>`;
-      // A track search result identifies one exact track; a release always needs an explicit row choice.
-      if (release.id.startsWith('track:') && release.tracks.length === 1) addCandidate(release,release.tracks[0]);
-    };
-    const load = async (input:string) => {
-      const own = ticket = nextTicket(), selectedProvider = provider();
-      working = true; sync(); error('');
-      try {
-        const release = await this.host.invoke<SourceRelease>('tag_source_release',{provider:selectedProvider,input,ticket:own});
-        if (own !== ticket || !dialog.open) return;
-        if (!validFile()) throw new Error('The local file selection changed. Close comparison and select the file again.');
-        renderTracks(release);
-      } catch (e) { if (own === ticket && dialog.open) error(e); }
-      finally { if (own === ticket && dialog.open) { working = false; sync(); } }
-    };
-    $('#ts-compare-search').addEventListener('click',async () => {
-      const own = ticket = nextTicket(), selectedProvider = provider();
-      working = true; sync(); error(''); loaded = undefined;
-      $('.ts-compare-results').innerHTML = ''; $('.ts-compare-tracks').innerHTML = '';
-      $('.ts-status').textContent = `Searching ${providerName(selectedProvider)}…`;
-      try {
-        const page = await this.host.invoke<SearchPage>('tag_source_search',{provider:selectedProvider,query:{mode:'artist_title',artist:$<HTMLInputElement>('#ts-compare-artist').value,title:$<HTMLInputElement>('#ts-compare-title').value,album:file.album,text:'',page:0},ticket:own});
-        if (own !== ticket || !dialog.open) return;
-        if (!validFile()) throw new Error('The local file selection changed. Close comparison and select the file again.');
-        results = page.results;
-        $('.ts-status').textContent = results.length ? 'Choose the matching result. No result is selected automatically.' : 'No matches. Try other words or another source.';
-        $('.ts-compare-results').innerHTML = `<ol class="ts-candidate-list">${results.map((result,i) => `<li><button data-candidate="${i}"><span translate="no">${html(result.artist)} – ${html(result.title)}${result.release_title ? ` · ${html(result.release_title)}` : ''}${result.catalog_number ? ` · ${html(result.catalog_number)}` : ''}</span></button></li>`).join('')}</ol>`;
-      } catch (e) { if (own === ticket && dialog.open) { $('.ts-status').textContent = `${providerName(selectedProvider)} search failed. Other sources remain available.`; error(e); } }
-      finally { if (own === ticket && dialog.open) { working = false; sync(); } }
+    if(this.showing)return;
+    const reason=this.host.reason();if(reason)throw new Error(reason);
+    this.showing=true;
+    const comparison=new MetadataComparisonUI({
+      files:this.host.files,reason:this.host.reason,invoke:this.host.invoke,evaluate:this.host.evaluate,nextTicket,
+      loadExistingCovers:this.host.loadExistingCovers,onLanguageChange:this.host.onLanguageChange,
+      applyComparison:this.host.applyComparison || (async(items,cover)=>{await this.host.apply(items,cover);return{succeeded:items.map(item=>item.path),failed:[]};}),
+      formatError:error=>{const script=webScriptFailure(error);return this.host.batchError?.(error) || (script?(this.host.webScriptError||webScriptErrorText)(script):String(error).replace(/^Error: /,''));},
+      onClose:()=>{this.showing=false;this.host.changed?.();},
     });
-    $('#ts-compare-provider').addEventListener('change',() => { ticket = nextTicket(); results = []; loaded = undefined; $('.ts-compare-results').innerHTML = ''; $('.ts-compare-tracks').innerHTML = ''; });
-    dialog.addEventListener('click',event => {
-      const target = event.target as Element, result = target.closest<HTMLButtonElement>('[data-candidate]'), track = target.closest<HTMLButtonElement>('[data-compare-track]');
-      if (result && !working) void load(results[Number(result.dataset.candidate)].id);
-      if (track && loaded && !working) addCandidate(loaded,loaded.tracks[Number(track.dataset.compareTrack)]);
-      if (target.closest('#ts-compare-open-release') && loaded && !working) void load(catalogReleaseInput(loaded)!);
-    });
-    dialog.addEventListener('change',event => {
-      const select = event.target as HTMLSelectElement;
-      if (!select.matches('[data-choice]')) return;
-      if (select.value === '') choices.delete(select.dataset.choice!); else choices.set(select.dataset.choice!,Number(select.value));
-      sync();
-    });
-    $('[data-close]').addEventListener('click',() => dialog.close());
-    dialog.addEventListener('cancel',event => { if (writing) event.preventDefault(); });
-    dialog.addEventListener('close',() => { ticket = nextTicket(); this.showing = false; void this.host.invoke('tag_source_cancel',{ticket}).catch(() => undefined); dialog.remove(); });
-    $('#ts-compare-save').addEventListener('click',async () => {
-      if (writing || working || !choices.size) return;
-      if (!validFile()) { error('The local file selection changed. Close comparison and select the file again.'); return; }
-      const reason = this.host.reason(); if (reason) { error(reason); return; }
-      const updates:Fields = {};
-      for (const [name,index] of choices) { const values = candidates[index]?.fields[name]; if (values?.length) updates[name] = [...values]; }
-      if (!Object.keys(updates).length) return;
-      writing = true; sync();
-      try { await this.host.apply([{path:file.path,updates}],null); dialog.close(); }
-      catch (e) { if (dialog.open) { writing = false; error(e); sync(); } }
-    });
-    dialog.showModal(); $('#ts-compare-artist').focus();
+    try{await comparison.open();}catch(error){this.showing=false;throw error;}
   }
 
   /** The Discogs token stays in its own private file, never in the shared Options store. */

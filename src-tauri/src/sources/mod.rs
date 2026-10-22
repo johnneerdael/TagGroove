@@ -27,6 +27,7 @@ pub(crate) mod web;
 
 use crate::evaluation::EvaluationSettings;
 use base64::Engine;
+pub use comparison::ComparisonSnapshotView;
 use http::Channel;
 pub use model::{Provider, SearchPage, SearchQuery, SourceRelease};
 use serde::Deserialize;
@@ -948,8 +949,8 @@ pub fn tag_source_cancel(ticket: u64) {
 pub async fn tag_source_comparison_snapshot(
     paths: Vec<String>,
     ticket: u64,
-) -> Result<String, String> {
-    crate::io(move || comparison::capture(&paths, ticket)).await
+) -> Result<ComparisonSnapshotView, String> {
+    crate::io(move || comparison::capture_view(&paths, ticket)).await
 }
 #[tauri::command]
 pub fn tag_source_comparison_cancel(ticket: u64) {

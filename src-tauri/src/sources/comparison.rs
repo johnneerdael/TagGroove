@@ -6,6 +6,24 @@ use std::{
 };
 use tag_core::{file_copy::FileIdentity, AudioEntry, Fields};
 
+#[derive(serde::Serialize)]
+pub struct ComparisonCoverView {
+    pub digest: String,
+    pub description: String,
+}
+#[derive(serde::Serialize)]
+pub struct ComparisonFileView {
+    pub path: String,
+    pub fields: Fields,
+    pub duration: f64,
+    pub covers: Vec<ComparisonCoverView>,
+}
+#[derive(serde::Serialize)]
+pub struct ComparisonSnapshotView {
+    pub token: String,
+    pub files: Vec<ComparisonFileView>,
+}
+
 #[derive(Clone, PartialEq, Eq)]
 struct CoverState {
     digest: String,
@@ -220,13 +238,40 @@ static STORE: Mutex<SnapshotStore> = Mutex::new(SnapshotStore {
     cancel_before: 0,
 });
 const UNAVAILABLE: &str = "Comparison state is unavailable. Close and reopen the comparison.";
-pub(super) fn capture(paths: &[String], ticket: u64) -> Result<String, String> {
+pub(super) fn capture_view(
+    paths: &[String],
+    ticket: u64,
+) -> Result<ComparisonSnapshotView, String> {
     // Do file I/O outside the lock so closing a pending comparison stays responsive.
     let snapshot = Snapshot::read(paths, ticket)?;
-    STORE
+    let files = paths
+        .iter()
+        .map(|path| {
+            let state = &snapshot.files[Path::new(path)].state;
+            ComparisonFileView {
+                path: path.clone(),
+                fields: state.fields.clone(),
+                duration: f64::from_bits(state.media.1),
+                covers: state
+                    .covers
+                    .iter()
+                    .map(|cover| ComparisonCoverView {
+                        digest: cover.digest.clone(),
+                        description: cover.description.clone(),
+                    })
+                    .collect(),
+            }
+        })
+        .collect();
+    let token = STORE
         .lock()
         .map_err(|_| UNAVAILABLE.to_string())?
-        .install(snapshot)
+        .install(snapshot)?;
+    Ok(ComparisonSnapshotView { token, files })
+}
+#[cfg(test)]
+pub(super) fn capture(paths: &[String], ticket: u64) -> Result<String, String> {
+    capture_view(paths, ticket).map(|view| view.token)
 }
 pub(super) fn begin(token: &str, path: &Path) -> Result<Baseline, String> {
     STORE

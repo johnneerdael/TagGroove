@@ -1,10 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import ts from 'typescript';
-const source = await readFile(new URL('../src/tag-sources.ts', import.meta.url), 'utf8');
-const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {freedbModes, validEmail, FREEDB_SERVERS, KEYED_SOURCES, fileAcoustIds, fileSignatures, fingerprintRecordings, fingerprintSlots, resultColumns, searchModes, sourceKeyReason, autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, freedbServerList, initialSlots, invertFields, isFreedb, lastSourceOperation, moveSlot, moveSlotTo, nextTicket, normalizeTitle, providerName, searchPrefill, selectFields, similarity, sourceOperation, sourceRequest, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages, toggleEnabled, useFreedbServer} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+import {loadProductionModule} from './helpers/load-production-module.mjs';
+const {freedbModes, validEmail, FREEDB_SERVERS, KEYED_SOURCES, fileAcoustIds, fileSignatures, fingerprintRecordings, fingerprintSlots, resultColumns, searchModes, sourceKeyReason, autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, freedbServerList, initialSlots, invertFields, isFreedb, lastSourceOperation, moveSlot, moveSlotTo, nextTicket, normalizeTitle, providerName, searchPrefill, selectFields, similarity, sourceOperation, sourceRequest, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages, toggleEnabled, useFreedbServer} = await loadProductionModule('tag-sources.ts');
 
 const file = (path, values = {}) => ({path, name: `${path}.flac`, title: '', artist: '', album: '', album_artist: '', track: '', disc: '', length: 200, ...values});
 const track = (disc, number, title, fields = {}) => ({position: String(number), disc, number, title, artist: 'Artist', length: 200, fields: {TITLE: [title], TRACK: [`${number}/3`], ...fields}});
