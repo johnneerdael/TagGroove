@@ -105,6 +105,18 @@ pub async fn before(
         .map(Some)
 }
 
+/// Where the solver must go: the address that actually answered. A web page can redirect to another
+/// allowed site before it is challenged, and the solver follows the same redirect, so the origin it
+/// ends on is the challenged one. That address is checked for credentials like the first one was.
+fn challenged_target(response: &reqwest::Response, requested: &Url, eligible: bool) -> (Url, bool) {
+    if is_placeholder(response.url()) {
+        return (requested.clone(), eligible);
+    }
+    let target = response.url().clone();
+    let eligible = eligible && !carries_credentials(&target);
+    (target, eligible)
+}
+
 /// After a direct request: a Cloudflare block is repeated through the solver; any other answer
 /// is handed back unchanged.
 pub async fn after(
@@ -126,6 +138,7 @@ pub async fn after(
         return Ok(response);
     }
     let headers = response.headers().clone();
+    let (target, eligible) = challenged_target(&response, url, eligible);
     let mut body = Vec::new();
     while let Some(chunk) = response
         .chunk()
@@ -139,8 +152,8 @@ pub async fn after(
     }
     let text = String::from_utf8_lossy(&body);
     if solver::is_cloudflare_block(status.as_u16(), &headers, &text) {
-        solver::mark_blocked(url);
-        return after_block(url, name, eligible, accept, channel, ticket).await;
+        solver::mark_blocked(&target);
+        return after_block(&target, name, eligible, accept, channel, ticket).await;
     }
     rebuild(status, &headers, body)
 }
@@ -313,6 +326,40 @@ mod tests {
         )
         .unwrap();
         assert!(!eligible(&Auth::None, None, "text/plain", &anonymous));
+    }
+
+    #[test]
+    fn the_solver_is_sent_to_the_address_that_answered_after_a_redirect() {
+        use reqwest::ResponseBuilderExt;
+        let requested = Url::parse("https://a.example/page").unwrap();
+        // A real answer knows where it came from: the redirect's destination is the target.
+        let landed = Url::parse("https://b.example/landing?term=blue").unwrap();
+        let redirected: reqwest::Response = http_crate_response(Some(landed.clone())).into();
+        assert_eq!(
+            challenged_target(&redirected, &requested, true),
+            (landed, true)
+        );
+        // A destination that carries a credential is never forwarded, whatever the first address was.
+        let keyed = Url::parse("https://b.example/landing?api_key=abc").unwrap();
+        let redirected: reqwest::Response = http_crate_response(Some(keyed.clone())).into();
+        assert_eq!(
+            challenged_target(&redirected, &requested, true),
+            (keyed, false)
+        );
+        // An answer rebuilt without an address of its own keeps the requested one.
+        let rebuilt: reqwest::Response = http_crate_response(None).into();
+        assert_eq!(
+            challenged_target(&rebuilt, &requested, true),
+            (requested.clone(), true)
+        );
+
+        fn http_crate_response(url: Option<Url>) -> tauri::http::Response<Vec<u8>> {
+            let mut builder = tauri::http::Response::builder().status(403);
+            if let Some(url) = url {
+                builder = builder.url(url);
+            }
+            builder.body(Vec::new()).unwrap()
+        }
     }
 
     #[tokio::test]
