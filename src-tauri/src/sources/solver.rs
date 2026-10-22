@@ -52,52 +52,112 @@ pub fn reset() {
     solver::reset_blocked();
 }
 
+/// Words in a query parameter's name that mark a secret or who the person is. They are matched as
+/// whole words (`api_key`, `access-token`, `clientSecret`), not as parts of other words, so
+/// `keywords`, `author` and `design` are ordinary search parameters.
+const CREDENTIAL_WORDS: [&str; 20] = [
+    "key",
+    "token",
+    "secret",
+    "password",
+    "passwd",
+    "pass",
+    "auth",
+    "authorization",
+    "sig",
+    "signature",
+    "session",
+    "sk",
+    "bearer",
+    "jwt",
+    "hello",
+    "email",
+    "user",
+    "username",
+    "userid",
+    "login",
+];
+/// Credential names written as one word.
+const CREDENTIAL_COMPOUNDS: [&str; 9] = [
+    "apikey",
+    "accesskey",
+    "secretkey",
+    "accesstoken",
+    "authtoken",
+    "refreshtoken",
+    "clientsecret",
+    "sessionid",
+    "sessionkey",
+];
+
+fn is_credential_name(name: &str) -> bool {
+    // camelCase becomes separate words before the usual separators split the name.
+    let mut spaced = String::with_capacity(name.len() + 4);
+    let mut previous_lower = false;
+    for c in name.chars() {
+        if c.is_ascii_uppercase() && previous_lower {
+            spaced.push('_');
+        }
+        previous_lower = c.is_ascii_lowercase() || c.is_ascii_digit();
+        spaced.push(c.to_ascii_lowercase());
+    }
+    let words: Vec<&str> = spaced
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect();
+    words.iter().any(|word| CREDENTIAL_WORDS.contains(word))
+        || CREDENTIAL_COMPOUNDS.contains(&words.concat().as_str())
+}
+
 /// Query parameters that carry a secret or say who the person is: such an address is never sent
 /// to a solver. (freedb's `hello` handshake holds the user and domain of the configured email.)
 fn carries_credentials(url: &Url) -> bool {
     if !url.username().is_empty() || url.password().is_some() {
         return true;
     }
-    url.query_pairs().any(|(name, _)| {
-        let name = name.to_ascii_lowercase();
-        [
-            "key",
-            "token",
-            "secret",
-            "password",
-            "passwd",
-            "auth",
-            "sig",
-            "signature",
-            "hello",
-            "email",
-            "user",
-        ]
-        .iter()
-        .any(|word| name.contains(word))
-    })
+    url.query_pairs().any(|(name, _)| is_credential_name(&name))
+}
+
+/// Why a request cannot go to a solver, when it cannot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Eligibility {
+    Allowed,
+    Credentials,
+    Image,
+    Form,
+}
+impl Eligibility {
+    pub fn allowed(self) -> bool {
+        self == Eligibility::Allowed
+    }
 }
 
 /// May this request be forwarded to a solver? Only a plain public GET for a page or an API
 /// answer: no credentials of any kind, and no binary download.
-pub fn eligible(auth: &Auth, form: Option<&str>, accept: &str, url: &Url) -> bool {
-    form.is_none()
-        && matches!(auth, Auth::None)
-        && !accept.starts_with("image/")
-        && !carries_credentials(url)
+pub fn eligible(auth: &Auth, form: Option<&str>, accept: &str, url: &Url) -> Eligibility {
+    if form.is_some() {
+        Eligibility::Form
+    } else if !matches!(auth, Auth::None) || carries_credentials(url) {
+        Eligibility::Credentials
+    } else if accept.starts_with("image/") {
+        Eligibility::Image
+    } else {
+        Eligibility::Allowed
+    }
 }
 
-/// Before a direct request: a host that blocked us earlier is not contacted directly again.
-/// `Ok(None)` means "send it directly".
+/// Before a direct request: a host that blocked us earlier is not contacted directly again, when
+/// a solver can take the request. One that cannot (it carries a token, a form or an image
+/// download) is simply tried. `Ok(None)` means "send it directly".
 pub async fn before(
     url: &Url,
     name: &str,
-    eligible: bool,
+    eligible: Eligibility,
     accept: &str,
     channel: Channel,
     ticket: u64,
 ) -> Result<Option<reqwest::Response>, String> {
-    if !solver::is_blocked(url) {
+    if !eligible.allowed() || !solver::is_blocked(url) {
         return Ok(None);
     }
     after_block(url, name, eligible, accept, channel, ticket)
@@ -108,12 +168,20 @@ pub async fn before(
 /// Where the solver must go: the address that actually answered. A web page can redirect to another
 /// allowed site before it is challenged, and the solver follows the same redirect, so the origin it
 /// ends on is the challenged one. That address is checked for credentials like the first one was.
-fn challenged_target(response: &reqwest::Response, requested: &Url, eligible: bool) -> (Url, bool) {
+fn challenged_target(
+    response: &reqwest::Response,
+    requested: &Url,
+    eligible: Eligibility,
+) -> (Url, Eligibility) {
     if is_placeholder(response.url()) {
         return (requested.clone(), eligible);
     }
     let target = response.url().clone();
-    let eligible = eligible && !carries_credentials(&target);
+    let eligible = if eligible.allowed() && carries_credentials(&target) {
+        Eligibility::Credentials
+    } else {
+        eligible
+    };
     (target, eligible)
 }
 
@@ -123,7 +191,7 @@ pub async fn after(
     mut response: reqwest::Response,
     url: &Url,
     name: &str,
-    eligible: bool,
+    eligible: Eligibility,
     accept: &str,
     channel: Channel,
     ticket: u64,
@@ -152,7 +220,14 @@ pub async fn after(
     }
     let text = String::from_utf8_lossy(&body);
     if solver::is_cloudflare_block(status.as_u16(), &headers, &text) {
-        solver::mark_blocked(&target);
+        // Only a request a solver can take locks the host to the solver: a rate limit on a token
+        // request must not stop the public lookups to that host (it is tried again next time).
+        if eligible.allowed() {
+            solver::mark_blocked(&target);
+            // The challenge came from where a redirect led: remember the way, so the next request
+            // to the address it started from goes straight to the solver.
+            solver::remember_redirect(url, &target);
+        }
         return after_block(&target, name, eligible, accept, channel, ticket).await;
     }
     rebuild(status, &headers, body)
@@ -161,15 +236,28 @@ pub async fn after(
 async fn after_block(
     url: &Url,
     name: &str,
-    eligible: bool,
+    eligible: Eligibility,
     accept: &str,
     channel: Channel,
     ticket: u64,
 ) -> Result<reqwest::Response, String> {
-    if !eligible {
-        return Err(format!(
-            "{name} is blocking TagGroove (Cloudflare). A request that carries credentials cannot use a solver; try again later, or use Retry direct access in Options → Tag Sources → Cloudflare solver."
-        ));
+    match eligible {
+        Eligibility::Allowed => {}
+        Eligibility::Credentials => {
+            return Err(format!(
+                "{name} is blocking TagGroove (Cloudflare). A request that carries credentials cannot use a solver; try again later, or use Retry direct access in Options → Tag Sources → Cloudflare solver."
+            ))
+        }
+        Eligibility::Image => {
+            return Err(format!(
+                "{name} is blocking TagGroove (Cloudflare). Images are not sent to a solver; try again later, or use Retry direct access in Options → Tag Sources → Cloudflare solver."
+            ))
+        }
+        Eligibility::Form => {
+            return Err(format!(
+                "{name} is blocking TagGroove (Cloudflare). A form submission cannot use a solver; try again later, or use Retry direct access in Options → Tag Sources → Cloudflare solver."
+            ))
+        }
     }
     let config = config()?;
     let host = url.host_str().unwrap_or(name);
@@ -182,11 +270,19 @@ async fn after_block(
         .build()
         .map_err(|_| "Could not create solver network client".to_owned())?;
     let target = http::routed_for_solver(url);
+    // A site known to redirect elsewhere before it was challenged may end on that other origin.
+    let landed = solver::redirected_to(url).map(|to| http::routed_for_solver(&to));
     for attempt in 0..2 {
         if http::stale(channel, ticket) {
             return Err(CANCELLED.into());
         }
-        let solving = solver::solve(&client, &api, config.timeout_seconds, &target);
+        let solving = solver::solve(
+            &client,
+            &api,
+            config.timeout_seconds,
+            &target,
+            landed.as_ref(),
+        );
         tokio::pin!(solving);
         let solved = loop {
             match tokio::time::timeout(Duration::from_millis(25), solving.as_mut()).await {
@@ -230,7 +326,7 @@ async fn after_block(
             }
         }
     }
-    unreachable!()
+    Err("The solver timed out or is temporarily unavailable; retry the lookup".into())
 }
 
 /// A response built from an answer that was already read. Its address is a placeholder; callers
@@ -246,6 +342,8 @@ fn rebuild(
         if name == header::CONTENT_LENGTH
             || name == header::TRANSFER_ENCODING
             || name == header::CONTENT_ENCODING
+            // The refused answer's cookies are not replayed as the page's own.
+            || name == header::SET_COOKIE
         {
             continue;
         }
@@ -281,30 +379,65 @@ mod tests {
     #[test]
     fn only_plain_public_gets_may_use_a_solver() {
         let page = Url::parse("https://site.example/search?term=blue").unwrap();
-        assert!(eligible(&Auth::None, None, "application/json", &page));
-        assert!(!eligible(
-            &Auth::None,
-            Some("a=b"),
-            "application/json",
-            &page
-        ));
-        assert!(!eligible(&Auth::Key, None, "application/json", &page));
-        assert!(!eligible(
-            &Auth::DiscogsToken("t".into()),
-            None,
-            "application/json",
-            &page
-        ));
-        assert!(!eligible(&Auth::None, None, "image/*", &page));
-        let keyed = Url::parse("https://site.example/x?api_key=abc").unwrap();
-        assert!(!eligible(&Auth::None, None, "text/html", &keyed));
-        let signed = Url::parse("https://site.example/x?Signature=abc").unwrap();
-        assert!(!eligible(&Auth::None, None, "text/html", &signed));
-        let userinfo = Url::parse("https://user:pw@site.example/").unwrap();
-        assert!(!eligible(&Auth::None, None, "text/html", &userinfo));
-        // An address that names the person is never forwarded either.
-        let identity = Url::parse("https://site.example/x?email=me@example.org").unwrap();
-        assert!(!eligible(&Auth::None, None, "text/html", &identity));
+        assert_eq!(
+            eligible(&Auth::None, None, "application/json", &page),
+            Eligibility::Allowed
+        );
+        // Each kind of refusal says what it was: a form, a credential, an image.
+        assert_eq!(
+            eligible(&Auth::None, Some("a=b"), "application/json", &page),
+            Eligibility::Form
+        );
+        assert_eq!(
+            eligible(&Auth::Key, None, "application/json", &page),
+            Eligibility::Credentials
+        );
+        assert_eq!(
+            eligible(
+                &Auth::DiscogsToken("t".into()),
+                None,
+                "application/json",
+                &page
+            ),
+            Eligibility::Credentials
+        );
+        assert_eq!(
+            eligible(&Auth::None, None, "image/*", &page),
+            Eligibility::Image
+        );
+        for refused in [
+            "https://site.example/x?api_key=abc",
+            "https://site.example/x?Signature=abc",
+            "https://site.example/x?apiKey=abc",
+            "https://site.example/x?access_token=abc",
+            "https://site.example/x?clientSecret=abc",
+            "https://site.example/x?sk=abc",
+            "https://site.example/x?session=abc",
+            "https://site.example/x?email=me@example.org",
+            "https://site.example/x?hello=me+example.org",
+            "https://site.example/x?user=me",
+            "https://user:pw@site.example/",
+        ] {
+            let url = Url::parse(refused).unwrap();
+            assert_eq!(
+                eligible(&Auth::None, None, "text/html", &url),
+                Eligibility::Credentials,
+                "{refused}"
+            );
+        }
+        // Ordinary search parameters that merely contain those letters are not credentials.
+        for allowed in [
+            "https://site.example/x?keywords=blue",
+            "https://site.example/x?author=a&design=b",
+            "https://site.example/x?sign=up&hint=none&monkey=1&keyword=blue",
+            "https://site.example/x?term=key+lime+pie",
+        ] {
+            let url = Url::parse(allowed).unwrap();
+            assert!(
+                eligible(&Auth::None, None, "text/html", &url).allowed(),
+                "{allowed}"
+            );
+        }
     }
 
     #[test]
@@ -318,14 +451,14 @@ mod tests {
             url.query().unwrap().contains("hello=someone+example.org"),
             "{url}"
         );
-        assert!(!eligible(&Auth::None, None, "text/plain", &url));
+        assert!(!eligible(&Auth::None, None, "text/plain", &url).allowed());
         // Without a valid email the developer contact is sent: still a freedb handshake, still kept home.
         let anonymous = super::super::freedb::command_url(
             &super::super::freedb::FreedbSettings::default(),
             "cddb hello",
         )
         .unwrap();
-        assert!(!eligible(&Auth::None, None, "text/plain", &anonymous));
+        assert!(!eligible(&Auth::None, None, "text/plain", &anonymous).allowed());
     }
 
     #[test]
@@ -336,21 +469,21 @@ mod tests {
         let landed = Url::parse("https://b.example/landing?term=blue").unwrap();
         let redirected: reqwest::Response = http_crate_response(Some(landed.clone())).into();
         assert_eq!(
-            challenged_target(&redirected, &requested, true),
-            (landed, true)
+            challenged_target(&redirected, &requested, Eligibility::Allowed),
+            (landed, Eligibility::Allowed)
         );
         // A destination that carries a credential is never forwarded, whatever the first address was.
         let keyed = Url::parse("https://b.example/landing?api_key=abc").unwrap();
         let redirected: reqwest::Response = http_crate_response(Some(keyed.clone())).into();
         assert_eq!(
-            challenged_target(&redirected, &requested, true),
-            (keyed, false)
+            challenged_target(&redirected, &requested, Eligibility::Allowed),
+            (keyed, Eligibility::Credentials)
         );
         // An answer rebuilt without an address of its own keeps the requested one.
         let rebuilt: reqwest::Response = http_crate_response(None).into();
         assert_eq!(
-            challenged_target(&rebuilt, &requested, true),
-            (requested.clone(), true)
+            challenged_target(&rebuilt, &requested, Eligibility::Allowed),
+            (requested.clone(), Eligibility::Allowed)
         );
 
         fn http_crate_response(url: Option<Url>) -> tauri::http::Response<Vec<u8>> {
@@ -375,7 +508,7 @@ mod tests {
             response,
             &url,
             "Site",
-            true,
+            Eligibility::Allowed,
             "application/json",
             http::Channel::Search,
             0,
@@ -384,5 +517,157 @@ mod tests {
         .unwrap();
         assert_eq!(again.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(again.bytes().await.unwrap().as_ref(), b"busy");
+    }
+
+    /// A Cloudflare block page as a refused answer; `url` is where a redirect ended, if it did.
+    fn cloudflare_block(url: Option<Url>) -> reqwest::Response {
+        use reqwest::ResponseBuilderExt;
+        let mut builder = tauri::http::Response::builder()
+            .status(403)
+            .header("server", "cloudflare")
+            .header("cf-ray", "8a1b2c3d4e5f-AMS")
+            .header("set-cookie", "cf_clearance=x");
+        if let Some(url) = url {
+            builder = builder.url(url);
+        }
+        builder
+            .body(
+                b"<title>Attention Required! | Cloudflare</title>Sorry, you have been blocked."
+                    .to_vec(),
+            )
+            .unwrap()
+            .into()
+    }
+
+    #[tokio::test]
+    async fn a_block_on_a_request_a_solver_cannot_take_does_not_lock_the_host() {
+        let url = Url::parse("https://app-nolock.example/api?x=1").unwrap();
+        let search = http::Channel::Search;
+        // Each refusal says why, and none remembers the host as blocked.
+        let credentials = after(
+            cloudflare_block(None),
+            &url,
+            "Site",
+            Eligibility::Credentials,
+            "application/json",
+            search,
+            0,
+        )
+        .await
+        .unwrap_err();
+        assert!(credentials.contains("carries credentials"), "{credentials}");
+        let image = after(
+            cloudflare_block(None),
+            &url,
+            "Site",
+            Eligibility::Image,
+            "image/*",
+            search,
+            0,
+        )
+        .await
+        .unwrap_err();
+        assert!(image.contains("Images are not sent to a solver"), "{image}");
+        let form = after(
+            cloudflare_block(None),
+            &url,
+            "Site",
+            Eligibility::Form,
+            "application/json",
+            search,
+            0,
+        )
+        .await
+        .unwrap_err();
+        assert!(form.contains("form submission"), "{form}");
+        assert!(!solver::is_blocked(&url));
+        // So a public lookup to the same host is still sent directly.
+        assert!(
+            before(&url, "Site", Eligibility::Allowed, "text/html", search, 0)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_block_on_a_public_lookup_sends_later_lookups_to_the_solver_but_not_other_requests() {
+        let url = Url::parse("https://app-lock.example/search?term=blue").unwrap();
+        let search = http::Channel::Search;
+        // No solver is set up in tests: it says so, and the host is remembered.
+        let first = after(
+            cloudflare_block(None),
+            &url,
+            "Site",
+            Eligibility::Allowed,
+            "text/html",
+            search,
+            0,
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            first.contains("Add a FlareSolverr-compatible solver"),
+            "{first}"
+        );
+        assert!(solver::is_blocked(&url));
+        // The next lookup does not walk into the block again...
+        let again = before(&url, "Site", Eligibility::Allowed, "text/html", search, 0)
+            .await
+            .unwrap_err();
+        assert!(
+            again.contains("Add a FlareSolverr-compatible solver"),
+            "{again}"
+        );
+        // ...while one that cannot use a solver is simply tried.
+        assert!(before(
+            &url,
+            "Site",
+            Eligibility::Credentials,
+            "application/json",
+            search,
+            0
+        )
+        .await
+        .unwrap()
+        .is_none());
+    }
+
+    #[tokio::test]
+    async fn a_challenge_after_a_redirect_is_remembered_for_the_address_it_started_from() {
+        let from = Url::parse("https://app-from.example/page").unwrap();
+        let to = Url::parse("https://app-to.example/landing").unwrap();
+        let search = http::Channel::Search;
+        let _ = after(
+            cloudflare_block(Some(to.clone())),
+            &from,
+            "Site",
+            Eligibility::Allowed,
+            "text/html",
+            search,
+            0,
+        )
+        .await;
+        assert!(solver::is_blocked(&to));
+        assert_eq!(solver::redirected_to(&from), Some(to));
+        // The page that redirects there is not requested directly again: it goes to the solver.
+        assert!(solver::is_blocked(&from));
+        let again = before(&from, "Site", Eligibility::Allowed, "text/html", search, 0)
+            .await
+            .unwrap_err();
+        assert!(
+            again.contains("Add a FlareSolverr-compatible solver"),
+            "{again}"
+        );
+    }
+
+    #[test]
+    fn a_rebuilt_answer_does_not_replay_cookies() {
+        let mut headers = header::HeaderMap::new();
+        headers.insert(header::SET_COOKIE, "cf_clearance=x".parse().unwrap());
+        headers.insert(header::CONTENT_TYPE, "text/html".parse().unwrap());
+        let rebuilt = rebuild(StatusCode::OK, &headers, b"x".to_vec()).unwrap();
+        assert!(rebuilt.headers().get(header::SET_COOKIE).is_none());
+        assert!(rebuilt.headers().get(header::CONTENT_TYPE).is_some());
     }
 }

@@ -66,9 +66,13 @@ impl SolverConfig {
     }
 }
 
-/// Hosts (with port) that blocked a direct request this session.
+/// Hosts (with port) that blocked a direct request this session, and where a host's pages led
+/// when the challenge came from the site they redirected to.
 #[derive(Default)]
-pub struct BlockedHosts(Mutex<HashSet<String>>);
+pub struct BlockedHosts {
+    hosts: Mutex<HashSet<String>>,
+    landed: Mutex<std::collections::HashMap<String, Url>>,
+}
 fn host_key(url: &Url) -> Option<String> {
     Some(format!(
         "{}:{}",
@@ -79,21 +83,46 @@ fn host_key(url: &Url) -> Option<String> {
 impl BlockedHosts {
     /// Remember that a direct request to this host was blocked.
     pub fn mark(&self, url: &Url) {
-        if let (Some(host), Ok(mut set)) = (host_key(url), self.0.lock()) {
+        if let (Some(host), Ok(mut set)) = (host_key(url), self.hosts.lock()) {
             set.insert(host);
         }
     }
-    /// Did a direct request to this host get blocked earlier in this session?
+    /// A request to `from` redirected to `to`, and `to` is the site that challenged: later
+    /// requests to `from` go to the solver at once instead of walking into the same block.
+    pub fn remember_redirect(&self, from: &Url, to: &Url) {
+        if from.origin() == to.origin() {
+            return;
+        }
+        if let (Some(host), Ok(mut map)) = (host_key(from), self.landed.lock()) {
+            map.insert(host, to.clone());
+        }
+    }
+    /// Where this host's pages were seen to redirect when a challenge followed.
+    pub fn redirect_of(&self, from: &Url) -> Option<Url> {
+        match (host_key(from), self.landed.lock()) {
+            (Some(host), Ok(map)) => map.get(&host).cloned(),
+            _ => None,
+        }
+    }
+    /// Did a direct request to this host get blocked earlier in this session, or does it lead to a
+    /// host that did?
     pub fn contains(&self, url: &Url) -> bool {
-        match (host_key(url), self.0.lock()) {
+        let direct = match (host_key(url), self.hosts.lock()) {
             (Some(host), Ok(set)) => set.contains(&host),
             _ => false,
-        }
+        };
+        direct
+            || self.redirect_of(url).is_some_and(|to| {
+                host_key(&to).is_some_and(|h| self.hosts.lock().is_ok_and(|s| s.contains(&h)))
+            })
     }
     /// Forget every remembered block ("Retry direct access"). Saved settings are untouched.
     pub fn clear(&self) {
-        if let Ok(mut set) = self.0.lock() {
+        if let Ok(mut set) = self.hosts.lock() {
             set.clear();
+        }
+        if let Ok(mut map) = self.landed.lock() {
+            map.clear();
         }
     }
 }
@@ -104,6 +133,12 @@ pub fn global_blocked() -> Arc<BlockedHosts> {
 }
 pub fn mark_blocked(url: &Url) {
     global_blocked().mark(url)
+}
+pub fn remember_redirect(from: &Url, to: &Url) {
+    global_blocked().remember_redirect(from, to)
+}
+pub fn redirected_to(from: &Url) -> Option<Url> {
+    global_blocked().redirect_of(from)
 }
 pub fn is_blocked(url: &Url) -> bool {
     global_blocked().contains(url)
@@ -186,12 +221,15 @@ pub enum SolveError {
 const MAX_PAGE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_ENVELOPE_BYTES: usize = 16 * 1024 * 1024;
 
-/// Ask the solver for one public address. `client` must not follow redirects.
+/// Ask the solver for one public address. `client` must not follow redirects. The page must come
+/// from the target's origin, or from `landed`: the site a redirect from the target is known to
+/// lead to (the one that challenged earlier).
 pub async fn solve(
     client: &Client,
     api: &Url,
     timeout_seconds: u64,
     target: &Url,
+    landed: Option<&Url>,
 ) -> Result<Solved, SolveError> {
     let request = client
         .post(api.clone())
@@ -201,7 +239,17 @@ pub async fn solve(
             "url": target.as_str(),
             "maxTimeout": timeout_seconds * 1000,
         }));
-    let mut response = request.send().await.map_err(|_| SolveError::Transient)?;
+    let mut response = request.send().await.map_err(|error| {
+        if error.is_timeout() {
+            SolveError::Transient
+        } else {
+            // A refused connection, an unknown host or a bad address is a setup problem, not a busy solver.
+            SolveError::Permanent(
+                "Could not reach the solver. Check its address in Options → Tag Sources → Cloudflare solver and that the service is running."
+                    .into(),
+            )
+        }
+    })?;
     if response.url() != api {
         return Err(SolveError::Permanent(
             "Solver redirect is not allowed".into(),
@@ -258,7 +306,8 @@ pub async fn solve(
         .as_str()
         .and_then(|s| Url::parse(s).ok())
         .ok_or_else(|| SolveError::Permanent("Solver returned an invalid final URL".into()))?;
-    if target.origin() != final_url.origin() {
+    if target.origin() != final_url.origin() && landed.map(Url::origin) != Some(final_url.origin())
+    {
         return Err(SolveError::Permanent(
             "Solver redirected outside the original site".into(),
         ));
@@ -287,7 +336,17 @@ pub async fn solve(
                 .and_then(|(_, value)| value.as_str())
         })
     };
-    if is_challenge(header("cf-mitigated") == Some("challenge"), body) {
+    // A challenge or a Cloudflare error page that is still in the way is not the site's answer.
+    let mut answered = HeaderMap::new();
+    for (name, value) in headers.into_iter().flatten() {
+        if let (Ok(name), Some(Ok(value))) = (
+            reqwest::header::HeaderName::from_bytes(name.as_bytes()),
+            value.as_str().map(reqwest::header::HeaderValue::from_str),
+        ) {
+            answered.insert(name, value);
+        }
+    }
+    if is_cloudflare_block(solved_status as u16, &answered, body) {
         return Err(SolveError::Permanent(
             "Solver returned an unresolved challenge".into(),
         ));

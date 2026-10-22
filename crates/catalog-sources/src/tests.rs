@@ -419,6 +419,97 @@ async fn a_status_the_site_returns_through_the_solver_keeps_its_meaning() {
     }
 }
 #[tokio::test]
+async fn the_solver_may_end_on_the_site_a_redirect_is_known_to_lead_to() {
+    let (solver_base, solved) = server(vec![
+        response(
+            200,
+            &serde_json::json!({"status":"ok","solution":{"url":"https://b.example/landing","status":200,"response":"<p>page</p>"}}).to_string(),
+        ),
+        response(
+            200,
+            &serde_json::json!({"status":"ok","solution":{"url":"https://b.example/landing","status":200,"response":"<p>page</p>"}}).to_string(),
+        ),
+    ]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let api = reqwest::Url::parse(&format!("{solver_base}/v1")).unwrap();
+    let from = reqwest::Url::parse("https://a.example/start").unwrap();
+    let landed = reqwest::Url::parse("https://b.example/").unwrap();
+    // Without the known destination the solver ending elsewhere is refused; with it, accepted.
+    let refused = solver::solve(&client, &api, 1, &from, None).await;
+    assert!(
+        matches!(refused, Err(solver::SolveError::Permanent(m)) if m.contains("outside the original site"))
+    );
+    let page = solver::solve(&client, &api, 1, &from, Some(&landed))
+        .await
+        .ok()
+        .unwrap();
+    assert_eq!(page.body, "<p>page</p>");
+    solved.join().unwrap();
+}
+
+#[tokio::test]
+async fn a_solver_that_cannot_be_reached_is_not_reported_as_busy() {
+    let client = reqwest::Client::new();
+    let api = reqwest::Url::parse("http://127.0.0.1:1/v1").unwrap();
+    let target = reqwest::Url::parse("https://site.example/").unwrap();
+    match solver::solve(&client, &api, 1, &target, None).await {
+        Err(solver::SolveError::Permanent(message)) => {
+            assert!(message.contains("Could not reach the solver"), "{message}")
+        }
+        other => panic!("expected a setup error, got {}", other.is_ok()),
+    }
+}
+
+#[tokio::test]
+async fn a_cloudflare_error_page_the_solver_ended_on_is_not_the_sites_answer() {
+    let page = "<title>Attention Required! | Cloudflare</title>Sorry, you have been blocked. Cloudflare Ray ID: 1";
+    let envelope = serde_json::json!({"status":"ok","solution":{"url":"https://site.example/x","status":403,"response":page,"headers":{"server":"cloudflare","cf-ray":"8a1b"}}}).to_string();
+    let (solver_base, solved) = server(vec![response(200, &envelope)]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let api = reqwest::Url::parse(&format!("{solver_base}/v1")).unwrap();
+    let target = reqwest::Url::parse("https://site.example/x").unwrap();
+    match solver::solve(&client, &api, 1, &target, None).await {
+        Err(solver::SolveError::Permanent(message)) => {
+            assert!(message.contains("unresolved challenge"), "{message}")
+        }
+        other => panic!("expected an unresolved challenge, got {}", other.is_ok()),
+    }
+    solved.join().unwrap();
+}
+
+#[tokio::test]
+async fn a_blocked_request_a_solver_cannot_take_does_not_lock_the_host() {
+    let block = response_with(
+        403,
+        "server: cloudflare\r\ncf-ray: 8a1b2c3d4e5f-AMS\r\ncontent-type: text/html\r\n",
+        "<title>Attention Required! | Cloudflare</title>Sorry, you have been blocked.",
+    );
+    // A request that carries a token cannot use a solver: it fails, and the host is not remembered.
+    let (base, direct) = server(vec![block.clone()]);
+    let http = transport(None, std::sync::Arc::new(|| false));
+    let url = reqwest::Url::parse(&base).unwrap();
+    let error = http.get(&url, Some("token"), false).await.unwrap_err();
+    assert!(error.contains("cannot use a solver"), "{error}");
+    direct.join().unwrap();
+    // So the next token request is tried again (it would otherwise be refused without a try)...
+    let (again, retry) = server(vec![response(200, "{}")]);
+    let url = reqwest::Url::parse(&again).unwrap();
+    http.get(&url, Some("token"), false).await.unwrap();
+    retry.join().unwrap();
+    // ...and a public lookup to the same host is not locked out by it either.
+    let (public, direct) = server(vec![response(200, "<p>fine</p>")]);
+    let url = reqwest::Url::parse(&public).unwrap();
+    assert_eq!(http.get(&url, None, true).await.unwrap(), "<p>fine</p>");
+    direct.join().unwrap();
+}
+
+#[tokio::test]
 async fn solver_attempts_are_bounded_at_two() {
     let (base, direct) = server(vec![response(
         403,
@@ -673,7 +764,7 @@ async fn a_cloudflare_error_page_without_challenge_markup_goes_through_the_solve
 #[tokio::test]
 async fn a_blocked_request_that_carries_credentials_never_reaches_a_solver() {
     let block = response_with(403, "server: cloudflare\r\ncf-mitigated: challenge\r\n", "");
-    let (base, direct) = server(vec![block]);
+    let (base, direct) = server(vec![block, response(200, "{}")]);
     let http = transport(
         Some("http://127.0.0.1:9".into()),
         std::sync::Arc::new(|| false),
@@ -681,9 +772,8 @@ async fn a_blocked_request_that_carries_credentials_never_reaches_a_solver() {
     let url = reqwest::Url::parse(&base).unwrap();
     let error = http.get(&url, Some("token"), false).await.unwrap_err();
     assert!(error.contains("carry credentials"), "{error}");
-    // The host is now blocked: a second direct request is refused without any traffic
-    // (the fixture server only answers once).
-    let again = http.get(&url, Some("token"), false).await.unwrap_err();
-    assert!(again.contains("carry credentials"), "{again}");
+    // Nothing was sent to the (unreachable) solver, and a request that cannot use one does not
+    // lock the host: the next attempt is made directly (the fixture's second answer).
+    assert_eq!(http.get(&url, Some("token"), false).await.unwrap(), "{}");
     direct.join().unwrap();
 }

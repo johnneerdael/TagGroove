@@ -122,8 +122,9 @@ impl Http {
             return Err("Authenticated catalog requests cannot use a solver".into());
         }
         let target = (self.route)(url)?;
-        // After a block, another direct request to the same host would only repeat it.
-        if self.state.blocked.contains(&target) {
+        // After a block, another direct request to the same host would only repeat it, if a solver
+        // can take it: a request that cannot go to one (it carries a token) is still tried.
+        if solver_allowed && self.state.blocked.contains(&target) {
             return self.after_block(&target, solver_allowed).await;
         }
         let mut request = self.client.get(target.clone());
@@ -148,7 +149,11 @@ impl Http {
             self.body(response, 8 * 1024 * 1024).await?
         };
         if solver::is_cloudflare_block(status.as_u16(), &headers, &body) {
-            self.state.blocked.mark(&target);
+            // Only a request a solver can take locks the host to the solver: a rate limit on a
+            // token request must not stop public lookups, nor the other way round.
+            if solver_allowed {
+                self.state.blocked.mark(&target);
+            }
             return self.after_block(&target, solver_allowed).await;
         }
         if !status.is_success() {
@@ -176,6 +181,7 @@ impl Http {
                     &api,
                     self.solver.timeout_seconds,
                     target,
+                    None,
                 ))
                 .await?;
             match solved {
@@ -196,6 +202,6 @@ impl Http {
                 Ok(page) => return Ok(page.body),
             }
         }
-        unreachable!()
+        Err("Solver timed out or is temporarily unavailable; retry the lookup".into())
     }
 }
