@@ -138,19 +138,44 @@ fn plain(value: &str) -> String {
         .collect()
 }
 
+/// The artists of a credit as whole names ("Artist A & Friends" is "artista" and "friends"),
+/// compared apart from case and punctuation.
+fn credited(names: &str) -> Vec<String> {
+    let mut text = names.to_lowercase();
+    for separator in [
+        " and ",
+        " & ",
+        " feat. ",
+        " feat ",
+        " featuring ",
+        " ft. ",
+        " with ",
+        " vs. ",
+        " vs ",
+        " x ",
+    ] {
+        text = text.replace(separator, ",");
+    }
+    text.split([',', ';', '/', '&', '+'])
+        .map(plain)
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
 /// Does an album search answer hold the album that was asked for, by that artist? iTunes ranks
 /// album searches by popularity and can leave a catalogue album out entirely. A longer title
-/// (an edition) and extra credited artists still count; the same title by someone else does not.
+/// (an edition) and extra credited artists still count; the same title by someone else does not,
+/// and neither does an artist whose name merely contains the requested one ("Museum" for "Muse").
 pub fn holds_album(page: &SearchPage, artist: &str, album: &str) -> bool {
     let wanted = plain(album);
-    let artist = plain(artist);
+    let artists = credited(artist);
     !wanted.is_empty()
         && page.results.iter().any(|r| {
-            let found = plain(&r.artist);
             plain(&r.title).contains(&wanted)
-                && (artist.is_empty()
-                    || found.contains(&artist)
-                    || (!found.is_empty() && artist.contains(&found)))
+                && (artists.is_empty()
+                    || credited(&r.artist)
+                        .iter()
+                        .any(|name| artists.contains(name)))
         })
 }
 
@@ -454,14 +479,35 @@ mod tests {
             "Artist A",
             "Greatest Hits"
         ));
-        let credited = serde_json::json!({"results": [
+        let with_friends = serde_json::json!({"results": [
             {"wrapperType": "collection", "collectionId": 8, "collectionName": "Greatest Hits (Deluxe Edition)", "artistName": "Artist A & Friends"}
         ]});
         assert!(holds_album(
-            &parse_search(&credited),
+            &parse_search(&with_friends),
             "Artist A",
             "Greatest Hits"
         ));
+        // Whole names only: "Museum" is not "Muse", and a credit of several artists matches any of them.
+        let museum = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 9, "collectionName": "Greatest Hits", "artistName": "Museum"}
+        ]});
+        assert!(!holds_album(
+            &parse_search(&museum),
+            "Muse",
+            "Greatest Hits"
+        ));
+        let duo = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 10, "collectionName": "Greatest Hits", "artistName": "Armin van Buuren"}
+        ]});
+        assert!(holds_album(
+            &parse_search(&duo),
+            "Armin van Buuren, Silver Panda",
+            "Greatest Hits"
+        ));
+        assert_eq!(
+            credited("Simon & Garfunkel feat. Friends"),
+            ["simon", "garfunkel", "friends"]
+        );
 
         // The artists: punctuation and case do not matter, other artists do.
         let artists = serde_json::json!({"results": [
