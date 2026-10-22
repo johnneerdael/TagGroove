@@ -262,6 +262,13 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_API_KEY: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_API_KEY_PATH: ${{ runner.temp }}/taggroove-macos-notary/AuthKey.p8
+          # Application keys of the online services, compiled into the build.
+          OPENTAG_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
+          OPENTAG_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
+          OPENTAG_ACOUSTID_API_KEY: ${{ secrets.ACOUSTID_API_KEY }}
+          OPENTAG_LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          OPENTAG_LASTFM_SHARED_SECRET: ${{ secrets.LASTFM_SHARED_SECRET }}
+          OPENTAG_FANARTTV_API_KEY: ${{ secrets.FANARTTV_API_KEY }}
         run: npm run tauri -- build --target ${{ matrix.target }} --bundles app,dmg --config "$RUNNER_TEMP/taggroove-macos-notary/tauri-release.json" --ci
       - name: Verify notarized macOS packages and bind their bytes
         if: runner.os == 'macOS'
@@ -274,6 +281,14 @@ jobs:
         if: runner.os != 'macOS'
         id: tauri
         uses: tauri-apps/tauri-action@v1
+        env:
+          # Application keys of the online services, compiled into the build.
+          OPENTAG_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
+          OPENTAG_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
+          OPENTAG_ACOUSTID_API_KEY: ${{ secrets.ACOUSTID_API_KEY }}
+          OPENTAG_LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          OPENTAG_LASTFM_SHARED_SECRET: ${{ secrets.LASTFM_SHARED_SECRET }}
+          OPENTAG_FANARTTV_API_KEY: ${{ secrets.FANARTTV_API_KEY }}
         with:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --ci
           uploadUpdaterJson: false
@@ -419,6 +434,13 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          # Application keys of the online services, compiled into the build.
+          OPENTAG_DISCOGS_CONSUMER_KEY: ${{ secrets.DISCOGS_CONSUMER_KEY }}
+          OPENTAG_DISCOGS_CONSUMER_SECRET: ${{ secrets.DISCOGS_CONSUMER_SECRET }}
+          OPENTAG_ACOUSTID_API_KEY: ${{ secrets.ACOUSTID_API_KEY }}
+          OPENTAG_LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          OPENTAG_LASTFM_SHARED_SECRET: ${{ secrets.LASTFM_SHARED_SECRET }}
+          OPENTAG_FANARTTV_API_KEY: ${{ secrets.FANARTTV_API_KEY }}
         run: |
           # Tauri forwards this alias across the IDE build environment.
           export TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"

@@ -84,6 +84,17 @@ git diff --check
 
 Python 3.10 or newer is required for release-note tooling; CI pins Python 3.12. The actionlint exception covers the documented concurrency queue key, unsupported by actionlint 1.7.12. Do not suppress other workflow errors.
 
+## Local debug build with application keys
+
+Release builds compile TagGroove's own keys for Discogs, AcoustID, Last.fm and fanart.tv in from `OPENTAG_*` variables (`OPENTAG_DISCOGS_CONSUMER_KEY`, `OPENTAG_DISCOGS_CONSUMER_SECRET`, `OPENTAG_ACOUSTID_API_KEY`, `OPENTAG_LASTFM_API_KEY`, `OPENTAG_LASTFM_SHARED_SECRET`, `OPENTAG_FANARTTV_API_KEY`). The release workflow takes them from the repository secrets of the same names without the prefix (`DISCOGS_CONSUMER_KEY`, `ACOUSTID_API_KEY`, `LASTFM_SHARED_SECRET` and so on) in the three steps that build shipped binaries. A build without a key still compiles: Discogs then asks for a personal token, fanart.tv for the user's own key, and AcoustID and Last.fm (no one enters keys for those) are unavailable.
+
+For a local debug build, keep the credential files `.acoustid`, `.fanart`, `.discogs` and `.lastfm` in the repository root (git ignores them; `scripts/local-app-keys.py` documents their layout) and run the build through the helper. It adds the variables to that one command and never prints a value:
+
+```sh
+python3 scripts/local-app-keys.py --check
+python3 scripts/local-app-keys.py -- npx tauri build --debug --bundles app
+```
+
 ## Embedded audio build tools
 
 AcoustID fingerprinting uses source-built static Chromaprint, FFmpeg, zlib and

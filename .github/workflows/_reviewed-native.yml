@@ -141,6 +141,12 @@ jobs:
         if: runner.os == 'Windows'
         run: node --test tests/nsis-shortcuts.test.mjs
       - name: Build the debug app once
+        env:
+          # Test-only application keys (not secrets): the instrumented app answers from local fixtures and
+          # never reaches the real services, but AcoustID and Last.fm need a built-in key to be offered.
+          OPENTAG_ACOUSTID_API_KEY: e2e-acoustid-key
+          OPENTAG_LASTFM_API_KEY: e2e-lastfm-key
+          OPENTAG_LASTFM_SHARED_SECRET: e2e-lastfm-secret
         run: |
           # macOS runs the binary inside the .app bundle; it carries the test identifier.
           if [[ "$RUNNER_OS" == macOS ]]; then bundle=(--bundles app); else bundle=(--no-bundle); fi

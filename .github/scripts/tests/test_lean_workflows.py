@@ -135,6 +135,34 @@ class LeanWorkflows(unittest.TestCase):
         for name in ['android', 'ios', 'corresponding-source', 'publish']:
             self.assertNotIn('secrets.APPLE_', job(source, name))
 
+    def test_shipped_builds_compile_in_the_application_keys_and_nothing_else_does(self):
+        source = (WORKFLOWS / 'reviewed-release.yml').read_text()
+        keys = {
+            'OPENTAG_DISCOGS_CONSUMER_KEY': 'DISCOGS_CONSUMER_KEY',
+            'OPENTAG_DISCOGS_CONSUMER_SECRET': 'DISCOGS_CONSUMER_SECRET',
+            'OPENTAG_ACOUSTID_API_KEY': 'ACOUSTID_API_KEY',
+            'OPENTAG_LASTFM_API_KEY': 'LASTFM_API_KEY',
+            'OPENTAG_LASTFM_SHARED_SECRET': 'LASTFM_SHARED_SECRET',
+            'OPENTAG_FANARTTV_API_KEY': 'FANARTTV_API_KEY',
+        }
+        desktop = job(source, 'desktop')
+        android = job(source, 'android')
+        def step(block, title):
+            self.assertIn('      - name: '+title+'\n', block)
+            return block.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        builds = [
+            step(desktop, 'Build signed and notarized macOS packages'),
+            step(desktop, 'Build desktop packages'),
+            step(android, 'Build signed arm64 release APK'),
+        ]
+        for build in builds:
+            for variable, secret in keys.items():
+                self.assertIn(variable+': ${{ secrets.'+secret+' }}', build)
+        # The keys are compiled in only where a shipped binary is built.
+        self.assertEqual(source.count('secrets.LASTFM_SHARED_SECRET'), 3)
+        for name in ['prepare', 'ios', 'corresponding-source', 'publish']:
+            self.assertIsNone(re.search(r'OPENTAG_(DISCOGS|ACOUSTID|LASTFM|FANARTTV)', job(source, name)))
+
     def test_linux_packager_inputs_are_pinned_before_the_single_application_build(self):
         block = job((WORKFLOWS / 'reviewed-release.yml').read_text(), 'desktop')
         title = 'Prepare pinned Linux packaging inputs'
