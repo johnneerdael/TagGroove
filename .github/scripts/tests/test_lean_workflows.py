@@ -1,6 +1,7 @@
 """Execution-contract checks for the reviewed validation/release split."""
 import json
 import re
+import shlex
 import unittest
 from pathlib import Path
 
@@ -142,6 +143,23 @@ class LeanWorkflows(unittest.TestCase):
         self.assertLess(block.index('name: Prepare AppImage shared license material and inspector'), block.index('name: '+title))
         self.assertLess(block.index('name: '+title), block.index('name: Build desktop packages'))
         self.assertEqual(block.count('uses: tauri-apps/tauri-action@'), 1)
+
+    def test_linux_build_refreshes_bundled_curl_before_packaging_and_source_capture(self):
+        block = job((WORKFLOWS / 'reviewed-release.yml').read_text(), 'desktop')
+        title = 'Linux build and media dependencies'
+        step = block.split('      - name: '+title+'\n', 1)[1].split('      - ', 1)[0]
+        self.assertIn("if: runner.os == 'Linux'", step)
+        install = re.search(r'^\s*sudo apt-get install ([^\n]+)$', step, re.M)
+        self.assertIsNotNone(install)
+        arguments = shlex.split(install.group(1))
+        # An inherited runner version can disappear from signed Ubuntu indexes.
+        # Naming this bundled runtime explicitly refreshes it to the apt candidate.
+        self.assertIn('libcurl3t64-gnutls', arguments)
+        self.assertNotIn('--no-upgrade', arguments)
+        self.assertLess(step.index('sudo apt-get update'), step.index('sudo apt-get install'))
+        self.assertLess(block.index('name: '+title), block.index('name: Build desktop packages'))
+        self.assertLess(block.index('name: Build desktop packages'),
+                        block.index('name: Capture authenticated Linux package and source bindings'))
 
     def test_linux_capture_follows_build_and_sources_receive_both_builder_artifacts(self):
         source = (WORKFLOWS / 'reviewed-release.yml').read_text()

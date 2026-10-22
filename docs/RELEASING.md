@@ -115,6 +115,12 @@ Trusted PR validation runs the workflow from `main`. Land build-tool prerequisit
 
 Linux packages are built on Ubuntu 24.04; compatibility with older distributions is not established by compilation. The [GitHub runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) documents native arm64 Linux and separate macOS Intel/arm64 runners. Platform jobs use separate artifact names and preserve their OS/architecture in public download filenames.
 
+The Linux dependency installation explicitly refreshes `libcurl3t64-gnutls`.
+A preinstalled runner copy can satisfy WebKit's dependency constraint while its
+exact version has disappeared from the authenticated Ubuntu indexes. Refresh
+the runtime before packaging so source capture can authenticate the bundled
+bytes; do not substitute a different source version for an older built library.
+
 The macOS verifier logs fixed stage names with started/passed/failed markers,
 including application signing, tickets and Gatekeeper, the read-only DMG mount,
 contained-app binding, DMG notarization and final archive creation. Use the
