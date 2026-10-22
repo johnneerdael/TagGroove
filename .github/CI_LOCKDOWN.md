@@ -47,6 +47,16 @@ schedule is added. See `docs/PUBLISHING.md` for setup and recovery.
 The former automatic docs and screenshot workflow files are removed; their
 legacy IDs remain disabled.
 
+The owner-authorized `docs-manual.yml` is a separate manual-only publication
+path for current main documentation. It accepts only an owner dispatch from
+its trusted main workflow, pins the dispatched revision, builds the guide with
+a read-only token and rechecks current main before Pages deployment. Only the
+deployment job receives Pages/OIDC permissions. It shares the Pages deployment
+concurrency group and existing environment. It runs no application builds,
+native tests, screenshot capture, packaging or release publication, and grants
+no application review or release proof. Keep all legacy automatic workflow IDs
+disabled. See `docs/PUBLISHING.md` for the manual command.
+
 ## Test and build execution split
 
 After source authorization and immutable version planning, release preparation
