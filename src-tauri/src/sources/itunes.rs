@@ -162,27 +162,63 @@ fn credited(names: &str) -> Vec<String> {
         .collect()
 }
 
-/// The title without an edition suffix: "Automatic For The People (25th Anniversary Edition) [2017
-/// Remaster]" and "Rumours - Deluxe" are "automaticforthepeople" and "rumours".
-fn base_title(title: &str) -> String {
-    let cut = title
-        .find(['(', '['])
-        .into_iter()
-        .chain(
-            [" - ", " – ", " — "]
-                .iter()
-                .filter_map(|dash| title.find(dash)),
-        )
-        .min()
-        .unwrap_or(title.len());
-    plain(&title[..cut])
+/// Does a suffix such as `(Deluxe Edition)`, `[2017 Remaster]` or ` - 25th Anniversary` only label
+/// an edition of the same album? Other subtitles (`(Live)`, `(Acoustic)`) make a different album.
+fn is_edition_label(suffix: &str) -> bool {
+    let text = suffix.to_lowercase();
+    let digits_only = text
+        .chars()
+        .all(|c| c.is_ascii_digit() || " ()[]-–—".contains(c));
+    digits_only
+        || [
+            "deluxe",
+            "edition",
+            "remaster",
+            "anniversary",
+            "expanded",
+            "bonus",
+            "reissue",
+            "collector",
+            "limited",
+            "platinum",
+            "explicit",
+            "mono",
+            "stereo",
+        ]
+        .iter()
+        .any(|word| text.contains(word))
 }
 
-/// Is this the requested album, whole: the same title, or the same title with an edition suffix?
-/// "Up" is not "Wake Up"; "Up (Deluxe Edition)" is "Up".
+/// The title without its trailing edition labels: "Automatic For The People (25th Anniversary
+/// Edition) [2017 Remaster]" and "Rumours - Deluxe" are "automaticforthepeople" and "rumours".
+/// A subtitle that is not an edition label stays part of the title, and so does bracketed text at
+/// the very start ("(What's the Story) Morning Glory?").
+fn core_title(title: &str) -> String {
+    let mut text = title.trim();
+    loop {
+        let cut = if text.ends_with(')') {
+            text.rfind('(')
+        } else if text.ends_with(']') {
+            text.rfind('[')
+        } else {
+            [" - ", " – ", " — "]
+                .iter()
+                .filter_map(|dash| text.rfind(dash))
+                .max()
+        };
+        match cut {
+            Some(at) if at > 0 && is_edition_label(&text[at..]) => text = text[..at].trim_end(),
+            _ => break,
+        }
+    }
+    plain(text)
+}
+
+/// Is this the requested album, whole: the same title, or the same title with edition labels?
+/// "Up" is not "Wake Up" nor "Up - Live"; "Up (Deluxe Edition)" is "Up".
 fn is_titled(found: &str, wanted: &str) -> bool {
-    let wanted_base = base_title(wanted);
-    !wanted_base.is_empty() && (plain(found) == plain(wanted) || base_title(found) == wanted_base)
+    let wanted_core = core_title(wanted);
+    !wanted_core.is_empty() && core_title(found) == wanted_core
 }
 
 /// Does an album search answer hold the album that was asked for, by that artist? iTunes ranks
@@ -538,6 +574,31 @@ mod tests {
             "Artist A",
             "Up (Deluxe Edition)"
         ));
+        // Other subtitles are other albums, and bracketed text that starts a title is part of it.
+        let acoustic = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 15, "collectionName": "Album (Live)", "artistName": "Artist A"},
+            {"wrapperType": "collection", "collectionId": 16, "collectionName": "Up - Live", "artistName": "Artist A"}
+        ]});
+        assert!(!holds_album(
+            &parse_search(&acoustic),
+            "Artist A",
+            "Album (Acoustic)"
+        ));
+        assert!(!holds_album(&parse_search(&acoustic), "Artist A", "Up"));
+        assert!(holds_album(
+            &parse_search(&acoustic),
+            "Artist A",
+            "Album (Live)"
+        ));
+        let morning = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 17, "collectionName": "(What's the Story) Morning Glory? [Remastered]", "artistName": "Oasis"}
+        ]});
+        assert!(holds_album(
+            &parse_search(&morning),
+            "Oasis",
+            "(What's the Story) Morning Glory?"
+        ));
+        assert_eq!(core_title("Album (Live) [2017 Remaster]"), "albumlive");
         let duo = serde_json::json!({"results": [
             {"wrapperType": "collection", "collectionId": 10, "collectionName": "Greatest Hits", "artistName": "Armin van Buuren"}
         ]});
