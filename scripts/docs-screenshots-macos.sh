@@ -177,22 +177,28 @@ capture() {  # $1 = scene-shot name
 }
 
 seen=0; status=1
-while kill -0 "$pid" 2>/dev/null; do
+# Handle the lines the app wrote since the last pass: screenshots to take, results to show.
+drain() {
+  local total
   total="$(wc -l <"$log" | tr -d ' ')"
-  if (( total > seen )); then
-    while IFS= read -r line; do
-      case "$line" in
-        "[e2e] CROP "*) printf '%s' "${line#"[e2e] CROP "}" >"$work/crop" ;;
-        "[e2e] SHOT "*) capture "${line#"[e2e] SHOT "}" || true; [[ -e "$work/abort" ]] && break ;;
-        "[e2e] SUMMARY"*) echo "$line"; [[ "$line" == *" 0 failed" ]] && status=0 ;;
-        "[e2e] FAIL"*|"[e2e] FATAL"*|"[e2e] LOG"*) echo "$line" ;;
-      esac
-    done < <(sed -n "$((seen + 1)),${total}p" "$log")
-    seen=$total
-    [[ -e "$work/abort" ]] && break
-  fi
+  (( total > seen )) || return 0
+  while IFS= read -r line; do
+    case "$line" in
+      "[e2e] CROP "*) printf '%s' "${line#"[e2e] CROP "}" >"$work/crop" ;;
+      "[e2e] SHOT "*) capture "${line#"[e2e] SHOT "}" || true; [[ -e "$work/abort" ]] && break ;;
+      "[e2e] SUMMARY"*) echo "$line"; [[ "$line" == *" 0 failed" ]] && status=0 ;;
+      "[e2e] FAIL"*|"[e2e] FATAL"*|"[e2e] LOG"*) echo "$line" ;;
+    esac
+  done < <(sed -n "$((seen + 1)),${total}p" "$log")
+  seen=$total
+}
+while kill -0 "$pid" 2>/dev/null; do
+  drain
+  [[ -e "$work/abort" ]] && break
   sleep 0.15
 done
+# The app can exit right after its last lines: read what it wrote since the final pass.
+[[ -e "$work/abort" ]] || drain
 if [[ -e "$work/abort" ]]; then status=3; fi
 wait "$pid" 2>/dev/null || true
 

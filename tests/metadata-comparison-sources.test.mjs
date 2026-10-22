@@ -355,3 +355,22 @@ test('after the last page arrives the one exact match is accepted or selected, u
   const third=await run([c1,row('c2',{title:'Different'})],[row('c3')],c1);
   assert.equal(third.after.resultKey,'c1|');assert.equal(third.after.confirmed,true);
 });
+
+test('a result the person chooses while more results are loading is not replaced when they arrive',async()=>{
+  let open;const gate=new Promise(resolve=>{open=resolve;});
+  const first=[row('d1',{title:'Other'}),row('d2',{title:'Different'})];
+  const s=session(async(command,args)=>{
+    if(command==='tag_source_search'){
+      if(args.query.page===0)return{results:first,total:3};
+      await gate;return{results:[row('d3')],total:3};
+    }
+    if(command==='tag_source_release')return release('deezer');
+    assert.fail(command);
+  });
+  await s.value.search([source('deezer')],'album',files,terms);
+  const pending=s.value.more('native:deezer');
+  await s.value.load('native:deezer',first[1]);   // chosen while the next page is outstanding
+  open();await pending;
+  const state=s.value.states.get('native:deezer');
+  assert.equal(state.resultKey,'d2|');assert.equal(state.confirmed,true);
+});

@@ -327,7 +327,7 @@ export class MetadataComparisonUI {
   }
   /** Several editions (or releases) came back: choose one here, without opening the source's details. */
   private editionSelect(sourceId:string,state:ComparisonSourceState|undefined):string {
-    if(!state||state.results.length<2||state.source.web&&!state.results.length)return '';
+    if(!state||state.results.length<2)return '';
     const chosen=Math.max(0,state.results.findIndex(result=>comparisonResultKey(result)===state.resultKey));
     const busy=state.status==='searching'||state.status==='loading';
     return `<label class="mc-edition"><span>Edition</span><select data-edition="${html(sourceId)}" data-chosen="${chosen}" ${busy?'disabled':''}>${state.results.map((result,index)=>{
