@@ -161,19 +161,25 @@ export class ComparisonSearchSession {
       const canMore=!source.web && source.provider!=='itunes' && (total===null?results.length>=50:all.length<total) && results.length>0;
       const state:ComparisonSourceState={...current,results:all,total,page,canMore,status:all.length?(previous.candidate?previous.status==='ready'?'ready':'needs-match':'needs-match'):'empty'};
       this.publish(state);
-      if (!append && results.length) await this.loadResult(sourceId,results[0],false);
+      // Start from the one exact match when there is exactly one, wherever the provider ranked it.
+      const exact=this.exactResults(source,results);
+      if (!append && results.length) await this.loadResult(sourceId,exact.length===1?exact[0]:results[0],false);
     } catch(error) {
       if(valid())this.publish({...this.states.get(sourceId)!,status:'failed',error});
     }
   }
 
-  /** Several results, but exactly one is the album (or track) that was asked for, by artist and title: no editions to choose between. */
-  private onlyExactResult(state:ComparisonSourceState,result:ComparisonSearchResult):boolean {
-    if(state.source.web)return false;
-    const terms=this.sourceTerms.get(state.source.id)||this.terms,track=this.scope==='track';
+  /** The results that are the album (or track) that was asked for, by artist and title. */
+  private exactResults(source:ComparisonSource,results:ComparisonSearchResult[]):ComparisonSearchResult[] {
+    if(source.web)return [];
+    const terms=this.sourceTerms.get(source.id)||this.terms,track=this.scope==='track';
     const title=track?terms.title:terms.album,artist=track?terms.artist:terms.albumArtist;
-    const exact=(row:ComparisonSearchResult)=>sameName(row.title,title)&&sameName(row.artist,artist);
-    return exact(result)&&state.results.filter(exact).length===1;
+    return results.filter(row=>sameName(row.title,title)&&sameName(row.artist,artist));
+  }
+  /** Several results, but exactly one is the one asked for: no editions to choose between. */
+  private onlyExactResult(state:ComparisonSourceState,result:ComparisonSearchResult):boolean {
+    const exact=this.exactResults(state.source,state.results);
+    return exact.length===1&&comparisonResultKey(exact[0])===comparisonResultKey(result);
   }
 
   async load(sourceId:string,result:ComparisonSearchResult):Promise<void> { await this.loadResult(sourceId,result,true); }

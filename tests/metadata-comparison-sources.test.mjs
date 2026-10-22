@@ -290,3 +290,26 @@ test('Last.fm matches tracks by title and artist even when its lengths are far o
   await strict.value.search([source('deezer')],'album',files,terms);
   assert.deepEqual(strict.value.states.get('native:deezer').candidate.tracks,{'/a.flac':null,'/b.flac':null});
 });
+
+test('the one exact match is loaded and accepted wherever the provider ranked it',async()=>{
+  const loaded=[];
+  const s=session(async(command,args)=>{
+    if(command==='tag_source_search')return{results:[row('album:1',{title:'Document'}),row('album:2')],total:2};
+    if(command==='tag_source_release'){loaded.push(args.input);return release('deezer');}
+    assert.fail(command);
+  });
+  await s.value.search([source('deezer')],'album',files,terms);
+  const state=s.value.states.get('native:deezer');
+  assert.deepEqual(loaded,['album:2']);
+  assert.equal(state.status,'ready');assert.equal(state.confirmed,true);
+  assert.equal(state.resultKey,'album:2|');
+  // Two exact matches (editions): the top result is only suggested.
+  const editions=[];
+  const t=session(async(command,args)=>{
+    if(command==='tag_source_search')return{results:[row('album:1',{title:'Document'}),row('album:2'),row('album:3')],total:3};
+    if(command==='tag_source_release'){editions.push(args.input);return release('deezer');}
+    assert.fail(command);
+  });
+  await t.value.search([source('deezer')],'album',files,terms);
+  assert.deepEqual(editions,['album:1']);assert.equal(t.value.states.get('native:deezer').status,'needs-match');
+});
