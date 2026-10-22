@@ -14,6 +14,13 @@ access restrictions can change independently of TagGroove.
 
 ## Search a track or release
 
+<!-- figure:source-traxsource -->
+<figure markdown>
+![The Traxsource dialog with a search type, artist and title](../assets/screens/source-traxsource-light.png#only-light)
+![The Traxsource dialog with a search type, artist and title](../assets/screens/source-traxsource-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 <!-- figure:beatport-release-form -->
 <figure markdown>
 ![The Beatport dialog set to search by release, with the artist and release title filled in from the selected files](../assets/screens/beatport-release-form-light.png#only-light)
@@ -69,12 +76,14 @@ To choose individual fields from several providers, use
 Traxsource may require a FlareSolverr-compatible proxy when direct catalog
 requests are restricted. TagGroove does not install or start a solver.
 
-<!-- figure:source-traxsource -->
+<!-- figure:options-tag-sources-catalog -->
 <figure markdown>
-![The Traxsource dialog with a search type, artist and title](../assets/screens/source-traxsource-light.png#only-light)
-![The Traxsource dialog with a search type, artist and title](../assets/screens/source-traxsource-dark.png#only-dark)
+![The Traxsource page of the Options dialog with the solver endpoint, timeout and the button that clears remembered restrictions](../assets/screens/options-tag-sources-catalog-light.png#only-light)
+![The Traxsource page of the Options dialog with the solver endpoint, timeout and the button that clears remembered restrictions](../assets/screens/options-tag-sources-catalog-dark.png#only-dark)
+<figcaption>Options → Tag Sources → Traxsource holds the optional solver endpoint.</figcaption>
 </figure>
 <!-- /figure -->
+
 
 Open **Options → Tag Sources → Traxsource**:
 

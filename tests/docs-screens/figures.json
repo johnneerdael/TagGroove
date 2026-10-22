@@ -541,9 +541,16 @@
  {
   "scene": "source-traxsource",
   "page": "tag-sources/catalog.md",
-  "after": "## Optional challenge solver",
+  "after": "## Search a track or release",
   "alt": "The Traxsource dialog with a search type, artist and title",
   "caption": ""
+ },
+ {
+  "scene": "options-tag-sources-catalog",
+  "page": "tag-sources/catalog.md",
+  "after": "## Optional challenge solver",
+  "alt": "The Traxsource page of the Options dialog with the solver endpoint, timeout and the button that clears remembered restrictions",
+  "caption": "Options → Tag Sources → Traxsource holds the optional solver endpoint."
  },
  {
   "scene": "source-discogs",
