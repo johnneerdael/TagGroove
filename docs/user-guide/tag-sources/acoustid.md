@@ -55,6 +55,21 @@ The optional external producer has its own process timeout.
 
 ## Identify and review
 
+<!-- figure:acoustid-results -->
+<figure markdown>
+![AcoustID results for a fingerprinted song: releases that contain the recording, ranked by files matched and score](../assets/screens/acoustid-results-light.png#only-light)
+![AcoustID results for a fingerprinted song: releases that contain the recording, ranked by files matched and score](../assets/screens/acoustid-results-dark.png#only-dark)
+<figcaption>Several releases can contain the same recording, so the top result still needs a check.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:acoustid-review -->
+<figure markdown>
+![The AcoustID review: the identified recording on the chosen release, with its fields and the file it is matched to](../assets/screens/acoustid-review-light.png#only-light)
+![The AcoustID review: the identified recording on the chosen release, with its fields and the file it is matched to](../assets/screens/acoustid-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 1. Select the album's files and choose **Tag Sources → AcoustID (fingerprints)…**.
 2. Select **Search**. TagGroove fingerprints each file and ranks releases by
    the number of selected files matched, then match score.

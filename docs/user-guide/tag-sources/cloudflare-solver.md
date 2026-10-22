@@ -18,6 +18,14 @@ to every tag source.
 
 Choose **Tag Sources → Options…** and open **Cloudflare solver**.
 
+<!-- figure:options-tag-sources-solver -->
+<figure markdown>
+![The Cloudflare solver page of the Options dialog with the solver endpoint, timeout and the Retry direct access button](../assets/screens/options-tag-sources-solver-light.png#only-light)
+![The Cloudflare solver page of the Options dialog with the solver endpoint, timeout and the Retry direct access button](../assets/screens/options-tag-sources-solver-dark.png#only-dark)
+<figcaption>Options → Tag Sources → Cloudflare solver holds the optional solver endpoint.</figcaption>
+</figure>
+<!-- /figure -->
+
 - **Solver endpoint:** the address of your solver, for example
   `http://127.0.0.1:8191`. TagGroove adds `/v1` when you leave it off, so
   `http://127.0.0.1:8191` and `http://127.0.0.1:8191/v1` are the same. The address

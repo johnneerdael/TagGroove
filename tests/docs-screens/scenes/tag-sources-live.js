@@ -62,6 +62,7 @@
   // EDM songs for the dance stores (Beatport, Traxsource), pop songs for iTunes, Deezer, LRCLIB, AcoustID.
   const DJ = h.music('albums', /Anyma/);
   const EDM = h.music('songs', /Adriatique/);
+  const EDM_TRAXSOURCE = h.music('songs', /Armin van Buuren/);   // Traxsource has this one; it does not carry Adriatique
   const POP = h.music('songs', /Taylor Swift/);
   const LYRICS = h.music('songs', /Lady Gaga/);
   const FINGERPRINT = h.music('songs', /Olivia Dean/);
@@ -88,9 +89,10 @@
       // Traxsource lists this compilation under "Various Artists": search by the release title alone.
       await searchFlow('source-traxsource', { results: 'traxsource-release-results', review: 'traxsource-release-review', tracks: 'traxsource-release-tracks' }, { mode: 'release', terms: { 'ts-artist': '', 'ts-album': 'Digital Renaissance' } });
     }),
-    scene('traxsource-track-flow', ['traxsource-track-results', 'traxsource-track-review'], EDM, async () => {
+    scene('traxsource-track-flow', ['traxsource-track-results', 'traxsource-track-review'], EDM_TRAXSOURCE, async () => {
       await h.selectAll();
-      await searchFlow('source-traxsource', { results: 'traxsource-track-results', review: 'traxsource-track-review' }, { mode: 'artist_title' });
+      // The first artist and the title without its mix, so the store's search finds the track.
+      await searchFlow('source-traxsource', { results: 'traxsource-track-results', review: 'traxsource-track-review' }, { mode: 'artist_title', terms: { 'ts-artist': 'Armin van Buuren', 'ts-title': 'Here In My Arms' } });
     }),
     scene('itunes-flow', ['itunes-results', 'itunes-review'], POP, async () => {
       await h.selectAll();
@@ -119,7 +121,7 @@
     }),
     // Compare metadata, album mode. Takes: the window as opened, the sources panel, the window
     // after searching, one field's provider menu, and the review step. Never presses Save.
-    scene('compare-flow', ['compare-start', 'compare-sources', 'compare-results', 'compare-use-menu', 'compare-review'], REM, async () => {
+    scene('compare-flow', ['compare-start', 'compare-sources', 'compare-editions', 'compare-results', 'compare-use-menu', 'compare-review'], REM, async () => {
       await h.selectAll();
       const d = await h.openDialog('source-compare', '[data-fields]');
       await h.waitFor(() => !/Reading existing/i.test(d.querySelector('[data-status]')?.textContent || ''), 20000, 'snapshot read');
@@ -139,17 +141,43 @@
       await h.sleep(2500);
       await h.report('LOG compare status: ' + (d.querySelector('[data-status]')?.textContent || ''));
       await h.snap('compare-results', 'dialog');
+      // The sources panel after the search: every source with several editions has an Edition list.
+      d.querySelector('[data-sources]').click(); await h.sleep(1500);
+      await h.snap('compare-editions', 'dialog');
+      const panelBack = [...document.querySelectorAll('dialog[open] [data-close]')].at(-1);
+      if (document.querySelectorAll('dialog[open]').length > 1) panelBack?.click();
+      await h.sleep(600);
       const pick = d.querySelector('[data-pick-field="ALBUM"]') || d.querySelector('[data-pick-field]');
       if (pick) {
         pick.click(); await h.sleep(800);
-        const menu = document.querySelector('[role="menu"], .mc-choice-menu, .helper-menu, [data-comparison-menu]');
-        await h.report('LOG use menu: ' + (menu ? menu.textContent.trim().replace(/\s+/g, ' ').slice(0, 200) : 'none found'));
+        const picker = [...document.querySelectorAll('dialog[open]')].at(-1);
+        const choices = [...picker.querySelectorAll('[data-source-choice^="native:"]')];
+        await h.report('LOG use menu: ' + choices.map(c => c.textContent.trim().replace(/\s+/g, ' ') + (c.disabled ? ' (disabled)' : '')).join(' | '));
         await h.snap('compare-use-menu', 'dialog');
-        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        await h.sleep(300);
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await h.sleep(500);
+        if (document.querySelectorAll('dialog[open]').length > 1) [...document.querySelectorAll('dialog[open] [data-close]')].at(-1)?.click();
+        await h.sleep(400);
+      }
+      // A field whose value a provider would change (Genre, else Year), so the review step has something to show.
+      const change = d.querySelector('[data-pick-field="GENRE"]') || d.querySelector('[data-pick-field="YEAR"]');
+      if (change) {
+        change.click(); await h.sleep(800);
+        const picker2 = [...document.querySelectorAll('dialog[open]')].at(-1);
+        const enabled = [...picker2.querySelectorAll('[data-source-choice^="native:"]')].filter(c => !c.disabled);
+        await h.report('LOG change choices: ' + enabled.map(c => c.textContent.trim().replace(/\s+/g, ' ')).join(' | '));
+        const chosen = enabled.find(c => /Last\.fm|Deezer|MusicBrainz/.test(c.textContent)) || enabled[0];
+        if (chosen) {
+          chosen.click(); await h.sleep(800);
+          if (document.querySelectorAll('dialog[open]').length > 1) [...document.querySelectorAll('dialog[open] [data-close]')].at(-1)?.click();
+          await h.sleep(500);
+        }
       }
       const review = d.querySelector('[data-review]');
       await h.report('LOG review enabled=' + (review && !review.disabled));
+      if (review && !review.disabled) {
+        review.click(); await h.sleep(2500);
+        await h.snap('compare-review', 'dialog');   // never saved: the dialog is closed below
+      }
       d.close();
     }),
   ];

@@ -47,9 +47,28 @@ details. A failed source leaves other results available; retry it separately.
 
 ## 3. Check the matches
 
-Check the suggested release and **Tracks and files**. Use **Matches** to
-choose another edition, or **Match…** to correct a file's provider track.
-Ambiguous matches require review. A changed candidate resets its field choices.
+Check the suggested release and **Tracks and files**. A source that found
+several editions of the album shows an **Edition** list in **Sources and
+matches**: choose the pressing or release you have, and that source loads it and
+becomes ready. **Matches** lists the same candidates with more detail, and
+**Match…** corrects a file's provider track.
+
+<!-- figure:compare-editions -->
+<figure markdown>
+![Sources and matches after a search: a source with several editions has an Edition list, and sources that matched say Ready](../assets/screens/compare-editions-light.png#only-light)
+![Sources and matches after a search: a source with several editions has an Edition list, and sources that matched say Ready](../assets/screens/compare-editions-dark.png#only-dark)
+<figcaption>Choose the edition you have from each source's Edition list.</figcaption>
+</figure>
+<!-- /figure -->
+
+A source is ready on its own when exactly one of its results has the artist and
+title you searched for and every file has a matching track. Several editions of
+the same album, or a track that does not line up, are ambiguous: that source
+stays at **Choose the matching result** until you pick its edition, and its
+values stay unavailable in **Use** until then. In **Use**, **Review match** takes
+you to that source's list. Last.fm matches tracks by title and artist
+only, because its track lengths are often inaccurate. A changed candidate resets
+its field choices.
 
 <!-- figure:compare-results -->
 <figure markdown>
@@ -102,6 +121,13 @@ fields. Artwork has the same Inherit/None/provider choices and a visual preview.
 Choose **Review and save**. Check affected paths, removals and missing-value
 notices, then save the reviewed batch. Successful files appear separately if
 another file fails. **Retry failed files** writes only the remaining failures.
+
+<!-- figure:compare-review -->
+<figure markdown>
+![The review step of Compare metadata, listing the files and fields that would change before anything is saved](../assets/screens/compare-review-light.png#only-light)
+![The review step of Compare metadata, listing the files and fields that would change before anything is saved](../assets/screens/compare-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 ## Good to know
 

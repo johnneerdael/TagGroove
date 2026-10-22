@@ -76,6 +76,86 @@ saving. Opening a release alone writes nothing.
 To choose individual fields from several providers, use
 [Compare metadata…](index.md#compare-fields-from-several-sources).
 
+## Review a Beatport result
+
+A release review lists the release's fields, each with a check box, and then its
+tracks beside the files TagGroove matched them to, in the release's own track
+order. A track review shows that one track's fields. Nothing is written until you
+choose **Save tags**.
+
+<!-- figure:beatport-release-review -->
+<figure markdown>
+![The Beatport review for Digital Renaissance Vol. 1 with its cover, the fields to write and the tracks matched to the selected files](../assets/screens/beatport-release-review-light.png#only-light)
+![The Beatport review for Digital Renaissance Vol. 1 with its cover, the fields to write and the tracks matched to the selected files](../assets/screens/beatport-release-review-dark.png#only-dark)
+<figcaption>The release's own cover is offered with the fields.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:beatport-release-tracks -->
+<figure markdown>
+![The tracks of the Beatport release beside the files they are matched to, with arrows to move a file to another track](../assets/screens/beatport-release-tracks-light.png#only-light)
+![The tracks of the Beatport release beside the files they are matched to, with arrows to move a file to another track](../assets/screens/beatport-release-tracks-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
+<!-- figure:beatport-track-results -->
+<figure markdown>
+![Beatport track results for Adriatique's Palm Of Your Hands (Extended Mix), with the chosen result's cover, label and catalog number below the list](../assets/screens/beatport-track-results-light.png#only-light)
+![Beatport track results for Adriatique's Palm Of Your Hands (Extended Mix), with the chosen result's cover, label and catalog number below the list](../assets/screens/beatport-track-results-dark.png#only-dark)
+<figcaption>Search a track by artist and title, then choose the result.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:beatport-track-review -->
+<figure markdown>
+![The review of one Beatport track: its fields and the file it is matched to](../assets/screens/beatport-track-review-light.png#only-light)
+![The review of one Beatport track: its fields and the file it is matched to](../assets/screens/beatport-track-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
+## Review a Traxsource result
+
+Traxsource results and reviews work the same way. Traxsource often lists a
+compilation under *Various Artists*, so search by the release title alone if the
+artist of your files finds nothing.
+
+<!-- figure:traxsource-release-review -->
+<figure markdown>
+![The Traxsource review for Digital Renaissance Vol. 1 with its cover, fields and tracks](../assets/screens/traxsource-release-review-light.png#only-light)
+![The Traxsource review for Digital Renaissance Vol. 1 with its cover, fields and tracks](../assets/screens/traxsource-release-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
+<!-- figure:traxsource-release-tracks -->
+<figure markdown>
+![The Traxsource release's tracks beside the matched files; one of the 15 tracks has no file](../assets/screens/traxsource-release-tracks-light.png#only-light)
+![The Traxsource release's tracks beside the matched files; one of the 15 tracks has no file](../assets/screens/traxsource-release-tracks-dark.png#only-dark)
+<figcaption>TagGroove says how many tracks have a file before you save.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:traxsource-release-results -->
+<figure markdown>
+![Traxsource release search for Digital Renaissance with the artist box cleared: the compilation is listed under Various Artists](../assets/screens/traxsource-release-results-light.png#only-light)
+![Traxsource release search for Digital Renaissance with the artist box cleared: the compilation is listed under Various Artists](../assets/screens/traxsource-release-results-dark.png#only-dark)
+<figcaption>Searching by the release title alone finds a compilation credited to Various Artists.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:traxsource-track-results -->
+<figure markdown>
+![Traxsource track search for Armin van Buuren's Here In My Arms, with its single result and cover below the list](../assets/screens/traxsource-track-results-light.png#only-light)
+![Traxsource track search for Armin van Buuren's Here In My Arms, with its single result and cover below the list](../assets/screens/traxsource-track-results-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
+<!-- figure:traxsource-track-review -->
+<figure markdown>
+![The review of one Traxsource track: its fields and the file it is matched to](../assets/screens/traxsource-track-review-light.png#only-light)
+![The review of one Traxsource track: its fields and the file it is matched to](../assets/screens/traxsource-track-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 ## When Cloudflare blocks a lookup
 
 Traxsource in particular can answer with a Cloudflare challenge instead of the

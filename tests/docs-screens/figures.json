@@ -768,5 +768,102 @@
   "after": "intro",
   "alt": "The tools page of the Options dialog",
   "caption": ""
+ },
+ {
+  "scene": "beatport-track-review",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Beatport result",
+  "alt": "The review of one Beatport track: its fields and the file it is matched to"
+ },
+ {
+  "scene": "beatport-track-results",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Beatport result",
+  "alt": "Beatport track results for Adriatique's Palm Of Your Hands (Extended Mix), with the chosen result's cover, label and catalog number below the list",
+  "caption": "Search a track by artist and title, then choose the result."
+ },
+ {
+  "scene": "beatport-release-tracks",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Beatport result",
+  "alt": "The tracks of the Beatport release beside the files they are matched to, with arrows to move a file to another track"
+ },
+ {
+  "scene": "beatport-release-review",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Beatport result",
+  "alt": "The Beatport review for Digital Renaissance Vol. 1 with its cover, the fields to write and the tracks matched to the selected files",
+  "caption": "The release's own cover is offered with the fields."
+ },
+ {
+  "scene": "traxsource-track-review",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Traxsource result",
+  "alt": "The review of one Traxsource track: its fields and the file it is matched to"
+ },
+ {
+  "scene": "traxsource-track-results",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Traxsource result",
+  "alt": "Traxsource track search for Armin van Buuren's Here In My Arms, with its single result and cover below the list"
+ },
+ {
+  "scene": "traxsource-release-tracks",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Traxsource result",
+  "alt": "The Traxsource release's tracks beside the matched files; one of the 15 tracks has no file",
+  "caption": "TagGroove says how many tracks have a file before you save."
+ },
+ {
+  "scene": "traxsource-release-review",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Traxsource result",
+  "alt": "The Traxsource review for Digital Renaissance Vol. 1 with its cover, fields and tracks"
+ },
+ {
+  "scene": "traxsource-release-results",
+  "page": "tag-sources/catalog.md",
+  "after": "## Review a Traxsource result",
+  "alt": "Traxsource release search for Digital Renaissance with the artist box cleared: the compilation is listed under Various Artists",
+  "caption": "Searching by the release title alone finds a compilation credited to Various Artists."
+ },
+ {
+  "scene": "discogs-review",
+  "page": "tag-sources/discogs.md",
+  "after": "## Find a release",
+  "alt": "The Discogs review of one Kind Of Blue pressing: its fields, cover and tracks"
+ },
+ {
+  "scene": "discogs-results",
+  "page": "tag-sources/discogs.md",
+  "after": "## Find a release",
+  "alt": "Discogs results for Miles Davis's Kind Of Blue: many pressings, each with its year, country, label and catalog number",
+  "caption": "Pick the pressing you have; the details below the list help tell them apart."
+ },
+ {
+  "scene": "acoustid-review",
+  "page": "tag-sources/acoustid.md",
+  "after": "## Identify and review",
+  "alt": "The AcoustID review: the identified recording on the chosen release, with its fields and the file it is matched to"
+ },
+ {
+  "scene": "acoustid-results",
+  "page": "tag-sources/acoustid.md",
+  "after": "## Identify and review",
+  "alt": "AcoustID results for a fingerprinted song: releases that contain the recording, ranked by files matched and score",
+  "caption": "Several releases can contain the same recording, so the top result still needs a check."
+ },
+ {
+  "scene": "compare-editions",
+  "page": "tag-sources/compare.md",
+  "after": "## 3. Check the matches",
+  "alt": "Sources and matches after a search: a source with several editions has an Edition list, and sources that matched say Ready",
+  "caption": "Choose the edition you have from each source's Edition list."
+ },
+ {
+  "scene": "compare-review",
+  "page": "tag-sources/compare.md",
+  "after": "## 7. Review and save",
+  "alt": "The review step of Compare metadata, listing the files and fields that would change before anything is saved"
  }
 ]

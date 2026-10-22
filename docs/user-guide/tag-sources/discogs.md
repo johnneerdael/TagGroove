@@ -22,6 +22,21 @@ Select the album's files and choose **Discogs…**. Search by **Artist and
 album**, **Free text**, **Barcode** or **Catalog number**, or use **Release
 ID or address**. **Tag Sources → Discogs Release ID…** opens the direct lookup.
 
+<!-- figure:discogs-results -->
+<figure markdown>
+![Discogs results for Miles Davis's Kind Of Blue: many pressings, each with its year, country, label and catalog number](../assets/screens/discogs-results-light.png#only-light)
+![Discogs results for Miles Davis's Kind Of Blue: many pressings, each with its year, country, label and catalog number](../assets/screens/discogs-results-dark.png#only-dark)
+<figcaption>Pick the pressing you have; the details below the list help tell them apart.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:discogs-review -->
+<figure markdown>
+![The Discogs review of one Kind Of Blue pressing: its fields, cover and tracks](../assets/screens/discogs-review-light.png#only-light)
+![The Discogs review of one Kind Of Blue pressing: its fields, cover and tracks](../assets/screens/discogs-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 Use a numeric release ID or an address containing `/release/`. A Discogs
 master groups editions; choose the individual release rather than its master
 ID. Select a search result and choose **Next**, or use **Look up** for a
