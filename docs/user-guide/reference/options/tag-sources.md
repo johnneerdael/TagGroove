@@ -75,7 +75,8 @@ one, for example `http://127.0.0.1:8191` (`/v1` is added when missing), without
 credentials, query parameters or a fragment. When Cloudflare blocks a request,
 TagGroove repeats it through the solver and stops contacting that site directly
 for the rest of the session; without a solver the lookup says where to add one.
-Requests that carry a key, token or signature are never sent to a solver. The
+Requests that carry a key, token or signature are never sent to a solver; the
+addresses it does receive can contain your search words (artist, album or title). The
 endpoint is stored in ordinary Options.
 
 **Solver timeout (seconds)** defaults to 120 and accepts 1–300.

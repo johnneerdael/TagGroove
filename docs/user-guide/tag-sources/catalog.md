@@ -172,7 +172,8 @@ Searches send artist/title terms and provider identifiers to the selected
 catalog. Metadata and artwork retrieval contact that catalog and its image
 hosts. Audio files are not uploaded by these catalog lookups.
 
-A configured solver receives the page addresses of the requests it handles. A
+A configured solver receives the page addresses of the requests it handles, which
+can contain your search words (artist, album or title). A
 request that carries a credential, such as Beatport's authenticated catalog API,
 never goes to a solver. Choose a solver whose operator and network are trusted;
 the endpoint is saved in ordinary Options, separately from private source

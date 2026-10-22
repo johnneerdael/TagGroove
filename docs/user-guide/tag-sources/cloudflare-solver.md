@@ -66,15 +66,17 @@ comes back is never treated as an empty result.
 ## What the solver sees
 
 The solver receives the address of each request that is sent through it, and the
-page that comes back. Use a solver on a machine you trust, and keep its address
-free of passwords.
+page that comes back. Those addresses can contain what you searched for: the
+artist, album or title taken from your files appear in a search address. Use a
+solver on a machine you trust, and keep its own address free of passwords.
 
 TagGroove never sends a request that carries a credential to a solver. That covers
 your Discogs token, API keys, the access token of Beatport's catalog API, signed
 requests and any address with a key, token or signature in it, as well as form
 submissions and image downloads. If such a request is blocked, the lookup
-fails with a message that says so, rather than passing the secret on. The solver
-also never receives your tags or files.
+fails with a message that says so, rather than passing the secret on. Your audio
+files and the tags stored in them are never sent to a solver; the only tag
+values it can see are the search words inside the addresses above.
 
 ## Related
 

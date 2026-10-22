@@ -352,7 +352,7 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
       defaults:{endpoint:'',timeout_seconds:120},
       controls:[
         {kind:'text',path:'pages.tag-sources-solver.endpoint',label:'Solver endpoint',placeholder:'http://localhost:8191/v1'},
-        {kind:'note',text:'Leave empty to use no solver. When Cloudflare blocks a request, TagGroove repeats it through this service and stops contacting that site directly until you choose Retry direct access. The solver receives the page addresses of those requests, never your keys, tokens or tags; keep it on a server you trust. FlareSolverr, Byparr and trawl all work: any service that speaks the FlareSolverr API does.'},
+        {kind:'note',text:'Leave empty to use no solver. When Cloudflare blocks a request, TagGroove repeats it through this service and stops contacting that site directly until you choose Retry direct access. The solver receives the web addresses of those requests, which can contain the artist, album or title you searched for, but never your keys or tokens; keep it on a server you trust. FlareSolverr, Byparr and trawl all work: any service that speaks the FlareSolverr API does.'},
         {kind:'text',path:'pages.tag-sources-solver.timeout_seconds',label:'Solver timeout (seconds)',placeholder:'120'},
         {kind:'button',id:'tag-source-solver-reset',label:'Retry direct access',run:async () => { await resetSolver?.(); }},
         {kind:'note',text:'Forget which sites blocked TagGroove after you fixed the solver or the connection. This does not change saved tags.'},

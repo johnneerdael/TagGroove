@@ -24,8 +24,9 @@ provider terms before redistributing data or artwork.
 
 If a site blocks TagGroove with a Cloudflare check, an optional
 [Cloudflare solver](cloudflare-solver.md) that you run can load the page instead.
-It receives the addresses of the requests sent through it and nothing that
-carries a key, token or signature; TagGroove stops contacting that site directly
+It receives the addresses of the requests sent through it, which can contain
+your search words (artist, album or title), and nothing that carries a key, token
+or signature; TagGroove stops contacting that site directly
 for the rest of the session.
 
 Requests are spaced separately by service. iTunes pauses several seconds
