@@ -2,11 +2,13 @@
 import copy
 import hashlib
 import importlib.util
+import io
 import lzma
 import json
 from pathlib import Path
 import shutil
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 
@@ -15,6 +17,20 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'linux-source-material.py'
 
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+class ArchiveResponse(io.BytesIO):
+    def __init__(self, raw, url, timeout=False):
+        super().__init__(raw);self.url=url;self.timeout=timeout
+
+    def geturl(self):
+        return self.url
+
+    def read(self, size=-1):
+        if self.timeout:
+            super().read(4)
+            raise TimeoutError('private-service-diagnostic')
+        return super().read(size)
 
 
 class LinuxSourceMaterial(unittest.TestCase):
@@ -34,6 +50,50 @@ class LinuxSourceMaterial(unittest.TestCase):
         rows = '\n'.join(f' {digest(raw)} {len(raw)} {name}' for name, raw in files.items())
         index = f'Package: example\nVersion: {version}\nDirectory: pool/main/e/example\nChecksums-Sha256:\n{rows}\n\n'.encode()
         return index, files
+
+    def test_download_retries_a_read_timeout_from_a_fresh_response(self):
+        m=self.module();url='https://archive.ubuntu.com/ubuntu/pool/example.tar.xz'
+        first=ArchiveResponse(b'partial bytes',url,timeout=True)
+        second=ArchiveResponse(b'complete archive',url)
+        with patch.object(m.urllib.request,'urlopen',side_effect=[first,second]) as opened,patch('time.sleep') as pause:
+            try:raw=m.download(url,64)
+            except TimeoutError:self.fail('One read timeout must not abort the entire package build')
+        self.assertEqual(raw,b'complete archive')
+        self.assertTrue(first.closed and second.closed)
+        self.assertEqual(opened.call_count,2);pause.assert_called_once_with(1)
+
+    def test_download_timeout_exhaustion_is_bounded_and_reports_only_the_public_url(self):
+        m=self.module()
+        url='https://private-user:private-password@archive.ubuntu.com/ubuntu/pool/example.tar.xz?token=private-query#private-fragment'
+        failure=TimeoutError('private-service-diagnostic')
+        with patch.object(m.urllib.request,'urlopen',side_effect=failure) as opened,patch('time.sleep') as pause:
+            with self.assertRaises(TimeoutError) as stopped:m.download(url,64)
+        self.assertEqual(opened.call_count,3)
+        self.assertEqual([call.args[0] for call in pause.call_args_list],[1,2])
+        self.assertEqual(str(stopped.exception),'Repository download timed out: https://archive.ubuntu.com/ubuntu/pool/example.tar.xz')
+
+    def test_download_retries_connect_timeouts_but_refuses_other_network_errors(self):
+        m=self.module();url='https://archive.ubuntu.com/ubuntu/pool/example.tar.xz'
+        response=ArchiveResponse(b'archive',url)
+        with patch.object(m.urllib.request,'urlopen',side_effect=[urllib.error.URLError(TimeoutError()),response]),patch('time.sleep'):
+            try:raw=m.download(url,64)
+            except urllib.error.URLError:self.fail('A connect timeout should receive the same bounded retry')
+        self.assertEqual(raw,b'archive')
+        for failure in [urllib.error.HTTPError(url,404,'Not Found',{},None),
+                        urllib.error.URLError('certificate verification failed')]:
+            with self.subTest(error=type(failure).__name__),patch.object(m.urllib.request,'urlopen',side_effect=failure) as opened,patch('time.sleep') as pause:
+                with self.assertRaises(type(failure)):m.download(url,64)
+            self.assertEqual(opened.call_count,1);pause.assert_not_called()
+
+    def test_download_retries_do_not_relax_https_redirect_or_size_limits(self):
+        m=self.module();url='https://archive.ubuntu.com/ubuntu/pool/example.tar.xz'
+        for final,raw in [('http://archive.ubuntu.com/ubuntu/file',b'archive'),
+                          ('https://untrusted.example/file',b'archive'),(url,b'oversized')]:
+            response=ArchiveResponse(raw,final)
+            with self.subTest(final=final),patch.object(m.urllib.request,'urlopen',return_value=response) as opened,patch('time.sleep') as pause:
+                with self.assertRaises(ValueError):m.download(url,4)
+            self.assertTrue(response.closed)
+            self.assertEqual(opened.call_count,1);pause.assert_not_called()
 
     def test_binary_source_uses_explicit_source_version_and_native_fallback(self):
         m = self.module()

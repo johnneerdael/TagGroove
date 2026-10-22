@@ -119,7 +119,7 @@ jobs:
     needs: [authorize, prepare]
     if: needs.prepare.outputs.skip != 'true' && needs.authorize.outputs.resume_run_id == ''
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - platform: windows-x64

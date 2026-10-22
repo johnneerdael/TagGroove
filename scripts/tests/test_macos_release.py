@@ -104,12 +104,22 @@ class MacOSRelease(unittest.TestCase):
 
     def test_outer_apple_tool_timeout_covers_the_complete_bounded_ticket_retry_budget(self):
         m=self.module()
-        for args,budget in [(['xcrun','stapler','validate','fixture.app'],405),
-                            (['xcrun','stapler','staple','fixture.dmg'],765)]:
+        for args,budget in [(['xcrun','stapler','validate','fixture.app'],825),
+                            (['xcrun','stapler','staple','fixture.dmg'],1425)]:
             with self.subTest(args=args),patch.object(m.subprocess,'run',return_value=m.subprocess.CompletedProcess(args,0)) as run:
                 m.command(args)
             self.assertGreaterEqual(run.call_args.kwargs['timeout'],budget+15)
             self.assertLessEqual(run.call_args.kwargs['timeout'],budget+30)
+
+    def test_failed_apple_command_reports_exit_status_without_private_tool_output(self):
+        m=self.module();args=['xcrun','stapler','validate','private-fixture.app']
+        def fail(arguments, **options):
+            options['stdout'].write(b'private-tool-output')
+            options['stderr'].write(b'private-key-path')
+            return m.subprocess.CompletedProcess(arguments,65)
+        with patch.object(m.subprocess,'run',side_effect=fail),self.assertRaises(ValueError) as stopped:
+            m.command(args)
+        self.assertEqual(str(stopped.exception),'macOS release command failed: xcrun (exit 65)')
 
     def test_verification_step_reports_only_fixed_stage_and_never_private_failure_details(self):
         m = self.module()

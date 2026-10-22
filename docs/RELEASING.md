@@ -12,6 +12,10 @@ The approved PR pipeline runs unit tests, lint, tooling and strict documentation
 
 Post-merge jobs do not repeat frontend unit tests, Rust unit tests, formatting, Clippy or documentation tests. They retain target builds and packaged macOS document-type checks, plus version, signature, native provenance, complete-source and checksum validation. Pages renders the guide for deployment without repeating its test suite.
 
+Desktop targets finish independently: one failed platform does not cancel the
+other package builds. Publication still waits for every required target and
+verification job, and retries can retain the successful platform artifacts.
+
 Owner-authorized failed-main repairs may be pushed directly with an inspected-head lease and focused checks. Record `CI-Repair-Run: <failed-run-id>` in a single-parent repair commit immediately after the failed release source. The trusted gate verifies the completed failed main release run with successful authorization and preparation, exact parent, main ancestry and absence of an associated merged PR, then rechecks that evidence before publication. Normal PR merges cannot use this exception. Preserve unrelated main commits; if main has advanced, validate its build rather than rewriting history. If the failed run was dispatched from a later controller commit, a repair may preserve that exact controller as its sole parent only when a complete, bounded GitHub comparison proves the intervening changes are confined to `.github/` and `docs/`. Application changes, renames across that boundary and incomplete or truncated comparisons refuse this exception. Workflow-only changes without repair evidence do not authorize a release.
 
 ## How versions are derived
@@ -124,15 +128,16 @@ bytes; do not substitute a different source version for an older built library.
 The macOS verifier logs fixed stage names with started/passed/failed markers,
 including application signing, tickets and Gatekeeper, the read-only DMG mount,
 contained-app binding, DMG notarization and final archive creation. Use the
-failed stage to diagnose a refused package; the final error remains generic
-and tool output, arguments, credential values and private-key paths stay private.
+failed stage to diagnose a refused package; failed commands report only the tool
+name and numeric exit status. Tool output, arguments, credential values and
+private-key paths stay private.
 These diagnostics do not relax a signing, notarization or publication check.
 
 The [pinned Tauri stapling helper](https://github.com/tauri-apps/tauri/blob/5b23c82ea5ba6b9aec420dd71f60493edc486aa9/crates/tauri-macos-sign/src/lib.rs)
 launches `stapler` without checking its exit status. CI stages a private `xcrun`
 wrapper so that each staple attempt also validates the ticket before returning
 success, while Tauri is still waiting to package the app into its DMG. Ticket
-service failures receive at most three attempts with 15/30-second delays.
+service failures receive at most five attempts with 15/30/60/120-second delays.
 Revocation, missing input and usage errors refuse immediately; persistently
 invalid tickets still refuse. Read-only ticket checks receive the same bounded
 service retries. All other SDK/compiler/notary operations pass through to
@@ -329,6 +334,11 @@ whose exact source bindings are no longer available in the signed repositories.
 
 HTTP download failures identify the public archive host and path alongside the
 status code. URL credentials, query parameters and fragments stay out of logs.
+Connect and read timeouts receive at most three attempts with 1/2-second delays;
+each retry discards the partial response and starts a fresh download. Exhausted
+timeouts also identify only the public host and path. HTTP errors, certificate
+failures, rejected redirects and oversized responses are not retried. Retries
+do not change the required repository signatures, exact versions or byte hashes.
 
 When assembling source locally, pass `--linux-evidence DIRECTORY` containing
 `linux-source-linux-x64.json`, `linux-source-linux-arm64.json`, and their

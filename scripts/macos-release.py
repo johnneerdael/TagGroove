@@ -112,16 +112,18 @@ def command(arguments):
     # private and expose only the operation name; never print arguments or keys.
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
         operation = list(arguments[:3])
-        # Cover the wrapper's three bounded children and 15/30-second delays,
+        # Cover the wrapper's five bounded children and 15/30/60/120-second delays,
         # with fifteen seconds of process overhead. Stapling also validates
         # after each successful staple before returning to the packager.
         timeout = (2100 if operation == ['xcrun', 'notarytool', 'submit'] else
-                   780 if operation == ['xcrun', 'stapler', 'staple'] else
-                   420 if operation == ['xcrun', 'stapler', 'validate'] else 120)
+                   1440 if operation == ['xcrun', 'stapler', 'staple'] else
+                   840 if operation == ['xcrun', 'stapler', 'validate'] else 120)
         result = subprocess.run(list(map(str, arguments)), stdout=output, stderr=errors, timeout=timeout)
         output.seek(0);errors.seek(0);stdout = output.read(1024*1024+1);stderr = errors.read(1024*1024+1)
-    require(result.returncode == 0 and len(stdout) <= 1024*1024 and len(stderr) <= 1024*1024,
-            'macOS release command failed: '+str(arguments[0]))
+    require(result.returncode == 0,
+            'macOS release command failed: '+str(arguments[0])+' (exit '+str(result.returncode)+')')
+    require(len(stdout) <= 1024*1024 and len(stderr) <= 1024*1024,
+            'macOS release command output exceeds bounds: '+str(arguments[0]))
     return (stdout+stderr if Path(arguments[0]).name == 'codesign' and arguments[1:2] == ['--display']
             else stdout).decode('utf-8')
 

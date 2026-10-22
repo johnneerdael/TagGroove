@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check stapling before Tauri packages the app; never expose Apple tool output."""
+"""Retry stapling and validate tickets without exposing Apple tool output."""
 import os
 import platform
 import subprocess
@@ -29,16 +29,16 @@ def run_operation(arguments):
 def process(arguments, *, run=run_operation, pause=time.sleep):
     if len(arguments) < 3 or arguments[:2] not in [['stapler', 'staple'], ['stapler', 'validate']]:
         return 64
-    for attempt in range(1, 4):
+    for attempt in range(1, 6):
         status = run(arguments)
         if status == 0 and arguments[1] == 'staple':
             status = run(['stapler', 'validate', arguments[-1]])
         if status == 0:
             return 0
         print('macOS ticket '+arguments[1]+' attempt '+str(attempt)+' failed (exit '+str(status)+')', flush=True)
-        if status not in RETRYABLE or attempt == 3:
+        if status not in RETRYABLE or attempt == 5:
             return status
-        pause(15*attempt)
+        pause(15*2**(attempt-1))
     return 75
 
 

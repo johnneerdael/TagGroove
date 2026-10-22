@@ -7,6 +7,8 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -214,13 +216,24 @@ def authenticated_release(raw, keyring):
 
 def download(url, limit):
     require(urllib.parse.urlsplit(url).scheme == 'https', 'Repository downloads require HTTPS')
-    with urllib.request.urlopen(url, timeout=60) as response:
-        final = urllib.parse.urlsplit(response.geturl())
-        require(final.scheme == 'https' and final.hostname in {'archive.ubuntu.com', 'ports.ubuntu.com'},
-                'Repository download redirected outside the approved archive')
-        raw = response.read(limit + 1)
-    require(len(raw) <= limit, 'Repository download exceeds bounds')
-    return raw
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                final = urllib.parse.urlsplit(response.geturl())
+                require(final.scheme == 'https' and final.hostname in {'archive.ubuntu.com', 'ports.ubuntu.com'},
+                        'Repository download redirected outside the approved archive')
+                raw = response.read(limit + 1)
+            require(len(raw) <= limit, 'Repository download exceeds bounds')
+            return raw
+        except (TimeoutError, urllib.error.URLError) as error:
+            if isinstance(error, urllib.error.URLError) and not isinstance(error.reason, TimeoutError):
+                raise
+            if attempt == 2:
+                address = urllib.parse.urlsplit(url)
+                public = urllib.parse.urlunsplit((address.scheme, address.hostname or '',
+                    urllib.parse.quote(address.path, safe='/%+._~-'), '', ''))
+                raise TimeoutError('Repository download timed out: '+public) from None
+            time.sleep(2**attempt)
 
 
 def decompress_index(raw, limit=512 * 1024 * 1024):

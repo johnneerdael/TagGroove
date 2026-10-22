@@ -31,13 +31,21 @@ class MacOSStapler(unittest.TestCase):
 
     def test_permanent_or_exhausted_failure_never_returns_success(self):
         m=self.module()
-        for status,attempts in [(65,3),(68,3),(77,1),(64,1),(66,1)]:
+        for status,attempts in [(65,5),(68,5),(69,5),(75,5),(77,1),(64,1),(66,1)]:
             calls=[];delays=[]
             def run(arguments):calls.append(arguments);return status
             with self.subTest(status=status),redirect_stdout(io.StringIO()):
                 self.assertEqual(m.process(['stapler','staple','private-fixture.app'],run=run,pause=delays.append),status)
             self.assertEqual(len(calls),attempts)
-            self.assertEqual(delays,[15,30] if attempts==3 else [])
+            self.assertEqual(delays,[15,30,60,120] if attempts==5 else [])
+
+    def test_readonly_ticket_validation_can_recover_after_the_previous_retry_window(self):
+        m=self.module();calls=[];delays=[];statuses=iter([68,68,68,68,0])
+        def run(arguments):calls.append(arguments);return next(statuses)
+        args=['stapler','validate','readonly-fixture.app']
+        with redirect_stdout(io.StringIO()):self.assertEqual(m.process(args,run=run,pause=delays.append),0)
+        self.assertEqual(calls,[args]*5)
+        self.assertEqual(delays,[15,30,60,120])
 
     def test_readonly_validation_retries_without_stapling_or_modifying_the_item(self):
         m=self.module();calls=[];delays=[];statuses=iter([68,0])
@@ -57,7 +65,7 @@ class MacOSStapler(unittest.TestCase):
         def run(args):calls.append(args);return 0 if args[1]=='staple' else 65
         with redirect_stdout(io.StringIO()):
             self.assertEqual(m.process(['stapler','staple','fixture.app'],run=run,pause=delays.append),65)
-        self.assertEqual(len(calls),6);self.assertEqual(delays,[15,30])
+        self.assertEqual(len(calls),10);self.assertEqual(delays,[15,30,60,120])
 
     def test_real_command_capture_never_echoes_private_diagnostics_and_refuses_oversized_output(self):
         m=self.module();output=io.StringIO();errors=io.StringIO()
