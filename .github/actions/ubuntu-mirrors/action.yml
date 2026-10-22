@@ -1,0 +1,16 @@
+name: Nearby Ubuntu package mirrors
+description: Use Ubuntu's IP-based mirror list, archive fallback and bounded network waits
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        MIRROR_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        mirror_list=$(mktemp)
+        trap 'rm -f "$mirror_list"' EXIT
+        if ! curl --fail --silent --show-error --connect-timeout 5 --max-time 15 --max-filesize 131072 http://mirrors.ubuntu.com/mirrors.txt -o "$mirror_list"; then
+          echo 'Ubuntu mirror list unavailable; using the main archive fallback'
+          : > "$mirror_list"
+        fi
+        sudo python3 "$MIRROR_ACTION_PATH/configure.py" "$mirror_list"

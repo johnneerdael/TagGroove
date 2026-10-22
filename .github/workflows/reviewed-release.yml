@@ -195,6 +195,9 @@ jobs:
       # Stamp after the caches compute their keys so every release reuses them.
       - name: Stamp release version (not committed)
         run: node scripts/release.mjs stamp
+      - name: Select nearby Ubuntu mirrors
+        if: runner.os == 'Linux'
+        uses: johnneerdael/TagGroove/.github/actions/ubuntu-mirrors@main
       - name: Linux build and media dependencies
         if: runner.os == 'Linux'
         run: |
@@ -375,6 +378,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Select nearby Ubuntu mirrors
+        uses: johnneerdael/TagGroove/.github/actions/ubuntu-mirrors@main
       - name: Native audio build tools
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake make
       - uses: actions/setup-java@v4

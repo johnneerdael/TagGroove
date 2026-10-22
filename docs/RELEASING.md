@@ -160,6 +160,16 @@ The release body embeds the supplied [TagGroove banner](../assets/brand/TagGroov
 
 ## Failed-job retries and source-only recovery
 
+Ubuntu x64 runners use the official IP-based mirror list at
+`http://mirrors.ubuntu.com/mirrors.txt`, with the main Ubuntu archive as fallback.
+The list request is capped at 15 seconds; APT downloads use 20-second network
+timeouts and two retries. Existing Ubuntu signing keys and signature checks,
+security-update repositories, ARM ports and third-party repositories remain in
+place. The shared runner action is loaded from trusted `main` so recovery of an
+older application source can use current mirror configuration. A running job
+keeps its existing configuration; rerun only failed jobs, retaining successful
+jobs and artifacts.
+
 Rerun only failed jobs and their dependents. Do not restart successful platform builds or native integration suites for a source-packaging or publication failure. Source packaging and publication load repaired tooling from trusted `main`, while retaining the original immutable application commit, version, build artifacts and signing evidence. Release notes link the exact tooling commit when it differs from the application source; use that linked verifier for an older source archive.
 
 Trusted REST metadata reads receive at most three attempts, each bounded to

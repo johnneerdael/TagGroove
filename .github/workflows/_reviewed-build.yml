@@ -59,6 +59,8 @@ jobs:
           python-version: '3.12'
       - name: Use a fresh native audio prefix for this run
         run: echo "OPENTAG_AUDIO_BUILD_ROOT=$RUNNER_TEMP/opentag-audio-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+      - name: Select nearby Ubuntu mirrors
+        uses: johnneerdael/TagGroove/.github/actions/ubuntu-mirrors@main
       - name: Install Rust test and media dependencies
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev ffmpeg build-essential cmake make nasm
       - uses: dtolnay/rust-toolchain@stable

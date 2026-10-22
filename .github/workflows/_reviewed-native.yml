@@ -90,6 +90,9 @@ jobs:
           }
           "OPENTAG_MSYS2=$env:MSYS2_LOCATION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: dtolnay/rust-toolchain@stable
+      - name: Select nearby Ubuntu mirrors
+        if: runner.os == 'Linux'
+        uses: johnneerdael/TagGroove/.github/actions/ubuntu-mirrors@main
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11 xdotool imagemagick x11-utils procps build-essential cmake make nasm
@@ -210,6 +213,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Select nearby Ubuntu mirrors
+        uses: johnneerdael/TagGroove/.github/actions/ubuntu-mirrors@main
       - name: Native audio build tools
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake make
       - uses: actions/setup-java@v4
