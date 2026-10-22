@@ -156,7 +156,7 @@ occupy about 1.88 GB before Cargo and application sources. XZ preset 1 reduces
 packaging CPU work while preserving the same format and complete extracted-file
 hash checks; no source files or provenance checks are omitted.
 
-The release body embeds the supplied [TagGroove banner](../assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.png) from the released tag and links the matching parity ledger. Signing and mobile limitations appear alongside the download table.
+The release body embeds the supplied [dark TagGroove banner](../assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-dark-1600x480.png) from the released tag and links the matching parity ledger. Signing and mobile limitations appear alongside the download table.
 
 ## Failed-job retries and source-only recovery
 

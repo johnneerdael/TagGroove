@@ -388,9 +388,9 @@ test('authenticated release discovery includes drafts across paginated results',
   assert.match(requested[1], /\/releases\?per_page=100&page=2$/);
 });
 
-test('release notes link the tagged banner and parity ledger and state signing limits', () => {
+test('release notes link the tagged dark banner and parity ledger and state signing limits', () => {
   const body = releaseBody(plan(), 'johnneerdael/TagGroove');
-  assert.match(body, /raw\.githubusercontent\.com\/johnneerdael\/TagGroove\/v0\.1\.0\/assets\/brand\/TagGroove-Brand-Kit\/03-banners\/taggroove-github-light-1280x640\.png/);
+  assert.match(body, /raw\.githubusercontent\.com\/johnneerdael\/TagGroove\/v0\.1\.0\/assets\/brand\/TagGroove-Brand-Kit\/03-banners\/taggroove-readme-dark-1600x480\.png/);
   assert.match(body, /\/blob\/v0\.1\.0\/docs\/PARITY\.md/);
   for (const word of ['Developer ID', 'Apple notarized', 'unsigned', 'application key', 'simulator', 'device installer']) assert.ok(body.includes(word), word);
 });

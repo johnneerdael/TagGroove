@@ -394,7 +394,7 @@ export async function assembleRelease({ plan, directory }) {
 }
 
 export function releaseBody(plan, repository, notes = '') {
-  return `![TagGroove](https://raw.githubusercontent.com/${repository}/${plan.tag}/assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.png)
+  return `![TagGroove](https://raw.githubusercontent.com/${repository}/${plan.tag}/assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-dark-1600x480.png)
 
 TagGroove — Tag, Organize, Enjoy.
 
