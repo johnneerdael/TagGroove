@@ -25,7 +25,7 @@ Choose **Directories → Startup → Startup directory**:
 | **Previous directory** | Open the most recent folder from the saved directory history. |
 | **First favorite directory** | Open the first folder in the favorites list. |
 
-If there is no matching recent/favorite entry, there is no folder to restore. Files or directories supplied as launch requests take precedence over a remembered list and the normal startup folder. The local desktop app otherwise reopens its remembered file list and order; see [The file list](../../guides/file-list.md). Startup restoration also depends on folder access being available on the platform; a file-picker-only environment cannot provide the same folder workflow.
+If there is no matching recent/favorite entry, there is no folder to restore. Files or directories supplied as launch requests take precedence over a remembered list and the normal startup folder. The local desktop app otherwise reopens its remembered file list and order; see [The file list](../../tagging/file-list.md). Startup restoration also depends on folder access being available on the platform; a file-picker-only environment cannot provide the same folder workflow.
 
 ## Cover art directory
 

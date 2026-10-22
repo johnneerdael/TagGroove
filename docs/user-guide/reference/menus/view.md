@@ -18,7 +18,7 @@ column does not remove the corresponding metadata from audio files.
 Refresh is different from reloading only the selected tags. Resolve pending
 edits before a refresh that would replace loaded information. A filtered-out
 file remains loaded. Hiding the filter shows all loaded files, while remembering
-its text for restoration when the filter is shown again. See [filtering](../../guides/filter.md)
+its text for restoration when the filter is shown again. See [filtering](../../tagging/filter.md)
 for manual application, hidden selections and invalid queries.
 
 For example, configure a default genre, then choose **Default values in input

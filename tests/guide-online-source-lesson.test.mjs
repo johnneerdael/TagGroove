@@ -6,7 +6,7 @@ import {readFile} from 'node:fs/promises';
 import {loadProductionModule} from './helpers/load-production-module.mjs';
 
 const fixture=JSON.parse(await readFile(new URL('./fixtures/guide-musicbrainz-lesson.json',import.meta.url),'utf8'));
-const lesson=await readFile(new URL('../docs/user-guide/learn/tag-from-online-sources.md',import.meta.url),'utf8');
+const lesson=await readFile(new URL('../docs/user-guide/tag-sources/tag-from-online-sources.md',import.meta.url),'utf8');
 const {autoMatch,buildApplyItems,editField,moveSlotTo,searchPrefill}=await loadProductionModule('tag-sources.ts');
 
 // The Rust MusicBrainz unit test checks this whole expected model against the

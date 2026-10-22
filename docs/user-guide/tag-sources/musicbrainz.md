@@ -6,7 +6,7 @@ country, date, format or tracklist. TagGroove needs no API key for this source.
 
 Select local practice files, save intended pending edits and choose **Tag
 Sources → MusicBrainz…**. For a first guided import, follow
-[Tag an album from an online database](../learn/tag-from-online-sources.md).
+[Tag an album from an online database](tag-from-online-sources.md).
 
 ## Find one track
 
@@ -162,10 +162,11 @@ before retrying rate-limit or service errors.
 
 ## Related
 
-- [Online-tagging lesson](../learn/tag-from-online-sources.md)
+- [Online-tagging lesson](tag-from-online-sources.md)
+- [Compare metadata from several sources](compare.md)
 - [Shared tag-source workflow](index.md)
 - [Tag Sources options](../reference/options/tag-sources.md)
-- [Working with covers](../guides/covers.md)
+- [Working with covers](../tagging/covers.md)
 - [AcoustID fingerprints](acoustid.md)
 
 <!-- Candidate evidence: src-tauri/src/sources/musicbrainz.rs search_query, release_id, parse_release, front_cover and parse_covers executed in a private standalone harness against invented JSON; actual src/tag-sources.ts searchModes, prefill, matching and buildApplyItems executed on that parsed output. Logs and source hashes are in private validation/. Illustrative query is not a live search. No provider requests, downloaded artwork, native save/UI, physical-device behavior or original-Mp3tag comparison were performed. Editorial/source review completed; provider/native-workflow qualification remains separate. -->

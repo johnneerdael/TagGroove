@@ -1,4 +1,8 @@
-# Export
+# Export & playlists
+
+This section covers everything that leaves TagGroove as a separate file: text
+reports, spreadsheets, HTML catalogues, playlists and cue sheets. It does not
+change your audio or tags.
 
 Export creates a text file from selected audio files: a spreadsheet, track
 list, HTML catalogue or another report. An **export configuration** is the
@@ -15,6 +19,18 @@ If **Show selection dialog** is off in
 configuration immediately. Turn that option on again to edit the template or
 output choices in the dialog. The steps below assume the dialog is enabled.
 
+## What do you want to write?
+
+| Your goal | Open |
+|---|---|
+| A track list or report from your tags | Make the first report, below |
+| A catalogue, step by step | [Export a CD catalogue](export-a-cd-catalogue.md) (tutorial) |
+| A spreadsheet of your library | [Export CSV](csv.md) and [your library in a spreadsheet](recipes/csv-for-spreadsheets.md) |
+| A web page of your albums | [An HTML catalogue of your albums](recipes/html-album-catalogue.md) and the [template gallery](template-gallery.md) |
+| Your own layout | [Export template language](template-language.md) |
+| A playlist or cue sheet | [Playlists and cue sheets](playlists.md), [one playlist per album folder](recipes/playlist-per-album.md) and the [Generate Playlists action](../actions/generate-playlists.md) |
+| Read a local XML playlist | [Local XML playlists](xml-playlists.md) |
+
 ## Make the first report
 
 1. Select the **Text** configuration.
@@ -28,7 +44,7 @@ output choices in the dialog. The steps below assume the dialog is enabled.
 For selected files with `ARTIST = Juniper Vale` and titles `Paper Boats` and
 `Lanterns on the Water`, Text writes one artist/title line per file. Open the
 output in a text editor to inspect its actual contents. The
-[catalogue lesson](../learn/export-a-cd-catalogue.md) builds a report in small
+[catalogue lesson](export-a-cd-catalogue.md) builds a report in small
 steps; the [template language](template-language.md) explains the commands.
 
 ## Manage configurations

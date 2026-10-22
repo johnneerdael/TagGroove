@@ -90,6 +90,6 @@ the report must capture values before cleanup.
 ## Related
 
 - [Generate Playlists](generate-playlists.md)
-- [Format strings](../reference/format-strings.md)
-- [Placeholders](../reference/placeholders.md)
+- [Format strings](../scripting/format-strings.md)
+- [Placeholders](../scripting/placeholders.md)
 - [Actions and action groups](index.md)

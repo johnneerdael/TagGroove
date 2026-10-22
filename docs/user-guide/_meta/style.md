@@ -9,11 +9,12 @@ The pages that set the bar are:
 | Kind | Exemplar |
 |---|---|
 | Home | `index.md` |
-| Tutorial | `learn/first-tagging-session.md` |
-| Reference (syntax) | `reference/format-strings.md` |
-| Reference (catalogue) | `reference/placeholders.md` |
-| Reference + teaching (function) | `reference/regular-expressions.md` |
-| Recipe | `cookbook/rename-zero-padded-track-numbers.md`, `cookbook/feat-artists-to-title.md`, `cookbook/tags-from-folder-and-filename.md` |
+| Feature landing page | `tagging/index.md`, `tag-sources/index.md` |
+| Tutorial | `getting-started/first-tagging-session.md` |
+| Reference (syntax) | `scripting/format-strings.md` |
+| Reference (catalogue) | `scripting/placeholders.md` |
+| Reference + teaching (function) | `scripting/regular-expressions.md` |
+| Recipe | `converters/recipes/rename-zero-padded-track-numbers.md`, `actions/recipes/feat-artists-to-title.md`, `converters/recipes/tags-from-folder-and-filename.md` |
 
 When this guide and an exemplar disagree, the exemplar wins. Tell the docs
 lead so this guide gets fixed.
@@ -106,9 +107,28 @@ functions and anything the reader types go in code style: `%albumartist%`,
 
 ## 3. Page types and templates
 
-Every page is one of five types. Pick one, and follow its skeleton.
+Every page is one of six types. Pick one, and follow its skeleton. The guide
+is organised by feature (see `ia.md`): a tutorial, guide, recipe or concept
+lives in the tab of the feature it is about, never in a tab named after its
+page type.
 
-### Tutorial (Learn → Tutorials)
+### Feature landing page
+
+The first page of a feature tab (`<feature>/index.md`). It is a map, not a
+manual.
+
+- Opens with what the feature is for and when to use it, in a short
+  paragraph, and a screenshot of the feature in use.
+- A "Start here" route for a newcomer (usually the tutorial), then tables
+  of **Your goal → Page** grouped by task. Every tutorial, guide, recipe and
+  reference page of the feature appears in these tables, so nothing is only
+  reachable through the sidebar.
+- Links out to neighbouring features where a reader may have come to the
+  wrong tab ("to fill tags from names, see Rename & convert").
+- Gets deep links *from* Get started and the home page; never grows into a
+  second copy of what those pages say.
+
+### Tutorial (in its feature's tab)
 
 Learning by doing, start to finish, with a guaranteed success at the end.
 
@@ -120,7 +140,7 @@ Learning by doing, start to finish, with a guaranteed success at the end.
 - Ends with "## What you learned" (bullets) and "## Next steps" (2–4 links).
 - Uses the Juniper Vale fixture so the screenshots match the reader's screen.
 
-### How-to guide (Guides, Automate)
+### How-to guide (in its feature's tab)
 
 Task-oriented, for readers who already know the basics.
 
@@ -141,7 +161,7 @@ Complete and exact; for looking things up.
   gets an input → output table.
 - Ends with "## Related".
 
-### Recipe (Cookbook)
+### Recipe (in its feature's `recipes/` folder)
 
 One problem, one copy-paste solution, then an explanation.
 
@@ -156,7 +176,7 @@ One problem, one copy-paste solution, then an explanation.
 - Always tell the reader to try it on a copy or a few files first, and how
   to undo it.
 
-### Concept explainer (Learn → Concepts)
+### Concept explainer (`tagging/concepts/`)
 
 Builds understanding, with no procedure.
 

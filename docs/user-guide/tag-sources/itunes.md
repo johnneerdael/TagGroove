@@ -59,5 +59,6 @@ audio previews or an Apple Music subscription library.
 ## Related
 
 - [Search, review and save](index.md#search-review-and-save)
+- [Compare metadata from several sources](compare.md)
 - [Tag Sources options](../reference/options/tag-sources.md)
 - [Deezer](deezer.md)

@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn documented_find_examples_use_the_native_engine() {
-        let guide = include_str!("../../docs/user-guide/reference/regular-expressions.md");
+        let guide = include_str!("../../docs/user-guide/scripting/regular-expressions.md");
         let table = guide
             .split("<!-- find-regex-examples:start -->")
             .nth(1)

@@ -5,7 +5,7 @@ action can change tags, paths or external files; inspect its settings on copied
 practice files before using a large selection.
 
 !!! tip "New to this?"
-    [Build your first action group](../../learn/first-action-group.md) teaches
+    [Build your first action group](../../actions/first-action-group.md) teaches
     the difference between saving a workflow and applying it. The
     [action reference](../../actions/index.md) lists all current types.
 
@@ -79,7 +79,7 @@ does not evaluate `%artist%` or scripting functions.
 ## Related
 
 - [Action groups and all action types](../../actions/index.md)
-- [Build your first action group](../../learn/first-action-group.md)
+- [Build your first action group](../../actions/first-action-group.md)
 - [Keyboard shortcuts](../keyboard-shortcuts.md)
 - [Convert menu](convert.md)
 

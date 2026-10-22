@@ -62,5 +62,5 @@ depends on the tag format and the player.
 
 - [Merge Duplicate Fields](merge-duplicate-fields.md)
 - [Remove Duplicate Fields](remove-duplicate-fields.md)
-- [Multivalue format strings](../reference/format-strings.md#multi-value-fields)
+- [Multivalue format strings](../scripting/format-strings.md#multi-value-fields)
 - [Actions and action groups](index.md)

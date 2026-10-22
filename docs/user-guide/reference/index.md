@@ -1,6 +1,6 @@
 # Reference
 
-Use the reference to look up exact field names, syntax, storage mappings, and supported file formats. For a complete filtering task, start with the [filtering guide](../guides/filter.md).
+Use the reference to look up exact field names, storage mappings, supported file formats, menus, options and shortcuts. To learn a feature, start with its own section instead: [Tagging](../tagging/index.md), [Tag sources](../tag-sources/index.md), [Rename & convert](../converters/index.md), [Actions](../actions/index.md), [Scripting](../scripting/index.md) or [Export & playlists](../export/index.md). For a complete filtering task, start with the [filtering guide](../tagging/filter.md).
 
 | Reference | Look up |
 |---|---|
@@ -8,9 +8,11 @@ Use the reference to look up exact field names, syntax, storage mappings, and su
 | [Tag mapping table](tag-mapping.md) | The native ID3 frames, MP4 atoms, ASF attributes, Matroska target levels, and RIFF identifiers used for fields. |
 | [Supported file formats](file-formats.md) | Recognized extensions, tag read/write/remove capabilities, artwork, chapters, and limitations. |
 | [Filter syntax](filter-syntax.md) | Plain search, every filter operator, quoting, precedence, and worked examples. |
-| [Format strings](format-strings.md) | Placeholders, functions, and rules for constructing a value. |
-| [Placeholders](placeholders.md) | File information and other values available inside format strings. |
-| [Regular expressions](regular-expressions.md) | Pattern syntax, replacements, escaping, and Boost-specific behavior. |
+| [Format strings](../scripting/format-strings.md) | Placeholders, functions, and rules for constructing a value. (Part of [Scripting](../scripting/index.md).) |
+| [Placeholders](../scripting/placeholders.md) | File information and other values available inside format strings. |
+| [Scripting functions](../scripting/functions/index.md) | All 64 functions, grouped into six families. |
+| [Regular expressions](../scripting/regular-expressions.md) | Pattern syntax, replacements, escaping, and Boost-specific behavior. |
+| [Options](options/index.md) | Every setting in the Options dialog, page by page. |
 | [Command line](command-line.md) | Open or append files/folders with platform-specific shell examples. |
 | [Keyboard shortcuts](keyboard-shortcuts.md) | Focus-sensitive commands, platform modifiers and dialog keys. |
 | [Menu reference](menus/index.md) | Visible commands, their input scope and write behavior. |
@@ -29,7 +31,7 @@ Additional context-menu, options and automation references are published as thei
 
 ## Related
 
-- [Filtering the file list](../guides/filter.md)
+- [Filtering the file list](../tagging/filter.md)
 - [Field vocabulary](field-names.md)
 - [Formats and capabilities](file-formats.md)
 

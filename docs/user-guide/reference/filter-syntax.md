@@ -3,7 +3,7 @@
 The installed TagGroove app evaluates these expressions in the Filter. A query selects matching rows from the loaded file list; it does not edit metadata or scan folders that have not been loaded.
 
 !!! tip "New to this?"
-    Follow [Filtering the file list](../guides/filter.md) for showing the Filter, applying a query, restoring all rows, and interpreting errors.
+    Follow [Filtering the file list](../tagging/filter.md) for showing the Filter, applying a query, restoring all rows, and interpreting errors.
 
 ## Ordinary text search
 
@@ -87,7 +87,7 @@ The selector can combine placeholders and scripting functions. Its result is one
 
 Presence tests require a field name, not a calculation. A simple `%albumartist% MISSING` spelling is accepted as a field reference; `$len(...) PRESENT` is invalid. Prefer the clearer `ALBUMARTIST MISSING`.
 
-Evaluated selectors do more work per file than a direct field comparison. Use a direct field when it expresses the same question, especially on a large loaded collection. Available information fields and context-dependent functions are described in [Placeholders](placeholders.md) and [Format strings](format-strings.md).
+Evaluated selectors do more work per file than a direct field comparison. Use a direct field when it expresses the same question, especially on a large loaded collection. Available information fields and context-dependent functions are described in [Placeholders](../scripting/placeholders.md) and [Format strings](../scripting/format-strings.md).
 
 ## Numeric comparisons
 
@@ -122,7 +122,7 @@ The app's save paths can remove empty metadata rather than preserving this exact
 TRACK MATCHES "^[0-9]+/[0-9]+$"
 ```
 
-This finds a track/total pair of digits. A plain `\d/\d` searches for that shape anywhere and can also match a fragment of a longer value. Consult the [regex reference](regular-expressions.md) for escaping, grouping, assertions, and engine limits.
+This finds a track/total pair of digits. A plain `\d/\d` searches for that shape anywhere and can also match a fragment of a longer value. Consult the [regex reference](../scripting/regular-expressions.md) for escaping, grouping, assertions, and engine limits.
 
 ## Worked examples
 
@@ -174,10 +174,10 @@ These are TagGroove source-verified rules. They do not establish identical corne
 
 ## Related
 
-- [Filtering workflow](../guides/filter.md)
+- [Filtering workflow](../tagging/filter.md)
 - [Field names](field-names.md)
-- [Regular expressions](regular-expressions.md)
-- [Format strings](format-strings.md)
+- [Regular expressions](../scripting/regular-expressions.md)
+- [Format strings](../scripting/format-strings.md)
 
 <!-- verified: baseline007a806 crates/tag-core/src/filter.rs compile_filter, Parser, Selector.values, Expression.matches, leading_integer; crates/tag-core/tests/filter.rs; public example table is executed by crates/tag-core/tests/user_guide_filter_reference.rs. -->
 

@@ -78,6 +78,6 @@ player acceptance on every platform.
 ## Related
 
 - [Export](export.md)
-- [Format strings](../reference/format-strings.md)
-- [Placeholders](../reference/placeholders.md)
+- [Format strings](../scripting/format-strings.md)
+- [Placeholders](../scripting/placeholders.md)
 - [Actions and action groups](index.md)

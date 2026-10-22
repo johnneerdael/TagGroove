@@ -1,151 +1,206 @@
 # Complete writing plan; public navigation lives in mkdocs.yml.
+# Same structure as the public navigation: one tab per feature.
 nav:
   - Home: index.md
   - Get started:
     - getting-started/index.md
-    - Install TagGroove: getting-started/install.md
-    - The main window: getting-started/main-window.md
-    - Opening folders and files: getting-started/opening-files.md
-    - "Editing, saving and undo": getting-started/editing-and-saving.md
-    - Bring an Mp3tag setup across: getting-started/coming-from-mp3tag.md
-    - "What's new": getting-started/whats-new.md
+    - Download and install: getting-started/install.md
     - Platform notes:
       - macOS: platforms/macos.md
       - Windows: platforms/windows.md
       - Linux: platforms/linux.md
       - Android: platforms/android.md
       - iOS and iPadOS: platforms/ios.md
-  - Learn:
-    - learn/index.md
-    - Tutorials:
-      - Your first tagging session: learn/first-tagging-session.md
-      - Format strings from zero: learn/format-strings-from-zero.md
-      - Rename files and folders: learn/rename-files-and-folders.md
-      - Get tags from filenames: learn/tags-from-filenames.md
-      - Clean up a messy library: learn/clean-a-messy-library.md
-      - Regular expressions from zero: learn/regex-from-zero.md
-      - Build your first action group: learn/first-action-group.md
-      - Tag an album from an online database: learn/tag-from-online-sources.md
-      - Give every album a cover: learn/give-every-album-a-cover.md
-      - Export a CD catalogue: learn/export-a-cd-catalogue.md
-    - Concepts:
-      - What tags are: concepts/what-are-tags.md
-      - Tag formats explained: concepts/tag-formats.md
-      - Multi-value fields: concepts/multi-value-fields.md
-      - Track and disc numbers: concepts/track-and-disc-numbers.md
-      - Cover art: concepts/cover-art.md
-      - ReplayGain and loudness: concepts/replaygain.md
-      - Text encodings and codepages: concepts/text-encodings.md
-      - Sort fields and compilations: concepts/sort-fields.md
-  - Guides:
-    - guides/index.md
-    - Everyday editing:
-      - The file list: guides/file-list.md
-      - The tag panel: guides/tag-panel.md
-      - Extended tags: guides/extended-tags.md
-      - Working with covers: guides/covers.md
-      - Filtering the file list: guides/filter.md
-      - Find: guides/find.md
-      - "Cut, copy and paste tags": guides/copy-paste-tags.md
-      - "Copy, move and delete files": guides/file-operations.md
-      - Associated lyrics and karaoke: guides/associated-files.md
-      - Removing tags: guides/remove-tags.md
-      - Undo and history: guides/undo-history.md
-    - TagGroove extras:
-      - Library: guides/library.md
-      - Chapters and cue sheets as rows: guides/chapters.md
-      - Utilities: guides/utilities.md
-    - Customize:
-      - customize/index.md
-      - Columns: customize/columns.md
-      - Tag panel layout: customize/tag-panel.md
-      - Toolbars: customize/toolbars.md
-      - Field values: customize/field-values.md
-      - External tools: customize/tools.md
-      - Save and share your configuration: customize/configuration.md
-      - Languages and translations: customize/languages.md
-  - Automate:
-    - automate/index.md
-    - Converters:
-      - converters/index.md
-      - "Tag → Filename": converters/tag-to-filename.md
-      - "Filename → Tag": converters/filename-to-tag.md
-      - "Filename → Filename": converters/filename-to-filename.md
-      - "Text File → Tag": converters/text-file-to-tag.md
-      - "Tag → Tag": converters/tag-to-tag.md
-      - Auto-numbering: converters/auto-numbering.md
-    - Actions:
-      - actions/index.md
-      - Action types:
-        - Adjust cover: actions/adjust-cover.md
-        - Case conversion: actions/case-conversion.md
-        - Convert codepage: actions/convert-codepage.md
-        - Export: actions/export.md
-        - Export cover to file: actions/export-cover.md
-        - Format value: actions/format-value.md
-        - Generate playlists: actions/generate-playlists.md
-        - Guess values: actions/guess-values.md
-        - Import cover from file: actions/import-cover.md
-        - Import text file: actions/import-text-file.md
-        - Merge duplicate fields: actions/merge-duplicate-fields.md
-        - Remove duplicate fields: actions/remove-duplicate-fields.md
-        - Remove fields: actions/remove-fields.md
-        - Remove fields except: actions/remove-fields-except.md
-        - Replace: actions/replace.md
-        - Replace with regular expression: actions/replace-regexp.md
-        - Set cover properties: actions/set-cover-properties.md
-        - Split field by separator: actions/split-field.md
-    - Tag sources:
-      - tag-sources/index.md
+    - The main window: getting-started/main-window.md
+    - Opening files: getting-started/opening-files.md
+    - Editing, saving and undo: getting-started/editing-and-saving.md
+    - Your first tagging session: getting-started/first-tagging-session.md
+    - Choose the right tool: getting-started/choose-a-tool.md
+    - Coming from Mp3tag: getting-started/coming-from-mp3tag.md
+    - What's new: getting-started/whats-new.md
+    - All tutorials: learn/index.md
+    - All recipes: cookbook/index.md
+  - Tagging:
+    - tagging/index.md
+    - Edit tags:
+      - The tag panel: tagging/tag-panel.md
+      - Extended tags: tagging/extended-tags.md
+      - Cut, copy and paste tags: tagging/copy-paste-tags.md
+      - Removing tags: tagging/remove-tags.md
+      - Chapters and cue sheets as rows: tagging/chapters.md
+      - Built-in utilities: tagging/utilities.md
+    - Cover art:
+      - Working with covers: tagging/covers.md
+      - Give every album a cover: tagging/give-every-album-a-cover.md
+      - Save embedded covers as folder images: tagging/recipes/export-folder-jpg.md
+      - Embed each folder image: tagging/recipes/embed-folder-jpg.md
+      - Shrink oversized covers: tagging/recipes/resize-covers.md
+      - Keep each file’s front covers: tagging/recipes/keep-only-front-cover.md
+    - Browse, filter and find:
+      - The file list: tagging/file-list.md
+      - Filtering the file list: tagging/filter.md
+      - Find text: tagging/find.md
+      - Library cache: tagging/library.md
+      - Find missing fields: tagging/recipes/find-missing-fields.md
+      - Find missing embedded covers: tagging/recipes/find-missing-covers.md
+      - Find low bitrates: tagging/recipes/find-low-bitrate.md
+    - Files and history:
+      - Copy, move and delete files: tagging/file-operations.md
+      - Associated lyrics and karaoke: tagging/associated-files.md
+      - Undo and history: tagging/undo-history.md
+    - Understand your tags:
+      - What tags are: tagging/concepts/what-are-tags.md
+      - Tag formats: tagging/concepts/tag-formats.md
+      - Multi-value fields: tagging/concepts/multi-value-fields.md
+      - Track and disc numbers: tagging/concepts/track-and-disc-numbers.md
+      - Cover art: tagging/concepts/cover-art.md
+      - Sort fields and compilations: tagging/concepts/sort-fields.md
+      - ReplayGain and loudness: tagging/concepts/replaygain.md
+      - Text encodings and codepages: tagging/concepts/text-encodings.md
+  - Tag sources:
+    - tag-sources/index.md
+    - Tag an album from an online database: tag-sources/tag-from-online-sources.md
+    - Compare metadata from several sources: tag-sources/compare.md
+    - Set up keys and sign-ins:
+      - API keys: tag-sources/api-keys.md
+      - Network access and privacy: tag-sources/privacy-and-network.md
+    - Sources:
       - MusicBrainz: tag-sources/musicbrainz.md
       - Discogs: tag-sources/discogs.md
       - Beatport and Traxsource: tag-sources/catalog.md
-      - freedb and gnudb: tag-sources/freedb.md
-      - Local freedb: tag-sources/local-freedb.md
       - iTunes / Apple Music: tag-sources/itunes.md
       - Deezer: tag-sources/deezer.md
+      - Last.fm: tag-sources/lastfm.md
+      - fanart.tv: tag-sources/fanart-tv.md
       - LRCLIB lyrics: tag-sources/lrclib.md
       - AcoustID fingerprints: tag-sources/acoustid.md
-      - Web sources (.src): tag-sources/web-sources.md
-      - Writing a web source: tag-sources/writing-web-sources.md
-      - Web source script reference: tag-sources/web-source-reference.md
-    - Export and playlists:
-      - export/index.md
-      - Export template language: export/template-language.md
-      - Template gallery: export/template-gallery.md
-      - Export CSV: export/csv.md
-      - Playlists and cue sheets: guides/playlists.md
-      - Local XML playlists: guides/xml-playlists.md
+      - freedb and gnudb: tag-sources/freedb.md
+      - Local freedb database: tag-sources/local-freedb.md
+    - Web sources:
+      - Install and use sources: tag-sources/web-sources.md
+      - Write a web source: tag-sources/writing-web-sources.md
+      - Parser reference: tag-sources/web-source-reference.md
+  - Rename & convert:
+    - converters/index.md
+    - Converters:
+      - Tag → Filename: converters/tag-to-filename.md
+      - Filename → Tag: converters/filename-to-tag.md
+      - Filename → Filename: converters/filename-to-filename.md
+      - Text File → Tag: converters/text-file-to-tag.md
+      - Tag → Tag: converters/tag-to-tag.md
+      - Auto-numbering: converters/auto-numbering.md
+    - Learn:
+      - Rename files and folders: converters/rename-files-and-folders.md
+      - Get tags from filenames: converters/tags-from-filenames.md
+    - Rename recipes:
+      - Lowercase names with hyphens: converters/recipes/rename-lowercase-filenames.md
+      - Keep filenames portable: converters/recipes/rename-safe-characters.md
+      - Artist and album folders: converters/recipes/rename-into-artist-album-folders.md
+      - Keep multi-disc paths distinct: converters/recipes/rename-multi-disc-albums.md
+      - Keep compilations together: converters/recipes/rename-compilations.md
+      - Zero-padded track numbers in filenames: converters/recipes/rename-zero-padded-track-numbers.md
+    - Import and number recipes:
+      - Tag files from folder and file names: converters/recipes/tags-from-folder-and-filename.md
+      - Apply a tracklist from text: converters/recipes/tracklist-from-text-file.md
+      - Import lyrics sidecars: converters/recipes/lyrics-from-text-files.md
+      - Number tracks per folder: converters/recipes/number-tracks-per-folder.md
+      - Disc numbers from folders: converters/recipes/disc-numbers-from-folders.md
+      - Read or split track totals: converters/recipes/split-track-total.md
+    - Credit recipes:
+      - Fill missing album artists: converters/recipes/album-artist-from-artist.md
+      - Sort leading The credits: converters/recipes/the-artist-sort-names.md
+  - Actions:
+    - actions/index.md
+    - Learn:
+      - Build your first action group: actions/first-action-group.md
+      - Clean up a messy library: actions/clean-a-messy-library.md
+    - Action types:
+      - Adjust cover: actions/adjust-cover.md
+      - Case conversion: actions/case-conversion.md
+      - Convert codepage: actions/convert-codepage.md
+      - Export: actions/export.md
+      - Export cover to file: actions/export-cover.md
+      - Format value: actions/format-value.md
+      - Generate playlists: actions/generate-playlists.md
+      - Guess values: actions/guess-values.md
+      - Import cover from file: actions/import-cover.md
+      - Import text file: actions/import-text-file.md
+      - Merge duplicate fields: actions/merge-duplicate-fields.md
+      - Remove duplicate fields: actions/remove-duplicate-fields.md
+      - Remove fields: actions/remove-fields.md
+      - Remove fields except: actions/remove-fields-except.md
+      - Replace: actions/replace.md
+      - Replace with regular expression: actions/replace-regexp.md
+      - Set cover properties: actions/set-cover-properties.md
+      - Split field by separator: actions/split-field.md
+    - Cleanup recipes:
+      - Remove extra spaces: actions/recipes/trim-spaces.md
+      - Remove trailing remaster annotations: actions/recipes/remove-text-in-brackets.md
+      - Remove numbered title prefixes: actions/recipes/strip-track-numbers-from-titles.md
+      - Capitalization with exceptions: actions/recipes/fix-capitalisation.md
+      - Repair confirmed mojibake: actions/recipes/fix-mojibake.md
+      - Keep a reviewed field list: actions/recipes/remove-junk-fields.md
+      - Keep only the year: actions/recipes/year-from-date.md
+    - Artist credit recipes:
+      - Split artist lists: actions/recipes/split-multiple-artists.md
+      - Split Artist - Title credits: actions/recipes/split-artist-title.md
+      - Move “feat.” artists out of the artist field: actions/recipes/feat-artists-to-title.md
+  - Scripting:
+    - scripting/index.md
+    - Learn:
+      - Format strings from zero: scripting/format-strings-from-zero.md
+      - Regular expressions from zero: scripting/regex-from-zero.md
+    - Format strings: scripting/format-strings.md
+    - Placeholders: scripting/placeholders.md
+    - Functions:
+      - scripting/functions/index.md
+      - Text and case: scripting/functions/text.md
+      - Search and compare: scripting/functions/search-compare.md
+      - Conditions and logic: scripting/functions/conditions.md
+      - Numbers and maths: scripting/functions/numbers.md
+      - Dates and durations: scripting/functions/dates-durations.md
+      - Lists, metadata and environment: scripting/functions/lists-metadata.md
+    - Regular expressions: scripting/regular-expressions.md
+  - Export & playlists:
+    - export/index.md
+    - Export a CD catalogue: export/export-a-cd-catalogue.md
+    - Export template language: export/template-language.md
+    - Template gallery: export/template-gallery.md
+    - Export CSV: export/csv.md
+    - Playlists and cue sheets: export/playlists.md
+    - Local XML playlists: export/xml-playlists.md
+    - Recipes:
+      - An HTML catalogue of your albums: export/recipes/html-album-catalogue.md
+      - Your library in a spreadsheet: export/recipes/csv-for-spreadsheets.md
+      - One playlist per album folder: export/recipes/playlist-per-album.md
+  - Customize:
+    - customize/index.md
+    - File-list columns: customize/columns.md
+    - Tag panel: customize/tag-panel.md
+    - Field values: customize/field-values.md
+    - Toolbars: customize/toolbars.md
+    - External tools: customize/tools.md
+    - Languages and translations: customize/languages.md
+    - Save and restore configuration: customize/configuration.md
   - Reference:
     - reference/index.md
-    - Format strings:
-      - Format strings: reference/format-strings.md
-      - Placeholders: reference/placeholders.md
-      - Scripting functions: reference/scripting/index.md
-      - Text and case: reference/scripting/text.md
-      - Search and compare: reference/scripting/search-compare.md
-      - Conditions and logic: reference/scripting/conditions.md
-      - Numbers and maths: reference/scripting/numbers.md
-      - Dates and durations: reference/scripting/dates-durations.md
-      - "Lists, metadata and environment": reference/scripting/lists-metadata.md
-    - Regular expressions: reference/regular-expressions.md
-    - Filter syntax: reference/filter-syntax.md
     - Field names: reference/field-names.md
     - Tag mapping table: reference/tag-mapping.md
     - Supported file formats: reference/file-formats.md
-    - Keyboard shortcuts: reference/keyboard-shortcuts.md
+    - Filter syntax: reference/filter-syntax.md
     - Command line: reference/command-line.md
+    - Keyboard shortcuts: reference/keyboard-shortcuts.md
     - Menus:
       - reference/menus/index.md
-      - File menu: reference/menus/file.md
-      - Edit menu: reference/menus/edit.md
-      - View menu: reference/menus/view.md
-      - Convert menu: reference/menus/convert.md
-      - Actions menu: reference/menus/actions.md
-      - Tag Sources menu: reference/menus/tag-sources.md
-      - Tools menu: reference/menus/tools.md
-      - Help menu: reference/menus/help.md
-      - Context menus: reference/menus/context-menus.md
+      - File: reference/menus/file.md
+      - Edit: reference/menus/edit.md
+      - View: reference/menus/view.md
+      - Convert: reference/menus/convert.md
+      - Actions: reference/menus/actions.md
+      - Tag Sources: reference/menus/tag-sources.md
+      - Tools: reference/menus/tools.md
+      - Help: reference/menus/help.md
+      - Context and helper menus: reference/menus/context-menus.md
     - Options:
       - reference/options/index.md
       - General: reference/options/general.md
@@ -156,64 +211,22 @@ nav:
       - Library: reference/options/library.md
       - Language: reference/options/language.md
       - Tags: reference/options/tags.md
-      - "Tags → Mpeg": reference/options/tags-mpeg.md
-      - "Tags → Ape, Mpc": reference/options/tags-ape-mpc.md
-      - "Tags → Mapping": reference/options/tags-mapping.md
-      - "Tags → Advanced": reference/options/tags-advanced.md
+      - Tags → Mpeg: reference/options/tags-mpeg.md
+      - Tags → Ape, Mpc: reference/options/tags-ape-mpc.md
+      - Tags → Mapping: reference/options/tags-mapping.md
+      - Tags → Advanced: reference/options/tags-advanced.md
       - Tag panel: reference/options/tag-panel.md
       - Field values: reference/options/field-values.md
       - Networking: reference/options/networking.md
       - Updates: reference/options/updates.md
       - Tag sources: reference/options/tag-sources.md
-      - "Tag sources → freedb": reference/options/tag-sources-freedb.md
-      - "Tag sources → Local freedb": reference/options/tag-sources-local-freedb.md
+      - Tag sources → freedb: reference/options/tag-sources-freedb.md
+      - Tag sources → Local freedb: reference/options/tag-sources-local-freedb.md
       - Export: reference/options/export.md
       - Playlist: reference/options/playlist.md
       - Tools: reference/options/tools.md
-  - Cookbook:
-    - cookbook/index.md
-    - Rename files and folders:
-      - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md
-      - "Sort files into Artist\\Album folders": cookbook/rename-into-artist-album-folders.md
-      - "Multi-disc albums: CD1, CD2 folders": cookbook/rename-multi-disc-albums.md
-      - "Compilations: Various Artists naming": cookbook/rename-compilations.md
-      - Keep filenames portable: cookbook/rename-safe-characters.md
-      - "Lower-case, dash-separated filenames": cookbook/rename-lowercase-filenames.md
-    - Fix and tidy tags:
-      - Move “feat.” artists out of the artist field: cookbook/feat-artists-to-title.md
-      - Fix capitalisation with exceptions: cookbook/fix-capitalisation.md
-      - Strip track numbers from titles: cookbook/strip-track-numbers-from-titles.md
-      - Remove double and trailing spaces: cookbook/trim-spaces.md
-      - "Split 'A; B' into separate artists": cookbook/split-multiple-artists.md
-      - Fill in Album Artist: cookbook/album-artist-from-artist.md
-      - Remove junk fields (keep a whitelist): cookbook/remove-junk-fields.md
-      - Repair garbled characters (mojibake): cookbook/fix-mojibake.md
-      - "Sort 'The Beatles' under B": cookbook/the-artist-sort-names.md
-      - Remove “(Remastered 2011)” and similar: cookbook/remove-text-in-brackets.md
-    - Import tags:
-      - Tag files from folder and file names: cookbook/tags-from-folder-and-filename.md
-      - Apply a tracklist from a text file: cookbook/tracklist-from-text-file.md
-      - "Split 'Artist - Title' stored in the title": cookbook/split-artist-title.md
-      - Import lyrics from .txt files: cookbook/lyrics-from-text-files.md
-      - Keep only the year of a full date: cookbook/year-from-date.md
-    - Numbers:
-      - Number tracks per folder: cookbook/number-tracks-per-folder.md
-      - "Turn '3/12' into track 3 and total 12": cookbook/split-track-total.md
-      - Disc numbers from CD1/CD2 folders: cookbook/disc-numbers-from-folders.md
-    - Covers:
-      - Embed folder.jpg into every file: cookbook/embed-folder-jpg.md
-      - Save embedded covers as folder.jpg: cookbook/export-folder-jpg.md
-      - Shrink oversized covers: cookbook/resize-covers.md
-      - Keep only the front cover: cookbook/keep-only-front-cover.md
-    - Find and report:
-      - Find files without cover art: cookbook/find-missing-covers.md
-      - Find low-bitrate files: cookbook/find-low-bitrate.md
-      - Find files missing album artist or year: cookbook/find-missing-fields.md
-      - One playlist per album folder: cookbook/playlist-per-album.md
-      - An HTML catalogue of your albums: cookbook/html-album-catalogue.md
-      - Your library in a spreadsheet: cookbook/csv-for-spreadsheets.md
   - Help:
-    - FAQ: help/faq.md
+    - Frequently asked questions: help/faq.md
     - Troubleshooting: help/troubleshooting.md
     - Glossary: help/glossary.md
     - About TagGroove and this guide: help/about.md

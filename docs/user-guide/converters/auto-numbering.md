@@ -132,5 +132,5 @@ comparisons; clean inconsistent album/disc tags first.
 
 - [Tag → Filename](tag-to-filename.md)
 - [Tag → Tag](tag-to-tag.md)
-- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md)
+- [Zero-padded track numbers](recipes/rename-zero-padded-track-numbers.md)
 - [Converters](index.md)

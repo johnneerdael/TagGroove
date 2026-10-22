@@ -36,14 +36,14 @@ before practicing on an original album.
 It means preserve each selected file's current value when those values
 differ. Leaving it unchanged keeps the differences. Replacing it assigns a
 common value, and explicitly clearing a field requests removal. To inspect
-one file, select that file alone. See [The tag panel](../guides/tag-panel.md).
+one file, select that file alone. See [The tag panel](../tagging/tag-panel.md).
 
 ## Why are there two artists separated by `\\`?
 
 That notation can display multiple stored values. It does not prove that the
 literal separator characters are stored in the file or that a player uses
 the same display. Different native formats support value lists differently.
-Use [Multi-value fields](../concepts/multi-value-fields.md) before merging or
+Use [Multi-value fields](../tagging/concepts/multi-value-fields.md) before merging or
 splitting artists; punctuation inside one person's name is not automatically
 a list separator.
 
@@ -54,9 +54,9 @@ If TagGroove reads the intended value, check which file the player opened and
 which fields/tag families it uses. A player can retain an older library/cache
 entry, choose another tag block, use `ALBUMARTIST` for album grouping, or show
 an external image instead of embedded artwork. Do not remove every tag type
-to experiment. [Tag formats](../concepts/tag-formats.md),
-[Sort fields and compilations](../concepts/sort-fields.md), and
-[Cover art](../concepts/cover-art.md) explain the distinctions. The guide does
+to experiment. [Tag formats](../tagging/concepts/tag-formats.md),
+[Sort fields and compilations](../tagging/concepts/sort-fields.md), and
+[Cover art](../tagging/concepts/cover-art.md) explain the distinctions. The guide does
 not certify a particular player's refresh behavior.
 
 ## Why did filtering leave more files selected than I can see?
@@ -66,7 +66,7 @@ selected when a filter hides it. Clear the filter and deliberately reselect
 the intended targets before a batch write. Commands also differ in scope:
 for example, the playlist command for all files uses visible rows, while the
 selected-files route can include hidden selections. See
-[Filtering](../guides/filter.md) and [Playlists](../guides/playlists.md).
+[Filtering](../tagging/filter.md) and [Playlists](../export/playlists.md).
 
 ## Does Remove tag delete the song?
 
@@ -74,7 +74,7 @@ selected-files route can include hidden selections. See
 it is not an audio-file deletion command. **Edit → Remove from list** changes
 the working list. **Delete files…** and **Delete files permanently…** are
 filesystem operations with different recovery limits. Confirm the exact
-command before continuing. [Removing tags](../guides/remove-tags.md) explains
+command before continuing. [Removing tags](../tagging/remove-tags.md) explains
 policies, immediate writes and artwork consequences.
 
 ## Why did a converter or action not wait for Save?
@@ -104,7 +104,7 @@ saving again. Keep ordinary backups for recovery beyond the session. See
 
 An ordinary metadata text box does not calculate expressions. To calculate a
 field, use [Tag → Tag](../converters/tag-to-tag.md) or a suitable action. To
-construct a name, use a filename converter. [Format strings from zero](../learn/format-strings-from-zero.md)
+construct a name, use a filename converter. [Format strings from zero](../scripting/format-strings-from-zero.md)
 explains placeholders, optional sections, quoting and where evaluation occurs.
 A successful calculation can still produce an unwanted empty value, so check
 the preview and test input before applying it.
@@ -115,7 +115,7 @@ Start by identifying the context. Format strings, actions, filters and
 web-source parser commands and **Find** use the Boost-compatible core. Quoting,
 replacement processing and case defaults still depend on the context. A pattern working in
 Find is not proof it will work unchanged in an action. Follow the
-[regex reference](../reference/regular-expressions.md) and the relevant
+[regex reference](../scripting/regular-expressions.md) and the relevant
 command's worked examples.
 
 ## Why did only part of an action group succeed?

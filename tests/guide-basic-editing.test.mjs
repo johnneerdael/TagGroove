@@ -27,7 +27,7 @@ const json = value => JSON.parse(code(value));
 const newlineForms = text => [text.replace(/\r\n/g, '\n'), text.replace(/\r?\n/g, '\r\n')];
 
 test('written panel choices preserve keep, clear and literal multivalue semantics under LF and CRLF', async () => {
-  for (const page of newlineForms(await read('guides/tag-panel'))) {
+  for (const page of newlineForms(await read('tagging/tag-panel'))) {
     const examples = rows(page, 'panel-choice-examples');
     assert.equal(examples.length, 5);
     for (const [input, expected] of examples) {
@@ -47,7 +47,7 @@ test('written panel choices preserve keep, clear and literal multivalue semantic
 });
 
 test('written tag paste replaces the field set, including the target-only comment', async () => {
-  for (const page of newlineForms(await read('guides/copy-paste-tags'))) {
+  for (const page of newlineForms(await read('tagging/copy-paste-tags'))) {
     const examples = rows(page, 'tag-paste-example');
     assert.equal(examples.length, 3);
     const fields = column => Object.fromEntries(examples.map(row => [code(row[0]), json(row[column])]).filter(([, value]) => value.length));
@@ -62,7 +62,7 @@ test('written tag paste replaces the field set, including the target-only commen
 });
 
 test('written source and target count cases use ordered tag mapping or reject mismatches', async () => {
-  for (const page of newlineForms(await read('guides/copy-paste-tags'))) {
+  for (const page of newlineForms(await read('tagging/copy-paste-tags'))) {
     const examples = rows(page, 'tag-paste-counts');
     assert.equal(examples.length, 4);
     for (const [sourceCell, targetCell, outcome] of examples) {

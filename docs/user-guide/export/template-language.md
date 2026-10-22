@@ -5,7 +5,7 @@ functions. A **loop** repeats a section for several files. Text outside a loop
 is evaluated once, using the first input row where a field value is needed.
 A report can therefore have one heading, many track lines and one summary.
 
-The [format-string rules](../reference/format-strings.md) apply to fields,
+The [format-string rules](../scripting/format-strings.md) apply to fields,
 functions, optional sections and apostrophe quoting. Export adds commands and
 counters below. It also accepts `%%` for one literal percent sign and `$$`
 for one literal dollar sign. This export-specific escaping does not make `%%`
@@ -152,7 +152,7 @@ variable name/value argument still affect evaluation flags; string-only
 storage does not suppress those effects. A variable write in an "unused"
 `$if` branch can still run. The same caution applies when a branch contains
 an export loop. Build state changes as explicit steps in their intended order.
-See the [condition rules](../reference/scripting/conditions.md) for nested
+See the [condition rules](../scripting/functions/conditions.md) for nested
 selectors and optional sections.
 
 ## Counters, totals and paths
@@ -184,8 +184,8 @@ stays absolute; there is no relative path between volumes.
 report text and output-name expressions. They differ from each input audio
 file’s own folder placeholders.
 
-Normal [placeholders](../reference/placeholders.md) and
-[scripting functions](../reference/scripting/index.md) are available. Real file
+Normal [placeholders](../scripting/placeholders.md) and
+[scripting functions](../scripting/functions/index.md) are available. Real file
 hashes `%_crc%`, `%_md5%` and `%_md5audio%` require reading file data and can take
 longer than tag-only output. Audio MD5 can be empty when the format has no such
 value; hashes are not invented from tags.

@@ -8,8 +8,8 @@ use lofty::{
 };
 use std::{fs, path::Path};
 use tag_core::{evaluate, remove_tag_kinds_with_options, Fields, RemovableTag, TagOptions};
-const COPY: &str = include_str!("../../../docs/user-guide/guides/copy-paste-tags.md");
-const REMOVE: &str = include_str!("../../../docs/user-guide/guides/remove-tags.md");
+const COPY: &str = include_str!("../../../docs/user-guide/tagging/copy-paste-tags.md");
+const REMOVE: &str = include_str!("../../../docs/user-guide/tagging/remove-tags.md");
 fn section<'a>(page: &'a str, marker: &str) -> &'a str {
     page.split(&format!("<!-- {marker}:start -->"))
         .nth(1)

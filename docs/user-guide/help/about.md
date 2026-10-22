@@ -50,7 +50,7 @@ Compatibility must be assessed for the particular workflow: tag format,
 field mapping, expression context, replacement syntax, action order and output
 side effects can matter. For example, Find and format strings/actions share a Boost-compatible regex
 engine, but their quoting, case controls and replacement processing differ.
-Use the [regex reference](../reference/regular-expressions.md) and the relevant
+Use the [regex reference](../scripting/regular-expressions.md) and the relevant
 command's worked cases instead of treating a shared function name as proof
 of identical behavior.
 
@@ -80,15 +80,21 @@ orientation and does not audit every dependency license.
 
 ## How to use this guide
 
-Choose a section for the kind of help needed:
+The guide is organized by what you want to do. Each feature has its own menu
+tab, with its tutorials, guides, recipes and reference side by side:
 
 | Need | Section |
 | --- | --- |
-| A first successful practice session | [Get started](../getting-started/index.md) and [Your first tagging session](../learn/first-tagging-session.md) |
-| A worked lesson that explains why each step matters | Tutorials under **Learn** |
-| A procedure for an editing task | Guides and the converter/action pages under **Automate** |
-| A specific repeated cleanup or organization problem | **Cookbook** recipes |
-| Exact syntax, field mappings, menus or settings | **Reference** |
+| A first successful practice session | [Get started](../getting-started/index.md) and [Your first tagging session](../getting-started/first-tagging-session.md) |
+| Editing tags and cover art, and finding files | [Tagging](../tagging/index.md) |
+| Looking up or comparing metadata online | [Tag sources](../tag-sources/index.md) |
+| Renaming files, filling tags from names, numbering | [Rename & convert](../converters/index.md) |
+| Repeating a cleanup on many files | [Actions](../actions/index.md) |
+| Format strings, functions and regular expressions | [Scripting](../scripting/index.md) |
+| Reports, spreadsheets, playlists and cue sheets | [Export & playlists](../export/index.md) |
+| Columns, toolbars, tools and languages | [Customize](../customize/index.md) |
+| Exact field names, mappings, menus, options and shortcuts | [Reference](../reference/index.md) |
+| A worked lesson or a specific repeated problem | [All tutorials](../learn/index.md) and [all recipes](../cookbook/index.md) |
 | Diagnosis and a useful issue report | [Troubleshooting](troubleshooting.md) and [FAQ](faq.md) |
 
 The guide describes implemented TagGroove behavior using independently written

@@ -52,8 +52,8 @@ Use `\` to create literal folder components on every platform. Ordinary
 tag values have separators and reserved filename characters cleaned.
 `%_folderpath%`, `%_path%` and `%_workingpath%` retain native path components,
 including a backslash inside a macOS or Linux folder name. See
-[placeholders](../reference/placeholders.md) and
-[format strings](../reference/format-strings.md).
+[placeholders](../scripting/placeholders.md) and
+[format strings](../scripting/format-strings.md).
 
 ## Understand duplicates and existing files
 

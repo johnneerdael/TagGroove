@@ -4,9 +4,9 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 async function load(name) {const source=await readFile(new URL(`../src/${name}.ts`,import.meta.url),'utf8');const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);}
 const {PlaylistUI}=await load('playlist-ui');const chapters=await load('chapters');
-const guide=await readFile(new URL('../docs/user-guide/guides/playlists.md',import.meta.url),'utf8');
-const chapter=await readFile(new URL('../docs/user-guide/guides/chapters.md',import.meta.url),'utf8');
-const recipe=await readFile(new URL('../docs/user-guide/cookbook/playlist-per-album.md',import.meta.url),'utf8');
+const guide=await readFile(new URL('../docs/user-guide/export/playlists.md',import.meta.url),'utf8');
+const chapter=await readFile(new URL('../docs/user-guide/tagging/chapters.md',import.meta.url),'utf8');
+const recipe=await readFile(new URL('../docs/user-guide/export/recipes/playlist-per-album.md',import.meta.url),'utf8');
 const forms=text=>{const lf=text.replace(/\r\n/g,'\n');return [lf,lf.replace(/\n/g,'\r\n')];};
 const code=text=>{assert.ok(text.startsWith('`')&&text.endsWith('`'));return text.slice(1,-1);};
 function rows(text,marker){return text.split(`<!-- ${marker}:start -->`)[1].split(`<!-- ${marker}:end -->`)[0].split(/\r?\n/).map(line=>line.trimStart()).filter(line=>line.startsWith('|')).slice(2).map(line=>line.split('|').slice(1,-1).map(cell=>cell.trim()));}

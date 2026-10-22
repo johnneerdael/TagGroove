@@ -77,6 +77,7 @@ it access to TagGroove's Discogs token.
 ## Related
 
 - [Search, review and save](index.md)
+- [Compare metadata from several sources](compare.md)
 - [Discogs artist and title search](discogs.md#find-a-track-by-artist-and-title)
 - [Tag Sources options](../reference/options/tag-sources.md)
-- [Undo and history](../guides/undo-history.md)
+- [Undo and history](../tagging/undo-history.md)

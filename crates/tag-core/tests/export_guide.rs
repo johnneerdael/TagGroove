@@ -6,7 +6,7 @@ use tag_core::{encode_export_document, render_export, ExportOptions, ExportRow};
 const REFERENCE: &str = include_str!("../../../docs/user-guide/export/template-language.md");
 const CSV: &str = include_str!("../../../docs/user-guide/export/csv.md");
 const GALLERY: &str = include_str!("../../../docs/user-guide/export/template-gallery.md");
-const LESSON: &str = include_str!("../../../docs/user-guide/learn/export-a-cd-catalogue.md");
+const LESSON: &str = include_str!("../../../docs/user-guide/export/export-a-cd-catalogue.md");
 
 fn rows() -> Vec<ExportRow> {
     [

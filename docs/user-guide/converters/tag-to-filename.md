@@ -64,7 +64,7 @@ appropriate to the machine; the example root need not exist there.
 Literal separators in the expression create folders. Separators originating
 inside tag values are treated as characters in a component and use the
 configured folder-separator replacement. Other forbidden filename characters
-are sanitized. See [filename-mode rules](../reference/format-strings.md#file-and-folder-names).
+are sanitized. See [filename-mode rules](../scripting/format-strings.md#file-and-folder-names).
 
 ## Associated lyrics and karaoke files
 
@@ -72,7 +72,7 @@ Enable **Options → Files → Move or copy matching .lrc and .cdg files with au
 rename matching companions alongside the audio. Their paths appear below the
 audio destination in **Preview**. The policy defaults to off. Review every path;
 a changed companion or collision requires another preview. See
-[associated files](../guides/associated-files.md) for the exact matching rules,
+[associated files](../tagging/associated-files.md) for the exact matching rules,
 group rollback and session Undo limits.
 
 ## Gotchas
@@ -93,7 +93,7 @@ group rollback and session Undo limits.
 
 ## Related
 
-- [Format strings](../reference/format-strings.md)
+- [Format strings](../scripting/format-strings.md)
 - [Filename → Tag](filename-to-tag.md)
 - [Filename → Filename](filename-to-filename.md)
-- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md)
+- [Zero-padded track numbers](recipes/rename-zero-padded-track-numbers.md)

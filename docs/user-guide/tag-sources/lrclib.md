@@ -54,5 +54,6 @@ retried once. Each selected file needs a lookup, and a fallback can add another.
 ## Related
 
 - [Search, review and save](index.md#search-review-and-save)
-- [Network access and privacy](index.md#network-access-and-privacy)
+- [Compare metadata from several sources](compare.md)
+- [Network access, privacy and rate limits](privacy-and-network.md)
 - [Tag Sources options](../reference/options/tag-sources.md)

@@ -240,7 +240,7 @@ Some action types interpret these names as selectors or rename requests. They ar
 | `_DIRECTORY` | Request a directory transformation. In the tag panel this special control instead acts as a folder switcher. |
 | `_FIELDNAME` | Transform field names, only for APE/Vorbis-style names. The result must remain nonempty and cannot collide case-insensitively with another field. |
 
-Technical placeholders such as `%_length%`, `%_bitrate%`, and `%_path%` describe the file or application context. They are covered in [Placeholders](placeholders.md). Creating a custom `LENGTH` tag changes stored metadata, not the actual duration.
+Technical placeholders such as `%_length%`, `%_bitrate%`, and `%_path%` describe the file or application context. They are covered in [Placeholders](../scripting/placeholders.md). Creating a custom `LENGTH` tag changes stored metadata, not the actual duration.
 
 TagGroove also exposes `CHAPTERS` for supported MP4/Matroska chapter editing and `CUESHEET` for embedded cue-sheet content. These require their specific syntax and supported format; a custom field with that name is not automatically a chapter implementation in another container.
 
@@ -249,6 +249,6 @@ TagGroove also exposes `CHAPTERS` for supported MP4/Matroska chapter editing and
 - [Native mapping tables](tag-mapping.md)
 - [Supported file formats](file-formats.md)
 - [Filter syntax](filter-syntax.md)
-- [Placeholders](placeholders.md)
+- [Placeholders](../scripting/placeholders.md)
 
 <!-- verified: baseline007a806 crates/tag-core/src/mapping.rs FIELD_MAPPINGS, patch_id3, patch_mp4, parse_stars, patch_described, patch_unique_file_ids; crates/tag-core/src/tags.rs tag_fields, normalized_updates, riff_key; crates/tag-core/src/actions.rs metadata_keys and transform; src/tag-panel.ts; MusicBrainz/Discogs importers. All118vocabulary names checked by documentation contract tests. -->

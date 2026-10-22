@@ -44,13 +44,13 @@ surrounding whitespace is kept.
 A bare placeholder reads only the first existing value. For example,
 `$meta_sep(artist,\\)` writes the existing artists as separate values, while
 `$meta_sep(artist,' & ')` writes one joined value. Read the
-[multivalue rules](../reference/format-strings.md#multi-value-fields) before
+[multivalue rules](../scripting/format-strings.md#multi-value-fields) before
 replacing artist or composer lists. Filename/directory targets use the naming
 rules below instead of splitting metadata values.
 
 An empty result removes the destination field. The preview labels that
 outcome **Field will be removed**. `''` produces an apostrophe, not empty
-text; see [quoting](../reference/format-strings.md).
+text; see [quoting](../scripting/format-strings.md).
 
 ## Rename from the same dialog
 
@@ -86,8 +86,8 @@ layout is the goal.
 
 ## Related
 
-- [Format strings](../reference/format-strings.md)
-- [Regular expressions](../reference/regular-expressions.md)
+- [Format strings](../scripting/format-strings.md)
+- [Regular expressions](../scripting/regular-expressions.md)
 - [Tag → Filename](tag-to-filename.md)
 - [Converters](index.md)
 
@@ -97,6 +97,6 @@ When the associated-files option is enabled, using `_FILENAME` here carries
 matching `.lrc`/`.cdg` files through the same guarded filename effect as actions.
 Tag → Tag runs immediately; it does not show a companion destination preview.
 Use a reviewed filename converter to inspect exact paths before applying.
-See [associated files](../guides/associated-files.md#actions-and-tag-tag) for
+See [associated files](../tagging/associated-files.md#actions-and-tag-tag) for
 membership checks, collision/rollback errors and recorded history. Inline
 filename editing remains audio-only.

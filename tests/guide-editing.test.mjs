@@ -10,7 +10,7 @@ const load = async name => {
 const {moveSelection} = await load('list-behaviour');
 const {selectionTagRows,resolveTagEdits} = await load('tag-edits');
 const {presence} = await load('cover-model');
-const read = name => readFile(new URL(`../docs/user-guide/guides/${name}.md`, import.meta.url), 'utf8');
+const read = name => readFile(new URL(`../docs/user-guide/tagging/${name}.md`, import.meta.url), 'utf8');
 const table = (page, marker) => page.split(`<!-- ${marker}:start -->`)[1]
   .split(`<!-- ${marker}:end -->`)[0].split(/\r?\n/).filter(line=>line.startsWith('| `'))
   .map(line=>line.split('|').slice(1,-1).map(cell=>cell.trim().replace(/^`|`$/g,'')));

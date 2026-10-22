@@ -80,7 +80,7 @@ or drive specification makes that root part of the match too.
 
 ## Related
 
-- [Tags from folder and file names](../cookbook/tags-from-folder-and-filename.md)
+- [Tags from folder and file names](recipes/tags-from-folder-and-filename.md)
 - [Tag → Filename](tag-to-filename.md)
 - [Text File → Tag](text-file-to-tag.md)
 - [Converters](index.md)

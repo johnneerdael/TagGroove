@@ -267,8 +267,8 @@ Apostrophe quoting protects literal brackets, commas and other syntax in
 expressions. Balanced unquoted parentheses in an argument nest; commas inside
 that text stay in the argument. Escaped `\(` and `\)` neither nest nor close
 the call. A dollar sign starting no function name, such as an end anchor `$`
-or replacement `$1`, is literal. Quoting remains clearest for complex patterns. See [format strings](../reference/format-strings.md)
-and [regular expressions](../reference/regular-expressions.md). The case-sensitive
+or replacement `$1`, is literal. Quoting remains clearest for complex patterns. See [format strings](../scripting/format-strings.md)
+and [regular expressions](../scripting/regular-expressions.md). The case-sensitive
 parser regex commands below differ from the default case policy of the
 `$regexp(...)` formatting function.
 

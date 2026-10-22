@@ -71,7 +71,7 @@ A batch history operation can concern several files, beyond the current
 selection. If history cannot start, a successful Save can still write the
 file while reporting **cannot be undone**. Its failed history group stays
 unrecorded; status checks alone do not clear that notice. A later operation
-that is successfully recorded clears it. See [Undo and history](../guides/undo-history.md)
+that is successfully recorded clears it. See [Undo and history](../tagging/undo-history.md)
 for storage and session limits.
 
 The **Redo** menu slot can instead say **Repeat**. Repeat runs the available
@@ -138,9 +138,9 @@ desktop “Save As” replacement. See the [File menu](../reference/menus/file.m
 
 ## Related
 
-- [Your first tagging session](../learn/first-tagging-session.md)
-- [The tag panel](../guides/tag-panel.md)
-- [Cut, copy and paste tags](../guides/copy-paste-tags.md)
-- [Removing tags](../guides/remove-tags.md)
+- [Your first tagging session](first-tagging-session.md)
+- [The tag panel](../tagging/tag-panel.md)
+- [Cut, copy and paste tags](../tagging/copy-paste-tags.md)
+- [Removing tags](../tagging/remove-tags.md)
 
 <!-- verified: src/main.ts:draftField, saveDrafts, discardDrafts, replayHistory, saveOnMove, operateImpl; src/document-state.ts:reconcileDrafts; src/list-behaviour.ts:autoSaveTargets; crates/tag-core/src/tags.rs:staged_mutation; src-tauri/src/history.rs. Source/model evidence; no installed UI/save-back claim. -->

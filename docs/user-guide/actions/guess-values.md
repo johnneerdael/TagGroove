@@ -129,7 +129,7 @@ intermediate text; a regex nonmatch does not skip this action or later ones.
 
 Keep the quoted regex in the source box. Pasting it into **Guessing pattern**
 does not turn that box into a regex parser. See the
-[regex quoting reference](../reference/regular-expressions.md#regexp).
+[regex quoting reference](../scripting/regular-expressions.md#regexp).
 
 <!-- verified: crates/tag-core/tests/action_guide.rs:guess_values_regex_preparation_runs_the_written_stages; src/tag-tag-ui.ts:openTagToTag preview/apply handlers -->
 
@@ -153,7 +153,7 @@ does not turn that box into a regex parser. See the
 
 ## Related
 
-- [Format strings](../reference/format-strings.md)
+- [Format strings](../scripting/format-strings.md)
 - [Format Value](format-value.md)
-- [Tags from folder and file names](../cookbook/tags-from-folder-and-filename.md)
+- [Tags from folder and file names](../converters/recipes/tags-from-folder-and-filename.md)
 - [Actions and action groups](index.md)

@@ -151,7 +151,7 @@ backslashes in the new pattern still create destination folders.
 
 - [Filename → Tag](filename-to-tag.md)
 - [Tag → Filename](tag-to-filename.md)
-- [Format strings](../reference/format-strings.md)
+- [Format strings](../scripting/format-strings.md)
 - [Converters](index.md)
 
 ## Keep matching lyrics and karaoke together
@@ -167,5 +167,5 @@ audio-readback failure attempts to reverse the whole reviewed batch. Rollback
 retains externally changed files and unknown replacement folders and names
 them in the error. Newly created empty folders are removed after a handled
 failure only when they retain their identities. Successful Undo/Redo can leave
-empty destination folders. Read [associated files](../guides/associated-files.md)
+empty destination folders. Read [associated files](../tagging/associated-files.md)
 for matching, refusal and history rules.

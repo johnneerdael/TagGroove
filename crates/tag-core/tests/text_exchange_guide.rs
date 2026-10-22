@@ -5,9 +5,9 @@ use tag_core::{
     decode_export_template, encode_export_document, evaluate_filename_with_context, render_export,
     EvalContext, ExportOptions, ExportRow, Fields, TextImportOptions, TextTagConverter,
 };
-const TRACKS: &str = include_str!("../../../docs/user-guide/cookbook/tracklist-from-text-file.md");
-const LYRICS: &str = include_str!("../../../docs/user-guide/cookbook/lyrics-from-text-files.md");
-const CSV: &str = include_str!("../../../docs/user-guide/cookbook/csv-for-spreadsheets.md");
+const TRACKS: &str = include_str!("../../../docs/user-guide/converters/recipes/tracklist-from-text-file.md");
+const LYRICS: &str = include_str!("../../../docs/user-guide/converters/recipes/lyrics-from-text-files.md");
+const CSV: &str = include_str!("../../../docs/user-guide/export/recipes/csv-for-spreadsheets.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

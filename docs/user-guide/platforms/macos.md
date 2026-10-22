@@ -152,7 +152,7 @@ This describes `Juniper Vale/Harbour Lights/03 - Paper Boats` beneath the
 source file's containing folder, with the original audio extension retained.
 It is a naming expression, not a Terminal command. Preview full paths before
 applying it. Tag-derived slashes are handled differently from literal folder
-boundaries; [filename rules](../reference/format-strings.md#file-and-folder-names)
+boundaries; [filename rules](../scripting/format-strings.md#file-and-folder-names)
 explain that distinction.
 
 Case sensitivity depends on the actual volume. For a spelling-only rename,
@@ -189,7 +189,7 @@ checks; they are not a claim of installation or hardware testing on every Mac.
 
 ## Related
 
-- [First tagging session](../learn/first-tagging-session.md)
+- [First tagging session](../getting-started/first-tagging-session.md)
 - [Opening files](../getting-started/opening-files.md)
 - [Saving and undo](../getting-started/editing-and-saving.md)
 - [Configuration backup](../customize/configuration.md)

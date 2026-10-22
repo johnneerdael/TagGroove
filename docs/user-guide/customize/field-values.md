@@ -171,7 +171,7 @@ If saving the list fails, read the error rather than assuming it persisted.
 This shortcut stores a suggestion. It does not separately save pending audio
 edits. A field containing a multi-value separator has the normal tag-panel
 interpretation when applied to tracks; custom list management does not
-change [multi-value syntax](../concepts/multi-value-fields.md).
+change [multi-value syntax](../tagging/concepts/multi-value-fields.md).
 
 ## Keep the two save boundaries clear
 
@@ -189,7 +189,7 @@ history: retain a named export or configuration checkpoint before a major edit.
 ## Related
 
 - [Tag-panel customization](tag-panel.md)
-- [Tag-panel editing](../guides/tag-panel.md)
+- [Tag-panel editing](../tagging/tag-panel.md)
 - [Field Values options](../reference/options/field-values.md)
 - [Editing, saving and undo](../getting-started/editing-and-saving.md)
 - [Save and restore configuration](configuration.md)

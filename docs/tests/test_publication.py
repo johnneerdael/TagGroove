@@ -11,6 +11,7 @@ import unittest
 
 
 HOOK = Path(__file__).resolve().parents[1] / "hooks" / "publication.py"
+REDIRECTS = HOOK.with_name("redirects.py")
 
 
 class ScreenshotArtifactTests(unittest.TestCase):
@@ -138,6 +139,71 @@ class CodeParser(HTMLParser):
             self.current = None
 
 
+class RedirectTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        docs = self.root / "docs"
+        (docs / "newhome").mkdir(parents=True)
+        (docs / "index.md").write_text("# Welcome\n\n[Moved](newhome/page.md)\n")
+        (docs / "newhome" / "page.md").write_text("# Moved page\n\nIt lives here now.\n")
+
+    def build(self, moves):
+        (self.root / "redirects.json").write_text(json.dumps(moves))
+        config = self.root / "mkdocs.yml"
+        config.write_text(
+            "site_name: Redirect test\nsite_url: https://example.test/\nhooks:\n"
+            f"  - {json.dumps(str(HOOK))}\n  - {json.dumps(str(REDIRECTS))}\n"
+            "extra:\n  redirects_file: redirects.json\n"
+            "validation:\n  nav:\n    omitted_files: warn\n  links:\n    not_found: warn\n"
+            "nav:\n  - Home: index.md\n  - Moved page: newhome/page.md\n"
+        )
+        return subprocess.run(
+            [sys.executable, "-m", "mkdocs", "build", "--strict", "-f", str(config)],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_old_url_forwards_and_keeps_query_and_anchor(self):
+        result = self.build({"oldhome/page.md": "newhome/page.md", "oldhome/index.md": "newhome/page.md"})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        stub = (self.root / "site" / "oldhome" / "page" / "index.html").read_text()
+        self.assertIn('content="0; url=../../newhome/page/"', stub)
+        self.assertIn('<link rel="canonical" href="https://example.test/newhome/page/">', stub)
+        self.assertIn("location.search + location.hash", stub)
+        self.assertIn('url=../newhome/page/"', (self.root / "site" / "oldhome" / "index.html").read_text())
+
+    def test_redirect_pages_are_not_searchable(self):
+        result = self.build({"oldhome/page.md": "newhome/page.md"})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        search = (self.root / "site" / "search" / "search_index.json").read_text()
+        self.assertNotIn("has moved", search)
+
+    def test_target_must_be_a_published_page(self):
+        result = self.build({"oldhome/page.md": "newhome/missing.md"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("newhome/missing.md", result.stderr)
+
+    def test_redirect_cannot_hide_a_live_page(self):
+        result = self.build({"newhome/page.md": "index.md"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("newhome/page.md", result.stderr)
+
+
+class GuideRedirectMapTests(unittest.TestCase):
+    """The shipped map must only describe pages that really moved."""
+
+    def test_every_old_page_is_gone_and_every_target_exists(self):
+        root = HOOK.parents[2]
+        moves = json.loads(REDIRECTS.with_name("redirects.json").read_text())
+        self.assertGreater(len(moves), 50)
+        docs = root / "docs" / "user-guide"
+        for old, new in moves.items():
+            self.assertFalse((docs / old).exists(), f"{old} still exists")
+            self.assertTrue((docs / new).is_file(), f"{new} is missing")
+
+
 class GuideContentTests(unittest.TestCase):
     def test_first_session_has_installation_checkbox_and_download_link(self):
         root = HOOK.parents[2]
@@ -151,7 +217,7 @@ class GuideContentTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             parser = PrerequisiteParser()
-            parser.feed((Path(output) / "learn/first-tagging-session/index.html").read_text())
+            parser.feed((Path(output) / "getting-started/first-tagging-session/index.html").read_text())
         matches = [item for item in parser.items if "TagGroove installed" in item["text"]]
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0]["checkboxes"], 1)
@@ -170,7 +236,7 @@ class GuideContentTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             parser = CodeParser()
-            parser.feed((Path(output) / "reference/regular-expressions/index.html").read_text())
+            parser.feed((Path(output) / "scripting/regular-expressions/index.html").read_text())
         for expected in [" ", r" \(Interlude\)", "Low Tide "]:
             self.assertIn(expected, parser.codes)
 

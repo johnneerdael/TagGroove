@@ -7,7 +7,7 @@ starts another program with its own behavior and completion rules.
 
 !!! tip "Choose a workflow first"
 
-    Use [built-in utilities](../../guides/utilities.md) for stored tag/layout
+    Use [built-in utilities](../../tagging/utilities.md) for stored tag/layout
     cleanup, or [external tools](../../customize/tools.md) for executable paths,
     parameters and selection scope. Neither route is an audio repair guarantee.
 
@@ -27,10 +27,10 @@ The four built-in utilities have no dedicated shortcuts displayed in this
 menu. The file-list context menu also groups them under **Utils**. Context
 placement does not turn them into actions or change their write/recovery scope.
 
-Read [tag removal](../../guides/remove-tags.md) before erasing a metadata block.
+Read [tag removal](../../tagging/remove-tags.md) before erasing a metadata block.
 **Remove unsupported fields…** is not a command to delete every custom field,
 and **Optimize…** does not re-encode audio or promise every player will read
-it. [Chapters](../../guides/chapters.md) explains why stripping a parent file's
+it. [Chapters](../../tagging/chapters.md) explains why stripping a parent file's
 chapters is different from editing one displayed chapter title.
 
 ## Configured program entries
@@ -96,14 +96,14 @@ contract. Canceling or closing an Options dialog does not reverse a program
 that already started.
 
 Use copied files for a new definition and retain independent backups before
-removing data. The [Undo guide](../../guides/undo-history.md) distinguishes
+removing data. The [Undo guide](../../tagging/undo-history.md) distinguishes
 recorded local writes, side images, pending edits, unrecorded file operations
 and external outputs.
 
 ## Related
 
-- [Built-in utilities](../../guides/utilities.md)
-- [Remove tags](../../guides/remove-tags.md)
+- [Built-in utilities](../../tagging/utilities.md)
+- [Remove tags](../../tagging/remove-tags.md)
 - [External tools](../../customize/tools.md)
 - [Toolbars](../../customize/toolbars.md)
 - [Keyboard shortcuts](../keyboard-shortcuts.md)

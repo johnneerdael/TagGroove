@@ -55,7 +55,7 @@ $regexp(%title%,'^\d+[\s._-]*',)
 ```
 
 The final argument above is empty. `''` would insert an apostrophe.
-See [the regex reference](../reference/regular-expressions.md#regexp) for
+See [the regex reference](../scripting/regular-expressions.md#regexp) for
 quoting, groups, lookarounds, case controls and replacement escapes.
 
 ## Special targets and extensions
@@ -96,7 +96,7 @@ Bare console names `CONIN$` and `CONOUT$` also become
 
 ## Related
 
-- [Regular expressions](../reference/regular-expressions.md)
+- [Regular expressions](../scripting/regular-expressions.md)
 - [Literal Replace](replace.md)
-- [Move guest artists to titles](../cookbook/feat-artists-to-title.md)
+- [Move guest artists to titles](recipes/feat-artists-to-title.md)
 - [Actions and action groups](index.md)

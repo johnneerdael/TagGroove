@@ -75,7 +75,7 @@ For supported MP4/Matroska chapter-list edits, a `CHAPTERS` value has a time and
 
 TagGroove reports available format, codec, duration, bitrate, sample rate, channels/mode, file size, and tag information. Bit depth is meaningful where the stream provides it; a lossy codec does not acquire a valid PCM bit-depth measurement merely because a custom tag contains a number. Video/container-specific information is supplied where the reader can measure it.
 
-Metadata fields such as LENGTH, FILETYPE, or ENCODERSETTINGS do not change the measured stream properties. Use [information placeholders](placeholders.md) when filtering or exporting actual measurements. Missing or unavailable properties should remain unknown rather than being inferred from an extension.
+Metadata fields such as LENGTH, FILETYPE, or ENCODERSETTINGS do not change the measured stream properties. Use [information placeholders](../scripting/placeholders.md) when filtering or exporting actual measurements. Missing or unavailable properties should remain unknown rather than being inferred from an extension.
 
 ## Important format limits
 
@@ -183,7 +183,7 @@ This table is checked against the baseline source and relevant format tests, not
 
 - [Native mapping tables](tag-mapping.md)
 - [Field names](field-names.md)
-- [Information placeholders](placeholders.md)
+- [Information placeholders](../scripting/placeholders.md)
 - [Filter syntax](filter-syntax.md)
 
 <!-- verified: current main4e4d5fc with merged26 format-preservation notes; original baseline007a806 crates/tag-core/src/tags.rs audio_extension, ordered_tags, write_tag_fields; tag_policy.rs; raw_streams.rs; container_formats.rs/dsd.rs; matroska.rs describe/write/mapping_rules; asf/mod.rs; mp4_chapters.rs/subsongs.rs; tests/{tag_policy,raw_streams,formats_edge,containers,asf,mp4_chapters,flac_id3}.rs. No current all-platform/runtime format certification. Historical verification notes were checked against source where later chapter/legacy-track behavior superseded them. -->

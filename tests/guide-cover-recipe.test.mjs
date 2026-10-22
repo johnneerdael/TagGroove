@@ -5,7 +5,7 @@ import ts from 'typescript';
 const source=await readFile(new URL('../src/cover-model.ts',import.meta.url),'utf8');
 const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {managedFromSet,planItems,planChanged,presence,PICTURE_TYPES}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
-const read=name=>readFile(new URL(`../docs/user-guide/cookbook/${name}.md`,import.meta.url),'utf8');
+const read=name=>readFile(new URL(`../docs/user-guide/tagging/recipes/${name}.md`,import.meta.url),'utf8');
 function rows(text,marker){return text.split(`<!-- ${marker}:start -->`)[1].split(`<!-- ${marker}:end -->`)[0].split(/\r?\n/).filter(line=>line.startsWith('|')).slice(2).map(line=>line.split('|').slice(1,-1).map(cell=>cell.trim()));}
 const code=value=>{assert.ok(value.startsWith('`')&&value.endsWith('`'));return value.slice(1,-1);};
 const forms=text=>[text.replace(/\r\n/g,'\n'),text.replace(/\r?\n/g,'\r\n')];

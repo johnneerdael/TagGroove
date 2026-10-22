@@ -5,7 +5,7 @@ problem, check released versions or identify the installed TagGroove version.
 These commands do not require selected audio files.
 
 !!! tip "New to this?"
-    Start with [your first tagging session](../../learn/first-tagging-session.md).
+    Start with [your first tagging session](../../getting-started/first-tagging-session.md).
     Keep the app version from **About TagGroove** with any troubleshooting notes.
 
 ## Every current entry
@@ -69,7 +69,7 @@ problem. Do not treat the issue form as a promise of an immediate response.
 
 ## Related
 
-- [Your first tagging session](../../learn/first-tagging-session.md)
+- [Your first tagging session](../../getting-started/first-tagging-session.md)
 - [Keyboard shortcuts](../keyboard-shortcuts.md)
 - [Updates options](../options/updates.md)
 - [Menus overview](index.md)

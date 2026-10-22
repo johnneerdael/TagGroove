@@ -54,7 +54,7 @@ selection does not necessarily clear all pending edits.
 While a filter is being evaluated, the count shows **Filtering…** and the
 selected count; the visible count returns after evaluation.
 An invalid filter is different from a valid query with no matches. Use the
-[filter guide](../guides/filter.md) for expressions and error handling.
+[filter guide](../tagging/filter.md) for expressions and error handling.
 **F3** hides a shown filter and clears its applied restriction; showing it
 again restores the remembered text. It does not delete any audio files.
 
@@ -69,8 +69,8 @@ a field requests removal.
 A column can show a stored field, a calculated expression or a technical
 property. Seeing text in a column does not mean that cell is writable.
 Filename/path editing changes a filesystem name, while **Title** changes
-metadata. Read [The file list](../guides/file-list.md) before using **F2** or
-custom columns. Use [Extended tags](../guides/extended-tags.md) to inspect
+metadata. Read [The file list](../tagging/file-list.md) before using **F2** or
+custom columns. Use [Extended tags](../tagging/extended-tags.md) to inspect
 fields that the current panel does not display.
 
 For an ordinary metadata edit, look for the pending marker and **unsaved
@@ -133,6 +133,6 @@ explains what that JSON bundle includes.
 
 - [Start using TagGroove](index.md)
 - [Opening files](opening-files.md)
-- [The tag panel](../guides/tag-panel.md)
-- [The file list](../guides/file-list.md)
+- [The tag panel](../tagging/tag-panel.md)
+- [The file list](../tagging/file-list.md)
 - [View menu](../reference/menus/view.md)

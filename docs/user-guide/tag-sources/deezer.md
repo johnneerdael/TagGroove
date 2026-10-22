@@ -51,5 +51,6 @@ a missing result. TagGroove retrieves no Deezer streams or audio previews.
 ## Related
 
 - [Search, review and save](index.md#search-review-and-save)
+- [Compare metadata from several sources](compare.md)
 - [Tag Sources options](../reference/options/tag-sources.md)
 - [iTunes / Apple Music](itunes.md)

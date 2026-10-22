@@ -21,6 +21,16 @@ A new installation starts with five unchecked groups under **Examples**.
 Review and enable only the examples wanted for a run. Saving an empty library
 keeps it empty; removing examples does not make them return at the next start.
 
+## Tutorials and recipes
+
+| If you want to… | Open |
+|---|---|
+| Build and run your first group | [Build your first action group](first-action-group.md) (tutorial) |
+| Plan a cleanup without changing everything at once | [Clean up a messy library](clean-a-messy-library.md) (tutorial) |
+| Tidy text | [Remove extra spaces](recipes/trim-spaces.md), [trailing annotations](recipes/remove-text-in-brackets.md), [numbered prefixes](recipes/strip-track-numbers-from-titles.md), [capitalization](recipes/fix-capitalisation.md), [the year of a date](recipes/year-from-date.md) |
+| Fix artist credits | [Split artist lists](recipes/split-multiple-artists.md), [split Artist - Title](recipes/split-artist-title.md), [move “feat.” artists](recipes/feat-artists-to-title.md) |
+| Repair or prune fields | [Repair mojibake](recipes/fix-mojibake.md), [keep a reviewed field list](recipes/remove-junk-fields.md) |
+
 ## Choose an action
 
 | Goal | Action |
@@ -253,7 +263,7 @@ field value.
 - [Format Value](format-value.md)
 - [Replace](replace.md)
 - [Replace with Regular Expression](replace-regexp.md)
-- [Move guest artists to titles](../cookbook/feat-artists-to-title.md)
+- [Move guest artists to titles](recipes/feat-artists-to-title.md)
 
 ## Keep lyrics and karaoke beside renamed audio
 
@@ -267,5 +277,5 @@ recorded action history.
 Actions run immediately; they do not show the converters' reviewed companion
 destination list. Membership/content or destination conflicts refuse the
 affected rename and report a warning. Earlier metadata changes and successful
-actions can remain. See [associated files](../guides/associated-files.md#actions-and-tag-tag)
+actions can remain. See [associated files](../tagging/associated-files.md#actions-and-tag-tag)
 for rollback, uncertain-path refusal and Undo/Redo behavior.

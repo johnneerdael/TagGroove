@@ -24,7 +24,7 @@ The actual output location and common filesystem roots determine whether relativ
 XSPF (`.xspf`), WPL (`.wpl`) and XML ASX (`.asx`) are input-only formats. The
 writer refuses these suffixes rather than putting M3U text in an XML-named
 file. Use `.m3u`, `.m3u8` or `.pls` for output. See
-[XML playlist examples](../../guides/xml-playlists.md).
+[XML playlist examples](../../export/xml-playlists.md).
 
 ## Automatic playlists
 

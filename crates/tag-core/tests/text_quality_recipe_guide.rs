@@ -6,9 +6,9 @@ use tag_core::{
     actions::{apply_action_spec, ActionEffect, ActionSpec, ActionState, CaseMode},
     Fields,
 };
-const CASE: &str = include_str!("../../../docs/user-guide/cookbook/fix-capitalisation.md");
-const CODEPAGE: &str = include_str!("../../../docs/user-guide/cookbook/fix-mojibake.md");
-const KEEP: &str = include_str!("../../../docs/user-guide/cookbook/remove-junk-fields.md");
+const CASE: &str = include_str!("../../../docs/user-guide/actions/recipes/fix-capitalisation.md");
+const CODEPAGE: &str = include_str!("../../../docs/user-guide/actions/recipes/fix-mojibake.md");
+const KEEP: &str = include_str!("../../../docs/user-guide/actions/recipes/remove-junk-fields.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

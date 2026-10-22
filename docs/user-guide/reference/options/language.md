@@ -96,7 +96,7 @@ claim of identical wording or runtime behavior to another tagging program.
 ## Related
 
 - [Languages and translations](../../customize/languages.md)
-- [Format strings](../format-strings.md)
+- [Format strings](../../scripting/format-strings.md)
 - [Appearance](appearance.md)
 - [Field names and mappings](tags-mapping.md)
 - [Options overview](index.md)

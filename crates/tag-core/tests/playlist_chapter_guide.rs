@@ -12,9 +12,9 @@ use tag_core::{
     },
     read_entry, subsong_file, write_chapter_rows, write_fields, EvalContext, Fields, TagOptions,
 };
-const GUIDE: &str = include_str!("../../../docs/user-guide/guides/playlists.md");
-const CHAPTER: &str = include_str!("../../../docs/user-guide/guides/chapters.md");
-const RECIPE: &str = include_str!("../../../docs/user-guide/cookbook/playlist-per-album.md");
+const GUIDE: &str = include_str!("../../../docs/user-guide/export/playlists.md");
+const CHAPTER: &str = include_str!("../../../docs/user-guide/tagging/chapters.md");
+const RECIPE: &str = include_str!("../../../docs/user-guide/export/recipes/playlist-per-album.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

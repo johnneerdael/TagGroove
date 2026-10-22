@@ -119,8 +119,8 @@ Use **Add files…** if the file manager's **Open With** route is unavailable.
 CUE track rows and replaces the list after the pending-edit decision. A
 playlist is a list of references, not embedded audio. Missing files and remote
 URLs can produce errors. CUE/chapter rows have different write and command
-limits; read [Playlists](../guides/playlists.md) and
-[Chapters](../guides/chapters.md) before treating them as ordinary files.
+limits; read [Playlists](../export/playlists.md) and
+[Chapters](../tagging/chapters.md) before treating them as ordinary files.
 
 A folder can have a name such as `archive.m3u` or `album.cue`. TagGroove checks
 whether the input is a file or a directory: an existing folder with one of
@@ -177,4 +177,4 @@ capability. Read the source/access message before editing important material.
 - [Editing, saving and undo](editing-and-saving.md)
 - [Directories options](../reference/options/directories.md)
 - [Files options](../reference/options/files.md)
-- [The file list](../guides/file-list.md)
+- [The file list](../tagging/file-list.md)

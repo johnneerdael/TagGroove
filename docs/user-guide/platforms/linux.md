@@ -182,7 +182,7 @@ mount/label change; inspect the actual path and reload when diagnosing it.
 Literal backslashes in filename formats still separate folders on Linux.
 Tag-derived slashes have a separate replacement policy. Case and naming
 rules depend on the actual filesystem, including a mounted external volume;
-[portable filename guidance](../cookbook/rename-safe-characters.md) is a
+[portable filename guidance](../converters/recipes/rename-safe-characters.md) is a
 component policy, not a guarantee for every destination.
 
 ## Credentials and per-user configuration
@@ -214,4 +214,4 @@ they do not claim native launch/write tests on every distribution or session.
 - [Installation checklist](../getting-started/install.md)
 - [Opening files](../getting-started/opening-files.md)
 - [Keyboard shortcuts](../reference/keyboard-shortcuts.md)
-- [Library cache and external changes](../guides/library.md)
+- [Library cache and external changes](../tagging/library.md)

@@ -145,5 +145,5 @@ Inspect both matched and unmatched rows before applying a partial plan.
 
 - [Filename → Tag](filename-to-tag.md)
 - [Tag → Tag](tag-to-tag.md)
-- [Placeholders](../reference/placeholders.md)
+- [Placeholders](../scripting/placeholders.md)
 - [Converters](index.md)

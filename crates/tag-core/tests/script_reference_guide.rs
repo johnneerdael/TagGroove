@@ -2,31 +2,31 @@
 use std::collections::{BTreeMap, BTreeSet};
 use tag_core::{evaluate_with_context, EvalContext, Fields, ScriptColumn};
 
-const INDEX: &str = include_str!("../../../docs/user-guide/reference/scripting/index.md");
+const INDEX: &str = include_str!("../../../docs/user-guide/scripting/functions/index.md");
 const PAGES: [(&str, &str); 6] = [
     (
         "text",
-        include_str!("../../../docs/user-guide/reference/scripting/text.md"),
+        include_str!("../../../docs/user-guide/scripting/functions/text.md"),
     ),
     (
         "search",
-        include_str!("../../../docs/user-guide/reference/scripting/search-compare.md"),
+        include_str!("../../../docs/user-guide/scripting/functions/search-compare.md"),
     ),
     (
         "conditions",
-        include_str!("../../../docs/user-guide/reference/scripting/conditions.md"),
+        include_str!("../../../docs/user-guide/scripting/functions/conditions.md"),
     ),
     (
         "numbers",
-        include_str!("../../../docs/user-guide/reference/scripting/numbers.md"),
+        include_str!("../../../docs/user-guide/scripting/functions/numbers.md"),
     ),
     (
         "dates",
-        include_str!("../../../docs/user-guide/reference/scripting/dates-durations.md"),
+        include_str!("../../../docs/user-guide/scripting/functions/dates-durations.md"),
     ),
     (
         "metadata",
-        include_str!("../../../docs/user-guide/reference/scripting/lists-metadata.md"),
+        include_str!("../../../docs/user-guide/scripting/functions/lists-metadata.md"),
     ),
 ];
 

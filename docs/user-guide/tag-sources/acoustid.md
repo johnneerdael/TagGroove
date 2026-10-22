@@ -77,6 +77,7 @@ spacing of about 1.1 seconds. Local fingerprinting adds to the time needed.
 
 ## Related
 
-- [API key setup](index.md#api-keys)
+- [API keys](api-keys.md)
+- [Compare metadata from several sources](compare.md)
 - [Search, review and save](index.md#search-review-and-save)
 - [Tag Sources options](../reference/options/tag-sources.md)

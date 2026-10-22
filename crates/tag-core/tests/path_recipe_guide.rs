@@ -5,9 +5,9 @@ use tag_core::{
     actions::{apply_action_spec, ActionEffect, ActionSpec, ActionState},
     evaluate, evaluate_filename_with_context, EvalContext, Fields, FilenameConverter,
 };
-const LOWER: &str = include_str!("../../../docs/user-guide/cookbook/rename-lowercase-filenames.md");
-const PORTABLE: &str = include_str!("../../../docs/user-guide/cookbook/rename-safe-characters.md");
-const COVER: &str = include_str!("../../../docs/user-guide/cookbook/export-folder-jpg.md");
+const LOWER: &str = include_str!("../../../docs/user-guide/converters/recipes/rename-lowercase-filenames.md");
+const PORTABLE: &str = include_str!("../../../docs/user-guide/converters/recipes/rename-safe-characters.md");
+const COVER: &str = include_str!("../../../docs/user-guide/tagging/recipes/export-folder-jpg.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]
