@@ -7,6 +7,8 @@
 //! `freedb` does for gnudb and local freedb folders.
 mod acoustid;
 mod catalog;
+mod comparison;
+mod comparison_write_tests;
 mod credentials;
 mod deezer;
 mod discogs;
@@ -20,10 +22,12 @@ mod lastfm;
 mod lrclib;
 mod model;
 mod musicbrainz;
+mod track_search_tests;
 pub(crate) mod web;
 
 use crate::evaluation::EvaluationSettings;
 use base64::Engine;
+pub use comparison::ComparisonSnapshotView;
 use http::Channel;
 pub use model::{Provider, SearchPage, SearchQuery, SourceRelease};
 use serde::Deserialize;
@@ -209,6 +213,26 @@ fn fanart_service(user: &str) -> Result<http::Service, String> {
 /// Web sources are run by `web_source_search` and `web_source_release`.
 const WEB_COMMANDS: &str = "Web sources are searched by their script.";
 
+fn parse_search_response(
+    provider: Provider,
+    mode: model::SearchMode,
+    body: &serde_json::Value,
+) -> Result<SearchPage, String> {
+    use model::SearchMode;
+    match (provider, mode) {
+        (Provider::Musicbrainz, SearchMode::ArtistTitle) => musicbrainz::parse_track_search(body),
+        (Provider::Musicbrainz, _) => Ok(musicbrainz::parse_search(body)),
+        (Provider::Discogs, _) => Ok(discogs::parse_search(body)),
+        (Provider::Itunes, SearchMode::ArtistTitle) => itunes::parse_track_search(body),
+        (Provider::Itunes, _) => Ok(itunes::parse_search(body)),
+        (Provider::Deezer, SearchMode::ArtistTitle) => deezer::parse_track_search(body),
+        (Provider::Deezer, _) => deezer::parse_search(body),
+        (Provider::Lastfm, SearchMode::ArtistTitle) => lastfm::parse_track_search(body),
+        (Provider::Lastfm, _) => lastfm::parse_search(body),
+        _ => Err("This source uses its own search response parser.".into()),
+    }
+}
+
 #[tauri::command]
 pub fn tag_source_catalog_reset() -> Result<(), String> {
     catalog::reset()
@@ -237,10 +261,7 @@ pub async fn tag_source_search(
                 _ => musicbrainz::search_query(&query)?,
             };
             let body = http::json(&service(provider, token), &url, Channel::Search, ticket).await?;
-            Ok(match provider {
-                Provider::Discogs => discogs::parse_search(&body),
-                _ => musicbrainz::parse_search(&body),
-            })
+            parse_search_response(provider, query.mode, &body)
         }
         Provider::Itunes => {
             let url = itunes::search_query(&query, &online().itunes_country)?;
@@ -251,7 +272,7 @@ pub async fn tag_source_search(
                 ticket,
             )
             .await?;
-            Ok(itunes::parse_search(&body))
+            parse_search_response(provider, query.mode, &body)
         }
         Provider::Deezer => {
             let service = service(provider, String::new());
@@ -261,7 +282,11 @@ pub async fn tag_source_search(
                 return deezer::parse_album_result(&body);
             }
             let url = deezer::search_query(&query)?;
-            deezer::parse_search(&http::json(&service, &url, Channel::Search, ticket).await?)
+            parse_search_response(
+                provider,
+                query.mode,
+                &http::json(&service, &url, Channel::Search, ticket).await?,
+            )
         }
         Provider::Lrclib => lrclib_search(query, ticket).await,
         Provider::Acoustid => acoustid_search(&app, query, ticket).await,
@@ -284,7 +309,11 @@ pub async fn tag_source_search(
                 };
             }
             let url = lastfm::search_url(&query, &key)?;
-            lastfm::parse_search(&http::json(&service, &url, Channel::Search, ticket).await?)
+            parse_search_response(
+                provider,
+                query.mode,
+                &http::json(&service, &url, Channel::Search, ticket).await?,
+            )
         }
         Provider::Fanart => {
             // Albums are found on MusicBrainz; the key is only needed for artwork.
@@ -683,6 +712,21 @@ pub async fn tag_source_release(
             catalog::release(provider, &input, ticket).await
         }
         Provider::Musicbrainz | Provider::Acoustid => {
+            if provider == Provider::Musicbrainz {
+                if let Some(recording) = input.strip_prefix("recording:") {
+                    if !musicbrainz::is_mbid(recording) {
+                        return Err("Invalid MusicBrainz recording identifier.".into());
+                    }
+                    let body = http::json(
+                        &service,
+                        &musicbrainz::recording_url(recording),
+                        Channel::Release,
+                        ticket,
+                    )
+                    .await?;
+                    return musicbrainz::parse_recording(&body, cover_size());
+                }
+            }
             let id = musicbrainz::release_id(&input)?;
             let body = http::json(
                 &service,
@@ -718,6 +762,31 @@ pub async fn tag_source_release(
             itunes::parse_release(&body, settings.itunes_cover)
         }
         Provider::Deezer => {
+            if input.starts_with("track:") {
+                let id = deezer::track_id(&input)?;
+                let track =
+                    http::json(&service, &deezer::track_url(&id), Channel::Release, ticket).await?;
+                deezer::check(&track)?;
+                let album_id = track
+                    .pointer("/album/id")
+                    .and_then(serde_json::Value::as_u64)
+                    .filter(|value| *value > 0)
+                    .ok_or("Deezer did not identify this track's album.")?
+                    .to_string();
+                let album = http::json(
+                    &service,
+                    &deezer::release_url(&album_id),
+                    Channel::Release,
+                    ticket,
+                )
+                .await?;
+                let tracks = deezer::load_tracks(&album_id, |url| {
+                    let service = &service;
+                    async move { http::json(service, &url, Channel::Release, ticket).await }
+                })
+                .await?;
+                return deezer::parse_track(&track, &album, &tracks, online().deezer_cover);
+            }
             let id = deezer::release_id(&input)?;
             let album = http::json(
                 &service,
@@ -741,6 +810,13 @@ pub async fn tag_source_release(
                 &saved_credentials(&app).await?.lastfm_key,
                 keys::lastfm(),
             )?;
+            if input.starts_with("track:") {
+                let url = lastfm::track_info_url(&input, &key)?;
+                let body = http::json_optional(&service, &url, Channel::Release, ticket)
+                    .await?
+                    .ok_or("Last.fm could not find this track.")?;
+                return lastfm::parse_track(&body, &input, online().lastfm_genres);
+            }
             let url = lastfm::info_url(&input, &key)?;
             let body = http::json_optional(&service, &url, Channel::Release, ticket)
                 .await?
@@ -870,6 +946,18 @@ pub fn tag_source_cancel(ticket: u64) {
 }
 
 #[tauri::command]
+pub async fn tag_source_comparison_snapshot(
+    paths: Vec<String>,
+    ticket: u64,
+) -> Result<ComparisonSnapshotView, String> {
+    crate::io(move || comparison::capture_view(&paths, ticket)).await
+}
+#[tauri::command]
+pub fn tag_source_comparison_cancel(ticket: u64) {
+    comparison::cancel(ticket);
+}
+
+#[tauri::command]
 pub async fn load_tag_source_settings(
     app: tauri::AppHandle,
 ) -> Result<credentials::CredentialsView, String> {
@@ -888,13 +976,17 @@ pub async fn save_tag_source_settings(
         .map_err(|e| e.to_string())?
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct ApplyItem {
     pub path: String,
     pub updates: Fields,
     /// LRCLIB supplies raw text, rather than ID3's language||lyrics syntax.
     #[serde(default)]
     pub raw_lyrics: bool,
+    #[serde(default)]
+    pub remove_covers: bool,
+    #[serde(default)]
+    pub comparison_snapshot: Option<String>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ApplyCover {
@@ -918,8 +1010,13 @@ fn validate_items(items: &[ApplyItem], cover: bool) -> Result<(), String> {
         if !seen.insert(item.path.as_str()) {
             return Err("A file is matched to more than one track.".into());
         }
-        if item.updates.is_empty() && !cover {
+        if item.updates.is_empty() && !cover && !item.remove_covers {
             return Err("Choose at least one field or the cover to write.".into());
+        }
+        if item.remove_covers && cover {
+            return Err(
+                "Choose either removing existing artwork or importing artwork, not both.".into(),
+            );
         }
         if item.updates.keys().any(|key| key.trim().is_empty()) {
             return Err("Field names cannot be empty.".into());
@@ -1069,16 +1166,35 @@ fn write_import_diagnostic(
                     .and_then(|p| updates.get(p))
                     .copied()
                     .ok_or("File is not part of this import")?;
-                crate::mutate_document(path, |working| {
+                let snapshot = fields.comparison_snapshot.as_deref();
+                let baseline = snapshot
+                    .map(|token| comparison::begin(token, path))
+                    .transpose()?;
+                let written = crate::mutate_document(path, |working| {
+                    if let Some(baseline) = &baseline {
+                        baseline.verify(working)?;
+                        comparison::current(snapshot.unwrap(), path)?;
+                    }
                     let cover = cover_target(working, cover_path.as_deref(), options.preserve)?;
-                    apply_one(
+                    let mut entry = apply_one(
                         working,
                         &fields.updates,
                         cover,
                         options.replace,
                         fields.raw_lyrics,
-                    )
-                })
+                    )?;
+                    if fields.remove_covers {
+                        entry = tag_core::remove_all_covers_with_options(
+                            working,
+                            &crate::settings::tag_options(),
+                        )?;
+                    }
+                    Ok(entry)
+                });
+                if let Some(token) = snapshot {
+                    comparison::finish(token, path, written.is_ok());
+                }
+                written
             });
             let mut diagnostics = Vec::new();
             if let (Some(template), Some(image)) = (&options.save_as, image) {
@@ -1379,11 +1495,13 @@ mod tests {
                 path: missing.to_string_lossy().into_owned(),
                 updates: Fields::new(),
                 raw_lyrics: false,
+                ..Default::default()
             },
             ApplyItem {
                 path: audio.to_string_lossy().into_owned(),
                 updates: Fields::from([("TITLE".into(), vec!["Help".into()])]),
                 raw_lyrics: false,
+                ..Default::default()
             },
         ];
         let mut bytes = Vec::new();
@@ -1583,6 +1701,7 @@ mod tests {
             raw_lyrics: false,
             path: path.into(),
             updates,
+            ..Default::default()
         };
         let some: Fields = [("TITLE".to_string(), vec!["x".to_string()])].into();
         assert!(validate_items(&[], false).is_err());
@@ -1604,6 +1723,7 @@ mod tests {
             raw_lyrics: false,
             path: audio.to_string_lossy().into(),
             updates: [("TITLE".to_string(), vec!["New".to_string()])].into(),
+            ..Default::default()
         }];
         let error = tauri::async_runtime::block_on(tag_source_apply(
             items,
@@ -1633,6 +1753,7 @@ mod tests {
             raw_lyrics: false,
             path: path.to_string_lossy().into(),
             updates: [("TITLE".to_string(), vec![title.to_string()])].into(),
+            ..Default::default()
         };
         let result = tauri::async_runtime::block_on(tag_source_apply(
             vec![item(&a, "One"), item(&b, "Two")],
@@ -1721,6 +1842,7 @@ mod tests {
             path: path.clone(),
             updates: [("ALBUM".into(), vec!["Fresh Album".into()])].into(),
             raw_lyrics: false,
+            ..Default::default()
         }];
         let evaluation = crate::evaluation_settings(Some(vec![crate::evaluation::ColumnSpec {
             name: "Imported column".into(),
@@ -1795,6 +1917,7 @@ mod tests {
             raw_lyrics: false,
             path: audio.to_string_lossy().into_owned(),
             updates: [("ALBUM".to_string(), vec!["Album".to_string()])].into(),
+            ..Default::default()
         }];
         let save = |template: &str| ImportCover {
             replace: true,

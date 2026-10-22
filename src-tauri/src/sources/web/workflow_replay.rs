@@ -1379,6 +1379,7 @@ fn acquisition_refusal_controls(root: &Path, public: &PublicReplay) {
                     path: paths[0].to_string_lossy().into_owned(),
                     updates: public.fixture.expected_updates.clone(),
                     raw_lyrics: false,
+                    ..Default::default()
                 }],
                 Some(crate::sources::ApplyCover {
                     url: url.into(),
@@ -1455,6 +1456,7 @@ fn acquisition_refusal_controls(root: &Path, public: &PublicReplay) {
             path: paths[0].to_string_lossy().into_owned(),
             updates: public.fixture.expected_updates.clone(),
             raw_lyrics: false,
+            ..Default::default()
         }];
         let cover = crate::sources::ApplyCover {
             url: public.fixture.expected_cover_url.clone(),

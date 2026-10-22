@@ -5,6 +5,26 @@ use serde_json::Value;
 use std::collections::HashSet;
 use tag_core::Fields;
 
+#[cfg(test)]
+mod comparison_track_tests {
+    use super::*;
+    #[test]
+    fn track_query_uses_song_entity_and_full_artist_title_in_the_selected_store() {
+        let query = SearchQuery {
+            mode: SearchMode::ArtistTitle,
+            artist: "Artist A".into(),
+            title: "One (Extended Mix)".into(),
+            album: "Wrong compilation".into(),
+            ..Default::default()
+        };
+        let url = reqwest::Url::parse(&search_query(&query, "nl").unwrap()).unwrap();
+        let values: std::collections::HashMap<_, _> = url.query_pairs().collect();
+        assert_eq!(values["entity"], "song");
+        assert_eq!(values["term"], "Artist A One (Extended Mix)");
+        assert_eq!(values["country"], "NL");
+    }
+}
+
 pub const API: &str = "https://itunes.apple.com";
 const LOOKUP_LIMIT: usize = 200;
 
@@ -67,11 +87,11 @@ pub fn search_query(query: &SearchQuery, store: &str) -> Result<String, String> 
             .join(" ")
     };
     let url = match query.mode {
-        SearchMode::ArtistAlbum | SearchMode::Text => {
-            let term = if query.mode == SearchMode::Text {
-                words(&[&query.text])
-            } else {
-                words(&[&query.artist, &query.album])
+        SearchMode::ArtistAlbum | SearchMode::Text | SearchMode::ArtistTitle => {
+            let term = match query.mode {
+                SearchMode::Text => words(&[&query.text]),
+                SearchMode::ArtistTitle => words(&[&query.artist, &query.title]),
+                _ => words(&[&query.artist, &query.album]),
             };
             if term.is_empty() {
                 return Err("Enter an artist, album or search text.".into());
@@ -81,7 +101,14 @@ pub fn search_query(query: &SearchQuery, store: &str) -> Result<String, String> 
                 &[
                     ("term", term.as_str()),
                     ("media", "music"),
-                    ("entity", "album"),
+                    (
+                        "entity",
+                        if query.mode == SearchMode::ArtistTitle {
+                            "song"
+                        } else {
+                            "album"
+                        },
+                    ),
                     ("limit", &PAGE_SIZE.to_string()),
                     ("country", &store),
                 ],
@@ -165,6 +192,51 @@ pub fn parse_search(body: &Value) -> SearchPage {
     SearchPage { results, total }
 }
 
+pub fn parse_track_search(body: &Value) -> Result<SearchPage, String> {
+    let rows = body
+        .get("results")
+        .and_then(Value::as_array)
+        .ok_or("iTunes returned an unexpected track search response.")?;
+    let found: Vec<SearchResult> = rows
+        .iter()
+        .filter_map(|row| {
+            if text(row, "wrapperType") != "track" || text(row, "kind") != "song" {
+                return None;
+            }
+            let track_id = number(row, "trackId").filter(|id| *id > 0)?.to_string();
+            let album_id = number(row, "collectionId")
+                .filter(|id| *id > 0)?
+                .to_string();
+            let title = text(row, "trackName");
+            if title.is_empty() {
+                return None;
+            }
+            Some(SearchResult {
+                id: album_id.clone(),
+                track_id: Some(track_id),
+                release_id: Some(album_id),
+                release_title: Some(text(row, "collectionName")).filter(|value| !value.is_empty()),
+                title,
+                artist: text(row, "artistName"),
+                year: year(&text(row, "releaseDate")),
+                country: text(row, "country"),
+                format: "Track".into(),
+                track_count: Some(1),
+                thumb: artwork(&text(row, "artworkUrl100"), 250),
+                url: text(row, "trackViewUrl"),
+                ..Default::default()
+            })
+        })
+        .collect();
+    if !rows.is_empty() && found.is_empty() {
+        return Err("iTunes returned no usable track identities.".into());
+    }
+    Ok(SearchPage {
+        total: Some(found.len() as u32),
+        results: found,
+    })
+}
+
 pub fn parse_release(body: &Value, size: CoverSize) -> Result<SourceRelease, String> {
     let album = results(body)
         .iter()
@@ -212,6 +284,7 @@ pub fn parse_release(body: &Value, size: CoverSize) -> Result<SourceRelease, Str
             let artist = text(song, "artistName");
             put_one(&mut fields, "TITLE", title.clone());
             put_one(&mut fields, "ARTIST", artist.clone());
+            put_one(&mut fields, "ITUNESTRACKID", text(song, "trackId"));
             let total = |key| {
                 number(song, key)
                     .map(|n| format!("/{n}"))

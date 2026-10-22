@@ -118,7 +118,7 @@ export const TOOLBAR_COMMANDS:Record<string,ToolbarCommand>={
   'source-beatport':{label:'Beatport',hint:'Tag sources: search tracks and releases on Beatport'},
   'source-traxsource':{label:'Traxsource',hint:'Tag sources: search tracks and releases on Traxsource'},
   'source-discogs-artist-title':{label:'Discogs Artist + Title',hint:'Tag sources: find releases by artist and track title'},
-  'source-compare':{label:'Compare sources',hint:'Compare chosen source values for one selected file before saving'},
+  'source-compare':{label:'Compare metadata',hint:'Compare provider values for a selected track or album before saving'},
 };
 const shown=(id:string)=>({id,visible:true}),hidden=(id:string)=>({id,visible:false});
 let separators=0;const separator=(visible=true)=>({id:`${SEPARATOR}-${++separators}`,visible});

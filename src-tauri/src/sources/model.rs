@@ -2,6 +2,16 @@
 use serde::{Deserialize, Serialize};
 use tag_core::Fields;
 
+/// Compilation credits identify the album, not a missing performing artist.
+pub(super) fn compilation_artist(value: &str) -> bool {
+    let normalized: String = value
+        .chars()
+        .filter(char::is_ascii_alphabetic)
+        .flat_map(char::to_lowercase)
+        .collect();
+    matches!(normalized.as_str(), "va" | "various" | "variousartists")
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Provider {
@@ -99,6 +109,9 @@ pub struct SearchPage {
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct SearchResult {
     pub id: String,
+    /// Exact provider track/recording identity when discovery returns its release.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track_id: Option<String>,
     pub title: String,
     pub artist: String,
     pub year: String,

@@ -8,6 +8,15 @@ Select local practice files, save intended pending edits and choose **Tag
 Sources → MusicBrainz…**. For a first guided import, follow
 [Tag an album from an online database](../learn/tag-from-online-sources.md).
 
+## Find one track
+
+Select the intended file and choose **Artist and track title** in **MusicBrainz…**.
+Keep the full mix/version in the title, search, and check the exact track before
+saving. Recording searches keep the selected recording and release identities. A recording without a release can supply its track fields without inventing an album.
+
+Use [Compare metadata…](index.md#compare-fields-from-several-sources) to choose
+individual fields from different providers for one track or an entire album.
+
 ## Choose a search mode
 
 Use **Search by** to choose the information you know. **Artist** and **Album**

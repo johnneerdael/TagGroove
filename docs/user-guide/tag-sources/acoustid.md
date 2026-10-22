@@ -4,6 +4,11 @@ AcoustID identifies recordings from the sound of your files. TagGroove computes
 a fingerprint locally, asks AcoustID for matches, then retrieves the chosen
 release's metadata and artwork from MusicBrainz.
 
+Use [Compare metadata…](index.md#compare-fields-from-several-sources) to mix this
+source's fields with other providers for one track or an album. In Album mode,
+one provider choice per field uses each track's own matched values. Inherit keeps
+existing values; None explicitly removes them.
+
 ## Set up fingerprinting
 
 TagGroove includes Chromaprint and its audio decoder libraries. Install TagGroove

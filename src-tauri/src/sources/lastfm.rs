@@ -6,6 +6,26 @@ use super::model::*;
 use serde_json::Value;
 use tag_core::Fields;
 
+#[cfg(test)]
+mod comparison_track_tests {
+    use super::*;
+    #[test]
+    fn track_query_keeps_performing_artist_and_title_separate() {
+        let query = SearchQuery {
+            mode: SearchMode::ArtistTitle,
+            artist: "Artist A".into(),
+            title: "One (Extended Mix)".into(),
+            album: "Wrong compilation".into(),
+            ..Default::default()
+        };
+        let url = reqwest::Url::parse(&search_url(&query, "test-key").unwrap()).unwrap();
+        let values: std::collections::HashMap<_, _> = url.query_pairs().collect();
+        assert_eq!(values["method"], "track.search");
+        assert_eq!(values["artist"], "Artist A");
+        assert_eq!(values["track"], "One (Extended Mix)");
+    }
+}
+
 pub const API: &str = "https://ws.audioscrobbler.com/2.0/";
 /// Result IDs of albums without a MusicBrainz ID: `album:<artist>\t<album>`.
 const BY_NAME: &str = "album:";
@@ -62,6 +82,21 @@ fn url(key: &str, params: &[(&str, &str)]) -> Result<String, String> {
 }
 
 pub fn search_url(query: &SearchQuery, key: &str) -> Result<String, String> {
+    if query.mode == SearchMode::ArtistTitle {
+        if query.title.trim().is_empty() {
+            return Err("Enter a track title.".into());
+        }
+        return url(
+            key,
+            &[
+                ("method", "track.search"),
+                ("artist", query.artist.trim()),
+                ("track", query.title.trim()),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("page", &(query.page + 1).to_string()),
+            ],
+        );
+    }
     let text = query.text.trim();
     if text.is_empty() {
         return Err("Enter words from the album title.".into());
@@ -141,6 +176,186 @@ pub fn parse_search(body: &Value) -> Result<SearchPage, String> {
         })
         .collect();
     Ok(SearchPage { results, total })
+}
+
+pub fn parse_track_search(body: &Value) -> Result<SearchPage, String> {
+    check(body)?;
+    let rows = body
+        .pointer("/results/trackmatches/track")
+        .ok_or("Last.fm returned an unexpected track search response.")?;
+    if !rows.is_array() && !rows.is_object() {
+        return Err("Last.fm returned an unexpected track list.".into());
+    }
+    let mut results = Vec::new();
+    for track in entries(Some(rows)) {
+        let title = text(track, "name");
+        let artist = track
+            .get("artist")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                track
+                    .get("artist")
+                    .map(|value| text(value, "name"))
+                    .unwrap_or_default()
+            });
+        if title.is_empty() || artist.is_empty() {
+            continue;
+        }
+        let id = format!(
+            "track:{}",
+            serde_json::to_string(&(&artist, &title)).map_err(|error| error.to_string())?
+        );
+        results.push(SearchResult {
+            id: id.clone(),
+            track_id: Some(id),
+            title,
+            artist,
+            format: "Track".into(),
+            track_count: Some(1),
+            thumb: image(track, &["large", "medium"]),
+            url: text(track, "url"),
+            ..Default::default()
+        });
+    }
+    if !entries(Some(rows)).is_empty() && results.is_empty() {
+        return Err("Last.fm returned no usable track identities.".into());
+    }
+    let total = body
+        .pointer("/results/opensearch:totalResults")
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
+        .map(|value| value as u32);
+    Ok(SearchPage { results, total })
+}
+
+pub fn track_info_url(id: &str, key: &str) -> Result<String, String> {
+    let (artist, title): (String, String) = serde_json::from_str(
+        id.strip_prefix("track:")
+            .ok_or("Search for a Last.fm track first.")?,
+    )
+    .map_err(|_| "Invalid Last.fm track identity.")?;
+    if artist.trim().is_empty() || title.trim().is_empty() {
+        return Err("Invalid Last.fm track identity.".into());
+    }
+    url(
+        key,
+        &[
+            ("method", "track.getInfo"),
+            ("artist", &artist),
+            ("track", &title),
+            ("autocorrect", "0"),
+        ],
+    )
+}
+
+pub fn parse_track(body: &Value, id: &str, genres: usize) -> Result<SourceRelease, String> {
+    check(body)?;
+    let track = body
+        .get("track")
+        .filter(|value| value.is_object())
+        .ok_or("Last.fm could not find this track.")?;
+    let title = text(track, "name");
+    let artist = track
+        .get("artist")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            track
+                .get("artist")
+                .map(|value| text(value, "name"))
+                .unwrap_or_default()
+        });
+    if title.is_empty() || artist.is_empty() {
+        return Err("Last.fm returned an unexpected track.".into());
+    }
+    let album = track.get("album").unwrap_or(&Value::Null);
+    let mut fields = Fields::new();
+    put_one(&mut fields, "ALBUM", text(album, "title"));
+    put_one(
+        &mut fields,
+        "ALBUMARTIST",
+        album
+            .get("artist")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                album
+                    .get("artist")
+                    .map(|value| text(value, "name"))
+                    .unwrap_or_default()
+            }),
+    );
+    let mut track_fields = Fields::new();
+    put_one(&mut track_fields, "TITLE", title.clone());
+    put_one(&mut track_fields, "ARTIST", artist.clone());
+    put_one(&mut track_fields, "LASTFM_TRACK_ID", id.to_owned());
+    put_one(
+        &mut track_fields,
+        "MUSICBRAINZ_TRACKID",
+        text(track, "mbid"),
+    );
+    let tags = entries(track.pointer("/toptags/tag"))
+        .into_iter()
+        .chain(entries(track.pointer("/tags/tag")))
+        .map(|value| title_case(&text(value, "name")))
+        .filter(|value| genre_tag(value))
+        .fold(Vec::<String>::new(), |mut found, value| {
+            if !found.iter().any(|old| old.eq_ignore_ascii_case(&value)) {
+                found.push(value);
+            }
+            found
+        });
+    put(
+        &mut track_fields,
+        "GENRE",
+        tags.into_iter().take(genres.clamp(1, 10)).collect(),
+    );
+    let position = album
+        .pointer("/@attr/position")
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
+        .unwrap_or(0) as u32;
+    if position > 0 {
+        put_one(&mut track_fields, "TRACK", position.to_string());
+    }
+    let covers = image(album, &["mega", "extralarge", "large"])
+        .map(|url| SourceCover {
+            url,
+            thumb: image(album, &["large", "medium"]),
+            kind: "Front".into(),
+            width: None,
+            height: None,
+        })
+        .into_iter()
+        .collect();
+    let length = track
+        .get("duration")
+        .and_then(|value| value.as_f64().or_else(|| value.as_str()?.parse().ok()))
+        .filter(|value| *value > 0.0)
+        .map(|value| value / 1000.0);
+    Ok(SourceRelease {
+        provider: Provider::Lastfm,
+        id: id.to_owned(),
+        url: text(track, "url"),
+        preview_url: None,
+        title: text(album, "title"),
+        artist: artist.clone(),
+        fields,
+        tracks: vec![SourceTrack {
+            position: if position > 0 {
+                position.to_string()
+            } else {
+                String::new()
+            },
+            disc: 1,
+            number: position,
+            title,
+            artist,
+            length,
+            fields: track_fields,
+        }],
+        covers,
+        more_covers: false,
+    })
 }
 
 /// An Artist and album search is a direct lookup; its answer is the one result.

@@ -371,7 +371,7 @@ pub fn parse_release(body: &Value) -> Result<SourceRelease, String> {
         }
         let track_title = text(entry, "title");
         let track_artist = match artists(list(entry, "artists")) {
-            a if a.is_empty() => artist.clone(),
+            a if a.is_empty() && !compilation_artist(&artist) => artist.clone(),
             a => a,
         };
         let mut credits: Vec<&Value> = list(entry, "extraartists")

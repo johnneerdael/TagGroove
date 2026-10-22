@@ -3,13 +3,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import ts from 'typescript';
+import {loadProductionModule} from './helpers/load-production-module.mjs';
 
 const fixture=JSON.parse(await readFile(new URL('./fixtures/guide-musicbrainz-lesson.json',import.meta.url),'utf8'));
 const lesson=await readFile(new URL('../docs/user-guide/learn/tag-from-online-sources.md',import.meta.url),'utf8');
-const source=await readFile(new URL('../src/tag-sources.ts',import.meta.url),'utf8');
-const javascript=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-const {autoMatch,buildApplyItems,editField,moveSlotTo,searchPrefill}=await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {autoMatch,buildApplyItems,editField,moveSlotTo,searchPrefill}=await loadProductionModule('tag-sources.ts');
 
 // The Rust MusicBrainz unit test checks this whole expected model against the
 // real provider parser. Keeping both stages on one independently authored

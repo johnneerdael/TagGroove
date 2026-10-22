@@ -6,6 +6,25 @@ use super::model::*;
 use serde_json::Value;
 use tag_core::Fields;
 
+#[cfg(test)]
+mod comparison_track_tests {
+    use super::*;
+    #[test]
+    fn track_query_uses_track_search_with_artist_and_full_title() {
+        let query = SearchQuery {
+            mode: SearchMode::ArtistTitle,
+            artist: "Artist A".into(),
+            title: "One (Extended Mix)".into(),
+            album: "Wrong compilation".into(),
+            ..Default::default()
+        };
+        let url = reqwest::Url::parse(&search_query(&query).unwrap()).unwrap();
+        assert_eq!(url.path(), "/search/track");
+        let values: std::collections::HashMap<_, _> = url.query_pairs().collect();
+        assert_eq!(values["q"], "Artist A One (Extended Mix)");
+    }
+}
+
 pub const API: &str = "https://api.deezer.com";
 
 /// Cover size from Options → Tag Sources → Online services.
@@ -50,6 +69,7 @@ pub fn check(body: &Value) -> Result<(), String> {
 
 pub fn search_query(query: &SearchQuery) -> Result<String, String> {
     let terms: Vec<&str> = match query.mode {
+        SearchMode::ArtistTitle => vec![query.artist.trim(), query.title.trim()],
         SearchMode::ArtistAlbum => vec![query.artist.trim(), query.album.trim()],
         SearchMode::Text => vec![query.text.trim()],
         _ => return Err("Deezer searches by artist and album, free text or barcode.".into()),
@@ -63,7 +83,14 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
         return Err("Enter an artist, album or search text.".into());
     }
     reqwest::Url::parse_with_params(
-        &format!("{API}/search/album"),
+        &format!(
+            "{API}/search/{}",
+            if query.mode == SearchMode::ArtistTitle {
+                "track"
+            } else {
+                "album"
+            }
+        ),
         &[
             ("q", q.as_str()),
             ("limit", &PAGE_SIZE.to_string()),
@@ -209,6 +236,135 @@ pub fn parse_search(body: &Value) -> Result<SearchPage, String> {
     })
 }
 
+pub fn track_id(input: &str) -> Result<String, String> {
+    let id = input.strip_prefix("track:").unwrap_or_default();
+    if !id.is_empty()
+        && id.bytes().all(|value| value.is_ascii_digit())
+        && id.parse::<u64>().is_ok_and(|value| value > 0)
+    {
+        Ok(id.to_owned())
+    } else {
+        Err("Enter a Deezer track identifier returned by track search.".into())
+    }
+}
+pub fn track_url(id: &str) -> String {
+    format!("{API}/track/{id}")
+}
+
+pub fn parse_track_search(body: &Value) -> Result<SearchPage, String> {
+    check(body)?;
+    let rows = body
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or("Deezer returned an unexpected track search response.")?;
+    let results: Vec<SearchResult> = rows
+        .iter()
+        .filter_map(|row| {
+            let id = row
+                .get("id")?
+                .as_u64()
+                .filter(|value| *value > 0)?
+                .to_string();
+            let album = row.get("album")?;
+            let album_id = album
+                .get("id")?
+                .as_u64()
+                .filter(|value| *value > 0)?
+                .to_string();
+            let title = text(row, "title");
+            if title.is_empty() {
+                return None;
+            }
+            Some(SearchResult {
+                id: format!("track:{id}"),
+                track_id: Some(id.clone()),
+                release_id: Some(album_id),
+                release_title: Some(text(album, "title")).filter(|value| !value.is_empty()),
+                title,
+                artist: row
+                    .get("artist")
+                    .map(|artist| text(artist, "name"))
+                    .unwrap_or_default(),
+                format: "Track".into(),
+                track_count: Some(1),
+                thumb: Some(text(album, "cover_medium")).filter(|value| !value.is_empty()),
+                url: format!("https://www.deezer.com/track/{id}"),
+                ..Default::default()
+            })
+        })
+        .collect();
+    if !rows.is_empty() && results.is_empty() {
+        return Err("Deezer returned no usable track identities.".into());
+    }
+    Ok(SearchPage {
+        results,
+        total: body
+            .get("total")
+            .and_then(Value::as_u64)
+            .map(|value| value as u32),
+    })
+}
+
+pub fn parse_track(
+    track: &Value,
+    album: &Value,
+    track_list: &Value,
+    size: CoverSize,
+) -> Result<SourceRelease, String> {
+    check(track)?;
+    let id = text(track, "id");
+    let album_id = text(album, "id");
+    if id.parse::<u64>().ok().filter(|value| *value > 0).is_none()
+        || album_id.is_empty()
+        || track.get("album").map(|value| text(value, "id")).as_deref() != Some(album_id.as_str())
+    {
+        return Err("This Deezer track does not belong to the loaded album.".into());
+    }
+    let mut loaded = parse_release(album, track_list, size)?;
+    let index = loaded
+        .tracks
+        .iter()
+        .position(|row| {
+            row.fields
+                .get("DEEZER_TRACK_ID")
+                .is_some_and(|values| values.contains(&id))
+        })
+        .ok_or("The selected Deezer track was absent from its album.")?;
+    let mut selected = loaded.tracks.remove(index);
+    let title = text(track, "title");
+    if !title.is_empty() {
+        selected.title = title.clone();
+        put_one(&mut selected.fields, "TITLE", title);
+    }
+    let artist = track
+        .get("artist")
+        .map(|value| text(value, "name"))
+        .unwrap_or_default();
+    if !artist.is_empty() {
+        selected.artist = artist.clone();
+        put_one(&mut selected.fields, "ARTIST", artist);
+    }
+    put_one(&mut selected.fields, "ISRC", text(track, "isrc"));
+    if let Some(bpm) = track
+        .get("bpm")
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+    {
+        put_one(&mut selected.fields, "BPM", bpm.to_string());
+    }
+    if let Some(length) = track
+        .get("duration")
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+    {
+        selected.length = Some(length);
+    }
+    loaded.id = format!("track:{id}");
+    loaded.url = format!("https://www.deezer.com/track/{id}");
+    loaded.tracks = vec![selected];
+    Ok(loaded)
+}
+
 /// A barcode lookup answers with the album itself.
 pub fn parse_album_result(body: &Value) -> Result<SearchPage, String> {
     check(body)?;
@@ -238,6 +394,7 @@ pub fn parse_release(
     let mut fields = Fields::new();
     put_one(&mut fields, "ALBUM", title.clone());
     put_one(&mut fields, "ALBUMARTIST", artist.clone());
+    put_one(&mut fields, "DEEZER_ALBUM_ID", id.clone());
     put_one(&mut fields, "YEAR", year(&text(album, "release_date")));
     put(
         &mut fields,
@@ -274,6 +431,7 @@ pub fn parse_release(
             put_one(&mut fields, "TITLE", title.clone());
             put_one(&mut fields, "ARTIST", artist.clone());
             put_one(&mut fields, "ISRC", text(track, "isrc"));
+            put_one(&mut fields, "DEEZER_TRACK_ID", text(track, "id"));
             SourceTrack {
                 position: number.to_string(),
                 disc,
