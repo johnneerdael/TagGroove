@@ -163,30 +163,52 @@ fn credited(names: &str) -> Vec<String> {
 }
 
 /// Does a suffix such as `(Deluxe Edition)`, `[2017 Remaster]` or ` - 25th Anniversary` only label
-/// an edition of the same album? Other subtitles (`(Live)`, `(Acoustic)`) make a different album.
+/// an edition of the same album? Every word of it must be an edition word, a year or an ordinal
+/// (`25th`): one other word (`Live`, `Acoustic`, `Monologue`) makes it a different album, and a
+/// bare small number (`(2)`) is a volume, not an edition.
 fn is_edition_label(suffix: &str) -> bool {
+    const EDITION_WORDS: [&str; 24] = [
+        "deluxe",
+        "edition",
+        "remaster",
+        "remastered",
+        "anniversary",
+        "expanded",
+        "bonus",
+        "track",
+        "tracks",
+        "reissue",
+        "reissued",
+        "collector",
+        "collectors",
+        "limited",
+        "platinum",
+        "explicit",
+        "clean",
+        "mono",
+        "stereo",
+        "super",
+        "special",
+        "version",
+        "original",
+        "the",
+    ];
     let text = suffix.to_lowercase();
-    let digits_only = text
-        .chars()
-        .all(|c| c.is_ascii_digit() || " ()[]-–—".contains(c));
-    digits_only
-        || [
-            "deluxe",
-            "edition",
-            "remaster",
-            "anniversary",
-            "expanded",
-            "bonus",
-            "reissue",
-            "collector",
-            "limited",
-            "platinum",
-            "explicit",
-            "mono",
-            "stereo",
-        ]
-        .iter()
-        .any(|word| text.contains(word))
+    let words: Vec<&str> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect();
+    let ordinal = |word: &str| {
+        let digits = word.trim_end_matches(|c: char| c.is_alphabetic());
+        !digits.is_empty()
+            && digits.chars().all(|c| c.is_ascii_digit())
+            && ["st", "nd", "rd", "th"].contains(&&word[digits.len()..])
+    };
+    let year = |word: &str| word.len() == 4 && (word.starts_with("19") || word.starts_with("20"));
+    !words.is_empty()
+        && words
+            .iter()
+            .all(|word| EDITION_WORDS.contains(word) || ordinal(word) || year(word))
 }
 
 /// The title without its trailing edition labels: "Automatic For The People (25th Anniversary
@@ -227,13 +249,16 @@ fn is_titled(found: &str, wanted: &str) -> bool {
 /// artist whose name merely contains the requested one ("Museum" for "Muse"), nor a longer
 /// title that merely contains it ("Wake Up" for "Up").
 pub fn holds_album(page: &SearchPage, artist: &str, album: &str) -> bool {
-    let artists = credited(artist);
+    let requested = credited(artist);
     page.results.iter().any(|r| {
+        let found = credited(&r.artist);
         is_titled(&r.title, album)
-            && (artists.is_empty()
-                || credited(&r.artist)
-                    .iter()
-                    .any(|name| artists.contains(name)))
+            && (requested.is_empty()
+                // The result credits at least every requested artist ("Artist A & Friends" holds
+                // "Artist A"), or is the same credit. A single shared name is not enough:
+                // "Simon" is not "Simon & Garfunkel".
+                || requested.iter().all(|name| found.contains(name))
+                || plain(&r.artist) == plain(artist))
     })
 }
 
@@ -599,12 +624,36 @@ mod tests {
             "(What's the Story) Morning Glory?"
         ));
         assert_eq!(core_title("Album (Live) [2017 Remaster]"), "albumlive");
+        // Whole words only: "Monologue" and "Unlimited" are not edition labels, a suffix that also
+        // says "Live" is a different album, and a bare small number is a volume, not an edition.
+        assert_eq!(core_title("Album (Monologue)"), "albummonologue");
+        assert_eq!(core_title("Album (Unlimited)"), "albumunlimited");
+        assert_eq!(core_title("Album (Live - Deluxe)"), "albumlivedeluxe");
+        assert_eq!(core_title("Up (2)"), "up2");
+        assert_eq!(core_title("Up [3]"), "up3");
+        assert_eq!(core_title("Up (2017)"), "up");
+        assert_eq!(core_title("Up (25th Anniversary Edition)"), "up");
         let duo = serde_json::json!({"results": [
-            {"wrapperType": "collection", "collectionId": 10, "collectionName": "Greatest Hits", "artistName": "Armin van Buuren"}
+            {"wrapperType": "collection", "collectionId": 10, "collectionName": "Greatest Hits", "artistName": "Armin van Buuren & Silver Panda"}
         ]});
         assert!(holds_album(
             &parse_search(&duo),
-            "Armin van Buuren, Silver Panda",
+            "Armin van Buuren",
+            "Greatest Hits"
+        ));
+        // One shared name of a multi-name credit is not enough, in either direction.
+        assert!(!holds_album(
+            &parse_search(&serde_json::json!({"results": [
+                {"wrapperType": "collection", "collectionId": 18, "collectionName": "Greatest Hits", "artistName": "Simon"}
+            ]})),
+            "Simon & Garfunkel",
+            "Greatest Hits"
+        ));
+        assert!(holds_album(
+            &parse_search(&serde_json::json!({"results": [
+                {"wrapperType": "collection", "collectionId": 19, "collectionName": "Greatest Hits", "artistName": "Earth, Wind & Fire"}
+            ]})),
+            "Earth, Wind & Fire",
             "Greatest Hits"
         ));
         assert_eq!(
