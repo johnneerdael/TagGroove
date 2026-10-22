@@ -30,6 +30,22 @@ test('one album provider choice resolves each performing artist separately from 
   assert.equal(result.blocked.length,0);
 });
 
+test('missing track fields never borrow a release performer or another track fallback',()=>{
+ const c=candidate();c.release.fields.ARTIST=['Various Artists'];c.release.fields.GENRE=['Release-wide fallback'];
+ delete c.release.tracks[1].fields.ARTIST;c.release.tracks[0].fields.GENRE=['Actual B genre'];
+ const preview=buildComparisonPreview(files(),[c],{ARTIST:from(),GENRE:from()});
+ assert.ok(!preview.items.find(item=>item.path==='/a.flac')?.updates.ARTIST);assert.ok(!preview.items.find(item=>item.path==='/a.flac')?.updates.GENRE);
+ assert.deepEqual(preview.missing.filter(item=>item.path==='/a.flac').map(item=>item.field),['ARTIST','GENRE']);
+ delete c.release.tracks[0].fields.ARTIST;
+ assert.equal(buildComparisonPreview(files(),[c],{ARTIST:from()}).items.length,0);
+});
+
+test('a non-compilation shared performer remains available for matched freedb tracks',()=>{
+ const c=candidate({release:release({provider:'freedb',artist:'Artist A',fields:{ARTIST:['Artist A'],ALBUMARTIST:['Artist A']}})});
+ for(const row of c.release.tracks)delete row.fields.ARTIST;
+ assert.deepEqual(buildComparisonPreview(files(),[c],{ARTIST:from()}).items,[{path:'/b.flac',updates:{ARTIST:['Artist A']}}]);
+});
+
 test('extended tags and ordered multi-values are discovered and preserved without an allowlist',()=>{
   const c=candidate({release:release({fields:{CUSTOM_CREDITS:['First','Second'],ARTWORK:['This is a text tag']}})});
   const names=comparisonFields(files(),[c]);

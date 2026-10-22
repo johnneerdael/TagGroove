@@ -22,6 +22,7 @@ const commonFields = ['ALBUM','ALBUMARTIST','ARTIST','TITLE','YEAR','TRACK','DIS
 const hasValue = (values:string[]|undefined):values is string[] => Array.isArray(values) && values.some(value => value.trim().length > 0);
 const ownValues = (fields:Fields,name:string) => Object.hasOwn(fields,name) ? fields[name] : undefined;
 const equalValues = (a:string[]|undefined,b:string[]|undefined) => JSON.stringify(a || []) === JSON.stringify(b || []);
+const compilationArtist = (value:string) => /^(va|various|variousartists)$/.test(value.toLocaleLowerCase().replace(/[^a-z]/g,''));
 
 export function comparisonExisting(file:SourceFile):Fields {
   if (file.fields) return file.fields;
@@ -44,8 +45,10 @@ export function comparisonSourceValue(candidate:ComparisonCandidate,path:string,
   const index = candidate.tracks[path];
   const track = index == null ? undefined : candidate.release.tracks[index];
   const trackField = candidate.release.tracks.some(row => Object.hasOwn(row.fields,field));
-  if (!track && trackField) return {values:null,unmatched:true};
-  const value = track && Object.hasOwn(track.fields,field) ? track.fields[field] : ownValues(candidate.release.fields,field);
+  if (!track && (trackField || ['ARTIST','TITLE'].includes(field))) return {values:null,unmatched:true};
+  const compilation = [candidate.release.artist,...(ownValues(candidate.release.fields,'ALBUMARTIST')||[]),...(ownValues(candidate.release.fields,'ARTIST')||[])].some(compilationArtist);
+  // Per-track values never borrow a shared fallback from a sparse sibling.
+  const value = trackField ? track && ownValues(track.fields,field) : field==='ARTIST'&&compilation ? undefined : ownValues(candidate.release.fields,field);
   return {values:hasValue(value) ? [...value] : null,unmatched:false};
 }
 

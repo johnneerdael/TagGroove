@@ -6,6 +6,19 @@ const RECORDING: &str = "11111111-1111-4111-8111-111111111111";
 const RELEASE: &str = "22222222-2222-4222-8222-222222222222";
 
 #[test]
+fn compilation_tracks_without_credits_never_inherit_various_artists() {
+    for artist in ["Various Artists", "Various", "VA", "V.A."] {
+        let mb = musicbrainz::parse_release(&json!({"id":RELEASE,"title":"Compilation","artist-credit":[{"name":artist}],"media":[{"position":1,"tracks":[{"position":1,"title":"One","recording":{"id":RECORDING}}]}]}), musicbrainz::CoverSize::default()).unwrap();
+        let discogs = super::discogs::parse_release(&json!({"id":44,"title":"Compilation","artists":[{"name":artist}],"tracklist":[{"type_":"track","position":"1","title":"One"}]})).unwrap();
+        for release in [mb, discogs] {
+            assert_eq!(release.fields["ALBUMARTIST"], [artist]);
+            assert!(release.tracks[0].artist.is_empty(), "{artist}");
+            assert!(!release.tracks[0].fields.contains_key("ARTIST"), "{artist}");
+        }
+    }
+}
+
+#[test]
 fn native_search_dispatch_parses_track_answers_instead_of_album_answers() {
     use super::model::{Provider, SearchMode};
     for (provider, body) in [

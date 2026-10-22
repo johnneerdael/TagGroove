@@ -17,6 +17,18 @@ function session(invoke,evaluate=async()=> 'Resolved words'){
   return{value,updates};
 }
 
+test('loading alternatives and paging after cancellation renew the native request ticket',async()=>{
+ let watermark=0;
+ const s=session(async(command,args)=>{
+  if(command==='tag_source_cancel'){watermark=args.ticket;return;}
+  if(args.ticket<=watermark)throw Error('Cancelled: obsolete source ticket');
+  return command==='tag_source_search'?{results:[row()],total:3}:release(args.provider);
+ });
+ await s.value.search([source('musicbrainz')],'album',files,terms);s.value.cancel();
+ await s.value.load('native:musicbrainz',row());assert.equal(s.value.states.get('native:musicbrainz').status,'ready');
+ s.value.cancel();await s.value.more('native:musicbrainz');assert.notEqual(s.value.states.get('native:musicbrainz').status,'failed');
+});
+
 test('every native metadata source gets its real query mode and performing/album artist scope',()=>{
   for(const provider of ['musicbrainz','discogs','beatport','traxsource','itunes','deezer','lastfm']){
     const s=source(provider),single=comparisonQuery(s,'track',[files[0]],terms),album=comparisonQuery(s,'album',files,terms);

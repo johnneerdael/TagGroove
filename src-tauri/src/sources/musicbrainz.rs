@@ -506,7 +506,7 @@ pub fn parse_release(body: &Value, size: CoverSize) -> Result<SourceRelease, Str
             if track_artist.is_empty() {
                 track_artist = credit(recording);
             }
-            if track_artist.is_empty() {
+            if track_artist.is_empty() && !compilation_artist(&artist) {
                 track_artist = artist.clone();
             }
             put_one(&mut track_fields, "TITLE", title.clone());

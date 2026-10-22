@@ -2,6 +2,16 @@
 use serde::{Deserialize, Serialize};
 use tag_core::Fields;
 
+/// Compilation credits identify the album, not a missing performing artist.
+pub(super) fn compilation_artist(value: &str) -> bool {
+    let normalized: String = value
+        .chars()
+        .filter(char::is_ascii_alphabetic)
+        .flat_map(char::to_lowercase)
+        .collect();
+    matches!(normalized.as_str(), "va" | "various" | "variousartists")
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Provider {

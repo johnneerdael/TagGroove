@@ -80,6 +80,16 @@ test('the example never substitutes another album track when the chosen provider
  picker().querySelector('[data-close]').click();close();
 });
 
+test('the open selector also shows providers that supplied no value for the selected field',async()=>{
+ const s=setup({invoke:async(command,args,defaults)=>{
+  if(command==='tag_source_release'&&args.provider==='fanart')return{...sourceRelease('fanart'),fields:{},tracks:[]};
+  return defaults(command,args);
+ }});
+ await s.ui.open();await search();main().querySelector('[data-pick-field="ARTIST"]').click();
+ const value=picker().querySelector('[data-provider-value="native:fanart"]');assert.ok(value);assert.equal(value.value,'');assert.equal(picker().querySelector('[data-source-choice="native:fanart"]').disabled,true);
+ picker().querySelector('[data-close]').click();close();
+});
+
 test('lyrics and multi-value extended metadata stay completely visible in provider value fields',async()=>{
  const s=setup();await s.ui.open();await search();main().querySelector('[data-pick-field="UNSYNCEDLYRICS"]').click();
  const lyrics=picker().querySelector('[data-provider-value="native:lrclib"]');assert.equal(lyrics.tagName,'TEXTAREA');assert.ok(lyrics.value.endsWith('Long lyric text '));assert.match(lyrics.value,/Line one\nLine two/);

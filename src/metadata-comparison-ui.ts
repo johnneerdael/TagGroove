@@ -274,15 +274,15 @@ export class MetadataComparisonUI {
     const artwork=field===null,label=artwork?'Artwork':fieldLabel(field!);
     const current=artwork?this.files[0]?.covers?.map(cover=>cover.description||'Embedded image').join(MULTI)||'':this.existing(this.files[0],field!)?.join(MULTI)||'';
     const choice=artwork?this.artwork:this.choices[field!]||inherit();
-    const options=this.candidates().filter(candidate=>artwork?candidate.release.covers.length:this.files.some(file=>comparisonSourceValue(candidate,file.path,field!).values!==null));
+    const options=this.candidates();
     const child=this.openChild('picker',`Choose ${label.toLowerCase()}`,this.scope==='album'?`Track 1 shown as an example · choice applies to all ${this.files.length} tracks`:'Choose the value for this track',
       `<label class="mc-existing-field"><span>Existing ${html(label.toLowerCase())}${this.scope==='album'?' · track 1':''}</span>${this.valueField(current,`Existing ${label} value`,'data-existing-value')}</label>
       <div class="mc-special-choices">${[['inherit','Inherit','Keep each file’s existing value'],['none','None',artwork?'Remove existing artwork':'Clear this field on every selected file']].map(([kind,name,description])=>`<button type="button" data-source-choice="${kind}" aria-pressed="${choice.kind===kind}"><span class="mc-radio" aria-hidden="true"></span><span>${name}<small>${description}</small></span></button>`).join('')}</div>
       <div class="mc-provider-heading"><span>Provider</span><span>Returned ${html(label.toLowerCase())}${this.scope==='album'?' · track 1 example':''}</span></div>
       <div>${options.map(candidate=>{
-        const state=this.session.states.get(candidate.sourceId)!,cover=candidate.release.covers[0],values=artwork?cover?.kind||'Artwork':comparisonExample(this.files,candidate,field!)?.join(MULTI)||'';
-        const coverage=artwork?this.files.length:this.files.filter(file=>comparisonSourceValue(candidate,file.path,field!).values!==null).length;
-        return `<div class="mc-provider-choice"><div><button type="button" data-source-choice="${html(candidate.sourceId)}" data-revision="${candidate.revision}" ${!state.confirmed?'disabled':''} aria-pressed="${choice.kind==='source'&&choice.sourceId===candidate.sourceId}"><span class="mc-radio" aria-hidden="true"></span><span translate="no">${html(state.source.label)}</span></button><small>${coverage}/${this.files.length} tracks</small>${!state.confirmed?`<button type="button" class="mc-text-action" data-review-source="${html(candidate.sourceId)}">Review match</button>`:''}</div><div>${artwork?`<img class="mc-provider-cover" data-cover-image="${html(candidate.sourceId)}" alt="Provider artwork">`:''}${this.valueField(values,`${label} value from ${state.source.label}`,`data-provider-value="${html(candidate.sourceId)}"`)}</div></div>`;
+        const state=this.session.states.get(candidate.sourceId)!,cover=candidate.release.covers[0],values=artwork?(cover?cover.kind||'Artwork':''):comparisonExample(this.files,candidate,field!)?.join(MULTI)||'';
+        const coverage=artwork?(cover?this.files.length:0):this.files.filter(file=>comparisonSourceValue(candidate,file.path,field!).values!==null).length;
+        return `<div class="mc-provider-choice"><div><button type="button" data-source-choice="${html(candidate.sourceId)}" data-revision="${candidate.revision}" ${!state.confirmed||!coverage?'disabled':''} aria-pressed="${choice.kind==='source'&&choice.sourceId===candidate.sourceId}"><span class="mc-radio" aria-hidden="true"></span><span translate="no">${html(state.source.label)}</span></button><small>${coverage}/${this.files.length} tracks</small>${!state.confirmed?`<button type="button" class="mc-text-action" data-review-source="${html(candidate.sourceId)}">Review match</button>`:''}</div><div>${artwork&&cover?`<img class="mc-provider-cover" data-cover-image="${html(candidate.sourceId)}" alt="Provider artwork">`:''}${this.valueField(values,`${label} value from ${state.source.label}`,`data-provider-value="${html(candidate.sourceId)}"`)}</div></div>`;
       }).join('')||'<p class="mc-muted">No provider has supplied this field yet.</p>'}</div>`);
     child.addEventListener('click',event=>{
       const button=(event.target as Element).closest<HTMLButtonElement>('button');if(!button||this.writing)return;
@@ -303,7 +303,7 @@ export class MetadataComparisonUI {
   private async loadProviderImages(child:HTMLDialogElement,candidates:ComparisonCandidate[]) {
     const generation=++this.imageGeneration,ticket=this.host.nextTicket();let next=0;
     await Promise.all(Array.from({length:Math.min(3,candidates.length)},async()=>{
-      while(next<candidates.length){const candidate=candidates[next++],cover=candidate.release.covers[0];
+      while(next<candidates.length){const candidate=candidates[next++],cover=candidate.release.covers[0];if(!cover)continue;
         try{const data=await this.host.invoke<string>('tag_source_image',{url:cover.thumb||cover.url,ticket});
           if(this.closed||this.child!==child||generation!==this.imageGeneration)return;
           const image=[...child.querySelectorAll<HTMLImageElement>('[data-cover-image]')].find(image=>image.dataset.coverImage===candidate.sourceId);if(image)image.src=data;

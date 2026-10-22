@@ -165,6 +165,7 @@ export class ComparisonSearchSession {
   async load(sourceId:string,result:ComparisonSearchResult):Promise<void> { await this.loadResult(sourceId,result,true); }
   private async loadResult(sourceId:string,result:ComparisonSearchResult,confirmed:boolean):Promise<void> {
     const state=this.states.get(sourceId);if(!state)return;
+    if(!this.ticket)this.ticket=this.host.nextTicket();
     const source=state.source,generation=this.generation,request=this.nextRequest(sourceId),ticket=this.ticket;
     const valid=()=>this.valid(sourceId,generation,request);
     this.publish({...state,status:'loading',error:undefined});
@@ -230,7 +231,11 @@ export class ComparisonSearchSession {
     if(!this.states.has(source.id))this.publish({source,status:'searching',results:[],page:0,total:null,canMore:false});
     await this.retry(source.id,terms);
   }
-  async more(sourceId:string):Promise<void> { if(this.states.get(sourceId)?.canMore)await this.searchSource(sourceId,true); }
+  async more(sourceId:string):Promise<void> {
+    if(!this.states.get(sourceId)?.canMore)return;
+    if(!this.ticket)this.ticket=this.host.nextTicket();
+    await this.searchSource(sourceId,true);
+  }
   cancel():void {
     this.generation++;
     if(this.ticket)void this.host.invoke('tag_source_cancel',{ticket:this.host.nextTicket()}).catch(()=>undefined);
