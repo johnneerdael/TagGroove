@@ -6,9 +6,9 @@ Authoring, building and publishing all happen in `johnneerdael/TagGroove`.
 The site is served by this repository's GitHub Pages under the custom domain
 `taggroove.neerdael.nl`, which keeps the address off the privacy-list rules that
 match the `github.io` project path.
-The header keeps ordinary source navigation while omitting optional automatic
-repository-statistics/release-badge requests. Source, edit and release links
-retain their normal literal destinations; no proxy or encoded URL is used.
+The header uses Material's standard GitHub repository component to display the
+latest release tag, stars and forks. Source, edit and release links retain their
+normal literal destinations; no proxy or encoded URL is used.
 
 ## Write and validate a page
 
@@ -56,6 +56,29 @@ Run `python3 scripts/docs-status.py --drafts` to find unfinished pages, or
 Coverage is a writing plan, not a feature-parity claim.
 
 ## Review and publication
+
+### Manual docs-only publication
+
+The repository owner can publish current `main` without an application release:
+
+```sh
+gh workflow run docs-manual.yml --repo johnneerdael/TagGroove --ref main
+```
+
+In GitHub, choose **Actions → Publish docs manually → Run workflow**, keeping
+the branch set to **main**. This workflow has only a manual trigger; pushes,
+pull requests and schedules cannot start it. It refuses other branches and
+non-owner dispatches.
+
+The build checks out the dispatch's immutable main revision, installs the pinned
+documentation toolchain, runs `mkdocs build --strict` and uploads the Pages
+artifact. Deployment uses the existing `github-pages` environment and Pages
+concurrency group, and skips publication if main has advanced. Only deployment
+receives Pages/OIDC write permissions. It runs no application builds, native
+tests, screenshot capture, packaging or release publication, and supplies no
+application review or release authorization.
+
+### Reviewed publication with an application release
 
 1. Open a pull request. Include user-visible documentation changes in its
    **Release notes** section and the checks performed in **Validation**.
