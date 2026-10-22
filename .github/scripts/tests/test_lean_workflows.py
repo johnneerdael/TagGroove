@@ -1,7 +1,11 @@
 """Execution-contract checks for the reviewed validation/release split."""
 import json
+import os
 import re
 import shlex
+import subprocess
+import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -160,6 +164,31 @@ class LeanWorkflows(unittest.TestCase):
         self.assertLess(block.index('name: '+title), block.index('name: Build desktop packages'))
         self.assertLess(block.index('name: Build desktop packages'),
                         block.index('name: Capture authenticated Linux package and source bindings'))
+
+    def test_linux_setup_upgrades_inherited_packages_before_build(self):
+        block = job((WORKFLOWS / 'reviewed-release.yml').read_text(), 'desktop')
+        step = block.split('      - name: Linux build and media dependencies\n', 1)[1].split('      - ', 1)[0]
+        script = textwrap.dedent(step.split('run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            commands = root / 'commands.jsonl'
+            sudo = root / 'sudo'
+            sudo.write_text('#!/usr/bin/env python3\nimport json, os, sys\n'
+                            'with open(os.environ["TAGGROOVE_APT_TEST_LOG"], "a") as log:\n'
+                            '    log.write(json.dumps(sys.argv[1:]) + "\\n")\n')
+            sudo.chmod(0o755)
+            environment = dict(os.environ, PATH=str(root)+os.pathsep+os.environ['PATH'],
+                               TAGGROOVE_APT_TEST_LOG=str(commands))
+            subprocess.run(['bash', '-e', '-c', script], env=environment, check=True)
+            calls = [json.loads(line) for line in commands.read_text().splitlines()]
+        upgrades = [(i, call) for i, call in enumerate(calls) if call[0] == 'apt-get' and 'upgrade' in call]
+        self.assertEqual(len(upgrades), 1, 'Refresh inherited runner packages, including indirect bundled runtimes')
+        position, upgrade = upgrades[0]
+        self.assertIn('-y', upgrade)
+        self.assertIn('--with-new-pkgs', upgrade)
+        self.assertIn('APT::Get::Always-Include-Phased-Updates=true', upgrade)
+        self.assertLess(calls.index(['apt-get', 'update']), position)
+        self.assertLess(block.index('name: Linux build and media dependencies'), block.index('name: Build desktop packages'))
 
     def test_linux_capture_follows_build_and_sources_receive_both_builder_artifacts(self):
         source = (WORKFLOWS / 'reviewed-release.yml').read_text()

@@ -321,6 +321,12 @@ package version is no longer present in the authenticated repository suites,
 capture refuses; refresh the affected builder dependency rather than guessing a
 replacement source version or weakening the byte checks.
 
+Before packaging, Linux builders also upgrade inherited packages to the current
+APT candidates, including phased updates and required new dependencies, without
+removing installed packages. Installing the direct build dependencies alone can
+leave indirect bundled runtimes, such as `libsystemd0`, at obsolete image versions
+whose exact source bindings are no longer available in the signed repositories.
+
 HTTP download failures identify the public archive host and path alongside the
 status code. URL credentials, query parameters and fragments stay out of logs.
 

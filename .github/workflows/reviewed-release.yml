@@ -201,6 +201,9 @@ jobs:
           sudo apt-get update
           # Refresh the bundled curl runtime even when an older runner copy satisfies WebKit's dependencies.
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libcurl3t64-gnutls patchelf libssl-dev build-essential cmake make nasm
+          # Refresh indirect bundled runtimes inherited from the image as well.
+          # Include phased updates so obsolete image versions cannot remain selected.
+          sudo apt-get -o APT::Get::Always-Include-Phased-Updates=true upgrade --with-new-pkgs -y
       - name: macOS media dependencies
         if: runner.os == 'macOS'
         run: brew install cmake nasm
