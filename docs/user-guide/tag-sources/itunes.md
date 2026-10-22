@@ -3,6 +3,15 @@
 Use **Tag Sources → iTunes…** for album metadata and store artwork. No Apple
 account or API key is needed for the lookup.
 
+## Find one track
+
+Select the intended file and choose **Artist and track title** in **iTunes…**.
+Keep the full mix/version in the title, search, and check the exact track before
+saving. The selected song retains its store track identity when the parent album loads. Album completeness checks still apply.
+
+Use [Compare metadata…](index.md#compare-fields-from-several-sources) to choose
+individual fields from different providers for one track or an entire album.
+
 ## Find an album
 
 1. Select the album's files and open **iTunes…**.

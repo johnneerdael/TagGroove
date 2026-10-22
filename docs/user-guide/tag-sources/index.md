@@ -7,14 +7,14 @@ result, check its fields and file-to-track matches, then save the changes.
 
 | Source | Use it for | Setup |
 |---|---|---|
-| MusicBrainz | Release metadata and Cover Art Archive artwork | No key |
+| MusicBrainz | Track and release metadata and Cover Art Archive artwork | No key |
 | [Discogs](discogs.md) | Releases, artist/track-title search, catalog numbers and artwork | TagGroove application credentials or a personal token |
 | [Beatport / Traxsource](catalog.md) | Individual tracks, releases, mix/version metadata and artwork | No personal key; Traxsource may need an optional challenge solver |
-| [iTunes](itunes.md) | Store album metadata and artwork | No key; choose the store country in Options |
-| [Deezer](deezer.md) | Album metadata, ISRCs and artwork | No key |
+| [iTunes](itunes.md) | Store track/album metadata and artwork | No key; choose the store country in Options |
+| [Deezer](deezer.md) | Track/album metadata, ISRCs and artwork | No key |
 | [LRCLIB](lrclib.md) | Lyrics matched to each selected file | No key |
 | [AcoustID](acoustid.md) | Recordings identified by audio fingerprint | API key; fingerprinting libraries are included |
-| Last.fm | Album metadata and listener tags for `GENRE` | API key |
+| Last.fm | Track/album metadata and listener tags for `GENRE` | API key |
 | fanart.tv | Album covers and disc artwork | API key; covers only |
 | freedb / freedb (local) | Disc metadata from a CDDB server or local database folder | Configure the server or local folder in Options |
 
@@ -59,29 +59,56 @@ the required input is available.
 
 ## Compare fields from several sources
 
-Select exactly one audio file and choose **Tag Sources → Compare sources
-for one file…**. This compares Discogs, Beatport and Traxsource candidates before
-writing anything.
+Select one track or the files of one album and choose **Tag Sources → Compare
+metadata…**. The same field choices work in both scopes. Opening the window
+reads the current files; online searches start only when requested.
 
-1. Choose a source, check the prefilled artist and complete track title, including
-   the mix/version, and select **Search**.
-2. Choose a matching result. A track result supplies its identified track; for
-   a release, select the exact track from its list. No search result is accepted
-   automatically. Repeat with another source to add a comparison column.
-3. Compare each source's values with **Current file**. Every **Save from** choice
-   starts at **Keep current**. Choose a source separately for each field to import;
-   fields absent from that source cannot be selected. Choosing a different
-   candidate for the same source resets that source's field choices.
-4. Select **Save chosen fields** for one save through the existing tag writer.
-   Only the chosen fields are written. Other fields, including personal notes,
-   remain unchanged. This comparison does not import artwork.
+1. Check **Single track** or **Album** and the search terms. Track searches use
+   the performing artist and complete track title, including the mix/version.
+   Album searches use album artist and album title. If local album titles differ,
+   explicitly confirm that the selected files belong to one album.
+2. Open **Sources and matches** to choose native providers and installed `.src`
+   sources. Sources needing keys, a local database or extra search inputs explain
+   what is missing. AcoustID is optional: it reads each file to calculate its
+   fingerprint. Select **Search selected sources**, or search one source in its
+   details. A failed source leaves other results available; retry it separately.
+3. Check the suggested release and **Tracks and files**. Use **Matches** to
+   choose another edition, or **Match…** to correct a file's provider track.
+   Ambiguous matches require review. A changed candidate resets its field choices.
+4. Find any standard or extended field. **Existing values** stays separate from
+   the choice and result. Open **Use** to see each provider's returned value in
+   its own read-only box. Long text and multiple values remain available in full.
+   In Album mode the boxes show **track 1 as an example**; they never substitute
+   a later track when the first track has no value.
+5. Choose **Inherit**, **None**, or a provider for each field:
 
-**Cancel** performs no writes. A failed source lookup leaves other sources
-available. Changing the selected file invalidates the comparison; close
-it and start again for the intended file. Normal platform and provider save-back rules, write errors and the desktop
-[Undo limits](../guides/undo-history.md) still apply. Writable provider documents
-use their existing [save-back and recovery path](../platforms/android.md),
-rather than the desktop Undo journal.
+   | Choice | Result |
+   |---|---|
+   | **Inherit** | Keep each file's own existing values; this is the default. |
+   | **None** | Explicitly remove that field from every selected file. |
+   | **Provider** | Use that provider's own matched value for each file. |
+
+   One field choice applies to the whole album. Choosing a provider for `ARTIST`
+   writes each track's performing artist, not track 1's literal value to every
+   track. `ALBUMARTIST` is independent: a compilation can use `Various Artists`
+   while each track keeps its individual performer. An existing `VA` value is
+   unchanged until a choice explicitly replaces it.
+6. Check coverage counts and click an existing/result value for the per-track
+   preview. Missing provider values keep existing values; **None** is the explicit
+   removal action. An unmatched track must be matched before importing its track
+   fields. Artwork has the same Inherit/None/provider choices and a visual preview.
+7. Choose **Review and save**. Check affected paths, removals and missing-value
+   notices, then save the reviewed batch. Successful files appear separately if
+   another file fails. **Retry failed files** writes only the remaining failures.
+
+**Cancel** leaves unsaved choices unwritten; it cannot undo files already saved
+in a partial batch. Changing the selection or editing a file outside the reviewed
+state requires a new comparison. A provider may supply only some fields or no
+usable result. This includes lyrics-only LRCLIB and artwork-only fanart.tv.
+Normal platform save-back rules and the desktop [Undo
+limits](../guides/undo-history.md) apply. Writable provider documents use their
+existing [save-back and recovery path](../platforms/android.md), outside the
+desktop Undo journal. Ordinary single-source dialogs remain available.
 
 ## Set up API keys { #api-keys }
 
@@ -102,7 +129,9 @@ compiled build includes working keys.
 ## Last.fm
 
 Choose **Tag Sources → Last.fm…**. **Artist and album** looks up that album
-directly; **Album title words** searches by album title. **MusicBrainz release
+directly; **Album title words** searches by album title. **Artist and track title**
+searches recordings and loads track details, including available album context.
+Track artists and album artists remain separate. **MusicBrainz release
 ID** accepts a release MBID for a direct lookup.
 
 The review shows available album and track metadata, cover art and filtered,

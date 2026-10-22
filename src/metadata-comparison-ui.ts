@@ -1,4 +1,5 @@
 import type {ApplyCover,ApplyItem,Fields,SourceFile,SourceCover,TagSourceCredentials} from './tag-sources';
+import type {PresentedFileError} from './batch-errors';
 import type {WebListing} from './web-sources';
 import {buildComparisonPreview,comparisonExisting,comparisonFields,comparisonExample,comparisonSelectionKey,comparisonSourceValue} from './metadata-comparison';
 import type {ComparisonCandidate,ComparisonChoice,ComparisonPreview,ComparisonSaveOutcome,ComparisonScope} from './metadata-comparison';
@@ -12,7 +13,8 @@ type ComparisonHost={
   evaluate:(path:string,template:string)=>Promise<string>;
   loadExistingCovers?:(path:string)=>Promise<CoverView[]>;
   applyComparison:(items:ApplyItem[],cover:ApplyCover|null)=>Promise<ComparisonSaveOutcome>;
-  formatError?:(error:unknown)=>string;
+  formatError?:(error:unknown)=>string|undefined;
+  formatFileError?:(error:PresentedFileError)=>string;
   onClose?:()=>void;
   onLanguageChange?:(listener:()=>void)=>()=>void;
 };
@@ -56,7 +58,8 @@ export class MetadataComparisonUI {
   private frozen:ComparisonPreview|null=null;
   private pending:ApplyItem[]=[];
   private completed=new Set<string>();
-  private failed:{path:string;error:string}[]=[];
+  private failed:PresentedFileError[]=[];
+  private retainedErrors=new Map<HTMLDialogElement,unknown>();
   private unsubscribe?:()=>void;
   private imageGeneration=0;
 
@@ -68,10 +71,18 @@ export class MetadataComparisonUI {
   }
   private preview():ComparisonPreview {return buildComparisonPreview(this.files,this.candidates(true),this.choices,this.artwork);}
   private message(error:unknown):string {return this.host.formatError?.(error)||(error instanceof Error?error.message:String(error));}
-  private error(error:unknown,dialog=this.dialog) {dialog.querySelector<HTMLElement>('[data-error]')!.textContent=this.message(error);}
+  private error(error:unknown,dialog=this.dialog) {
+    this.retainedErrors.set(dialog,error);const element=dialog.querySelector<HTMLElement>('[data-error]')!,formatted=this.host.formatError?.(error);
+    if(formatted!==undefined)element.setAttribute('translate','no');else element.removeAttribute('translate');
+    element.textContent=formatted??this.message(error);
+  }
   private existing(file:SourceFile,field:string):string[] {const fields=comparisonExisting(file);return Object.hasOwn(fields,field)?fields[field]:[];}
   private localSummary(values:(string[]|undefined)[]):string {
     return values.every(value=>equal(value,values[0]))?(values[0]?.join(MULTI)||'Empty'):`Varies across ${values.length} tracks`;
+  }
+  private summaryMarkup(values:(string[]|undefined)[]):string {
+    const raw=values.every(value=>equal(value,values[0]))&&!!values[0]?.length;
+    return `<span ${raw?'translate="no"':''}>${html(this.localSummary(values))}</span>`;
   }
   private scopeAllowed() {return this.scope==='track'?this.files.length===1:!this.mixed||this.confirmedAlbum;}
   private busy() {return [...this.session.states.values()].some(state=>state.status==='searching'||state.status==='loading');}
@@ -103,7 +114,7 @@ export class MetadataComparisonUI {
     dialog.addEventListener('change',event=>this.input(event));
     dialog.addEventListener('cancel',event=>{if(this.writing)event.preventDefault();});
     dialog.addEventListener('close',()=>this.dispose());
-    this.unsubscribe=this.host.onLanguageChange?.(()=>{if(!this.closed)this.renderFields();});
+    this.unsubscribe=this.host.onLanguageChange?.(()=>{if(this.closed)return;this.renderFields();for(const [dialog,error]of this.retainedErrors)if(dialog.isConnected)this.error(error,dialog);if(this.childKind==='sources'){if(this.detailSource)this.sourceDetails(this.detailSource);else this.sourcesBody();}if(this.childKind==='review'&&!this.writing)this.reviewBody();});
     this.renderTerms();this.renderFields();dialog.showModal();
     const ticket=this.host.nextTicket();
     try {
@@ -181,7 +192,7 @@ export class MetadataComparisonUI {
       const count=candidates.filter(candidate=>this.files.some(file=>comparisonSourceValue(candidate,file.path,name).values!==null)).length;
       const use=choice.kind==='source'?this.sources.find(source=>source.id===choice.sourceId)?.label||'Review source':choice.kind==='none'?'None':'Inherit';
       const missing=preview.missing.filter(value=>value.field===name).length;
-      return `<tr data-field="${html(name)}"><th scope="row"><span>${html(fieldLabel(name))}</span><small translate="no">${html(name)}</small>${count?`<small>${count} source${count===1?'':'s'}</small>`:''}</th><td><button class="mc-value" type="button" data-inspect="${html(name)}" translate="no">${html(this.localSummary(old))}</button></td><td><button type="button" class="mc-choice ${choice.kind!=='inherit'?'mc-selected':''}" data-pick-field="${html(name)}" ${!this.ready?'disabled':''} aria-label="Choose source for ${html(fieldLabel(name))}"><span ${choice.kind==='source'?'translate="no"':''}>${html(use)}</span><span aria-hidden="true">▾</span></button></td><td><button type="button" class="mc-value ${choice.kind==='none'?'mc-removal':''}" data-inspect="${html(name)}" translate="no">${html(this.localSummary(next))}</button><small class="${choice.kind==='none'?'mc-removal':''}">${choice.kind==='none'?'Remove field':choice.kind==='inherit'?'Unchanged':missing?`${missing} missing · existing kept`:this.scope==='album'?'Matched values for each track':'Matched value'}</small></td></tr>`;
+      return `<tr data-field="${html(name)}"><th scope="row"><span ${Object.hasOwn(labels,name)?'':'translate="no"'}>${html(fieldLabel(name))}</span><small translate="no">${html(name)}</small>${count?`<small>${count} source${count===1?'':'s'}</small>`:''}</th><td><button class="mc-value" type="button" data-inspect="${html(name)}">${this.summaryMarkup(old)}</button></td><td><button type="button" class="mc-choice ${choice.kind!=='inherit'?'mc-selected':''}" data-pick-field="${html(name)}" ${!this.ready?'disabled':''} aria-label="Choose source for ${html(fieldLabel(name))}"><span ${choice.kind==='source'?'translate="no"':''}>${html(use)}</span><span aria-hidden="true">▾</span></button></td><td><button type="button" class="mc-value ${choice.kind==='none'?'mc-removal':''}" data-inspect="${html(name)}">${this.summaryMarkup(next)}</button><small class="${choice.kind==='none'?'mc-removal':''}">${choice.kind==='none'?'Remove field':choice.kind==='inherit'?'Unchanged':missing?`${missing} missing · existing kept`:this.scope==='album'?'Matched values for each track':'Matched value'}</small></td></tr>`;
     }).join('')+(!this.filter?this.artworkRow():'');
     this.sync();
   }
@@ -254,7 +265,7 @@ export class MetadataComparisonUI {
     child.addEventListener('close',()=>{child.remove();if(this.child===child){this.child=null;this.childKind='';this.detailSource=null;}});
     child.showModal();return child;
   }
-  private closeChild(){this.imageGeneration++;if(this.child){const old=this.child;this.child=null;this.childKind='';this.detailSource=null;old.close();old.remove();}}
+  private closeChild(){this.imageGeneration++;if(this.child){const old=this.child;this.child=null;this.childKind='';this.detailSource=null;this.retainedErrors.delete(old);old.close();old.remove();}}
   private valueField(value:string,label:string,attributes=''):string {
     return value.includes('\n')||value.length>140?`<textarea class="mc-returned" rows="${Math.min(6,Math.max(2,value.split('\n').length))}" readonly translate="no" aria-label="${html(label)}" ${attributes} placeholder="No value supplied">${html(value)}</textarea>`:
       `<input class="mc-returned" type="text" readonly translate="no" aria-label="${html(label)}" value="${html(value)}" ${attributes} placeholder="No value supplied">`;
@@ -271,7 +282,7 @@ export class MetadataComparisonUI {
       <div>${options.map(candidate=>{
         const state=this.session.states.get(candidate.sourceId)!,cover=candidate.release.covers[0],values=artwork?cover?.kind||'Artwork':comparisonExample(this.files,candidate,field!)?.join(MULTI)||'';
         const coverage=artwork?this.files.length:this.files.filter(file=>comparisonSourceValue(candidate,file.path,field!).values!==null).length;
-        return `<div class="mc-provider-choice"><div><button type="button" data-source-choice="${html(candidate.sourceId)}" data-revision="${candidate.revision}" ${!state.confirmed?'disabled':''} aria-pressed="${choice.kind==='source'&&choice.sourceId===candidate.sourceId}"><span class="mc-radio" aria-hidden="true"></span><span translate="no">${html(state.source.label)}</span></button><small>${coverage}/${this.files.length} tracks</small>${!state.confirmed?`<button type="button" class="mc-text-action" data-review-source="${html(candidate.sourceId)}">Review match</button>`:''}</div><div>${artwork?`<img class="mc-provider-cover" data-cover-image="${html(candidate.sourceId)}" alt="${html(state.source.label)} artwork">`:''}${this.valueField(values,`${label} value from ${state.source.label}`,`data-provider-value="${html(candidate.sourceId)}"`)}</div></div>`;
+        return `<div class="mc-provider-choice"><div><button type="button" data-source-choice="${html(candidate.sourceId)}" data-revision="${candidate.revision}" ${!state.confirmed?'disabled':''} aria-pressed="${choice.kind==='source'&&choice.sourceId===candidate.sourceId}"><span class="mc-radio" aria-hidden="true"></span><span translate="no">${html(state.source.label)}</span></button><small>${coverage}/${this.files.length} tracks</small>${!state.confirmed?`<button type="button" class="mc-text-action" data-review-source="${html(candidate.sourceId)}">Review match</button>`:''}</div><div>${artwork?`<img class="mc-provider-cover" data-cover-image="${html(candidate.sourceId)}" alt="Provider artwork">`:''}${this.valueField(values,`${label} value from ${state.source.label}`,`data-provider-value="${html(candidate.sourceId)}"`)}</div></div>`;
       }).join('')||'<p class="mc-muted">No provider has supplied this field yet.</p>'}</div>`);
     child.addEventListener('click',event=>{
       const button=(event.target as Element).closest<HTMLButtonElement>('button');if(!button||this.writing)return;
@@ -346,7 +357,7 @@ export class MetadataComparisonUI {
       if(button.dataset.retrySource){
         const id=button.dataset.retrySource,source=this.sources.find(source=>source.id===id)!;
         const terms=structuredClone(this.terms),inputs=[...this.child!.querySelectorAll<HTMLInputElement>('[data-source-input]')];
-        if(source.web){const values=inputs.map(input=>input.value);this.webValues.set(id,values);terms.webValues={...(terms.webValues||{}),[id]:values};}
+        if(source.web){const values=inputs.map(input=>input.value);this.webValues.set(id,values);this.terms.webValues={...(this.terms.webValues||{}),[id]:values};terms.webValues=structuredClone(this.terms.webValues);}
         else for(const input of inputs)if(['artist','title','albumArtist','album'].includes(input.dataset.sourceInput!))terms[input.dataset.sourceInput as 'artist'|'title'|'albumArtist'|'album']=input.value;
         const disc=inputs.find(input=>input.dataset.sourceInput==='disc')?.value;
         if(disc)void this.session.load(id,{id:disc,title:disc,artist:'',year:'',country:'',label:'',catalog_number:'',format:'',track_count:null,score:null,barcode:'',thumb:null,url:''});
@@ -394,7 +405,7 @@ export class MetadataComparisonUI {
   }
   private reviewBody() {
     const child=this.openChild('review','Review changes',`${this.pending.length} file${this.pending.length===1?'':'s'} to save${this.completed.size?` · ${this.completed.size} already saved`:''}`,
-      `${this.completed.size?`<section data-completed><h3>Saved files</h3><ul>${[...this.completed].map(path=>`<li translate="no">${html(path)}</li>`).join('')}</ul></section>`:''}<table class="ts-table mc-preview"><thead><tr><th>File</th><th>Changes</th></tr></thead><tbody>${this.pending.map(item=>`<tr><th translate="no">${html(item.path)}</th><td>${Object.entries(item.updates).map(([field,values])=>`<div><strong translate="no">${html(fieldLabel(field))}</strong>: ${values.length?`<span translate="no">${html(values.join(MULTI))}</span>`:'<span class="mc-removal">Remove field</span>'}</div>`).join('')}${item.remove_covers?'<div class="mc-removal">Remove existing artwork</div>':this.frozen?.cover?'<div>Import selected artwork</div>':''}${this.failed.filter(error=>error.path===item.path).map(error=>`<p class="mc-removal">${html(error.error)}</p>`).join('')}</td></tr>`).join('')}</tbody></table>
+      `${this.completed.size?`<section data-completed><h3>Saved files</h3><ul>${[...this.completed].map(path=>`<li translate="no">${html(path)}</li>`).join('')}</ul></section>`:''}<table class="ts-table mc-preview"><thead><tr><th>File</th><th>Changes</th></tr></thead><tbody>${this.pending.map(item=>`<tr><th translate="no">${html(item.path)}</th><td>${Object.entries(item.updates).map(([field,values])=>`<div><strong ${Object.hasOwn(labels,field)?'':'translate="no"'}>${html(fieldLabel(field))}</strong>: ${values.length?`<span translate="no">${html(values.join(MULTI))}</span>`:'<span class="mc-removal">Remove field</span>'}</div>`).join('')}${item.remove_covers?'<div class="mc-removal">Remove existing artwork</div>':this.frozen?.cover?'<div>Import selected artwork</div>':''}${this.failed.filter(error=>error.path===item.path).map(error=>`<p class="mc-removal" ${this.host.formatFileError?'translate="no"':''}>${html(this.host.formatFileError?.(error)??error.error)}</p>`).join('')}</td></tr>`).join('')}</tbody></table>
       ${this.frozen?.missing.length?`<p class="mc-hint">${this.frozen.missing.length} missing provider values keep their existing values.</p>`:''}
       <p class="mc-hint">Fields set to Inherit are unchanged. Only the selected files are written.</p><div class="mc-child-actions"><button type="button" data-close>${this.completed.size?'Close comparison':'Back to fields'}</button><button type="button" class="primary" data-save>${this.completed.size?'Retry failed files':`Save ${this.pending.length} file${this.pending.length===1?'':'s'}`}</button></div>`);
     child.addEventListener('click',event=>{if((event.target as Element).closest('[data-save]'))void this.save();});

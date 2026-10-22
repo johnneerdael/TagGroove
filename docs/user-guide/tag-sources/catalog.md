@@ -39,7 +39,7 @@ With several files, inspect and adjust all file-to-track matches before
 saving. Opening a release alone writes nothing.
 
 To choose individual fields from several providers, use
-[Compare sources for one file…](index.md#compare-fields-from-several-sources).
+[Compare metadata…](index.md#compare-fields-from-several-sources).
 
 ## Optional challenge solver
 

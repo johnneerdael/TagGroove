@@ -59,9 +59,10 @@ test('comparison applies reviewed artwork without asking the ordinary cover ques
 });
 
 test('comparison returns successful and failed targets separately after a partial album write',async()=>{
-  const host=createApply([],{}, {entries:[entry('/a.wav')],errors:[{path:'/b.wav',error:'Disk full'}]});
+  const failure={path:'/b.wav',error:'Disk full',diagnosticRaw:true,cause:{kind:'io',message:'Disk full'}};
+  const host=createApply([],{}, {entries:[entry('/a.wav')],errors:[failure]});
   assert.equal(typeof host.applyComparison,'function');
   const result=await host.applyComparison([{path:'/a.wav',updates:{COMMENT:[]}},{path:'/b.wav',updates:{COMMENT:[]}}],null);
-  assert.deepEqual(result,{succeeded:['/a.wav'],failed:[{path:'/b.wav',error:'Disk full'}]});
+  assert.deepEqual(result,{succeeded:['/a.wav'],failed:[failure]});
   assert.deepEqual(host.refreshes,[['/b.wav']]);
 });

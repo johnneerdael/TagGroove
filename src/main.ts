@@ -521,7 +521,7 @@ for(const page of tagSourcesOptionsPages(async()=>{const folder=await open({dire
   progress:(job,update)=>listen<{job:string;done:number;total:number}>('opentag://progress',event=>{if(event.payload.job===job)update(event.payload.done,event.payload.total);}),
 },()=>tagSourcesUI.keys(),()=>invoke<void>('tag_source_catalog_reset')))registerOptionsPage(page);
 const tagSourceReason=()=>busy?'Wait for the current operation.':!selected.size?'Select a track or the files of one album.':operationReason('source-musicbrainz');
-const tagSourcesUI=new TagSourcesUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,
+const tagSourcesUI=new TagSourcesUI({formatFileError:error=>fileErrorText(error,t,translate,publicMessage),batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,
   webScriptError:error=>webScriptErrorText(error,t,translate),
   sourceMessage:(key,name,authored)=>t(key,{name:authored?name:translate(name)}),onLanguageChange,
   invoke:(command,args)=>invoke(command,args),
@@ -546,7 +546,7 @@ const tagSourcesUI=new TagSourcesUI({batchError:error=>error instanceof BatchFai
     const targets=items.map(item=>item.path);
     const result=await run('Writing chosen metadata…',async()=>{let batch:Batch;try{batch=await invoke<Batch>('tag_source_apply',{items,cover,columns:columnSpecs(targets)});}catch(error){await reconcileWorkingEntries(targets);throw error;}accept(batch,'Compared metadata');await reconcileWorkingEntries(batch.errors.map(error=>error.path));return batch;});
     if(!result)throw new BatchFailure(errors,'Compared metadata could not be written.',{paths:false,plain:publicMessage});
-    return {succeeded:result.entries.map(entry=>entry.path),failed:result.errors.map(error=>({path:error.path,error:error.error}))};
+    return {succeeded:result.entries.map(entry=>entry.path),failed:result.errors};
   },
 });
 /** The last used tag source when it was a web source that is still installed. */

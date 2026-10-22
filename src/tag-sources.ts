@@ -635,6 +635,7 @@ let dialogTitleId = 0;
 type Invoke = <T>(command:string, args?:Record<string,unknown>) => Promise<T>;
 type TagSourcesHost = {
   batchError?:(error:unknown)=>string|undefined;
+  formatFileError?:(error:import('./batch-errors').PresentedFileError)=>string;
   /** Structured errors are rendered once and refreshed from their raw payload. */
   webScriptError?:(error:WebScriptError)=>string;
   /** Format a source-label scaffold once: installed source labels are authored. */
@@ -697,7 +698,8 @@ export class TagSourcesUI {
       files:this.host.files,reason:this.host.reason,invoke:this.host.invoke,evaluate:this.host.evaluate,nextTicket,
       loadExistingCovers:this.host.loadExistingCovers,onLanguageChange:this.host.onLanguageChange,
       applyComparison:this.host.applyComparison || (async(items,cover)=>{await this.host.apply(items,cover);return{succeeded:items.map(item=>item.path),failed:[]};}),
-      formatError:error=>{const script=webScriptFailure(error);return this.host.batchError?.(error) || (script?(this.host.webScriptError||webScriptErrorText)(script):String(error).replace(/^Error: /,''));},
+      formatFileError:this.host.formatFileError,
+      formatError:error=>{const script=webScriptFailure(error);return this.host.batchError?.(error) ?? (script?(this.host.webScriptError||webScriptErrorText)(script):undefined);},
       onClose:()=>{this.showing=false;this.host.changed?.();},
     });
     try{await comparison.open();}catch(error){this.showing=false;throw error;}

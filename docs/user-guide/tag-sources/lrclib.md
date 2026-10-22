@@ -4,6 +4,11 @@ Use **Tag Sources → Lyrics: LRCLIB…** to find lyrics for selected files.
 No API key is needed. Lyrics are proposed in `UNSYNCEDLYRICS` for review
 before writing.
 
+Use [Compare metadata…](index.md#compare-fields-from-several-sources) to mix this
+source's fields with other providers for one track or an album. In Album mode,
+one provider choice per field uses each track's own matched values. Inherit keeps
+existing values; None explicitly removes them.
+
 ## Look up the selected files
 
 1. Check the files' title, artist, album and duration. Correct misleading

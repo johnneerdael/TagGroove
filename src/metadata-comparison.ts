@@ -16,7 +16,7 @@ export type ComparisonPreview = {
   missing:{path:string;field:string;sourceId:string}[];
   blocked:{path:string;field:string;reason:string}[];
 };
-export type ComparisonSaveOutcome = {succeeded:string[];failed:{path:string;error:string}[]};
+export type ComparisonSaveOutcome = {succeeded:string[];failed:import('./batch-errors').PresentedFileError[]};
 
 const commonFields = ['ALBUM','ALBUMARTIST','ARTIST','TITLE','YEAR','TRACK','DISCNUMBER','GENRE','STYLE','BPM','INITIALKEY','COMPOSER','REMIXER','PUBLISHER','LABEL','CATALOGNUMBER','BARCODE','ISRC','COMMENT','UNSYNCEDLYRICS'];
 const hasValue = (values:string[]|undefined):values is string[] => Array.isArray(values) && values.some(value => value.trim().length > 0);

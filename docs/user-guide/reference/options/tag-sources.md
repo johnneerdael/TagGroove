@@ -85,3 +85,11 @@ track/release workflow and solver privacy details.
 - [Cover preservation messages](messages.md)
 
 <!-- verified: src/tag-sources.ts:tagSourcesOptionsPages,coverTemplate; src-tauri/src/sources online settings, credential commands and image output. Working-folder/column naming context retained from reviewed main. -->
+
+## Comparing providers
+
+[Compare metadata…](../../tag-sources/index.md#compare-fields-from-several-sources)
+uses these provider settings and API keys. Sources and matches shows setup or
+extra-input requirements. AcoustID fingerprinting and installed scripts can be
+enabled explicitly. Each provider supplies only the metadata it has; missing
+values preserve existing tags unless the field is set to None.

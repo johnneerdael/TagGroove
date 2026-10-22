@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {Window} from 'happy-dom';
 import {loadProductionModule} from './helpers/load-production-module.mjs';
 const {MetadataComparisonUI}=await loadProductionModule('metadata-comparison-ui.ts');
+const {DomTranslator}=await loadProductionModule('i18n/dom.ts');
+const {Translator}=await loadProductionModule('i18n/core.ts');
 const pixel='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6yWQAAAAASUVORK5CYII=';
 const originals=()=>[
  {path:'/a.flac',name:'a.flac',title:'One (Extended Mix)',artist:'Artist A',album:'Compilation',album_artist:'VA',track:'1',disc:'1',length:300,fields:{TITLE:['One (Extended Mix)'],ARTIST:['Artist A'],ALBUM:['Compilation'],ALBUMARTIST:['VA'],ISRC:['ID-A'],COMMENT:['Personal note'],DJ_COLLECTION:['Late night','Warm-up']},covers:[{digest:'old-cover',thumbnail:pixel,description:'Old front'}]},
@@ -16,7 +18,7 @@ function sourceRelease(provider){
  return{provider,id:provider==='lrclib'?'':'release:44',title:'Compilation',artist:'Various Artists',url:'',fields:{ALBUM:['Compilation'],ALBUMARTIST:['Various Artists'],GENRE:['Deep House']},tracks,covers:[{url:'https://coverartarchive.org/release/example/front',thumb:null,kind:'Front',width:600,height:600}],more_covers:false};
 }
 function setup({local=originals(),invoke,apply}={}){
- const w=new Window({url:'https://test.invalid'});for(const key of ['window','document','Node','Element','HTMLElement','HTMLInputElement','HTMLButtonElement','HTMLDialogElement','Event','KeyboardEvent'])globalThis[key]=key==='window'?w:w[key];
+ const w=new Window({url:'https://test.invalid'});for(const key of ['window','document','Node','NodeFilter','MutationObserver','Element','HTMLElement','HTMLInputElement','HTMLButtonElement','HTMLDialogElement','Event','KeyboardEvent'])globalThis[key]=key==='window'?w:w[key];
  let files=structuredClone(local),counter=1000,reason='';const calls=[],written=[];
  const defaults=async(command,args)=>{
   if(command==='load_tag_source_settings')return{discogs_token_set:false,discogs_app_key:true,acoustid_key_set:true,lastfm_key_set:true,fanart_key_set:true};
@@ -212,4 +214,12 @@ test('reordered multi-disc tracks keep their own sparse values and invalidate re
  assert.match(main().querySelector('[data-field="ARTIST"] [data-pick-field]').textContent,/Inherit/);assert.match(main().querySelector('[data-field="ALBUMARTIST"] [data-pick-field]').textContent,/Discogs/);
  choose('ARTIST','native:musicbrainz');choose('CUSTOM_CREDIT','native:musicbrainz');main().querySelector('[data-review]').click();const review=document.querySelector('dialog.metadata-comparison-review');assert.match(review.textContent,/missing provider values keep/);review.querySelector('[data-save]').click();await tick();
  assert.deepEqual(s.written[0].items,[{path:'/a.flac',updates:{ALBUMARTIST:['Various Artists'],COMMENT:[],ARTIST:['Artist A feat. Guest'],CUSTOM_CREDIT:['First','Second']},comparison_snapshot:'snapshot-1'},{path:'/b.flac',updates:{ALBUMARTIST:['Various Artists'],COMMENT:[]},comparison_snapshot:'snapshot-1'}]);
+});
+
+test('comparison UI labels translate while provider values, custom field names and file names stay literal',async()=>{
+ const local=originals();for(const file of local)file.fields.Title=['Save'];const s=setup({local});await s.ui.open();
+ const translator=new Translator('de',{'@meta':{name:'Deutsch',locale:'de'},'Compare metadata':'Metadaten vergleichen','Empty':'Leer','Varies across {length} tracks':'Unterschiedlich bei {length} Titeln','Title':'Titel','Save':'Speichern'});
+ const dom=new DomTranslator(document.body,()=>translator);dom.apply();
+ assert.equal(main().querySelector('header').textContent,'Metadaten vergleichen');assert.match(main().querySelector('[data-field="ARTIST"]').textContent,/Unterschiedlich/);
+ assert.equal(main().querySelector('[data-field="Title"] th span').textContent,'Title');assert.equal(main().querySelector('[data-field="Title"] .mc-value').textContent,'Save');close();
 });

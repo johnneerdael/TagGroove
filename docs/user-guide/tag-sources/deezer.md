@@ -3,6 +3,15 @@
 Use **Tag Sources → Deezer…** for album metadata, track ISRCs and artwork.
 The public lookup needs no account or API key.
 
+## Find one track
+
+Select the intended file and choose **Artist and track title** in **Deezer…**.
+Keep the full mix/version in the title, search, and check the exact track before
+saving. The selected track retains its identity and its available BPM/ISRC values when the complete parent album loads.
+
+Use [Compare metadata…](index.md#compare-fields-from-several-sources) to choose
+individual fields from different providers for one track or an entire album.
+
 ## Find an album
 
 1. Select the album's files and choose **Deezer…**.

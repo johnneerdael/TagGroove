@@ -226,7 +226,7 @@ export class ComparisonSearchSession {
     await this.searchSource(sourceId,false);
   }
   async searchOne(source:ComparisonSource,scope:ComparisonScope,files:SourceFile[],terms:ComparisonTerms):Promise<void> {
-    this.scope=scope;this.files=structuredClone(files);this.terms=structuredClone(terms);
+    this.scope=scope;this.files=structuredClone(files);if(!this.states.size)this.terms=structuredClone(terms);
     if(!this.states.has(source.id))this.publish({source,status:'searching',results:[],page:0,total:null,canMore:false});
     await this.retry(source.id,terms);
   }
