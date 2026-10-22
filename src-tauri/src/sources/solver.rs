@@ -52,7 +52,8 @@ pub fn reset() {
     solver::reset_blocked();
 }
 
-/// Query parameters that carry a secret: such an address is never sent to a solver.
+/// Query parameters that carry a secret or say who the person is: such an address is never sent
+/// to a solver. (freedb's `hello` handshake holds the user and domain of the configured email.)
 fn carries_credentials(url: &Url) -> bool {
     if !url.username().is_empty() || url.password().is_some() {
         return true;
@@ -68,6 +69,9 @@ fn carries_credentials(url: &Url) -> bool {
             "auth",
             "sig",
             "signature",
+            "hello",
+            "email",
+            "user",
         ]
         .iter()
         .any(|word| name.contains(word))
@@ -285,6 +289,30 @@ mod tests {
         assert!(!eligible(&Auth::None, None, "text/html", &signed));
         let userinfo = Url::parse("https://user:pw@site.example/").unwrap();
         assert!(!eligible(&Auth::None, None, "text/html", &userinfo));
+        // An address that names the person is never forwarded either.
+        let identity = Url::parse("https://site.example/x?email=me@example.org").unwrap();
+        assert!(!eligible(&Auth::None, None, "text/html", &identity));
+    }
+
+    #[test]
+    fn a_freedb_request_never_goes_to_a_solver_because_its_hello_names_the_person() {
+        let settings = super::super::freedb::FreedbSettings {
+            email: "someone@example.org".into(),
+            ..Default::default()
+        };
+        let url = super::super::freedb::command_url(&settings, "cddb query abc 1 150 200").unwrap();
+        assert!(
+            url.query().unwrap().contains("hello=someone+example.org"),
+            "{url}"
+        );
+        assert!(!eligible(&Auth::None, None, "text/plain", &url));
+        // Without a valid email the developer contact is sent: still a freedb handshake, still kept home.
+        let anonymous = super::super::freedb::command_url(
+            &super::super::freedb::FreedbSettings::default(),
+            "cddb hello",
+        )
+        .unwrap();
+        assert!(!eligible(&Auth::None, None, "text/plain", &anonymous));
     }
 
     #[tokio::test]

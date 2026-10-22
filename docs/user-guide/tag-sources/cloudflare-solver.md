@@ -72,8 +72,9 @@ solver on a machine you trust, and keep its own address free of passwords.
 
 TagGroove never sends a request that carries a credential to a solver. That covers
 your Discogs token, API keys, the access token of Beatport's catalog API, signed
-requests and any address with a key, token or signature in it, as well as form
-submissions and image downloads. If such a request is blocked, the lookup
+requests and any address with a key, token or signature in it, any address that
+names you (freedb's handshake carries the user and domain of the email address
+you set in its options), as well as form submissions and image downloads. If such a request is blocked, the lookup
 fails with a message that says so, rather than passing the secret on. Your audio
 files and the tags stored in them are never sent to a solver; the only tag
 values it can see are the search words inside the addresses above.
