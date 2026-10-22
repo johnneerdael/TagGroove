@@ -162,6 +162,14 @@ The release body embeds the supplied [TagGroove banner](../assets/brand/TagGroov
 
 Rerun only failed jobs and their dependents. Do not restart successful platform builds or native integration suites for a source-packaging or publication failure. Source packaging and publication load repaired tooling from trusted `main`, while retaining the original immutable application commit, version, build artifacts and signing evidence. Release notes link the exact tooling commit when it differs from the application source; use that linked verifier for an older source archive.
 
+Trusted REST metadata reads receive at most three attempts, each bounded to
+120 seconds, with 5/10-second delays. Diagnostics report HTTP status codes or
+timeouts without printing response bodies or credentials. Partial paginated
+reads are discarded before retrying; exhausted reads and invalid metadata still
+refuse authorization. Writes are not retried. A trusted metadata-tooling repair
+can recover a retained release through failed-job retries without changing its
+application commit, version or package bytes.
+
 For a legacy run whose failed job predates that retry support, dispatch `.github/workflows/source-recovery.yml` with its `run_id` and immutable failed `attempt`. The gate requires every original platform and native integration job to have succeeded, only source packaging to have failed, publication to have been skipped, and current normal review or owner main-repair authorization. Downloads use exact artifact IDs whose source identity and timestamps match that attempt; expired, replaced or missing artifacts refuse recovery. Recovery generates matching frontend source, packages corresponding source, downloads the original packages and verifies the complete release before publication. It runs no native application builds or integration tests. Further recovery failures use **Re-run failed jobs** on that recovery run.
 
 An older source commit can pass every verification and still receive `403 Resource not accessible by integration` from the release API. GitHub requires workflow-modification permission when that target differs from the default branch in workflow files; `GITHUB_TOKEN` cannot receive that permission. Creating a tag alone did not resolve the verified v0.2.66 recovery. See [GitHub's release API permission rules](https://docs.github.com/en/rest/releases/releases#create-a-release).

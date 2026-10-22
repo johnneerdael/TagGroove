@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 
 CONTEXT = "Codex review"
@@ -166,9 +167,29 @@ class GitHub:
             command += ["--method", "POST", "--input", "-"]
         if paginate:
             command += ["--paginate", "--slurp"]
-        result = subprocess.run(command, input=json.dumps(data) if data is not None else None,
-                                text=True, capture_output=True, check=True)
-        return json.loads(result.stdout) if result.stdout.strip() else None
+        options = dict(input=json.dumps(data) if data is not None else None,
+                       text=True, capture_output=True, check=True)
+        if data is None:
+            options['timeout'] = 120
+        # Only repeat idempotent reads. A failed write can already have taken
+        # effect, and every authorization check still requires valid metadata.
+        for attempt in range(3 if data is None else 1):
+            try:
+                result = subprocess.run(command, **options)
+                return json.loads(result.stdout) if result.stdout.strip() else None
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                if data is not None:
+                    raise
+                if isinstance(error, subprocess.TimeoutExpired):
+                    detail = 'timed out'
+                else:
+                    status = re.search(r'HTTP (\d{3})', str(error.stderr or ''))
+                    detail = 'HTTP '+status[1] if status else 'CLI exit '+str(error.returncode)
+                # Never echo response bodies, credentials or private diagnostics.
+                print(f'GitHub API read attempt {attempt+1} failed ({detail})', file=sys.stderr, flush=True)
+                if attempt == 2:
+                    raise
+                time.sleep(5*(attempt+1))
 
     def get(self, path):
         return self.request(f"repos/{self.repo}/{path}")
