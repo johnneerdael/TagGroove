@@ -176,8 +176,10 @@ export class ComparisonSearchSession {
     const title=track?terms.title:terms.album,artist=track?terms.artist:terms.albumArtist;
     return results.filter(row=>sameName(row.title,title)&&sameName(row.artist,artist));
   }
-  /** Several results, but exactly one is the one asked for: no editions to choose between. */
+  /** Several results, but exactly one is the one asked for: no editions to choose between. Only when every
+   *  reported result is loaded: another edition could be waiting on a page that has not been fetched. */
   private onlyExactResult(state:ComparisonSourceState,result:ComparisonSearchResult):boolean {
+    if(state.canMore)return false;
     const exact=this.exactResults(state.source,state.results);
     return exact.length===1&&comparisonResultKey(exact[0])===comparisonResultKey(result);
   }

@@ -62,7 +62,8 @@ becomes ready. **Matches** lists the same candidates with more detail, and
 <!-- /figure -->
 
 A source is ready on its own when exactly one of its results has the artist and
-title you searched for and every file has a matching track. Several editions of
+title you searched for, it has returned every result it reported, and every file
+has a matching track. Several editions of
 the same album, or a track that does not line up, are ambiguous: that source
 stays at **Choose the matching result** until you pick its edition, and its
 values stay unavailable in **Use** until then. In **Use**, **Review match** takes

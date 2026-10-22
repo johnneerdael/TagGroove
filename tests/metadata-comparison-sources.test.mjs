@@ -313,3 +313,17 @@ test('the one exact match is loaded and accepted wherever the provider ranked it
   await t.value.search([source('deezer')],'album',files,terms);
   assert.deepEqual(editions,['album:1']);assert.equal(t.value.states.get('native:deezer').status,'needs-match');
 });
+
+test('one exact match on a first page that has more results is only a suggestion',async()=>{
+  // The provider reports five results and one page holds two: another edition may be on a later page.
+  const s=session(async command=>command==='tag_source_search'?{results:[row('album:1'),row('album:2',{title:'Other'})],total:5}:release('deezer'));
+  await s.value.search([source('deezer')],'album',files,terms);
+  const partial=s.value.states.get('native:deezer');
+  assert.equal(partial.canMore,true);
+  assert.equal(partial.status,'needs-match');assert.equal(partial.confirmed,false);
+  // Everything reported is loaded: the same match is unique and ready.
+  const all=session(async command=>command==='tag_source_search'?{results:[row('album:1'),row('album:2',{title:'Other'})],total:2}:release('deezer'));
+  await all.value.search([source('deezer')],'album',files,terms);
+  assert.equal(all.value.states.get('native:deezer').canMore,false);
+  assert.equal(all.value.states.get('native:deezer').status,'ready');
+});
