@@ -1,9 +1,9 @@
 //! Execute the guide's numeric, optional-field and separator examples unchanged.
 use tag_core::{evaluate, Fields};
 
-const NUMBERS: &str = include_str!("../../../docs/user-guide/reference/scripting/numbers.md");
-const TEXT: &str = include_str!("../../../docs/user-guide/reference/scripting/text.md");
-const FORMAT: &str = include_str!("../../../docs/user-guide/reference/format-strings.md");
+const NUMBERS: &str = include_str!("../../../docs/user-guide/scripting/functions/numbers.md");
+const TEXT: &str = include_str!("../../../docs/user-guide/scripting/functions/text.md");
+const FORMAT: &str = include_str!("../../../docs/user-guide/scripting/format-strings.md");
 
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");

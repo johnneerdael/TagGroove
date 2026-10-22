@@ -3,10 +3,12 @@ use tag_core::{
     actions::{apply_action_spec, ActionSpec, ActionState},
     evaluate, Fields,
 };
-const SPACES: &str = include_str!("../../../docs/user-guide/cookbook/trim-spaces.md");
-const BRACKETS: &str = include_str!("../../../docs/user-guide/cookbook/remove-text-in-brackets.md");
-const ARTISTS: &str = include_str!("../../../docs/user-guide/cookbook/split-multiple-artists.md");
-const CREDIT: &str = include_str!("../../../docs/user-guide/cookbook/split-artist-title.md");
+const SPACES: &str = include_str!("../../../docs/user-guide/actions/recipes/trim-spaces.md");
+const BRACKETS: &str =
+    include_str!("../../../docs/user-guide/actions/recipes/remove-text-in-brackets.md");
+const ARTISTS: &str =
+    include_str!("../../../docs/user-guide/actions/recipes/split-multiple-artists.md");
+const CREDIT: &str = include_str!("../../../docs/user-guide/actions/recipes/split-artist-title.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

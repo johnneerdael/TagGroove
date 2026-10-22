@@ -13,9 +13,9 @@ use tag_core::{
     numbering::{plan_numbering, NumberingItem, NumberingOptions},
     read_entry, resolve_cover_source, CompiledFilenamePattern, EvalContext, Fields, TagOptions,
 };
-const FILES: &str = include_str!("../../../docs/user-guide/learn/tags-from-filenames.md");
-const CLEAN: &str = include_str!("../../../docs/user-guide/learn/clean-a-messy-library.md");
-const COVERS: &str = include_str!("../../../docs/user-guide/learn/give-every-album-a-cover.md");
+const FILES: &str = include_str!("../../../docs/user-guide/converters/tags-from-filenames.md");
+const CLEAN: &str = include_str!("../../../docs/user-guide/actions/clean-a-messy-library.md");
+const COVERS: &str = include_str!("../../../docs/user-guide/tagging/give-every-album-a-cover.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

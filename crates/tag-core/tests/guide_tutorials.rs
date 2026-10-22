@@ -4,8 +4,8 @@ use guide_examples::text_blocks;
 
 use tag_core::{evaluate, Fields};
 
-const FORMAT: &str = include_str!("../../../docs/user-guide/learn/format-strings-from-zero.md");
-const REGEX: &str = include_str!("../../../docs/user-guide/learn/regex-from-zero.md");
+const FORMAT: &str = include_str!("../../../docs/user-guide/scripting/format-strings-from-zero.md");
+const REGEX: &str = include_str!("../../../docs/user-guide/scripting/regex-from-zero.md");
 
 fn fields(title: &str) -> Fields {
     [

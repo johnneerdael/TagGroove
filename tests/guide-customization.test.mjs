@@ -19,7 +19,7 @@ const table=(page,marker)=>page.split(`<!-- ${marker}:start -->`)[1].split(`<!--
   .map(line=>line.split('|').slice(1,-1).map(cell=>cell.trim()));
 
 test('Find chapter exercises all actual strategy labels and its written edge cases',async()=>{
-  const rows=table(await read('guides/find'),'find-strategy-examples');
+  const rows=table(await read('tagging/find'),'find-strategy-examples');
   assert.equal(rows.length,8);const seen=new Set();
   for(const [label,criteria,value,expected] of rows){
     const strategy=findStrategies.find(([,name])=>name===label.replaceAll('**',''))?.[0];
@@ -31,7 +31,7 @@ test('Find chapter exercises all actual strategy labels and its written edge cas
 });
 
 test('Find chapter distinguishes result rows from unique files using the written sample',async()=>{
-  const page=await read('guides/find'),criteria=page.match(/use \*\*Contains\*\* with `([^`]+)`/)[1];
+  const page=await read('tagging/find'),criteria=page.match(/use \*\*Contains\*\* with `([^`]+)`/)[1];
   const rows=table(page,'find-result-example').map(cells=>cells.map(literal));
   assert.equal(rows.length,2);
   const files=rows.map(([filename,title,comment])=>({filename,path:`/Practice/${filename}`,fields:{TITLE:[title],...(comment==='*(absent)*'?{}:{COMMENT:[comment]})}}));

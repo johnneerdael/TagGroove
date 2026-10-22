@@ -4,6 +4,14 @@ Use **Split Field by Separator** to turn text containing several names into
 separate field values. For example, one `ARTIST` value containing
 `Juniper Vale; Mira Solberg` becomes two artist values.
 
+<!-- figure:action-split-field -->
+<figure markdown>
+![The Edit action dialog with the action type set to Split Field by Separator and its settings](../assets/screens/action-split-field-light.png#only-light)
+![The Edit action dialog with the action type set to Split Field by Separator and its settings](../assets/screens/action-split-field-dark.png#only-dark)
+<figcaption>The Split Field by Separator action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Split a field
 
 1. Save pending edits and select a few copied files.
@@ -62,5 +70,5 @@ depends on the tag format and the player.
 
 - [Merge Duplicate Fields](merge-duplicate-fields.md)
 - [Remove Duplicate Fields](remove-duplicate-fields.md)
-- [Multivalue format strings](../reference/format-strings.md#multi-value-fields)
+- [Multivalue format strings](../scripting/format-strings.md#multi-value-fields)
 - [Actions and action groups](index.md)

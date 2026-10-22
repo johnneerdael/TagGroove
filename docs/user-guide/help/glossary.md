@@ -5,8 +5,8 @@ guide. A field name such as `ARTIST` names a kind of information; a value
 such as `Juniper Vale` is the information stored there.
 
 !!! tip "New to this?"
-    Start with [What tags are](../concepts/what-are-tags.md), then try
-    [Your first tagging session](../learn/first-tagging-session.md).
+    Start with [What tags are](../tagging/concepts/what-are-tags.md), then try
+    [Your first tagging session](../getting-started/first-tagging-session.md).
     You do not need to learn the whole glossary before editing an album.
 
 ## Actions and calculated text { #automation }
@@ -31,8 +31,8 @@ such as `Juniper Vale` is the information stored there.
 | **Replacement** | The new text used by a replace operation. In a regex operation it may refer to captured text; exact syntax and quoting depend on the context. |
 | **Selection preset** | A saved choice of checked action groups. It chooses groups to run; it does not store the selected audio-file rows or a copy of the music. |
 
-See [Format strings](../reference/format-strings.md),
-[Regular expressions](../reference/regular-expressions.md) and
+See [Format strings](../scripting/format-strings.md),
+[Regular expressions](../scripting/regular-expressions.md) and
 [Actions](../actions/index.md) for the full rules.
 
 ## Tags, fields and credits { #tags }
@@ -61,8 +61,8 @@ See [Format strings](../reference/format-strings.md),
 | **Year / release date** | The year or date describing a release. A year-only value and a full date carry different detail; check the relevant source/converter before shortening one. |
 
 See [Field names](../reference/field-names.md),
-[Multi-value fields](../concepts/multi-value-fields.md) and
-[Track and disc numbers](../concepts/track-and-disc-numbers.md).
+[Multi-value fields](../tagging/concepts/multi-value-fields.md) and
+[Track and disc numbers](../tagging/concepts/track-and-disc-numbers.md).
 
 ## Files, formats and images { #files }
 
@@ -91,8 +91,8 @@ See [Field names](../reference/field-names.md),
 | **VBR** | Variable bitrate: the encoded bitrate can vary through the track. A displayed average does not describe every moment of it. |
 
 See [Supported file formats](../reference/file-formats.md),
-[Cover art](../concepts/cover-art.md) and
-[Chapters and cue sheets](../guides/chapters.md).
+[Cover art](../tagging/concepts/cover-art.md) and
+[Chapters and cue sheets](../tagging/chapters.md).
 
 ## Selection, saving and recovery { #saving }
 
@@ -117,7 +117,7 @@ The special tag-panel choices **`< keep >`** and **`< blank >`** are not
 ordinary metadata values. Keep preserves existing values for that operation;
 blank requests removal. An untouched mixed checkbox similarly keeps each
 file's value until an actual on/off choice is made. See the
-[tag-panel guide](../guides/tag-panel.md) for context.
+[tag-panel guide](../tagging/tag-panel.md) for context.
 
 ## Online sources and outputs { #sources-and-outputs }
 
@@ -157,8 +157,8 @@ file's value until an actual on/off choice is made. See the
 
 ## Related
 
-- [What tags are](../concepts/what-are-tags.md)
-- [Format strings from zero](../learn/format-strings-from-zero.md)
+- [What tags are](../tagging/concepts/what-are-tags.md)
+- [Format strings from zero](../scripting/format-strings-from-zero.md)
 - [Editing, saving and undo](../getting-started/editing-and-saving.md)
 - [Frequently asked questions](faq.md)
 - [Reference overview](../reference/index.md)

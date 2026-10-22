@@ -2,6 +2,13 @@
 
 Open **File → Options… → Export** for output-file behavior shared by export configurations. A configuration's format, filename, and template are edited in the **Export…** dialog itself.
 
+<!-- figure:options-export -->
+<figure markdown>
+![The export page of the Options dialog](../../assets/screens/options-export-light.png#only-light)
+![The export page of the Options dialog](../../assets/screens/options-export-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Leave the selection dialog enabled while building a template. Check both the active configuration and destination before running a batch export.
 

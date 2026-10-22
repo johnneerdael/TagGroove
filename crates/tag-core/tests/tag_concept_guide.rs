@@ -8,9 +8,10 @@ use lofty::{
 };
 use std::{fs, path::Path};
 use tag_core::{evaluate_with_context, read_entry_with_options, EvalContext, Fields, TagOptions};
-const BASICS: &str = include_str!("../../../docs/user-guide/concepts/what-are-tags.md");
-const FORMATS: &str = include_str!("../../../docs/user-guide/concepts/tag-formats.md");
-const NUMBERS: &str = include_str!("../../../docs/user-guide/concepts/track-and-disc-numbers.md");
+const BASICS: &str = include_str!("../../../docs/user-guide/tagging/concepts/what-are-tags.md");
+const FORMATS: &str = include_str!("../../../docs/user-guide/tagging/concepts/tag-formats.md");
+const NUMBERS: &str =
+    include_str!("../../../docs/user-guide/tagging/concepts/track-and-disc-numbers.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

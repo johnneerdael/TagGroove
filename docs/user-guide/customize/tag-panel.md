@@ -6,6 +6,14 @@ A control's **Name** is its label; **Field** is the actual metadata name.
 Showing, hiding or rearranging a control does not by itself remove metadata
 from an audio file.
 
+<!-- figure:customize-tag-panel -->
+<figure markdown>
+![The Customize tag panel dialog: the list of panel fields and the editor for the selected field's name, field, control type and default](../assets/screens/customize-tag-panel-light.png#only-light)
+![The Customize tag panel dialog: the list of panel fields and the editor for the selected field's name, field, control type and default](../assets/screens/customize-tag-panel-dark.png#only-dark)
+<figcaption>Each tag-panel control is one field with a type, a size and a default.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Add a Mood control
 
 1. Open **Customize tag panel…** and choose **New**.
@@ -72,7 +80,7 @@ not continue filling later selections.
 applicable special choices in a drop-down. **Multiline** offers a textarea
 for notes/lyrics. Rows changes its visible height, not the allowed number
 of text lines or the audio file's tag format. For individually editing
-separate values, use [Extended tags](../guides/extended-tags.md).
+separate values, use [Extended tags](../tagging/extended-tags.md).
 
 **Check** is intended for a flag such as COMPILATION. A checked change stages
 `1`; an unchecked change stages clearing the field. The displayed checkbox
@@ -127,7 +135,7 @@ controls. Other underscore-prefixed technical properties cannot be added
 as editable tag-panel fields.
 
 The **Display cover art** checkbox shows/hides the cover section, without
-removing embedded images. [Working with covers](../guides/covers.md)
+removing embedded images. [Working with covers](../tagging/covers.md)
 explains image editing and its separate confirmation paths.
 
 ## Supply consistent suggested values
@@ -169,7 +177,7 @@ Unsupported controls/settings are not an identical-layout guarantee.
 
 - [Tag-panel options](../reference/options/tag-panel.md)
 - [Field Values options](../reference/options/field-values.md)
-- [Extended tags](../guides/extended-tags.md)
+- [Extended tags](../tagging/extended-tags.md)
 - [Column customization](columns.md)
 - [Context and helper menus](../reference/menus/context-menus.md)
 

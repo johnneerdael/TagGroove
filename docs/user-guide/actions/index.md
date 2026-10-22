@@ -21,6 +21,16 @@ A new installation starts with five unchecked groups under **Examples**.
 Review and enable only the examples wanted for a run. Saving an empty library
 keeps it empty; removing examples does not make them return at the next start.
 
+## Tutorials and recipes
+
+| If you want to… | Open |
+|---|---|
+| Build and run your first group | [Build your first action group](first-action-group.md) (tutorial) |
+| Plan a cleanup without changing everything at once | [Clean up a messy library](clean-a-messy-library.md) (tutorial) |
+| Tidy text | [Remove extra spaces](recipes/trim-spaces.md), [trailing annotations](recipes/remove-text-in-brackets.md), [numbered prefixes](recipes/strip-track-numbers-from-titles.md), [capitalization](recipes/fix-capitalisation.md), [the year of a date](recipes/year-from-date.md) |
+| Fix artist credits | [Split artist lists](recipes/split-multiple-artists.md), [split Artist - Title](recipes/split-artist-title.md), [move “feat.” artists](recipes/feat-artists-to-title.md) |
+| Repair or prune fields | [Repair mojibake](recipes/fix-mojibake.md), [keep a reviewed field list](recipes/remove-junk-fields.md) |
+
 ## Choose an action
 
 | Goal | Action |
@@ -46,6 +56,14 @@ keeps it empty; removing examples does not make them return at the next start.
 
 ## Try a quick action
 
+<!-- figure:actions-quick -->
+<figure markdown>
+![The Actions (Quick) dialog with an action type, its settings and an Apply action button](../assets/screens/actions-quick-light.png#only-light)
+![The Actions (Quick) dialog with an action type, its settings and an Apply action button](../assets/screens/actions-quick-dark.png#only-dark)
+<figcaption>A quick action runs once and saves immediately.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Select one practice file whose title contains an underscore.
 2. Choose **Actions → Actions (Quick)…**.
 3. Choose **Replace** in **Action type**.
@@ -59,6 +77,14 @@ keeps it empty; removing examples does not make them return at the next start.
 settings. Check them before the next application.
 
 ## Build a reusable group
+
+<!-- figure:actions-dialog -->
+<figure markdown>
+![The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups](../assets/screens/actions-dialog-light.png#only-light)
+![The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups](../assets/screens/actions-dialog-dark.png#only-dark)
+<figcaption>Groups run in order; each action sees the result of the one before.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Open **Actions → Actions…** and choose **New…** under **Groups**.
 2. Give the group a clear name, such as `Titles: underscores and spaces`.
@@ -253,7 +279,7 @@ field value.
 - [Format Value](format-value.md)
 - [Replace](replace.md)
 - [Replace with Regular Expression](replace-regexp.md)
-- [Move guest artists to titles](../cookbook/feat-artists-to-title.md)
+- [Move guest artists to titles](recipes/feat-artists-to-title.md)
 
 ## Keep lyrics and karaoke beside renamed audio
 
@@ -267,5 +293,5 @@ recorded action history.
 Actions run immediately; they do not show the converters' reviewed companion
 destination list. Membership/content or destination conflicts refuse the
 affected rename and report a warning. Earlier metadata changes and successful
-actions can remain. See [associated files](../guides/associated-files.md#actions-and-tag-tag)
+actions can remain. See [associated files](../tagging/associated-files.md#actions-and-tag-tag)
 for rollback, uncertain-path refusal and Undo/Redo behavior.

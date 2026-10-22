@@ -5,6 +5,14 @@ also hold named external tools and action groups. Arrange buttons around the
 work you repeat, while keeping the menus available for commands you use less
 often. Rearranging a toolbar does not itself change audio tags.
 
+<!-- figure:toolbar-customize -->
+<figure markdown>
+![The Customize toolbars dialog with an arrangement choice and the list of commands you can show on each toolbar](../assets/screens/toolbar-customize-light.png#only-light)
+![The Customize toolbars dialog with an arrangement choice and the list of commands you can show on each toolbar](../assets/screens/toolbar-customize-dark.png#only-dark)
+<figcaption>Choose which commands appear on the main and custom toolbars.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Show a toolbar or recover hidden buttons
 
 Use **View → Toolbars → Main toolbar** and **Custom toolbar** to show or hide
@@ -124,7 +132,7 @@ new rename mode. **Remove from list** and **Clear list** keep files on disk.
 bypasses the trash. The existing confirmation preferences still apply.
 
 Source buttons open the existing source flows. A key-gated source such as
-AcoustID remains unavailable until the app has an applicable API key. Adding
+fanart.tv remains unavailable until the app has an applicable API key. Adding
 its button does not supply credentials or establish a successful provider
 lookup. **Last tag source** can reopen an installed web source. **Last tag
 source (quick)** remembers the last built-in source separately, including

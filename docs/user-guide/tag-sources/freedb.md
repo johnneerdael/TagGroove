@@ -5,6 +5,13 @@ by the track layout of selected files. The original freedb service ended;
 TagGroove's default server is gnudb. Treat a result as a suggestion: check its
 edition, track order and values before writing tags.
 
+<!-- figure:source-freedb -->
+<figure markdown>
+![The freedb dialog with the choice between the selected files' track layout and artist and album](../assets/screens/source-freedb-light.png#only-light)
+![The freedb dialog with the choice between the selected files' track layout and artist and album](../assets/screens/source-freedb-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 ## Search by artist and album
 
 1. Save pending edits and select copied files from one disc.

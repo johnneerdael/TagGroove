@@ -4,6 +4,14 @@ Use **Filename → Tag** when the names contain reliable metadata but the
 tag fields are missing or wrong. A pattern captures pieces of each name
 into fields. It can read parent folders as well as the filename.
 
+<!-- figure:filename-to-tag -->
+<figure markdown>
+![The Filename → Tag dialog with the pattern %track% - R.E.M. %title% and a preview of the tags it reads from the two selected files](../assets/screens/filename-to-tag-light.png#only-light)
+![The Filename → Tag dialog with the pattern %track% - R.E.M. %title% and a preview of the tags it reads from the two selected files](../assets/screens/filename-to-tag-dark.png#only-dark)
+<figcaption>The preview shows what each file would give its tags.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Extract a track number and title
 
 1. Save pending edits and select copied files named like
@@ -80,7 +88,7 @@ or drive specification makes that root part of the match too.
 
 ## Related
 
-- [Tags from folder and file names](../cookbook/tags-from-folder-and-filename.md)
+- [Tags from folder and file names](recipes/tags-from-folder-and-filename.md)
 - [Tag → Filename](tag-to-filename.md)
 - [Text File → Tag](text-file-to-tag.md)
 - [Converters](index.md)

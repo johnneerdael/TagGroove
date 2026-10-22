@@ -4,6 +4,14 @@ Use **Convert Codepage** to repair text whose legacy bytes were interpreted
 with the wrong character encoding. It reinterprets the existing characters
 as bytes, then decodes those bytes with the selected codepage.
 
+<!-- figure:action-convert-codepage -->
+<figure markdown>
+![The Edit action dialog with the action type set to Convert Codepage and its settings](../assets/screens/action-convert-codepage-light.png#only-light)
+![The Edit action dialog with the action type set to Convert Codepage and its settings](../assets/screens/action-convert-codepage-dark.png#only-dark)
+<figcaption>The Convert Codepage action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 This is useful for a known encoding mistake. It is not a language detector
 or translation tool. Correct Unicode text can be damaged by applying it
 again.

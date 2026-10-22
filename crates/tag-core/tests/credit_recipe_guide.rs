@@ -6,10 +6,12 @@ use tag_core::{
     filter::compile_filter,
     Fields,
 };
-const ALBUM: &str = include_str!("../../../docs/user-guide/cookbook/album-artist-from-artist.md");
+const ALBUM: &str =
+    include_str!("../../../docs/user-guide/converters/recipes/album-artist-from-artist.md");
 const TITLE: &str =
-    include_str!("../../../docs/user-guide/cookbook/strip-track-numbers-from-titles.md");
-const SORT: &str = include_str!("../../../docs/user-guide/cookbook/the-artist-sort-names.md");
+    include_str!("../../../docs/user-guide/actions/recipes/strip-track-numbers-from-titles.md");
+const SORT: &str =
+    include_str!("../../../docs/user-guide/converters/recipes/the-artist-sort-names.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

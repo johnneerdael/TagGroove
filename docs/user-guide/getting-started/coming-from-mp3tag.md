@@ -8,6 +8,14 @@ write audio tags.
 
 ## Prepare the profile and your current session
 
+<!-- figure:import-mp3tag-setup -->
+<figure markdown>
+![The Import Mp3tag setup dialog with buttons to choose an Mp3tag configuration folder or a backup ZIP and an optional legacy codepage](../assets/screens/import-mp3tag-setup-light.png#only-light)
+![The Import Mp3tag setup dialog with buttons to choose an Mp3tag configuration folder or a backup ZIP and an optional legacy codepage](../assets/screens/import-mp3tag-setup-dark.png#only-dark)
+<figcaption>File → Import Mp3tag setup… reads a configuration folder or backup ZIP and previews what can come across.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Locate the configuration folder or backup ZIP from your own Mp3tag setup.
    Keep a separate original copy outside the TagGroove configuration folder.
    The selected folder or ZIP must neither contain nor be inside that folder;

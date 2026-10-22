@@ -5,6 +5,13 @@ entries. Use it when you already have a snapshot and want lookup without a
 remote CDDB server. It reflects the snapshot's date; building a text index
 does not add newer albums.
 
+<!-- figure:source-local-freedb -->
+<figure markdown>
+![The local freedb dialog with a disc ID or artist and album words](../assets/screens/source-local-freedb-light.png#only-light)
+![The local freedb dialog with a disc ID or artist and album words](../assets/screens/source-local-freedb-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 ## Choose the database folder
 
 1. Extract the snapshot into a folder the app can read.

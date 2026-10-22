@@ -10,9 +10,10 @@ use tag_core::{
     import_cover_with_options, read_entry_summary, resolve_cover_source, CoverChange, CoverRef,
     Fields, TagOptions,
 };
-const EMBED: &str = include_str!("../../../docs/user-guide/cookbook/embed-folder-jpg.md");
-const RESIZE: &str = include_str!("../../../docs/user-guide/cookbook/resize-covers.md");
-const FRONT: &str = include_str!("../../../docs/user-guide/cookbook/keep-only-front-cover.md");
+const EMBED: &str = include_str!("../../../docs/user-guide/tagging/recipes/embed-folder-jpg.md");
+const RESIZE: &str = include_str!("../../../docs/user-guide/tagging/recipes/resize-covers.md");
+const FRONT: &str =
+    include_str!("../../../docs/user-guide/tagging/recipes/keep-only-front-cover.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

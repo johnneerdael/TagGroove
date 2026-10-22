@@ -9,11 +9,12 @@ The pages that set the bar are:
 | Kind | Exemplar |
 |---|---|
 | Home | `index.md` |
-| Tutorial | `learn/first-tagging-session.md` |
-| Reference (syntax) | `reference/format-strings.md` |
-| Reference (catalogue) | `reference/placeholders.md` |
-| Reference + teaching (function) | `reference/regular-expressions.md` |
-| Recipe | `cookbook/rename-zero-padded-track-numbers.md`, `cookbook/feat-artists-to-title.md`, `cookbook/tags-from-folder-and-filename.md` |
+| Feature landing page | `tagging/index.md`, `tag-sources/index.md` |
+| Tutorial | `getting-started/first-tagging-session.md` |
+| Reference (syntax) | `scripting/format-strings.md` |
+| Reference (catalogue) | `scripting/placeholders.md` |
+| Reference + teaching (function) | `scripting/regular-expressions.md` |
+| Recipe | `converters/recipes/rename-zero-padded-track-numbers.md`, `actions/recipes/feat-artists-to-title.md`, `converters/recipes/tags-from-folder-and-filename.md` |
 
 When this guide and an exemplar disagree, the exemplar wins. Tell the docs
 lead so this guide gets fixed.
@@ -106,9 +107,28 @@ functions and anything the reader types go in code style: `%albumartist%`,
 
 ## 3. Page types and templates
 
-Every page is one of five types. Pick one, and follow its skeleton.
+Every page is one of six types. Pick one, and follow its skeleton. The guide
+is organised by feature (see `ia.md`): a tutorial, guide, recipe or concept
+lives in the tab of the feature it is about, never in a tab named after its
+page type.
 
-### Tutorial (Learn → Tutorials)
+### Feature landing page
+
+The first page of a feature tab (`<feature>/index.md`). It is a map, not a
+manual.
+
+- Opens with what the feature is for and when to use it, in a short
+  paragraph, and a screenshot of the feature in use.
+- A "Start here" route for a newcomer (usually the tutorial), then tables
+  of **Your goal → Page** grouped by task. Every tutorial, guide, recipe and
+  reference page of the feature appears in these tables, so nothing is only
+  reachable through the sidebar.
+- Links out to neighbouring features where a reader may have come to the
+  wrong tab ("to fill tags from names, see Rename & convert").
+- Gets deep links *from* Get started and the home page; never grows into a
+  second copy of what those pages say.
+
+### Tutorial (in its feature's tab)
 
 Learning by doing, start to finish, with a guaranteed success at the end.
 
@@ -120,7 +140,7 @@ Learning by doing, start to finish, with a guaranteed success at the end.
 - Ends with "## What you learned" (bullets) and "## Next steps" (2–4 links).
 - Uses the Juniper Vale fixture so the screenshots match the reader's screen.
 
-### How-to guide (Guides, Automate)
+### How-to guide (in its feature's tab)
 
 Task-oriented, for readers who already know the basics.
 
@@ -141,7 +161,7 @@ Complete and exact; for looking things up.
   gets an input → output table.
 - Ends with "## Related".
 
-### Recipe (Cookbook)
+### Recipe (in its feature's `recipes/` folder)
 
 One problem, one copy-paste solution, then an explanation.
 
@@ -156,7 +176,7 @@ One problem, one copy-paste solution, then an explanation.
 - Always tell the reader to try it on a copy or a few files first, and how
   to undo it.
 
-### Concept explainer (Learn → Concepts)
+### Concept explainer (`tagging/concepts/`)
 
 Builds understanding, with no procedure.
 
@@ -287,26 +307,41 @@ warning, nothing is.
 
 ## 8. Screenshots
 
-Screenshots must come from reviewed CI capture, never from a writer's
-machine. The Linux native job in the reviewed reusable build captures the
-five core scenes in both themes after exact-head authorization. The former
-automatic workflow and its legacy ID must stay disabled. See
-`docs/PUBLISHING.md` and `.github/CI_LOCKDOWN.md`.
+The guide is screenshot-led: every feature landing page, every converter, action
+type, tag source and Options page, and every dialog a lesson mentions has one.
+Screenshots come from one of two reviewed routes, never from a hand-edited image.
 
-- **Current process:** obtain a clean review and let the authorized validation
-  run publish `docs-screens`. Inspect the images and source revision before
-  committing them, then obtain a fresh review for the resulting head.
-- **Preparing a scene:** add it to
-  `tests/docs-screens/scenes/<workstream>.js` and include the requested scene
-  in the reviewed job's explicit scene list. Keep `screens.js` for the core
-  scenes. The scene README lists helpers and the Juniper Vale fixture album;
-  `converters.js` is a working model. Pushing a scene alone does not capture it.
+- **Linux CI (default for the core scenes):** the Linux native job in the reviewed
+  reusable build captures the five core scenes in both themes after exact-head
+  authorization, against the invented *Harbour Lights* album. The former automatic
+  workflow and its legacy ID must stay disabled. See `docs/PUBLISHING.md` and
+  `.github/CI_LOCKDOWN.md`.
+- **Local macOS capture (owner-approved):** `scripts/docs-screenshots-macos.sh` drives a
+  debug build of `main` through the scenes in `tests/docs-screens/` against a working
+  copy of the owner's real albums and songs. It is opt-in
+  (`TAGGROOVE_DOCS_CAPTURE_LOCAL=1`), refuses to run while TagGroove is open, never
+  touches the originals, turns off the "unsaved changes" prompt for the run and restores
+  the app's saved settings, browser storage and undo journal afterwards. Use it for the
+  macOS look and for scenes that need the owner's provider keys. Use material that
+  fits the provider: rock albums for MusicBrainz, a dance release and dance singles for
+  Beatport and Traxsource, pop singles for iTunes, Deezer and LRCLIB.
+
+- **Reviewing images:** open every image before committing it. Reject a capture that
+  shows an error banner, a native dialog, a hover highlight or another app's content.
+  Commit only images a page uses, then obtain a fresh review for the resulting head.
+- **Preparing a scene:** add it to a file in `tests/docs-screens/scenes/` (one table row in
+  `menus-and-dialogs.js` for a menu-launched dialog) and list the figure in
+  `tests/docs-screens/figures.json`. Keep `screens.js` for the core scenes. The scene
+  README lists the helpers. Pushing a scene alone does not capture it.
+- **Embedding:** `python3 scripts/docs-screens-embed.py` inserts each figure from
+  `figures.json` after the heading it names, only when both theme images exist, and
+  updates figures it already placed. Do not hand-write figure markup.
 - **Artifact fetch:** `scripts/docs-screens-fetch.sh <run-id> [scene…]`
   downloads `docs-screens` from an explicit verified run and copies selected
   PNGs into `docs/user-guide/assets/screens/`. It starts no workload. Confirm
   the run's source and inspect every image; commit only images the page uses.
-- **Embedding:** always both variants, so each colour scheme shows the
-  matching screenshot:
+- **Markup:** always both variants, so each colour scheme shows the
+  matching screenshot (the embed script writes exactly this):
 
   ```markdown
   <figure markdown>

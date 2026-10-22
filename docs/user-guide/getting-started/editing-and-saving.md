@@ -6,6 +6,14 @@ and recover from a change before continuing with a whole album.
 
 ## Make one change you can recognize
 
+<!-- figure:tag-panel-pending -->
+<figure markdown>
+![The TagGroove window with the Album field edited in the tag panel: the status bar says there are pending changes for one file and the unsaved-files counter shows 1](../assets/screens/tag-panel-pending-light.png#only-light)
+![The TagGroove window with the Album field edited in the tag panel: the status bar says there are pending changes for one file and the unsaved-files counter shows 1](../assets/screens/tag-panel-pending-dark.png#only-dark)
+<figcaption>A pending edit: the file list and status bar show unsaved work until you choose Save tags.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Work on a copied audio file. Select it in the file list.
 2. In the tag panel, replace its **Album** with `Harbour Lights — practice`.
 3. Look for the pending marker beside the row and the **unsaved files** count.
@@ -71,7 +79,7 @@ A batch history operation can concern several files, beyond the current
 selection. If history cannot start, a successful Save can still write the
 file while reporting **cannot be undone**. Its failed history group stays
 unrecorded; status checks alone do not clear that notice. A later operation
-that is successfully recorded clears it. See [Undo and history](../guides/undo-history.md)
+that is successfully recorded clears it. See [Undo and history](../tagging/undo-history.md)
 for storage and session limits.
 
 The **Redo** menu slot can instead say **Repeat**. Repeat runs the available
@@ -138,9 +146,9 @@ desktop “Save As” replacement. See the [File menu](../reference/menus/file.m
 
 ## Related
 
-- [Your first tagging session](../learn/first-tagging-session.md)
-- [The tag panel](../guides/tag-panel.md)
-- [Cut, copy and paste tags](../guides/copy-paste-tags.md)
-- [Removing tags](../guides/remove-tags.md)
+- [Your first tagging session](first-tagging-session.md)
+- [The tag panel](../tagging/tag-panel.md)
+- [Cut, copy and paste tags](../tagging/copy-paste-tags.md)
+- [Removing tags](../tagging/remove-tags.md)
 
 <!-- verified: src/main.ts:draftField, saveDrafts, discardDrafts, replayHistory, saveOnMove, operateImpl; src/document-state.ts:reconcileDrafts; src/list-behaviour.ts:autoSaveTargets; crates/tag-core/src/tags.rs:staged_mutation; src-tauri/src/history.rs. Source/model evidence; no installed UI/save-back claim. -->

@@ -2,6 +2,13 @@
 
 Open **File → Options… → Directories** for folder scanning and the starting folder of the cover-image picker. Its **Startup** child page controls the fallback folder when there is no remembered local file list or explicit launch request.
 
+<!-- figure:options-directories -->
+<figure markdown>
+![The directories page of the Options dialog](../../assets/screens/options-directories-light.png#only-light)
+![The directories page of the Options dialog](../../assets/screens/options-directories-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Start with one album folder. Enabling subfolders for a music-library root can add many more files than expected; the [Files](files.md) extension restriction can narrow the scan.
 
@@ -25,7 +32,7 @@ Choose **Directories → Startup → Startup directory**:
 | **Previous directory** | Open the most recent folder from the saved directory history. |
 | **First favorite directory** | Open the first folder in the favorites list. |
 
-If there is no matching recent/favorite entry, there is no folder to restore. Files or directories supplied as launch requests take precedence over a remembered list and the normal startup folder. The local desktop app otherwise reopens its remembered file list and order; see [The file list](../../guides/file-list.md). Startup restoration also depends on folder access being available on the platform; a file-picker-only environment cannot provide the same folder workflow.
+If there is no matching recent/favorite entry, there is no folder to restore. Files or directories supplied as launch requests take precedence over a remembered list and the normal startup folder. The local desktop app otherwise reopens its remembered file list and order; see [The file list](../../tagging/file-list.md). Startup restoration also depends on folder access being available on the platform; a file-picker-only environment cannot provide the same folder workflow.
 
 ## Cover art directory
 

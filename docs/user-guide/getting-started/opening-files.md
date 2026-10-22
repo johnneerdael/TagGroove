@@ -7,6 +7,14 @@ backup of the originals.
 
 ## Open one practice folder
 
+<!-- figure:menu-file -->
+<figure markdown>
+![The File menu open in TagGroove, with Change directory…, Add directory… and Add files… near the middle](../assets/screens/menu-file-light.png#only-light)
+![The File menu open in TagGroove, with Change directory…, Add directory… and Add files… near the middle](../assets/screens/menu-file-dark.png#only-dark)
+<figcaption>Change directory… replaces the list; Add directory… and Add files… add to it.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **File → Change directory…** (++cmd+d++ / ++ctrl+d++ on desktop).
    From an empty window, **Open folder…** offers the same starting task.
 2. Select the copied folder. Resolve any pending edits before accepting a
@@ -94,6 +102,14 @@ folder or browse to another, use **Make first** for the default favorite, then
 favorite and replaces the list. The File menu also offers individual favorites
 and recent directories when present.
 
+<!-- figure:favorite-directories -->
+<figure markdown>
+![The Favorite directories dialog listing saved folders](../assets/screens/favorite-directories-light.png#only-light)
+![The Favorite directories dialog listing saved folders](../assets/screens/favorite-directories-dark.png#only-dark)
+<figcaption>Favorite directories you can jump back to.</figcaption>
+</figure>
+<!-- /figure -->
+
 **Previous directory** and **Next directory** use the working-directory
 history; they are not track navigation and are not the same as the recent
 list. **Upper directory** opens its parent when one exists. These operations
@@ -119,8 +135,8 @@ Use **Add files…** if the file manager's **Open With** route is unavailable.
 CUE track rows and replaces the list after the pending-edit decision. A
 playlist is a list of references, not embedded audio. Missing files and remote
 URLs can produce errors. CUE/chapter rows have different write and command
-limits; read [Playlists](../guides/playlists.md) and
-[Chapters](../guides/chapters.md) before treating them as ordinary files.
+limits; read [Playlists](../export/playlists.md) and
+[Chapters](../tagging/chapters.md) before treating them as ordinary files.
 
 A folder can have a name such as `archive.m3u` or `album.cue`. TagGroove checks
 whether the input is a file or a directory: an existing folder with one of
@@ -177,4 +193,4 @@ capability. Read the source/access message before editing important material.
 - [Editing, saving and undo](editing-and-saving.md)
 - [Directories options](../reference/options/directories.md)
 - [Files options](../reference/options/files.md)
-- [The file list](../guides/file-list.md)
+- [The file list](../tagging/file-list.md)

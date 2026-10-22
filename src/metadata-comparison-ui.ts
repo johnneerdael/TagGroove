@@ -3,7 +3,7 @@ import type {PresentedFileError} from './batch-errors';
 import type {WebListing} from './web-sources';
 import {buildComparisonPreview,comparisonExisting,comparisonFields,comparisonExample,comparisonSelectionKey,comparisonSourceValue} from './metadata-comparison';
 import type {ComparisonCandidate,ComparisonChoice,ComparisonPreview,ComparisonSaveOutcome,ComparisonScope} from './metadata-comparison';
-import {ComparisonSearchSession,comparisonSources} from './metadata-comparison-sources';
+import {ComparisonSearchSession,comparisonResultKey,comparisonSources} from './metadata-comparison-sources';
 import type {ComparisonSource,ComparisonSourceState,ComparisonTerms} from './metadata-comparison-sources';
 
 type CoverView={digest:string;thumbnail:string;description:string};
@@ -320,9 +320,20 @@ export class MetadataComparisonUI {
     if(!this.child)return;this.detailSource=null;
     this.child.querySelector('[data-child-body]')!.innerHTML=`<div class="mc-sources-list">${this.sources.map(source=>{
       const state=this.session.states.get(source.id),text=source.setupReason||this.stateLabel(state);
-      return `<div class="mc-source-item"><label><input type="checkbox" data-enable-source="${html(source.id)}" ${this.selected.has(source.id)?'checked':''} ${source.setupReason?'disabled':''}><span translate="no">${html(source.label)}</span></label><small>${html(text)}</small><button type="button" data-source-details="${html(source.id)}">${state?.results.length?'Matches':'Details'}</button></div>`;
+      return `<div class="mc-source-item"><label><input type="checkbox" data-enable-source="${html(source.id)}" ${this.selected.has(source.id)?'checked':''} ${source.setupReason?'disabled':''}><span translate="no">${html(source.label)}</span></label><small>${html(text)}</small><button type="button" data-source-details="${html(source.id)}">${state?.results.length?'Matches':'Details'}</button>${this.editionSelect(source.id,state)}</div>`;
     }).join('')}</div><div class="mc-child-actions"><button type="button" data-search-sources class="primary">Search selected sources</button></div>`;
+    this.child.querySelectorAll<HTMLSelectElement>('select[data-edition]').forEach(select=>{select.selectedIndex=Number(select.dataset.chosen);});
     this.bindSources();
+  }
+  /** Several editions (or releases) came back: choose one here, without opening the source's details. */
+  private editionSelect(sourceId:string,state:ComparisonSourceState|undefined):string {
+    if(!state||state.results.length<2)return '';
+    const chosen=Math.max(0,state.results.findIndex(result=>comparisonResultKey(result)===state.resultKey));
+    const busy=state.status==='searching'||state.status==='loading';
+    return `<label class="mc-edition"><span>Edition</span><select data-edition="${html(sourceId)}" data-chosen="${chosen}" ${busy?'disabled':''}>${state.results.map((result,index)=>{
+      const label=[result.artist,result.title,result.release_title,result.year,result.country,result.label,result.catalog_number,result.format].filter(Boolean).join(' · ');
+      return `<option value="${index}" ${index===chosen?'selected':''} translate="no">${html(label)}</option>`;
+    }).join('')}</select></label>`;
   }
   private stateLabel(state:ComparisonSourceState|undefined):string {
     if(!state)return 'Not searched';
@@ -348,7 +359,12 @@ export class MetadataComparisonUI {
   private bindSources() {
     if(!this.child||this.child.dataset.bound)return;
     this.child.dataset.bound='true';
-    this.child.addEventListener('change',event=>{const input=event.target as HTMLInputElement;if(input.dataset.enableSource){if(input.checked)this.selected.add(input.dataset.enableSource);else this.selected.delete(input.dataset.enableSource);this.sync();}});
+    this.child.addEventListener('change',event=>{
+      const input=event.target as HTMLInputElement;
+      if(input.dataset.enableSource){if(input.checked)this.selected.add(input.dataset.enableSource);else this.selected.delete(input.dataset.enableSource);this.sync();}
+      const edition=(event.target as Element).closest<HTMLSelectElement>('select[data-edition]');
+      if(edition){const id=edition.dataset.edition!,row=this.session.states.get(id)?.results[Number(edition.value)];if(row)void this.session.load(id,row);}
+    });
     this.child.addEventListener('click',event=>{
       const button=(event.target as Element).closest<HTMLButtonElement>('button');if(!button)return;
       if(button.dataset.sourceDetails)this.sourceDetails(button.dataset.sourceDetails);

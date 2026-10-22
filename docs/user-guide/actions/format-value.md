@@ -4,6 +4,14 @@ Use **Format Value** to create or replace a field with a value calculated
 from other tags. It can also build a new filename or folder name. Use it
 when the result needs placeholders, conditions or scripting functions.
 
+<!-- figure:action-format-value -->
+<figure markdown>
+![The Edit action dialog with the action type set to Format Value and its settings](../assets/screens/action-format-value-light.png#only-light)
+![The Edit action dialog with the action type set to Format Value and its settings](../assets/screens/action-format-value-dark.png#only-dark)
+<figcaption>The Format Value action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Fill a field from other tags
 
 1. Save pending edits and select a few practice files.
@@ -59,7 +67,7 @@ type. Each separately quoted result is a separate `GENRE` value.
 A bare `%artist%` reads only its first value. To write all existing artists
 as separate values, use `$meta_sep(artist,\\)`; a comma or ` & ` join instead
 produces one combined value. Read the
-[multivalue syntax](../reference/format-strings.md#multi-value-fields) before
+[multivalue syntax](../scripting/format-strings.md#multi-value-fields) before
 replacing artist lists. A tag format may limit how separate values are stored.
 
 These output-splitting rules apply to metadata fields. `_FILENAME` and
@@ -89,7 +97,7 @@ on a copied folder before using this target.
 
 Literal folder separators in a format string can create folder levels.
 Separators originating in tag values use the configured replacement;
-see [file and folder rules](../reference/format-strings.md#file-and-folder-names).
+see [file and folder rules](../scripting/format-strings.md#file-and-folder-names).
 An empty filename or directory result is rejected.
 
 ## Gotchas
@@ -106,7 +114,7 @@ An empty filename or directory result is rejected.
 
 ## Related
 
-- [Format strings](../reference/format-strings.md)
-- [Placeholders](../reference/placeholders.md)
+- [Format strings](../scripting/format-strings.md)
+- [Placeholders](../scripting/placeholders.md)
 - [Actions and action groups](index.md)
-- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md)
+- [Zero-padded track numbers](../converters/recipes/rename-zero-padded-track-numbers.md)

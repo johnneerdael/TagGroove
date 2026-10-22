@@ -4,6 +4,14 @@
 First identify what has focus. Copying selected text is different from copying
 the tags of selected files; deleting a file is different from removing its row.
 
+<!-- figure:menu-edit -->
+<figure markdown>
+![The Edit menu open in TagGroove, listing its commands](../../assets/screens/menu-edit-light.png#only-light)
+![The Edit menu open in TagGroove, listing its commands](../../assets/screens/menu-edit-dark.png#only-dark)
+<figcaption>The Edit menu: tag clipboard, selection, Find, file operations and cover management.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## History and tag clipboard
 
 | Item | Result |
@@ -25,10 +33,10 @@ until **Save tags**; copying alone does not write anything.
 
 For **Copy as Text…**, `%artist% - %title%` makes a readable artist/title line
 for each selected track. This is calculated text, not a new audio tag. Functions
-and placeholders follow the [format-string reference](../format-strings.md).
+and placeholders follow the [format-string reference](../../scripting/format-strings.md).
 
 History concerns retained recorded operations, including eligible steps reopened
-from an earlier desktop launch. See the [Undo and recovery guide](../../guides/undo-history.md)
+from an earlier desktop launch. See the [Undo and recovery guide](../../tagging/undo-history.md)
 for restart behavior, storage limits and interruption recovery.
 Check its label and any errors; do not assume every external change, file
 transfer, export or deletion can be reversed with tag-edit undo. If the menu

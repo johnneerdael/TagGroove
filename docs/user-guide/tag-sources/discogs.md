@@ -4,6 +4,13 @@ Use **Tag Sources → Discogs…** for release metadata and artwork. An exact
 release helps distinguish editions with different tracks, catalog numbers
 or covers.
 
+<!-- figure:source-discogs -->
+<figure markdown>
+![The Discogs search dialog with a search type, artist and album](../assets/screens/source-discogs-light.png#only-light)
+![The Discogs search dialog with a search type, artist and album](../assets/screens/source-discogs-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 Use [Compare metadata…](index.md#compare-fields-from-several-sources) to mix this
 source's fields with other providers for one track or an album. In Album mode,
 one provider choice per field uses each track's own matched values. Inherit keeps
@@ -14,6 +21,21 @@ existing values; None explicitly removes them.
 Select the album's files and choose **Discogs…**. Search by **Artist and
 album**, **Free text**, **Barcode** or **Catalog number**, or use **Release
 ID or address**. **Tag Sources → Discogs Release ID…** opens the direct lookup.
+
+<!-- figure:discogs-results -->
+<figure markdown>
+![Discogs results for Miles Davis's Kind Of Blue: many pressings, each with its year, country, label and catalog number](../assets/screens/discogs-results-light.png#only-light)
+![Discogs results for Miles Davis's Kind Of Blue: many pressings, each with its year, country, label and catalog number](../assets/screens/discogs-results-dark.png#only-dark)
+<figcaption>Pick the pressing you have; the details below the list help tell them apart.</figcaption>
+</figure>
+<!-- /figure -->
+
+<!-- figure:discogs-review -->
+<figure markdown>
+![The Discogs review of one Kind Of Blue pressing: its fields, cover and tracks](../assets/screens/discogs-review-light.png#only-light)
+![The Discogs review of one Kind Of Blue pressing: its fields, cover and tracks](../assets/screens/discogs-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 Use a numeric release ID or an address containing `/release/`. A Discogs
 master groups editions; choose the individual release rather than its master
@@ -69,5 +91,6 @@ lookups, not account collection management or an OAuth sign-in flow.
 ## Related
 
 - [Search, review and save](index.md#search-review-and-save)
-- [Network access and privacy](index.md#network-access-and-privacy)
+- [Compare metadata from several sources](compare.md)
+- [Network access, privacy and rate limits](privacy-and-network.md)
 - [Tag Sources options](../reference/options/tag-sources.md)

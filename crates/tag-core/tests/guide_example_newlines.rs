@@ -6,27 +6,31 @@ use guide_examples::text_blocks;
 fn written_page_fences_have_the_same_literal_contents_in_both_checkout_formats() {
     for (page, expected_count) in [
         (
-            include_str!("../../../docs/user-guide/reference/format-strings.md"),
+            include_str!("../../../docs/user-guide/scripting/format-strings.md"),
             10,
         ),
         (
-            include_str!("../../../docs/user-guide/reference/regular-expressions.md"),
+            include_str!("../../../docs/user-guide/scripting/regular-expressions.md"),
             6,
         ),
         (
-            include_str!("../../../docs/user-guide/learn/first-tagging-session.md"),
+            include_str!("../../../docs/user-guide/getting-started/first-tagging-session.md"),
             1,
         ),
         (
-            include_str!("../../../docs/user-guide/cookbook/rename-zero-padded-track-numbers.md"),
+            include_str!(
+                "../../../docs/user-guide/converters/recipes/rename-zero-padded-track-numbers.md"
+            ),
             5,
         ),
         (
-            include_str!("../../../docs/user-guide/cookbook/tags-from-folder-and-filename.md"),
+            include_str!(
+                "../../../docs/user-guide/converters/recipes/tags-from-folder-and-filename.md"
+            ),
             8,
         ),
         (
-            include_str!("../../../docs/user-guide/cookbook/feat-artists-to-title.md"),
+            include_str!("../../../docs/user-guide/actions/recipes/feat-artists-to-title.md"),
             3,
         ),
         (
@@ -54,15 +58,15 @@ fn written_page_fences_have_the_same_literal_contents_in_both_checkout_formats()
             0,
         ),
         (
-            include_str!("../../../docs/user-guide/learn/format-strings-from-zero.md"),
+            include_str!("../../../docs/user-guide/scripting/format-strings-from-zero.md"),
             10,
         ),
         (
-            include_str!("../../../docs/user-guide/learn/regex-from-zero.md"),
+            include_str!("../../../docs/user-guide/scripting/regex-from-zero.md"),
             7,
         ),
         (
-            include_str!("../../../docs/user-guide/learn/rename-files-and-folders.md"),
+            include_str!("../../../docs/user-guide/converters/rename-files-and-folders.md"),
             5,
         ),
         (

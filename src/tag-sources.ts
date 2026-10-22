@@ -17,15 +17,23 @@ export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|nul
 export type TagSourceCredentials = {discogs_token_set:boolean;discogs_token_in_keychain:boolean;keychain_available:boolean;
   /** This build carries TagGroove's Discogs application key: Discogs works without a token. */
   discogs_app_key?:boolean;
-  acoustid_key_set?:boolean;acoustid_built_in?:boolean;lastfm_key_set?:boolean;lastfm_built_in?:boolean;fanart_key_set?:boolean;fanart_built_in?:boolean};
-/** Services that need an API key: the user's own (Tag Sources → API keys…) or one built into this build. */
+  /** This build has TagGroove's AcoustID application key: nothing is entered (a personal key is only for submitting fingerprints, which TagGroove never does). */
+  acoustid_available?:boolean;
+  fanart_key_set?:boolean;fanart_built_in?:boolean;
+  /** This build has TagGroove's own Last.fm application key: nothing is entered. */
+  lastfm_available?:boolean;
+  /** ...and can sign a person in to Last.fm (it has the shared secret). */
+  lastfm_can_sign_in?:boolean;
+  /** The Last.fm account TagGroove is signed in to; empty when not signed in. */
+  lastfm_user?:string};
+/** Services where a person may enter their own key (Tag Sources → API keys…). Last.fm and AcoustID are not among them: TagGroove has its own keys. */
 export const KEYED_SOURCES = [
-  {provider:'acoustid',name:'AcoustID',key:'acoustid',register:'https://acoustid.org/new-application',note:'Free for non-commercial use. Audio fingerprints are calculated locally with TagGroove\'s built-in Chromaprint libraries.'},
-  {provider:'lastfm',name:'Last.fm',key:'lastfm',register:'https://www.last.fm/api/account/create',note:'Non-commercial use; album tags become GENRE.'},
   {provider:'fanart',name:'fanart.tv',key:'fanart',register:'https://fanart.tv/get-an-api-key/',note:'Enter your personal API key: it is sent with TagGroove\'s project key (as client_key). A build without a project key uses yours as the project key.'},
 ] as const;
 /** Why a key-gated source cannot run yet, or '' when it can. */
 export function sourceKeyReason(provider:Provider, credentials:TagSourceCredentials|null) {
+  if (provider === 'lastfm') return credentials && credentials.lastfm_available === false ? 'This build has no Last.fm application key, so Last.fm is unavailable.' : '';
+  if (provider === 'acoustid') return credentials && credentials.acoustid_available === false ? 'This build has no AcoustID application key, so AcoustID is unavailable.' : '';
   const source = KEYED_SOURCES.find(s => s.provider === provider);
   if (!source || !credentials) return '';
   const record = credentials as Record<string,unknown>;
@@ -225,7 +233,7 @@ const localFreedbPage = 'tag-sources-local-freedb', freedbPage = 'tag-sources-fr
  * Options › Tag Sources › freedb / Local freedb). Values persist under
  * `pages.<id>`; the backend reads them through the shared settings.
  */
-export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, index?:LocalIndexHost, keys?:()=>Promise<void>|void, resetCatalog?:()=>Promise<void>):OptionsPage[] {
+export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, index?:LocalIndexHost, keys?:()=>Promise<void>|void, resetSolver?:()=>Promise<void>):OptionsPage[] {
   const directoryPath = `pages.${localFreedbPage}.directory`;
   const directory = (draft:OptionsDraft) => String((draft.pages[localFreedbPage] as Record<string,unknown>|undefined)?.directory ?? '');
   const setDirectory = (draft:OptionsDraft, value:string) => { draft.pages[localFreedbPage] = {...draft.pages[localFreedbPage],directory:value}; };
@@ -339,18 +347,18 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         render:draft => `<div class="field"><span>TEXT INDEX</span><p id="local-freedb-index-status" role="status">${html(indexText(indexStatus,draft))}</p><div class="action-input"><button type="button" id="local-freedb-index-build">Build index</button><button type="button" id="local-freedb-index-cancel" hidden>Cancel</button></div></div>`,
         bind:(root,draft) => bindIndex(root,draft)},
       ]},
-    {id:'tag-sources-catalog',label:'Traxsource',parent:'tag-sources',order:4,
-      description:'Configure the optional FlareSolverr-compatible proxy for Traxsource. Beatport uses its direct catalog API.',
+    {id:'tag-sources-solver',label:'Cloudflare solver',parent:'tag-sources',order:4,
+      description:'Some sites block TagGroove with a Cloudflare check. An optional FlareSolverr-compatible service (FlareSolverr, Byparr or trawl) can load those pages for TagGroove. It applies to every tag source.',
       defaults:{endpoint:'',timeout_seconds:120},
       controls:[
-        {kind:'text',path:'pages.tag-sources-catalog.endpoint',label:'Traxsource solver endpoint',placeholder:'http://localhost:8191/v1'},
-        {kind:'note',text:'Leave empty for direct Traxsource access. Saving an endpoint allows challenged Traxsource page requests to use that solver. The solver receives Traxsource page addresses; keep it on a server trusted by you.'},
-        {kind:'text',path:'pages.tag-sources-catalog.timeout_seconds',label:'Solver timeout (seconds)',placeholder:'120'},
-        {kind:'button',id:'tag-source-catalog-reset',label:'Retry direct Traxsource access',run:async () => { await resetCatalog?.(); }},
-        {kind:'note',text:'Clear remembered Traxsource access restrictions after updating the solver or fixing connectivity. This does not change saved tags.'},
+        {kind:'text',path:'pages.tag-sources-solver.endpoint',label:'Solver endpoint',placeholder:'http://localhost:8191/v1'},
+        {kind:'note',text:'Leave empty to use no solver. When Cloudflare blocks a request, TagGroove repeats it through this service and stops contacting that site directly until you choose Retry direct access. The solver receives the web addresses of those requests, which can contain the artist, album or title you searched for, but never your keys or tokens; keep it on a server you trust. FlareSolverr, Byparr and trawl all work: any service that speaks the FlareSolverr API does.'},
+        {kind:'text',path:'pages.tag-sources-solver.timeout_seconds',label:'Solver timeout (seconds)',placeholder:'120'},
+        {kind:'button',id:'tag-source-solver-reset',label:'Retry direct access',run:async () => { await resetSolver?.(); }},
+        {kind:'note',text:'Forget which sites blocked TagGroove after you fixed the solver or the connection. This does not change saved tags.'},
       ],
       validate:draft => {
-        const page = (draft.pages['tag-sources-catalog'] || {}) as Record<string,unknown>;
+        const page = (draft.pages['tag-sources-solver'] || {}) as Record<string,unknown>;
         const endpoint = String(page.endpoint ?? '').trim();
         if (endpoint) {
           try {
@@ -370,7 +378,7 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
       controls:[
         {kind:'group',label:'API keys',controls:[
           {kind:'button',id:'tag-source-keys',label:'API keys…',run:async () => { await keys?.(); }},
-          {kind:'note',text:'AcoustID, Last.fm and fanart.tv need an API key: one built into this build of TagGroove, or your own (Tag Sources → API keys…). Keys are kept in a private file, never in these options.'},
+          {kind:'note',text:'AcoustID and Last.fm need no key from you: TagGroove has its own. fanart.tv uses a key built into this build of TagGroove, or your own (Tag Sources → API keys…). You can also sign in to your Last.fm account in the same dialog. The key and the sign-in are kept in a private file, never in these options.'},
         ]},
         {kind:'group',label:'iTunes',controls:[
           {kind:'text',path:`pages.${onlinePage}.itunes_country`,label:'Store country (two letters)',placeholder:'US',maxLength:2},
@@ -743,7 +751,7 @@ export class TagSourcesUI {
     token.focus();
   }
 
-  /** Tag Sources → API keys…: the user's own keys for AcoustID, Last.fm and fanart.tv, kept like the Discogs token. */
+  /** Tag Sources → API keys…: the user's own fanart.tv key and the Last.fm sign-in, kept like the Discogs token. */
   async keys() {
     if (this.showing) return;
     this.showing = true;
@@ -753,7 +761,20 @@ export class TagSourcesUI {
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog ts-token-dialog ts-keys-dialog';
     dialog.setAttribute('aria-label','API keys');
+    const lastfmSection = () => {
+      const user = credentials.lastfm_user || '', available = credentials.lastfm_available !== false, canSignIn = !!credentials.lastfm_can_sign_in;
+      const state = !available ? 'This build has no Last.fm application key, so Last.fm is unavailable.'
+        : user ? `Signed in as ${user}.`
+        : canSignIn ? 'Last.fm works without signing in. Sign in to make requests as your Last.fm account.'
+        : 'Last.fm works without signing in. This build cannot sign in to an account.';
+      return `<fieldset class="ts-key" data-key="lastfm"><legend>Last.fm account</legend>
+        <p class="ts-key-state" role="status" id="ts-lastfm-state">${html(state)} Album tags become GENRE. Non-commercial use.</p>
+        <p class="ts-lastfm-steps" id="ts-lastfm-steps" hidden></p>
+        <input class="ts-lastfm-url" id="ts-lastfm-url" readonly hidden aria-label="Last.fm approval address">
+        <div class="action-input"><button type="button" id="ts-lastfm-start" ${canSignIn && !user ? '' : 'hidden'}>Sign in to Last.fm…</button><button type="button" id="ts-lastfm-finish" hidden>Finish</button><button type="button" id="ts-lastfm-out" ${user ? '' : 'hidden'}>Sign out</button></div></fieldset>`;
+    };
     dialog.innerHTML = `<header>API keys</header><div class="dialog-content">
+      ${lastfmSection()}
       ${KEYED_SOURCES.map(source => {
         const set = !!record[`${source.key}_key_set`], builtIn = !!record[`${source.key}_built_in`];
         return `<fieldset class="ts-key" data-key="${source.key}"><legend>${html(source.name)}</legend>
@@ -761,9 +782,57 @@ export class TagSourcesUI {
           <label class="action-check"><input id="ts-key-clear-${source.key}" type="checkbox" ${set ? '' : 'disabled'}> Remove the saved key</label>
           <p class="ts-key-state" role="status">${set ? 'Your key is saved.' : builtIn ? 'This build of TagGroove includes a key.' : `No key: ${html(source.name)} stays unavailable until you add one.`} ${html(source.note)} Register at ${html(source.register)}.</p></fieldset>`;
       }).join('')}
-      <p>Keys are kept in a private file in TagGroove's configuration folder and are not shown again.</p></div>
+      <p>Keys and the Last.fm sign-in are kept in a private file in TagGroove's configuration folder and are not shown again.</p></div>
       <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-keys">Save</button></div>`;
     document.body.append(dialog);
+    const showError = (message:string) => {
+      let p = dialog.querySelector('.dialog-error'); if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); }
+      p.textContent = message.replace(/^Error: /,'');
+    };
+    // Last.fm's desktop sign-in: open Last.fm in the browser, approve TagGroove there, then finish here.
+    const lastfm = {state:dialog.querySelector<HTMLElement>('#ts-lastfm-state')!, steps:dialog.querySelector<HTMLElement>('#ts-lastfm-steps')!, url:dialog.querySelector<HTMLInputElement>('#ts-lastfm-url')!,
+      start:dialog.querySelector<HTMLButtonElement>('#ts-lastfm-start')!, finish:dialog.querySelector<HTMLButtonElement>('#ts-lastfm-finish')!, out:dialog.querySelector<HTMLButtonElement>('#ts-lastfm-out')!};
+    let lastfmToken = '';
+    const lastfmShow = (next:TagSourceCredentials) => {
+      credentials = next; this.credentials = next;
+      const user = next.lastfm_user || '';
+      lastfm.state.textContent = user ? `Signed in as ${user}. Album tags become GENRE. Non-commercial use.` : 'Last.fm works without signing in. Sign in to make requests as your Last.fm account. Album tags become GENRE. Non-commercial use.';
+      lastfm.steps.hidden = true; lastfm.url.hidden = true; lastfm.finish.hidden = true; lastfm.start.hidden = !next.lastfm_can_sign_in || !!user; lastfm.out.hidden = !user;
+      this.host.changed?.();
+    };
+    lastfm.start.addEventListener('click',async () => {
+      lastfm.start.disabled = true;
+      dialog.querySelector('.dialog-error')?.remove();
+      try {
+        const request = await this.host.invoke<{token:string;url:string}>('lastfm_sign_in_start');
+        lastfmToken = request.token;
+        // Where no browser can be opened for TagGroove (a phone or tablet, or no default browser) the address is shown to open by hand.
+        let opened = true;
+        try { await this.host.invoke('tag_source_open_page',{url:request.url}); } catch { opened = false; }
+        lastfm.steps.textContent = opened ? 'Approve TagGroove on the Last.fm page that opened in your browser, then come back here and choose Finish.'
+          : 'TagGroove could not open a browser. Open the address below in a browser, approve TagGroove on the Last.fm page, then come back here and choose Finish.';
+        lastfm.url.value = request.url; lastfm.url.hidden = opened;
+        lastfm.steps.hidden = false; lastfm.start.hidden = true; lastfm.finish.hidden = false;
+      } catch (e) { showError(String(e)); }
+      lastfm.start.disabled = false;
+    });
+    lastfm.finish.addEventListener('click',async () => {
+      lastfm.finish.disabled = true;
+      try { lastfmShow(await this.host.invoke<TagSourceCredentials>('lastfm_sign_in_finish',{token:lastfmToken})); }
+      catch (e) {
+        const message = String(e);
+        showError(message);
+        // A token Last.fm will not accept again (expired, refused) comes with "Start again.": offer Start for a new one
+        // instead of resubmitting it. "Not approved yet" and network failures keep Finish for another try.
+        if (/Start again\.\s*$/.test(message)) { lastfmToken = ''; lastfm.steps.hidden = true; lastfm.url.hidden = true; lastfm.finish.hidden = true; lastfm.start.hidden = false; }
+      }
+      lastfm.finish.disabled = false;
+    });
+    lastfm.out.addEventListener('click',async () => {
+      lastfm.out.disabled = true;
+      try { lastfmShow(await this.host.invoke<TagSourceCredentials>('lastfm_sign_out')); } catch (e) { showError(String(e)); }
+      lastfm.out.disabled = false;
+    });
     const save = dialog.querySelector<HTMLButtonElement>('#ts-save-keys')!;
     const input = (key:string) => dialog.querySelector<HTMLInputElement>(`#ts-key-${key}`)!, clear = (key:string) => dialog.querySelector<HTMLInputElement>(`#ts-key-clear-${key}`)!;
     const sync = () => { for (const {key} of KEYED_SOURCES) input(key).disabled = clear(key).checked; save.disabled = !KEYED_SOURCES.some(({key}) => clear(key).checked || input(key).value.trim()); };
@@ -775,10 +844,7 @@ export class TagSourcesUI {
       const update:Record<string,string|null> = {};
       for (const {key} of KEYED_SOURCES) update[`${key}_key`] = clear(key).checked ? '' : input(key).value.trim() || null;
       try { this.credentials = await this.host.invoke<TagSourceCredentials>('save_tag_source_settings',{update}); this.host.changed?.(); dialog.close(); }
-      catch (e) {
-        let p = dialog.querySelector('.dialog-error'); if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); }
-        p.textContent = String(e).replace(/^Error: /,''); sync();
-      }
+      catch (e) { showError(String(e)); sync(); }
     });
     sync();
     dialog.showModal();

@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tag Sources → freedb** to configure a CDDB server for album metadata. The historical freedb service ended; the saved defaults point to gnudb, and a compatible alternative server can be entered.
 
+<!-- figure:options-tag-sources-freedb -->
+<figure markdown>
+![The tag sources freedb page of the Options dialog](../../assets/screens/options-tag-sources-freedb-light.png#only-light)
+![The tag sources freedb page of the Options dialog](../../assets/screens/options-tag-sources-freedb-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     A server address, application acceptance, and an album match are three separate conditions. If the server refuses TagGroove, changing the disc ID will not fix that refusal. A [local snapshot](tag-sources-local-freedb.md) avoids dependence on a remote CDDB server.
 

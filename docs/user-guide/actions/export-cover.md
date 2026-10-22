@@ -5,6 +5,14 @@ files. Exporting leaves the pictures embedded in the audio. It does not
 resize or convert the image data. This action works with local files; action
 groups are not available for provider documents yet.
 
+<!-- figure:action-export-cover -->
+<figure markdown>
+![The Edit action dialog with the action type set to Export Cover to File and its settings](../assets/screens/action-export-cover-light.png#only-light)
+![The Edit action dialog with the action type set to Export Cover to File and its settings](../assets/screens/action-export-cover-dark.png#only-dark)
+<figcaption>The Export Cover to File action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Write a front-cover file beside the album
 
 1. Select copied practice files and save pending edits.
@@ -52,8 +60,8 @@ Use `\` to create literal folder components on every platform. Ordinary
 tag values have separators and reserved filename characters cleaned.
 `%_folderpath%`, `%_path%` and `%_workingpath%` retain native path components,
 including a backslash inside a macOS or Linux folder name. See
-[placeholders](../reference/placeholders.md) and
-[format strings](../reference/format-strings.md).
+[placeholders](../scripting/placeholders.md) and
+[format strings](../scripting/format-strings.md).
 
 ## Understand duplicates and existing files
 

@@ -5,6 +5,14 @@ audio file. A filename format lets one action find the right picture in
 each album folder. This action works with local files; action groups are
 not available for provider documents yet.
 
+<!-- figure:action-import-cover -->
+<figure markdown>
+![The Edit action dialog with the action type set to Import Cover from File and its settings](../assets/screens/action-import-cover-light.png#only-light)
+![The Edit action dialog with the action type set to Import Cover from File and its settings](../assets/screens/action-import-cover-dark.png#only-dark)
+<figcaption>The Import Cover from File action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Embed each album's cover
 
 1. Put the intended image in each album folder as `cover.jpg`.

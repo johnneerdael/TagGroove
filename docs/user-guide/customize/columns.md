@@ -5,6 +5,14 @@ which values can be edited there, and how each column sorts. A column can
 show a computed value while editing a different underlying field, or can
 be read-only. Changing a view definition does not convert the audio format.
 
+<!-- figure:customize-columns -->
+<figure markdown>
+![The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column](../assets/screens/customize-columns-light.png#only-light)
+![The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column](../assets/screens/customize-columns-dark.png#only-dark)
+<figcaption>Each column has a name, a display value, an optional field to edit and a sort key.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Add an editable recording-code column
 
 1. Select a copied practice file whose ISRC field contains the invented
@@ -68,7 +76,7 @@ To calculate and save a new metadata value, use
 
 Click a header to sort its configured sort key, and click it again to
 reverse the primary direction. Shift-click adds/reverses a secondary key.
-The [file-list guide](../guides/file-list.md) explains ordering and how it
+The [file-list guide](../tagging/file-list.md) explains ordering and how it
 feeds numbering and positional imports.
 
 Numeric sorting reads a leading number; empty/nonnumeric values sort before
@@ -80,7 +88,7 @@ not forcibly replaced by that toggle.
 A display like `%_length%` can use a numeric technical value as Sort by
 when its formatted clock text is not the desired sorting representation.
 Use actual information placeholders from the
-[placeholder reference](../reference/placeholders.md); a custom tag named
+[placeholder reference](../scripting/placeholders.md); a custom tag named
 LENGTH is not a measured duration.
 
 ## Add, duplicate, move, hide or remove
@@ -138,10 +146,10 @@ configuration through the [File menu](../reference/menus/file.md).
 
 ## Related
 
-- [The file list](../guides/file-list.md)
-- [Format strings](../reference/format-strings.md)
-- [Scripting functions](../reference/scripting/index.md)
-- [Placeholder reference](../reference/placeholders.md)
+- [The file list](../tagging/file-list.md)
+- [Format strings](../scripting/format-strings.md)
+- [Scripting functions](../scripting/functions/index.md)
+- [Placeholder reference](../scripting/placeholders.md)
 - [View menu](../reference/menus/view.md)
 
 <!-- Source baseline maina9cd900: columns.ts ColumnUI/customize/layoutProblem/editKey/sortTemplate/sortClick/compareCells; main.ts ColumnUI host/columnValues/applyColumns/commitCell; src-tauri column evaluation and configuration commands. All canonical customization/file-list controls/tasks independently explained. No installed native layout or tag-write session. -->

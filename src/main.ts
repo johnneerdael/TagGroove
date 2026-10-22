@@ -519,7 +519,7 @@ for(const page of tagSourcesOptionsPages(async()=>{const folder=await open({dire
   build:(directory,job)=>invoke<IndexStatus>('build_local_freedb_index',{directory,job}),
   cancel:job=>invoke('cancel_job',{job}),
   progress:(job,update)=>listen<{job:string;done:number;total:number}>('opentag://progress',event=>{if(event.payload.job===job)update(event.payload.done,event.payload.total);}),
-},()=>tagSourcesUI.keys(),()=>invoke<void>('tag_source_catalog_reset')))registerOptionsPage(page);
+},()=>tagSourcesUI.keys(),()=>invoke<void>('tag_source_solver_reset')))registerOptionsPage(page);
 const tagSourceReason=()=>busy?'Wait for the current operation.':!selected.size?'Select a track or the files of one album.':operationReason('source-musicbrainz');
 const tagSourcesUI=new TagSourcesUI({formatFileError:error=>fileErrorText(error,t,translate,publicMessage),batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,
   webScriptError:error=>webScriptErrorText(error,t,translate),
@@ -2406,7 +2406,7 @@ if(desktop){
   if(profileWorkspacePending)void Promise.all([optionsReady,platformReady]).then(async()=>{await directoriesReady;profileMigrationUI.reportStartupFailure();app.inert=false;syncWindowTitle();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
-  // Which API keys exist (never the keys): AcoustID, Last.fm and fanart.tv wait for one.
+  // Which API keys exist (never the keys): fanart.tv waits for one; AcoustID and Last.fm use TagGroove's own.
   void tagSourcesUI.refreshCredentials();
   // Sources copied into the folder by hand appear when the window is used again.
   void listen('opentag://web-sources',()=>void webSourcesUI.refresh()).catch(()=>{/* The menu also refreshes on focus. */});

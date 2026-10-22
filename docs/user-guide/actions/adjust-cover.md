@@ -4,6 +4,14 @@ Use **Adjust Cover** to resize or change the format of pictures embedded
 in the selected audio files. It changes all embedded pictures in each file;
 it does not change a separate `cover.jpg` alongside the music.
 
+<!-- figure:action-adjust-cover -->
+<figure markdown>
+![The Edit action dialog with the action type set to Adjust Cover and its settings](../assets/screens/action-adjust-cover-light.png#only-light)
+![The Edit action dialog with the action type set to Adjust Cover and its settings](../assets/screens/action-adjust-cover-dark.png#only-dark)
+<figcaption>The Adjust Cover action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Shrink oversized covers
 
 1. Keep original copies and select a few practice files.

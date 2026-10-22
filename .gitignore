@@ -24,3 +24,11 @@ keystore.properties
 /release-assets/
 /build/
 __pycache__/
+# Local application keys for debug builds (see docs/CONTRIBUTING.md)
+/.acoustid
+/.beatport
+/.discogs
+/.fanart
+/.lastfm
+/.musicbrainz
+/.beatport-openapi-docs

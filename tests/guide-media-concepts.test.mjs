@@ -9,8 +9,8 @@ async function load(path) {
 }
 const covers = await load('../src/cover-model.ts');
 const columns = await load('../src/columns.ts');
-const coverDoc = await readFile(new URL('../docs/user-guide/concepts/cover-art.md', import.meta.url), 'utf8');
-const sortDoc = await readFile(new URL('../docs/user-guide/concepts/sort-fields.md', import.meta.url), 'utf8');
+const coverDoc = await readFile(new URL('../docs/user-guide/tagging/concepts/cover-art.md', import.meta.url), 'utf8');
+const sortDoc = await readFile(new URL('../docs/user-guide/tagging/concepts/sort-fields.md', import.meta.url), 'utf8');
 const forms = text => {const lf = text.replace(/\r\n/g, '\n'); return [lf, lf.replace(/\n/g, '\r\n')];};
 function rows(text, marker) {
   return text.split(`<!-- ${marker}:start -->`)[1].split(`<!-- ${marker}:end -->`)[0]

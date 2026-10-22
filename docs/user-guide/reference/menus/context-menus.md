@@ -7,8 +7,8 @@ Removing a name from a suggestion list, removing a tag field and removing
 a file from the file list have different results.
 
 !!! tip "New to this?"
-    Use [your first tagging session](../../learn/first-tagging-session.md)
-    to practise selection and saving. [Multi-value fields](../../concepts/multi-value-fields.md)
+    Use [your first tagging session](../../getting-started/first-tagging-session.md)
+    to practise selection and saving. [Multi-value fields](../../tagging/concepts/multi-value-fields.md)
     explains how separate values affect the field and cover dialogs.
 
 ## Open and leave a menu
@@ -238,12 +238,12 @@ and does not rewrite an already exported report.
 
 The filter helper also offers **Auto-apply filter**. Turning it on applies
 the current edited filter; with it off, use Enter to apply a pending query.
-See [filtering](../../guides/filter.md) for the file-list effect.
+See [filtering](../../tagging/filter.md) for the file-list effect.
 
 ## Related
 
 - [Field names](../field-names.md)
-- [Format strings](../format-strings.md)
+- [Format strings](../../scripting/format-strings.md)
 - [All action types](../../actions/index.md)
 - [Tag-panel options](../options/tag-panel.md)
 - [Keyboard shortcuts](../keyboard-shortcuts.md)

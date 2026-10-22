@@ -2,6 +2,13 @@
 
 Open **File → Options… → Playlist** to configure **Playlist (all files)**, **Playlist (selected files)**, and **Generate playlists…**. A playlist stores references to audio files; creating one does not copy or transcode the music.
 
+<!-- figure:options-playlist -->
+<figure markdown>
+![The playlist page of the Options dialog](../../assets/screens/options-playlist-light.png#only-light)
+![The playlist page of the Options dialog](../../assets/screens/options-playlist-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Use `.m3u8` and relative entries for a Unicode playlist that can move with its album folder. Keep the filename-confirmation dialog enabled until destinations are predictable.
 
@@ -24,7 +31,7 @@ The actual output location and common filesystem roots determine whether relativ
 XSPF (`.xspf`), WPL (`.wpl`) and XML ASX (`.asx`) are input-only formats. The
 writer refuses these suffixes rather than putting M3U text in an XML-named
 file. Use `.m3u`, `.m3u8` or `.pls` for output. See
-[XML playlist examples](../../guides/xml-playlists.md).
+[XML playlist examples](../../export/xml-playlists.md).
 
 ## Automatic playlists
 

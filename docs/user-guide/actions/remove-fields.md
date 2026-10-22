@@ -3,6 +3,14 @@
 Use **Remove Fields** to delete selected metadata fields while keeping the
 rest of the tag. It can also remove embedded artwork.
 
+<!-- figure:action-remove-fields -->
+<figure markdown>
+![The Edit action dialog with the action type set to Remove Fields and its settings](../assets/screens/action-remove-fields-light.png#only-light)
+![The Edit action dialog with the action type set to Remove Fields and its settings](../assets/screens/action-remove-fields-dark.png#only-dark)
+<figcaption>The Remove Fields action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Remove named fields
 
 1. Save pending edits and select a few copied files.

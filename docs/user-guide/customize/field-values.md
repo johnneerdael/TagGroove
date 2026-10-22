@@ -5,6 +5,14 @@ or `COMPOSER`. They help keep spellings consistent while leaving you free to
 type another value. Saving a suggestion does not retag existing files; choosing
 it for selected tracks and saving those edits is a separate step.
 
+<!-- figure:field-values-dialog -->
+<figure markdown>
+![The Field values dialog with a field list on the left and one value per line on the right](../assets/screens/field-values-dialog-light.png#only-light)
+![The Field values dialog with a field list on the left and one value per line on the right](../assets/screens/field-values-dialog-dark.png#only-dark)
+<figcaption>Suggested values appear in the tag panel's drop-down lists.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Make a small MOOD list
 
 1. Choose **View → Field values…**, or **File → Options… → Field Values →
@@ -171,7 +179,7 @@ If saving the list fails, read the error rather than assuming it persisted.
 This shortcut stores a suggestion. It does not separately save pending audio
 edits. A field containing a multi-value separator has the normal tag-panel
 interpretation when applied to tracks; custom list management does not
-change [multi-value syntax](../concepts/multi-value-fields.md).
+change [multi-value syntax](../tagging/concepts/multi-value-fields.md).
 
 ## Keep the two save boundaries clear
 
@@ -189,7 +197,7 @@ history: retain a named export or configuration checkpoint before a major edit.
 ## Related
 
 - [Tag-panel customization](tag-panel.md)
-- [Tag-panel editing](../guides/tag-panel.md)
+- [Tag-panel editing](../tagging/tag-panel.md)
 - [Field Values options](../reference/options/field-values.md)
 - [Editing, saving and undo](../getting-started/editing-and-saving.md)
 - [Save and restore configuration](configuration.md)

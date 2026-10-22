@@ -4,6 +4,14 @@ Use **Set Cover Properties** to change the role or description of embedded
 pictures. The picture data and dimensions stay the same. Use **Adjust
 Cover** when the actual image needs resizing or conversion.
 
+<!-- figure:action-set-cover-properties -->
+<figure markdown>
+![The Edit action dialog with the action type set to Set Cover Properties and its settings](../assets/screens/action-set-cover-properties-light.png#only-light)
+![The Edit action dialog with the action type set to Set Cover Properties and its settings](../assets/screens/action-set-cover-properties-dark.png#only-dark)
+<figcaption>The Set Cover Properties action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Label a front cover
 
 1. Keep copies, save pending edits and select practice files whose

@@ -1,10 +1,10 @@
-# Learn
+# All tutorials
 
 Learn one useful task at a time with copied practice files. The tutorials
 explain what to do, what result to look for and why it works. You can follow
 the first lessons in order or choose the one that matches your next task.
 
-If you are new to tagging, start with [Your first tagging session](first-tagging-session.md).
+If you are new to tagging, start with [Your first tagging session](../getting-started/first-tagging-session.md).
 It introduces selecting files, editing fields and checking a save. Later
 lessons build on those habits rather than assuming you already know scripting.
 
@@ -12,16 +12,16 @@ lessons build on those habits rather than assuming you already know scripting.
 
 | If you want to… | Start here | You will learn… |
 | --- | --- | --- |
-| Correct an album's basic information | [Your first tagging session](first-tagging-session.md) | What a field is, how selection affects edits, and how to save deliberately. |
-| Understand `%artist%` and `$num(...)` | [Format strings from zero](format-strings-from-zero.md) | How placeholders, functions, punctuation and optional parts produce text. |
-| Make filenames match the tags | [Rename files and folders](rename-files-and-folders.md) | How to build and inspect a naming pattern before changing paths. |
-| Recover information from filenames | [Get tags from filenames](tags-from-filenames.md) | How to describe a filename's parts and send each part to a field. |
-| Plan a cleanup without changing everything at once | [Clean up a messy library](clean-a-messy-library.md) | How to narrow the selection and work through a repeatable cleanup. |
-| Recognize and remove text patterns | [Regular expressions from zero](regex-from-zero.md) | How matching and replacement differ, with small examples. |
-| Repeat several cleanup steps | [Build your first action group](first-action-group.md) | How ordered actions form a reusable group. |
-| Review information from an online database | [Tag an album from an online database](tag-from-online-sources.md) | How to choose an edition, match files and control imported fields. |
-| Put an image inside your audio files | [Give every album a cover](give-every-album-a-cover.md) | How embedded artwork differs from a folder image. |
-| Turn tags into a report | [Export a CD catalogue](export-a-cd-catalogue.md) | How a template, loop, grouping key and output file work together. |
+| Correct an album's basic information | [Your first tagging session](../getting-started/first-tagging-session.md) | What a field is, how selection affects edits, and how to save deliberately. |
+| Understand `%artist%` and `$num(...)` | [Format strings from zero](../scripting/format-strings-from-zero.md) | How placeholders, functions, punctuation and optional parts produce text. |
+| Make filenames match the tags | [Rename files and folders](../converters/rename-files-and-folders.md) | How to build and inspect a naming pattern before changing paths. |
+| Recover information from filenames | [Get tags from filenames](../converters/tags-from-filenames.md) | How to describe a filename's parts and send each part to a field. |
+| Plan a cleanup without changing everything at once | [Clean up a messy library](../actions/clean-a-messy-library.md) | How to narrow the selection and work through a repeatable cleanup. |
+| Recognize and remove text patterns | [Regular expressions from zero](../scripting/regex-from-zero.md) | How matching and replacement differ, with small examples. |
+| Repeat several cleanup steps | [Build your first action group](../actions/first-action-group.md) | How ordered actions form a reusable group. |
+| Review information from an online database | [Tag an album from an online database](../tag-sources/tag-from-online-sources.md) | How to choose an edition, match files and control imported fields. |
+| Put an image inside your audio files | [Give every album a cover](../tagging/give-every-album-a-cover.md) | How embedded artwork differs from a folder image. |
+| Turn tags into a report | [Export a CD catalogue](../export/export-a-cd-catalogue.md) | How a template, loop, grouping key and output file work together. |
 
 The invented Juniper Vale examples in the guide help you compare results
 without needing someone else's music. The online-source lesson instead uses
@@ -41,7 +41,7 @@ These three tools solve different parts of a problem:
 
 You do not need regular expressions to edit ordinary titles. You do not need
 an action group for a one-off rename. Use the smallest tool that describes
-the task clearly; the [Automate overview](../automate/index.md) helps choose it.
+the task clearly; [Choose the right tool](../getting-started/choose-a-tool.md) helps pick it.
 
 ## Understand the ideas behind the controls
 
@@ -49,14 +49,14 @@ Concept pages answer questions that can make a correct operation look wrong:
 
 | Question | Explanation |
 | --- | --- |
-| Why do the filename, tag title and player display disagree? | [What tags are](../concepts/what-are-tags.md) |
-| Why can one file have several kinds of tag? | [Tag formats explained](../concepts/tag-formats.md) |
-| Is `A; B` one artist value or two? | [Multi-value fields](../concepts/multi-value-fields.md) |
-| What is the difference between `3/8` and a total field? | [Track and disc numbers](../concepts/track-and-disc-numbers.md) |
-| Why does a folder image not appear in another player? | [Cover art](../concepts/cover-art.md) |
-| Why are loudness tags different from changing the audio? | [ReplayGain and loudness](../concepts/replaygain.md) |
-| Why does text contain garbled characters? | [Text encodings and codepages](../concepts/text-encodings.md) |
-| How do album artists and sort names help a library? | [Sort fields and compilations](../concepts/sort-fields.md) |
+| Why do the filename, tag title and player display disagree? | [What tags are](../tagging/concepts/what-are-tags.md) |
+| Why can one file have several kinds of tag? | [Tag formats explained](../tagging/concepts/tag-formats.md) |
+| Is `A; B` one artist value or two? | [Multi-value fields](../tagging/concepts/multi-value-fields.md) |
+| What is the difference between `3/8` and a total field? | [Track and disc numbers](../tagging/concepts/track-and-disc-numbers.md) |
+| Why does a folder image not appear in another player? | [Cover art](../tagging/concepts/cover-art.md) |
+| Why are loudness tags different from changing the audio? | [ReplayGain and loudness](../tagging/concepts/replaygain.md) |
+| Why does text contain garbled characters? | [Text encodings and codepages](../tagging/concepts/text-encodings.md) |
+| How do album artists and sort names help a library? | [Sort fields and compilations](../tagging/concepts/sort-fields.md) |
 
 ## Practice with a result you can check
 
@@ -73,9 +73,10 @@ files a second time.
 
 ## Next steps
 
-- [Your first tagging session](first-tagging-session.md)
-- [Guides for everyday work](../guides/index.md)
-- [Cookbook recipes for specific problems](../cookbook/index.md)
+- [Your first tagging session](../getting-started/first-tagging-session.md)
+- [Tagging: everyday editing](../tagging/index.md)
+- [All recipes for specific problems](../cookbook/index.md)
+- [Scripting: format strings and regular expressions](../scripting/index.md)
 - [Reference for exact syntax and options](../reference/index.md)
 
 <!-- Candidate evidence: docs/user-guide/_meta/planned-nav.yml and the linked existing lessons/concepts establish this learning route. Expressions are illustrative pointers to existing lessons, not newly executed examples. -->

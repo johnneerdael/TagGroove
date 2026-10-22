@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {loadProductionModule} from './helpers/load-production-module.mjs';
 const {comparisonSources,comparisonQuery,ComparisonSearchSession}=await loadProductionModule('metadata-comparison-sources.ts');
 const {buildComparisonPreview}=await loadProductionModule('metadata-comparison.ts');
-const credentials={discogs_token_set:false,discogs_app_key:true,acoustid_key_set:true,lastfm_key_set:true,fanart_key_set:true};
+const credentials={discogs_token_set:false,discogs_app_key:true,acoustid_available:true,lastfm_available:true,fanart_key_set:true};
 const listing={folder:'/sources',sources:[],settings:[],problems:[]};
 const files=[{path:'/a.flac',name:'a.flac',title:'One (Extended Mix)',artist:'Artist A',album:'Compilation',album_artist:'VA',track:'1',disc:'1',length:300,fields:{TITLE:['One (Extended Mix)'],ARTIST:['Artist A'],ALBUM:['Compilation'],ALBUMARTIST:['VA']}},{path:'/b.flac',name:'b.flac',title:'Two',artist:'Artist B',album:'Compilation',album_artist:'VA',track:'2',disc:'1',length:301,fields:{TITLE:['Two'],ARTIST:['Artist B'],ALBUM:['Compilation'],ALBUMARTIST:['VA']}}];
 const terms={artist:'Artist A',title:'One (Extended Mix)',albumArtist:'VA',album:'Compilation'};
@@ -59,8 +59,8 @@ test('single-track lyric lookup honors corrected search terms without rewriting 
 });
 
 test('missing keys and broken installed scripts remain visible without provider requests',async()=>{
-  const available=comparisonSources({...credentials,lastfm_key_set:false},{...listing,problems:[{file:'Broken.src',error:'Invalid search declaration'}]});
-  assert.match(available.find(s=>s.provider==='lastfm').setupReason,/key/i);
+  const available=comparisonSources({...credentials,lastfm_available:false},{...listing,problems:[{file:'Broken.src',error:'Invalid search declaration'}]});
+  assert.match(available.find(s=>s.provider==='lastfm').setupReason,/Last\.fm application key/);
   assert.match(available.find(s=>s.label==='Broken.src').setupReason,/Invalid search/);
   const s=session(async()=>{assert.fail('a source requiring setup must not be invoked');});
   await s.value.search(available.filter(x=>x.setupReason),'album',files,terms);
@@ -257,4 +257,135 @@ test('an in-flight detail lookup cannot overwrite a later explicit track mapping
   s.value.match('native:musicbrainz','/a.flac',1);
   resolveLate(release());await pending;
   assert.deepEqual(s.value.states.get('native:musicbrainz').candidate.tracks,{'/a.flac':1,'/b.flac':null});
+});
+
+test('a source with several results is ready when exactly one is the requested album, and asks for a choice between editions',async()=>{
+  const run=async results=>{
+    const s=session(async command=>command==='tag_source_search'?{results,total:results.length}:release('deezer'));
+    await s.value.search([source('deezer')],'album',files,terms);
+    return s.value.states.get('native:deezer');
+  };
+  // One exact album and an anniversary edition: nothing to choose between.
+  const exact=await run([row('album:1'),row('album:2',{title:'Compilation (25th Anniversary Edition)'})]);
+  assert.equal(exact.status,'ready');assert.equal(exact.confirmed,true);
+  // Punctuation and case do not matter for the artist or the title.
+  assert.equal((await run([row('album:1',{title:'COMPILATION',artist:'v.a.'}),row('album:2',{title:'Another'})])).status,'ready');
+  // The same album twice (editions of one title): the person chooses the edition.
+  assert.equal((await run([row('album:1'),row('album:2')])).status,'needs-match');
+  // The top result is not the requested album: it stays a suggestion.
+  const other=await run([row('album:1',{title:'Document',artist:'VA'}),row('album:2',{title:'Compilation (Live)'})]);
+  assert.equal(other.status,'needs-match');assert.equal(other.confirmed,false);
+});
+
+test('Last.fm matches tracks by title and artist even when its lengths are far off',async()=>{
+  const lastfm=release('lastfm');
+  lastfm.tracks=lastfm.tracks.map(track=>({...track,length:track.length+90}));
+  const s=session(async command=>command==='tag_source_search'?{results:[row()],total:1}:lastfm);
+  await s.value.search([source('lastfm')],'album',files,terms);
+  const state=s.value.states.get('native:lastfm');
+  assert.deepEqual(state.candidate.tracks,{'/a.flac':0,'/b.flac':1});
+  assert.equal(state.status,'ready');
+  // Another provider with the same lengths still needs an explicit match.
+  const strict=session(async command=>command==='tag_source_search'?{results:[row()],total:1}:{...release('deezer'),tracks:lastfm.tracks});
+  await strict.value.search([source('deezer')],'album',files,terms);
+  assert.deepEqual(strict.value.states.get('native:deezer').candidate.tracks,{'/a.flac':null,'/b.flac':null});
+});
+
+test('the one exact match is loaded and accepted wherever the provider ranked it',async()=>{
+  const loaded=[];
+  const s=session(async(command,args)=>{
+    if(command==='tag_source_search')return{results:[row('album:1',{title:'Document'}),row('album:2')],total:2};
+    if(command==='tag_source_release'){loaded.push(args.input);return release('deezer');}
+    assert.fail(command);
+  });
+  await s.value.search([source('deezer')],'album',files,terms);
+  const state=s.value.states.get('native:deezer');
+  assert.deepEqual(loaded,['album:2']);
+  assert.equal(state.status,'ready');assert.equal(state.confirmed,true);
+  assert.equal(state.resultKey,'album:2|');
+  // Two exact matches (editions): the top result is only suggested.
+  const editions=[];
+  const t=session(async(command,args)=>{
+    if(command==='tag_source_search')return{results:[row('album:1',{title:'Document'}),row('album:2'),row('album:3')],total:3};
+    if(command==='tag_source_release'){editions.push(args.input);return release('deezer');}
+    assert.fail(command);
+  });
+  await t.value.search([source('deezer')],'album',files,terms);
+  assert.deepEqual(editions,['album:1']);assert.equal(t.value.states.get('native:deezer').status,'needs-match');
+});
+
+test('one exact match on a first page that has more results is only a suggestion',async()=>{
+  // The provider reports five results and one page holds two: another edition may be on a later page.
+  const s=session(async command=>command==='tag_source_search'?{results:[row('album:1'),row('album:2',{title:'Other'})],total:5}:release('deezer'));
+  await s.value.search([source('deezer')],'album',files,terms);
+  const partial=s.value.states.get('native:deezer');
+  assert.equal(partial.canMore,true);
+  assert.equal(partial.status,'needs-match');assert.equal(partial.confirmed,false);
+  // Everything reported is loaded: the same match is unique and ready.
+  const all=session(async command=>command==='tag_source_search'?{results:[row('album:1'),row('album:2',{title:'Other'})],total:2}:release('deezer'));
+  await all.value.search([source('deezer')],'album',files,terms);
+  assert.equal(all.value.states.get('native:deezer').canMore,false);
+  assert.equal(all.value.states.get('native:deezer').status,'ready');
+});
+
+test('after the last page arrives the one exact match is accepted or selected, unless the person already chose',async()=>{
+  const run=async(first,second,choose)=>{
+    const s=session(async(command,args)=>{
+      if(command==='tag_source_search')return args.query.page===0?{results:first,total:first.length+second.length}:{results:second,total:first.length+second.length};
+      if(command==='tag_source_release')return release('deezer');
+      assert.fail(command);
+    });
+    await s.value.search([source('deezer')],'album',files,terms);
+    const before=s.value.states.get('native:deezer');
+    if(choose)await s.value.load('native:deezer',choose);
+    await s.value.more('native:deezer');
+    return{before,after:s.value.states.get('native:deezer')};
+  };
+  // The exact match is on page one: only a suggestion while more pages are outstanding, ready after the last one.
+  const a1=row('a1'),a2=row('a2',{title:'Other'}),a3=row('a3',{title:'Another'});
+  const first=await run([a1,a2],[a3]);
+  assert.equal(first.before.status,'needs-match');
+  assert.equal(first.after.canMore,false);assert.equal(first.after.status,'ready');assert.equal(first.after.confirmed,true);assert.equal(first.after.resultKey,'a1|');
+  // The exact match only appears on the last page: it is selected without a click.
+  const second=await run([row('b1',{title:'Other'}),row('b2',{title:'Different'})],[row('b3')]);
+  assert.equal(second.before.resultKey,'b1|');assert.equal(second.before.status,'needs-match');
+  assert.equal(second.after.resultKey,'b3|');assert.equal(second.after.status,'ready');
+  // The person chose a result before the last page: that choice stays.
+  const c1=row('c1',{title:'Other'});
+  const third=await run([c1,row('c2',{title:'Different'})],[row('c3')],c1);
+  assert.equal(third.after.resultKey,'c1|');assert.equal(third.after.confirmed,true);
+});
+
+test('a result the person chooses while more results are loading is not replaced when they arrive',async()=>{
+  let open;const gate=new Promise(resolve=>{open=resolve;});
+  const first=[row('d1',{title:'Other'}),row('d2',{title:'Different'})];
+  const s=session(async(command,args)=>{
+    if(command==='tag_source_search'){
+      if(args.query.page===0)return{results:first,total:3};
+      await gate;return{results:[row('d3')],total:3};
+    }
+    if(command==='tag_source_release')return release('deezer');
+    assert.fail(command);
+  });
+  await s.value.search([source('deezer')],'album',files,terms);
+  const pending=s.value.more('native:deezer');
+  await s.value.load('native:deezer',first[1]);   // chosen while the next page is outstanding
+  open();await pending;
+  const state=s.value.states.get('native:deezer');
+  assert.equal(state.resultKey,'d2|');assert.equal(state.confirmed,true);
+});
+
+test('when the last page arrives the loaded exact match is accepted without fetching its release again',async()=>{
+  const loaded=[];
+  const s=session(async(command,args)=>{
+    if(command==='tag_source_search')return args.query.page===0?{results:[row('e1'),row('e2',{title:'Other'})],total:4}:{results:[row('e3',{title:'Another'}),row('e4',{title:'Different'})],total:4};
+    if(command==='tag_source_release'){loaded.push(args.input);return release('deezer');}
+    assert.fail(command);
+  });
+  await s.value.search([source('deezer')],'album',files,terms);
+  assert.equal(s.value.states.get('native:deezer').status,'needs-match');
+  await s.value.more('native:deezer');
+  const state=s.value.states.get('native:deezer');
+  assert.deepEqual(loaded,['e1']);                       // loaded once, not again after the last page
+  assert.equal(state.canMore,false);assert.equal(state.status,'ready');assert.equal(state.confirmed,true);assert.equal(state.resultKey,'e1|');
 });

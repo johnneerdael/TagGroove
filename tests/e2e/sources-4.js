@@ -41,11 +41,12 @@
     op('select-all').click();
     await waitFor(() => document.querySelectorAll('tr[data-path].selected,tr[data-path][aria-selected="true"]').length === 2, 5000, 'selection');
 
-    // Key-gated sources wait for a key; the others are ready.
-    const gated = ['source-acoustid', 'source-lastfm', 'source-cover-fanart'];
+    // Only fanart.tv waits for a key from the person. AcoustID and Last.fm use TagGroove's own keys (this instrumented
+    // build carries test-only ones), so they are ready, like the others.
+    const gated = ['source-cover-fanart'];
     await waitFor(() => gated.every(name => op(name)?.disabled), 8000, 'key-gated sources disabled');
-    await check(gated.every(name => /needs an API key/.test(op(name).title)), 'disabled with the reason: ' + op('source-lastfm').title);
-    await check(['source-itunes', 'source-deezer', 'source-lrclib', 'source-cover-itunes', 'source-cover-deezer'].every(name => op(name) && !op(name).disabled), 'iTunes, Deezer and LRCLIB need no key');
+    await check(gated.every(name => /needs an API key/.test(op(name).title)), 'disabled with the reason: ' + op('source-cover-fanart').title);
+    await check(['source-acoustid', 'source-lastfm', 'source-itunes', 'source-deezer', 'source-lrclib', 'source-cover-itunes', 'source-cover-deezer'].every(name => op(name) && !op(name).disabled), 'AcoustID, Last.fm, iTunes, Deezer and LRCLIB need no key from the person');
 
     // A build without TagGroove's Discogs application key keeps the token guidance.
     op('source-token').click();
@@ -101,18 +102,17 @@
     await check(value(disk[0], 'ISRC') === 'NLA001500001' && value(disk[1], 'ISRC') === 'NLA001500002', 'Deezer ISRC per track');
     await check(value(disk[0], 'PUBLISHER') === 'Fixture Records' && value(disk[0], 'BARCODE') === '0123456789012' && value(disk[0], 'GENRE') === 'Ambient', 'Deezer label, barcode and genre');
 
-    // API keys: saved privately, then the gated sources open.
+    // API keys: the fanart.tv key is saved privately, then fanart.tv opens. Last.fm offers a sign-in and AcoustID nothing.
     op('source-keys').click();
     const keys = await waitFor(() => document.querySelector('dialog.ts-keys-dialog[open]'), 5000, 'API keys dialog');
-    await check(keys.querySelectorAll('fieldset.ts-key').length === 3 && /acoustid\.org\/new-application/.test(keys.textContent), 'API keys dialog lists AcoustID, Last.fm and fanart.tv with their registration pages');
-    type(keys.querySelector('#ts-key-lastfm'), 'e2e-lastfm-key');
+    await check(keys.querySelectorAll('fieldset.ts-key').length === 2 && !!keys.querySelector('fieldset[data-key="lastfm"]') && !!keys.querySelector('fieldset[data-key="fanart"]') && /fanart\.tv\/get-an-api-key/.test(keys.textContent) && !keys.querySelector('#ts-key-acoustid') && !keys.querySelector('#ts-key-lastfm'), 'API keys dialog: the Last.fm account and the fanart.tv key, nothing for AcoustID');
+    await check(/works without signing in/.test(keys.querySelector('#ts-lastfm-state').textContent), 'Last.fm works without signing in: ' + keys.querySelector('#ts-lastfm-state').textContent);
     type(keys.querySelector('#ts-key-fanart'), 'e2e-fanart-key');
-    type(keys.querySelector('#ts-key-acoustid'), 'e2e-acoustid-key');
     keys.querySelector('#ts-save-keys').click();
     await waitFor(() => !keys.isConnected, 5000, 'keys saved');
     await waitFor(() => gated.every(name => !op(name).disabled), 5000, 'gated sources enabled');
     const view = await inv('load_tag_source_settings');
-    await check(view.lastfm_key_set && view.fanart_key_set && view.acoustid_key_set && !JSON.stringify(view).includes('e2e-'), 'keys saved and never returned to the window');
+    await check(view.fanart_key_set && view.acoustid_available && view.lastfm_available && !JSON.stringify(view).includes('e2e-'), 'key saved and never returned to the window');
 
     // Last.fm: the album's top tags become GENRE.
     d = await search('source-lastfm', 'Last.fm');

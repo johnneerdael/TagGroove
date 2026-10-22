@@ -125,9 +125,9 @@ test('added toolbar buttons retain the actual unsupported-context and dynamic el
     [{directory:'/'},'dir-up','This is the top folder.'],
     [{selection:['/Music/book.m4b\u00011'],list:['/Music/book.m4b\u00011']},'playlist-selected','Chapter rows are not files of their own.'],
     [{list:['/Music/book.m4b\u00011']},'playlist-generate','Chapter rows are not files of their own.'],
-    [{credentials:{acoustid_key_set:false,acoustid_built_in:false}},'source-acoustid','AcoustID needs an API key.'],
-    [{lastSource:'source-acoustid',credentials:{acoustid_key_set:false,acoustid_built_in:false}},'source-last','AcoustID needs an API key.'],
-    [{lastBuiltIn:'source-acoustid',credentials:{acoustid_key_set:false,acoustid_built_in:false}},'source-last-quick','AcoustID needs an API key.'],
+    [{credentials:{acoustid_available:false}},'source-acoustid','This build has no AcoustID application key, so AcoustID is unavailable.'],
+    [{lastSource:'source-acoustid',credentials:{acoustid_available:false}},'source-last','This build has no AcoustID application key, so AcoustID is unavailable.'],
+    [{lastBuiltIn:'source-acoustid',credentials:{acoustid_available:false}},'source-last-quick','This build has no AcoustID application key, so AcoustID is unavailable.'],
     [{dirty:true,lastBuiltIn:'source-deezer'},'source-last-quick','Save pending changes first.'],
     [{selection:['content://provider/a'],documents:{'content://provider/a':{writable:false,state:'ready'}},lastBuiltIn:'source-deezer'},'source-last-quick','read-only source'],
     [{selection:[],lastBuiltIn:'source-deezer'},'source-last-quick',''],
@@ -151,7 +151,7 @@ async function sourceRuntime(saved,check){
   for(const [key,value] of Object.entries(saved))window.localStorage.setItem(`opentag.tagSources.${key}`,value);
   const webSource={id:'installed-fixture',name:'Installed fixture',menu:['Installed fixture'],search_by:[]};
   const host={files:()=>[{path:'/Music/a.wav',name:'a.wav',artist:'Artist',album:'Album',title:'Track',album_artist:'',track:'1',disc:'1',length:200}],reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async()=>{throw new Error('No metadata apply expected');},pickSave:async()=>null,
-    invoke:async(command,args)=>{calls.push([command,args]);if(command==='tag_source_search')return{results:[],total:0};if(command==='load_tag_source_settings')return{acoustid_key_set:false,acoustid_built_in:false};},
+    invoke:async(command,args)=>{calls.push([command,args]);if(command==='tag_source_search')return{results:[],total:0};if(command==='load_tag_source_settings')return{acoustid_available:false};},
   };
   const create=()=>{const ui=new TagSourcesUI(host);return{ui,model:runtime({window,sourceUI:ui,webSource})};};
   const settle=async()=>{await window.happyDOM.waitUntilComplete();};
@@ -214,7 +214,7 @@ test('quick source guards use the remembered built-in provider after a web sourc
     const{ui,model}=create();await ui.run('source-acoustid');await close();await ui.open('web',{web:webSource});await close();
     await ui.refreshCredentials();
     assert.equal(model.enabled('source-last-quick'),false);
-    assert.match(model.reason('source-last-quick'),/AcoustID needs an API key/);
+    assert.match(model.reason('source-last-quick'),/no AcoustID application key/);
     await model.operate('source-last-quick');assert.equal(document.querySelector('dialog'),null);
     assert.equal(window.localStorage.getItem('opentag.tagSources.lastSource'),`web:${webSource.id}`,'refused quick invocation preserves the universal last source');
   });

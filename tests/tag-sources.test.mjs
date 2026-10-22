@@ -144,7 +144,7 @@ test('edited values apply to the album, every track or one track', () => {
 
 test('tag source options pages cover freedb and the local freedb folder', async () => {
   const pages = tagSourcesOptionsPages(async () => '/data/freedb');
-  assert.deepEqual(pages.map(page => [page.id, page.parent]), [['tag-sources', undefined], ['tag-sources-freedb', 'tag-sources'], ['tag-sources-local-freedb', 'tag-sources'], ['tag-sources-catalog', 'tag-sources'], ['tag-sources-online', 'tag-sources']]);
+  assert.deepEqual(pages.map(page => [page.id, page.parent]), [['tag-sources', undefined], ['tag-sources-freedb', 'tag-sources'], ['tag-sources-local-freedb', 'tag-sources'], ['tag-sources-solver', 'tag-sources'], ['tag-sources-online', 'tag-sources']]);
   const freedb = pages[1];
   assert.equal(freedb.defaults.address, 'gnudb.gnudb.org');
   const draft = port => ({pages: {'tag-sources-freedb': {address: 'gnudb.gnudb.org', port}}});
@@ -247,12 +247,18 @@ test('new sources: menu commands, search types, columns and key gating', () => {
   for (const provider of ['itunes', 'deezer', 'lrclib', 'acoustid', 'lastfm', 'fanart']) assert.ok(providerName(provider), provider);
 
   const none = {discogs_token_set: false, discogs_token_in_keychain: false, keychain_available: false};
-  assert.match(sourceKeyReason('lastfm', none), /Last\.fm needs an API key/);
-  assert.equal(sourceKeyReason('lastfm', {...none, lastfm_key_set: true}), '');
+  // Last.fm needs no key from the person: TagGroove has its own, and a build without one says so.
+  assert.equal(sourceKeyReason('lastfm', none), '');
+  assert.equal(sourceKeyReason('lastfm', {...none, lastfm_available: true}), '');
+  assert.match(sourceKeyReason('lastfm', {...none, lastfm_available: false}), /no Last\.fm application key/);
   assert.equal(sourceKeyReason('fanart', {...none, fanart_built_in: true}), '', 'a key built into the build is enough');
   assert.equal(sourceKeyReason('itunes', none), '', 'iTunes needs no key');
   assert.equal(sourceKeyReason('acoustid', null), '', 'unknown until the backend answers');
-  assert.deepEqual(KEYED_SOURCES.map(source => source.provider), ['acoustid', 'lastfm', 'fanart']);
+  // AcoustID needs no key from the person either: its personal key is only for submitting fingerprints.
+  assert.equal(sourceKeyReason('acoustid', none), '');
+  assert.equal(sourceKeyReason('acoustid', {...none, acoustid_available: true}), '');
+  assert.match(sourceKeyReason('acoustid', {...none, acoustid_available: false}), /no AcoustID application key/);
+  assert.deepEqual(KEYED_SOURCES.map(source => source.provider), ['fanart']);
   assert.deepEqual(fileSignatures([{path: 'a', name: 'a.mp3', title: 'T', artist: 'A', album: 'B', album_artist: '', track: '3', disc: '1', length: NaN}]),
     [{path: 'a', title: 'T', artist: 'A', album: 'B', track: '3', disc: '1', length: 0}]);
 });

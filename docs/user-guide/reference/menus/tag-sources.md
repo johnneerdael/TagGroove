@@ -5,23 +5,43 @@ Select the files of one album, save pending edits, then choose a provider.
 A search result is a candidate: review the release, enabled fields and track
 matching before importing it.
 
+<!-- figure:menu-tag-sources -->
+<figure markdown>
+![The Tag Sources menu open in TagGroove, listing its commands](../../assets/screens/menu-tag-sources-light.png#only-light)
+![The Tag Sources menu open in TagGroove, listing its commands](../../assets/screens/menu-tag-sources-dark.png#only-dark)
+<figcaption>The Tag Sources menu with every provider, the cover commands, API keys and options.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Built-in source commands
 
 | Item | Purpose |
 | --- | --- |
-| **MusicBrainz…** | Search or look up a MusicBrainz release and review its fields/tracks |
-| **Discogs…** | Search or look up a Discogs release |
+| **MusicBrainz…** | Search or look up a MusicBrainz release and review its fields/tracks ([MusicBrainz](../../tag-sources/musicbrainz.md)) |
+| **Discogs…** | Search or look up a Discogs release ([Discogs](../../tag-sources/discogs.md)) |
 | **Discogs Artist + Title…** | Find releases by the performing artist and track title; choose the exact track before saving |
-| **Beatport…** / **Traxsource…** | Search tracks and complete releases, or open a track’s exact release |
-| **Compare metadata…** | Compare a track or album across native and installed sources; choose Inherit, None or a provider per field |
+| **Beatport…** / **Traxsource…** | Search tracks and complete releases, or open a track’s exact release ([Beatport and Traxsource](../../tag-sources/catalog.md)) |
+| **Compare metadata…** | Compare a track or album across native and installed sources; choose Inherit, None or a provider per field ([Compare metadata](../../tag-sources/compare.md)) |
 | **Discogs Release ID…** | Open a specific release using its ID/address rather than a broad search |
+| **iTunes…** | Search the iTunes / Apple Music catalogue for track or album metadata and artwork ([iTunes](../../tag-sources/itunes.md)) |
+| **Deezer…** | Search Deezer for track or album metadata, ISRCs and artwork ([Deezer](../../tag-sources/deezer.md)) |
+| **Last.fm…** | Look up album or track metadata, cover art and listener tags for `GENRE`; needs no key, and you can optionally sign in ([Last.fm](../../tag-sources/lastfm.md)) |
+| **AcoustID (fingerprints)…** | Identify recordings from an audio fingerprint computed in the app; needs no key ([AcoustID](../../tag-sources/acoustid.md)) |
 | **freedb…** | Query the configured server by selected-file track layout, or search gnudb by artist and album |
 | **freedb (local)…** | Search a configured local freedb database/index; Primary+L |
+| **Lyrics: LRCLIB…** | Fetch lyrics matched to each selected file ([LRCLIB](../../tag-sources/lrclib.md)) |
 | **Covers: freedb (gnudb)…** | Search gnudb artwork without importing tag fields |
 | **Covers: MusicBrainz…** | Look up artwork without importing tag fields |
 | **Covers: Discogs…** | Look up artwork without importing tag fields |
+| **Covers: iTunes…** / **Covers: Deezer…** | Look up store artwork without importing tag fields |
+| **Covers: fanart.tv…** | Choose album covers or disc artwork; needs an API key ([fanart.tv](../../tag-sources/fanart-tv.md)) |
+| **Install tag sources…** / **Open sources folder** | Add or reveal installed web sources on desktop platforms with folder access (see below) |
 | **Discogs access token…** | Configure the token used by the Discogs connection |
+| **API keys…** | Save or remove your fanart.tv key, and sign in to or out of Last.fm ([API keys](../../tag-sources/api-keys.md)) |
 | **Options…** | Open the Tag Sources preferences |
+
+[All tag sources](../../tag-sources/index.md) explains how to choose between
+these and how the shared search, review and save dialog works.
 
 The remote [freedb dialog](../../tag-sources/freedb.md) offers **Track layout
 of the selected files** and **Artist and album**. Text and artwork searches

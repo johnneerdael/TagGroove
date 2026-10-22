@@ -375,6 +375,12 @@ python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --versio
 
 The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. `--linux-runtime-sources DIRECTORY` supplies exactly the eight selected original runtime archives without downloading replacements; omission downloads and verifies the pinned inputs. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.
 
+### Application keys in release builds
+
+TagGroove's own keys for Discogs, AcoustID, Last.fm (key and shared secret) and fanart.tv are compiled into the shipped binaries from the repository secrets `DISCOGS_CONSUMER_KEY`, `DISCOGS_CONSUMER_SECRET`, `ACOUSTID_API_KEY`, `LASTFM_API_KEY`, `LASTFM_SHARED_SECRET` and `FANARTTV_API_KEY`. `src-tauri/src/sources/keys.rs` reads them with `option_env!`, so they must be in the environment of the Cargo invocation.
+
+Desktop builds pass them as `OPENTAG_<NAME>` (for example `OPENTAG_ACOUSTID_API_KEY`). Tauri forwards only `TAURI`-prefixed variables to the Gradle and Xcode builds, so the Android and iOS steps pass `TAURI_OPENTAG_<NAME>` instead; `keys.rs` uses the plain name when it is set and the alias otherwise. A build without a key still compiles: Discogs then asks for a personal token, fanart.tv for the user's own key, and AcoustID and Last.fm are unavailable. The native test build uses test-only values, never the secrets.
+
 ### Native evidence roots for mobile builds
 
 Set `OPENTAG_AUDIO_BUILD_ROOT` to a fresh absolute directory for each release run, then export `TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"` before invoking the Tauri Android or iOS CLI. Tauri forwards `TAURI`-prefixed variables to its IDE build scripts; the original `OPENTAG` variable does not cross that boundary reliably.

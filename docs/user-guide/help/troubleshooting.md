@@ -51,7 +51,7 @@ Check these in order so a view problem does not become an unnecessary write:
 A playlist references other paths and can contain missing or rejected remote
 entries. A CUE sheet can produce track rows rather than one ordinary audio
 row. Consult [Opening files](../getting-started/opening-files.md),
-[Playlists](../guides/playlists.md), and [Chapters](../guides/chapters.md).
+[Playlists](../export/playlists.md), and [Chapters](../tagging/chapters.md).
 Do not treat an empty result as proof the original files were deleted.
 
 ## A tag write failed or the old value came back
@@ -67,7 +67,7 @@ Do not treat an empty result as proof the original files were deleted.
 4. After a successful save, use **File → Reload tags** and compare the value.
    Reload can discard pending edits, so resolve them before accepting it.
 5. If the saved value is still unexpected, inspect the native storage and
-   read/write policy with [Tag formats](../concepts/tag-formats.md) and
+   read/write policy with [Tag formats](../tagging/concepts/tag-formats.md) and
    [Tags options](../reference/options/tags.md).
 
 A provider document can require source-access refresh or recovery rather
@@ -85,8 +85,8 @@ Do not assume a different displayed album artist or image proves a failed
 write. The player may use a grouping field, another tag block, or an external
 folder image. Test one copied file after an intentional player refresh.
 
-See [Sort fields and compilations](../concepts/sort-fields.md),
-[Tag formats](../concepts/tag-formats.md), and [Cover art](../concepts/cover-art.md).
+See [Sort fields and compilations](../tagging/concepts/sort-fields.md),
+[Tag formats](../tagging/concepts/tag-formats.md), and [Cover art](../tagging/concepts/cover-art.md).
 Do not remove every tag family or embedded image to diagnose a display cache.
 This procedure cannot certify an individual player's behavior.
 
@@ -101,7 +101,7 @@ Reduce the example before applying anything:
 3. Test one small expression in the intended preview. Check spelling and the
    available placeholders before adding more functions.
 4. Check commas, apostrophes, literal parentheses, empty arguments and
-   quoting with [Format strings](../reference/format-strings.md).
+   quoting with [Format strings](../scripting/format-strings.md).
 5. For regex, record pattern, replacement and case setting separately.
    **Find** and the shared core use Boost-compatible syntax, but their quoting
    and case controls differ. Filter and web-source defaults also need their own context.
@@ -109,8 +109,8 @@ Reduce the example before applying anything:
    mean no match, rather than a reported parser error.
 
 Do not copy a successful Find pattern into a write action without checking
-that action's dialect and preview. Follow [Regular expressions](../reference/regular-expressions.md)
-and [Format strings from zero](../learn/format-strings-from-zero.md) for worked
+that action's dialect and preview. Follow [Regular expressions](../scripting/regular-expressions.md)
+and [Format strings from zero](../scripting/format-strings-from-zero.md) for worked
 examples. A correct expression still needs appropriate metadata and source
 context; unavailable context is not repaired by adding arbitrary quotes.
 
@@ -120,7 +120,7 @@ Inspect the complete proposed path, not only its last filename. Check missing
 artist/album fields, unexpected leading separators, current working-directory
 context, extension handling and the destination that already exists.
 A second run can build on the first run's changed path. Use the
-[folder-layout recipe](../cookbook/rename-into-artist-album-folders.md) to
+[folder-layout recipe](../converters/recipes/rename-into-artist-album-folders.md) to
 practice relative roots and optional components before changing a library.
 
 Do not treat preview as a reservation or assume every filesystem case/alias
@@ -129,7 +129,7 @@ the reported final paths before retrying. Reports, playlists and saved images
 are external files with command-specific overwrite/history behavior. Keep
 backups of outputs worth preserving; session Undo is not a general output
 rollback service. See [Export](../export/index.md) and
-[Playlists](../guides/playlists.md).
+[Playlists](../export/playlists.md).
 
 ## An action group produces warnings or repeats a bad result
 

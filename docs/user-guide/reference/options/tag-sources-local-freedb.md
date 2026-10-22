@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tag Sources → Local freedb** to use an extracted historical freedb database on disk. This is a source of album metadata, separate from TagGroove's own [Library cache](library.md).
 
+<!-- figure:options-tag-sources-local-freedb -->
+<figure markdown>
+![The tag sources local freedb page of the Options dialog](../../assets/screens/options-tag-sources-local-freedb-light.png#only-light)
+![The tag sources local freedb page of the Options dialog](../../assets/screens/options-tag-sources-local-freedb-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Select the database root containing category subfolders, not an individual album file. A local snapshot reflects the date it was created; it does not receive current server updates.
 

@@ -6,14 +6,16 @@ use tag_core::{
     compile_filter, evaluate, evaluate_filename_with_context, parse_filename, EvalContext, Fields,
 };
 
-const FORMAT: &str = include_str!("../../../docs/user-guide/reference/format-strings.md");
-const REGEX: &str = include_str!("../../../docs/user-guide/reference/regular-expressions.md");
-const FIRST: &str = include_str!("../../../docs/user-guide/learn/first-tagging-session.md");
+const FORMAT: &str = include_str!("../../../docs/user-guide/scripting/format-strings.md");
+const REGEX: &str = include_str!("../../../docs/user-guide/scripting/regular-expressions.md");
+const FIRST: &str =
+    include_str!("../../../docs/user-guide/getting-started/first-tagging-session.md");
 const NUMBERS: &str =
-    include_str!("../../../docs/user-guide/cookbook/rename-zero-padded-track-numbers.md");
+    include_str!("../../../docs/user-guide/converters/recipes/rename-zero-padded-track-numbers.md");
 const FOLDERS: &str =
-    include_str!("../../../docs/user-guide/cookbook/tags-from-folder-and-filename.md");
-const GUESTS: &str = include_str!("../../../docs/user-guide/cookbook/feat-artists-to-title.md");
+    include_str!("../../../docs/user-guide/converters/recipes/tags-from-folder-and-filename.md");
+const GUESTS: &str =
+    include_str!("../../../docs/user-guide/actions/recipes/feat-artists-to-title.md");
 
 fn fields() -> Fields {
     [

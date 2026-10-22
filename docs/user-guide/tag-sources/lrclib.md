@@ -4,6 +4,13 @@ Use **Tag Sources → Lyrics: LRCLIB…** to find lyrics for selected files.
 No API key is needed. Lyrics are proposed in `UNSYNCEDLYRICS` for review
 before writing.
 
+<!-- figure:lrclib-form -->
+<figure markdown>
+![The LRCLIB lyrics dialog: each selected file is looked up by title, artist, album and length](../assets/screens/lrclib-form-light.png#only-light)
+![The LRCLIB lyrics dialog: each selected file is looked up by title, artist, album and length](../assets/screens/lrclib-form-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 Use [Compare metadata…](index.md#compare-fields-from-several-sources) to mix this
 source's fields with other providers for one track or an album. In Album mode,
 one provider choice per field uses each track's own matched values. Inherit keeps
@@ -43,6 +50,13 @@ stamps) when available** in **Options → Tag Sources → Online services** to
 keep LRC timestamps. Both choices write text to `UNSYNCEDLYRICS`; this option
 does not create an ID3 synchronized-lyrics frame. Player support varies.
 
+<!-- figure:lrclib-review -->
+<figure markdown>
+![The LRCLIB review step showing the lyrics found for the selected file](../assets/screens/lrclib-review-light.png#only-light)
+![The LRCLIB review step showing the lyrics found for the selected file](../assets/screens/lrclib-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 When only synchronized lyrics are available and the option is off, TagGroove
 removes timestamps and LRC metadata lines. LRCLIB supplies no language;
 ID3 lyrics use the unknown-language code `XXX`. Literal text, including `||`,
@@ -54,5 +68,6 @@ retried once. Each selected file needs a lookup, and a fallback can add another.
 ## Related
 
 - [Search, review and save](index.md#search-review-and-save)
-- [Network access and privacy](index.md#network-access-and-privacy)
+- [Compare metadata from several sources](compare.md)
+- [Network access, privacy and rate limits](privacy-and-network.md)
 - [Tag Sources options](../reference/options/tag-sources.md)

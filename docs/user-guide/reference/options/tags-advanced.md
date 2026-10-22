@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tags → Advanced** for format-specific interoperability choices. Change one setting at a time when investigating a particular player's behavior.
 
+<!-- figure:options-tags-advanced -->
+<figure markdown>
+![The tags advanced page of the Options dialog](../../assets/screens/options-tags-advanced-light.png#only-light)
+![The tags advanced page of the Options dialog](../../assets/screens/options-tags-advanced-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     These are storage and interpretation choices. Keep a copy of a representative file and check it in the program that motivated the change; TagGroove source checks do not establish that program's compatibility.
 

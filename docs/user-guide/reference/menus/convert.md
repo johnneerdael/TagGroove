@@ -5,6 +5,14 @@ Select the intended files and save pending edits first. The menu has five
 conversion directions plus track/disc numbering; choose the direction by
 what you already have and what you want to create.
 
+<!-- figure:menu-convert-album -->
+<figure markdown>
+![The Convert menu open in TagGroove, listing Tag → Filename, Filename → Tag, Filename → Filename, Text File → Tag, Tag → Tag and Auto-numbering](../../assets/screens/menu-convert-album-light.png#only-light)
+![The Convert menu open in TagGroove, listing Tag → Filename, Filename → Tag, Filename → Filename, Text File → Tag, Tag → Tag and Auto-numbering](../../assets/screens/menu-convert-album-dark.png#only-dark)
+<figcaption>The Convert menu.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Item | Shortcut | Use it when |
 | --- | --- | --- |
 | [**Tag → Filename…**](../../converters/tag-to-filename.md) | Alt+1 | Tags contain the artist, album or title needed for a new name/folder layout |

@@ -33,18 +33,36 @@ sorted by file name as `01_low_tide`, `02 - Lanterns On The Water`,
 `07 Fog Horn (Interlude)`, `08 - Harbour Lights`, `track04`. Scenes must not
 save changes to the files, because later scenes expect the original album.
 
+## Real-music runs (macOS)
+
+`scripts/docs-screenshots-macos.sh` (owner-approved, opt-in; see `style.md` § 8) runs the same
+scene files against a working copy of real albums and songs. It sets
+`window.OPENTAG_DOCS_MUSIC` (the copy's root), `OPENTAG_DOCS_FIRST` (the album shown first)
+and `OPENTAG_DOCS_LIBRARY` (`{ albums: [...], songs: [...] }`). Extra helpers:
+
+- `openAlbum('albums/<folder>')` replaces the list with that folder or file, so a scene can
+  choose material that fits its provider; give a scene `album: 'albums/<folder>'` and the
+  driver opens it before `run`. `music('albums', /pattern/)` finds the folder name.
+- `selectRows([1, 6])`, `openDialog(op, selector)`, `openMenu('Edit')`, `optionsPage(dialog, id)`.
+- `snap(name, crop)` takes an extra image during a scene (list it in `also`); `crop: 'dialog'`
+  on a scene captures only the top dialog. Set `noFinalShot: true` when the scene only uses `snap`.
+- The driver refuses to capture an error banner (`allowError: true` opts out) and dismisses
+  errors between scenes. Scenes must avoid commands that open a native picker or a destructive
+  confirmation (Remove tag…, Copy files to…, Open folder).
+
+Scenes that need a live provider (`tag-sources-live.js`) return no scenes unless
+`OPENTAG_DOCS_MUSIC` is set, and `TAGGROOVE_DOCS_SKIP="scene-a scene-b"` leaves scenes out when a
+provider is down.
+
 ## Capture availability
 
 The Linux native job in the reviewed reusable build captures the five core
 scenes in light and dark themes after exact-head review authorization. The
 former automatic workflow remains removed and its legacy ID stays disabled.
-
-Add proposed scenes to the appropriate workstream file and the reviewed
-job's explicit scene list. Pushing a scene alone does not execute it. Never
-run the screenshot script or the app on a writer's machine for guide work.
+The Linux job and `scripts/docs-screenshots.sh` still refuse to run on a writer's
+machine; the macOS runner above is the one exception, for the owner's own Mac.
 
 `scripts/docs-screens-fetch.sh <run-id> [scene …]` downloads `docs-screens`
 from an explicit verified run. It does not start capture. Verify the source
 revision and inspect every image before committing it; obtain another clean
-review of the resulting head. Historical artifacts can still be reused when
-their source and images match the page, provided they have not expired.
+review of the resulting head.

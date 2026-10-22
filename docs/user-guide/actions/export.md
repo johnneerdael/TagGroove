@@ -4,6 +4,14 @@ Use the **Export** action to produce a text report from selected files as
 part of a saved action group. An export configuration defines the report's
 contents; an output filename format decides where to write it.
 
+<!-- figure:action-export -->
+<figure markdown>
+![The Edit action dialog with the action type set to Export and its settings](../assets/screens/action-export-light.png#only-light)
+![The Edit action dialog with the action type set to Export and its settings](../assets/screens/action-export-dark.png#only-dark)
+<figcaption>The Export action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Produce a small track report
 
 1. In a plain-text editor, save this configuration as a UTF-8 file named
@@ -90,6 +98,6 @@ the report must capture values before cleanup.
 ## Related
 
 - [Generate Playlists](generate-playlists.md)
-- [Format strings](../reference/format-strings.md)
-- [Placeholders](../reference/placeholders.md)
+- [Format strings](../scripting/format-strings.md)
+- [Placeholders](../scripting/placeholders.md)
 - [Actions and action groups](index.md)

@@ -74,6 +74,7 @@ jobs:
       - run: npm run test:ui
       - run: python3 -m unittest discover -s .github/scripts/tests -v
       - run: python3 -m unittest discover -s scripts/tests -p 'test_macos_*.py' -v
+      - run: python3 -m unittest discover -s scripts/tests -p 'test_local_app_keys.py' -v
       - run: python3 -m unittest discover -s scripts/tests -p 'test_audio*.py' -v
       - name: Check notice collection and AppImage license staging without application builds
         run: |

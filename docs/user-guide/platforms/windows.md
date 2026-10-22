@@ -136,7 +136,7 @@ and retain enough track/disc information to keep names distinct.
 For a long-path or destination error, try a copied album in a shorter,
 clearly writable location and inspect that actual result. A character-cleaning
 expression does not establish full-path validity or support by another
-program. See [portable names](../cookbook/rename-safe-characters.md) for the
+program. See [portable names](../converters/recipes/rename-safe-characters.md) for the
 scope of `$validate`, Unicode counts and explicit truncation policies.
 
 A Windows ANSI codepage is not synonymous with UTF-8 or Windows-1252.
@@ -158,7 +158,7 @@ The first row is valid UTF-8 and does not use the fallback. The second is
 legacy text under the stated codepage. Inspect accents before applying an
 import. Changing a filename extension or changing Windows' display language
 does not repair already garbled field text; follow the
-[encoding guide](../concepts/text-encodings.md) for the relevant operation.
+[encoding guide](../tagging/concepts/text-encodings.md) for the relevant operation.
 
 ## Credentials, settings and updates
 

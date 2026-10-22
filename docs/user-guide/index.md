@@ -16,18 +16,19 @@ hide:
 ## Tag, rename and organize your music
 
 TagGroove edits the metadata inside your audio files: titles, artists,
-albums, track numbers and cover art. Start with a copy of an album, learn
-to edit and save its tags, then give the files consistent names.
+albums, track numbers and cover art. Tag by hand, look albums up online and
+compare providers field by field, rename files from their tags, and repeat a
+cleanup on a whole library. Start with a copy of an album.
 
-[Start your first session](learn/first-tagging-session.md){ .md-button .md-button--primary }
+[Start your first session](getting-started/first-tagging-session.md){ .md-button .md-button--primary }
 [Download TagGroove](https://github.com/johnneerdael/TagGroove/releases/latest){ .md-button }
 
 </div>
 
 <div markdown>
 
-![The TagGroove main window with an album open](assets/screens/main-window-light.png#only-light){ .screen }
-![The TagGroove main window with an album open](assets/screens/main-window-dark.png#only-dark){ .screen }
+![The TagGroove main window with R.E.M.’s Automatic For The People open: tag panel on the left, twelve tracks in the file list](assets/screens/main-window-album-light.png#only-light){ .screen }
+![The TagGroove main window with R.E.M.’s Automatic For The People open: tag panel on the left, twelve tracks in the file list](assets/screens/main-window-album-dark.png#only-dark){ .screen }
 
 </div>
 
@@ -40,89 +41,120 @@ to edit and save its tags, then give the files consistent names.
     available packages and limitations. TagGroove is an independent project;
     complete Mp3tag compatibility remains a goal.
 
-## Learn by doing
+## What do you want to do?
 
 <div class="grid cards" markdown>
 
--   :material-school-outline:{ .lg .middle } **Your first tagging session**
+-   :material-tag-edit-outline:{ .lg .middle } **Tag your files**
 
     ---
 
-    Open an album, change tags on one file and a selection, rename the
-    files, and undo a change.
+    Edit titles, artists, numbers and cover art for one file or a whole
+    album, find what is missing, and understand how tags are stored.
 
-    [:octicons-arrow-right-24: Start the tutorial](learn/first-tagging-session.md)
+    [:octicons-arrow-right-24: Tagging](tagging/index.md)
 
--   :material-numeric:{ .lg .middle } **Give track numbers two digits**
+    Popular: [The tag panel](tagging/tag-panel.md) · [Covers](tagging/covers.md)
 
-    ---
-
-    Rename `2 Low Tide.mp3` to `02 Low Tide.mp3` so files sort in order.
-
-    [:octicons-arrow-right-24: Zero-padded track numbers](cookbook/rename-zero-padded-track-numbers.md)
-
--   :material-folder-music-outline:{ .lg .middle } **Get tags from names**
+-   :material-cloud-search-outline:{ .lg .middle } **Tag from online sources**
 
     ---
 
-    Use your existing artist and album folders to fill empty tags.
+    Search MusicBrainz, Discogs, Beatport, iTunes and more, and compare
+    several providers field by field before saving.
 
-    [:octicons-arrow-right-24: Tags from folder and file names](cookbook/tags-from-folder-and-filename.md)
+    [:octicons-arrow-right-24: Tag sources](tag-sources/index.md)
 
--   :material-account-music-outline:{ .lg .middle } **Keep guest artists in titles**
+    Popular: [Compare sources](tag-sources/compare.md) · [API keys](tag-sources/api-keys.md)
+
+-   :material-file-swap-outline:{ .lg .middle } **Rename files and fill tags from names**
 
     ---
 
-    Build an action group that moves “feat.” names from the artist field
-    into the title.
+    Build filenames from tags, read tags from folder and file names, import a
+    tracklist and number tracks and discs.
 
-    [:octicons-arrow-right-24: Move guest artists to titles](cookbook/feat-artists-to-title.md)
+    [:octicons-arrow-right-24: Rename & convert](converters/index.md)
+
+    Popular: [Tag → Filename](converters/tag-to-filename.md) · [Filename → Tag](converters/filename-to-tag.md)
+
+-   :material-playlist-check:{ .lg .middle } **Clean up a whole library**
+
+    ---
+
+    Chain actions into a group that trims spaces, fixes case, splits credits
+    and more, then reuse it on any selection.
+
+    [:octicons-arrow-right-24: Actions](actions/index.md)
+
+    Popular: [First action group](actions/first-action-group.md) · [Clean a messy library](actions/clean-a-messy-library.md)
+
+-   :material-code-braces:{ .lg .middle } **Script your own rules**
+
+    ---
+
+    Format strings, 64 functions and regular expressions for names, tags,
+    columns and reports.
+
+    [:octicons-arrow-right-24: Scripting](scripting/index.md)
+
+    Popular: [Format strings from zero](scripting/format-strings-from-zero.md) · [Regex from zero](scripting/regex-from-zero.md)
+
+-   :material-export-variant:{ .lg .middle } **Export and playlists**
+
+    ---
+
+    Write CSV and HTML reports, playlists and cue sheets from your tags.
+
+    [:octicons-arrow-right-24: Export & playlists](export/index.md)
+
+    Popular: [CSV](export/csv.md) · [Playlists](export/playlists.md)
+
+-   :material-tune-variant:{ .lg .middle } **Make it yours**
+
+    ---
+
+    Columns, tag-panel fields, toolbars, external tools, languages and
+    configuration backups.
+
+    [:octicons-arrow-right-24: Customize](customize/index.md)
+
+    Popular: [Columns](customize/columns.md) · [Configuration](customize/configuration.md)
+
+-   :material-book-open-variant:{ .lg .middle } **Look something up**
+
+    ---
+
+    Field names, tag mapping, file formats, menus, options and shortcuts.
+
+    [:octicons-arrow-right-24: Reference](reference/index.md)
+
+    Popular: [Keyboard shortcuts](reference/keyboard-shortcuts.md) · [File formats](reference/file-formats.md)
+
+-   :material-swap-horizontal:{ .lg .middle } **Coming from Mp3tag**
+
+    ---
+
+    What carries across, what differs, and how to bring an existing setup over.
+
+    [:octicons-arrow-right-24: Bring an Mp3tag setup across](getting-started/coming-from-mp3tag.md)
 
 </div>
 
-## Build on the first session
+## New here?
 
-| What you want to learn | Start here |
-| --- | --- |
-| Install, open files and understand the workspace | [Start using TagGroove](getting-started/index.md), [installation](getting-started/install.md) and [the main window](getting-started/main-window.md) |
-| Edit shared fields and decide when to save | [The tag panel](guides/tag-panel.md) and [Editing, saving and undo](getting-started/editing-and-saving.md) |
-| Transfer or remove stored tags | [Cut, copy and paste tags](guides/copy-paste-tags.md) and [Removing tags](guides/remove-tags.md) |
-| Inspect the list, unfamiliar fields and artwork | [The file list](guides/file-list.md), [Extended tags](guides/extended-tags.md) and [Working with covers](guides/covers.md) |
-| Understand metadata and native storage | [What tags are](concepts/what-are-tags.md), [tag formats](concepts/tag-formats.md) and [track/disc numbers](concepts/track-and-disc-numbers.md) |
-| Set up your workspace and locate text | [Configure columns](customize/columns.md), [customize the tag panel](customize/tag-panel.md) and [Find](guides/find.md) |
-| Clean text and artist credits in a safe order | [Trim spaces](cookbook/trim-spaces.md), [trailing annotations](cookbook/remove-text-in-brackets.md), [artist lists](cookbook/split-multiple-artists.md) and [Artist - Title](cookbook/split-artist-title.md) |
-| Correct text encoding or keep only reviewed fields | [Capitalization exceptions](cookbook/fix-capitalisation.md), [mojibake repair](cookbook/fix-mojibake.md) and [a field keep list](cookbook/remove-junk-fields.md) |
-| Work through an album's numbering | [Split track totals](cookbook/split-track-total.md), [number per folder](cookbook/number-tracks-per-folder.md), [disc numbers](cookbook/disc-numbers-from-folders.md) and [year text](cookbook/year-from-date.md) |
-| Understand and manage embedded artwork | [Cover-art concepts](concepts/cover-art.md), [embed folder images](cookbook/embed-folder-jpg.md), [resize covers](cookbook/resize-covers.md) and [keep front covers](cookbook/keep-only-front-cover.md) |
-| Inspect incomplete or unusual files | [Missing fields](cookbook/find-missing-fields.md), [missing embedded covers](cookbook/find-missing-covers.md) and [bitrate thresholds](cookbook/find-low-bitrate.md) |
-| Keep display, sort order and loudness metadata distinct | [Sort fields and compilations](concepts/sort-fields.md) and [ReplayGain](concepts/replaygain.md) |
-| Combine fields, functions and fallback values | [Format strings from zero](learn/format-strings-from-zero.md), then the [64-function reference](reference/scripting/index.md) |
-| Match, capture and clean patterned text | [Regular expressions from zero](learn/regex-from-zero.md), then [regex syntax and examples](reference/regular-expressions.md) |
-| Repeat several changes in order | [Build your first action group](learn/first-action-group.md), then [all action types](actions/index.md) |
-| Build folder paths for albums, discs and compilations | [Artist/album folders](cookbook/rename-into-artist-album-folders.md), [multi-disc albums](cookbook/rename-multi-disc-albums.md) and [compilations](cookbook/rename-compilations.md) |
-| Load or create playlists and understand chapter rows | [Playlists](guides/playlists.md), [one playlist per album folder](cookbook/playlist-per-album.md) and [chapters/CUE rows](guides/chapters.md) |
-| Rename files, import text or number albums | [Converters](converters/index.md) and [auto-numbering](converters/auto-numbering.md) |
-| Create a catalogue or spreadsheet | [Export a CD catalogue](learn/export-a-cd-catalogue.md), then [CSV](export/csv.md) and the [template language](export/template-language.md) |
-| Parse a web source you control | [Write a source from local JSON](tag-sources/writing-web-sources.md), then the [command reference](tag-sources/web-source-reference.md) |
+1. [Download and install TagGroove](getting-started/install.md) for macOS,
+   Windows, Linux, Android or iOS.
+2. Work through [Your first tagging session](getting-started/first-tagging-session.md)
+   on a copied album.
+3. Pick a feature above, or [choose the right tool](getting-started/choose-a-tool.md)
+   for your job.
 
-## Look up the syntax
-
-- [Format strings](reference/format-strings.md): combine tags, text and
-  functions to build a value or filename.
-- [Placeholders](reference/placeholders.md): read tag values and file
-  properties such as `%artist%`, `%title%` and `%_filename%`.
-- [Regular expressions](reference/regular-expressions.md): match, extract
-  and replace text, with worked examples.
-
-For everyday lookup, see [Options](reference/options/index.md),
-[keyboard shortcuts](reference/keyboard-shortcuts.md), [filter syntax](reference/filter-syntax.md)
-and [field mappings](reference/tag-mapping.md).
-[Context and helper menus](reference/menus/context-menus.md) explain cover
-commands, field suggestions and named history entries; the
-[menu reference](reference/menus/index.md) helps locate each control.
+Coming from Mp3tag? [Bring an Mp3tag setup across](getting-started/coming-from-mp3tag.md)
+lists what carries over. Prefer worked examples? Browse [all tutorials](learn/index.md)
+and [all recipes](cookbook/index.md).
 
 Use the search box (press ++s++ or ++slash++) to find a topic in this guide.
-More topics are being written; only completed pages appear here.
 
 ## Get help and follow changes
 

@@ -1,14 +1,14 @@
 import type {Provider, SearchMode, SearchResult, SourceFile, SourceRelease, TagSourceCredentials} from './tag-sources';
 import type {WebListing, WebResult, WebSearchPage, WebSourceInfo} from './web-sources';
-import {comparisonTrackMatches} from './metadata-comparison';
+import {comparisonTrackMatches, sameName} from './metadata-comparison';
 import type {ComparisonCandidate, ComparisonScope} from './metadata-comparison';
 
 type NativeProvider = Exclude<Provider,'web'>;
-type NativeDefinition = {label:string;key?:'acoustid'|'lastfm'|'fanart';selected?:boolean};
+type NativeDefinition = {label:string;key?:'fanart';selected?:boolean};
 const nativeSources:Record<NativeProvider,NativeDefinition> = {
   musicbrainz:{label:'MusicBrainz'},discogs:{label:'Discogs'},beatport:{label:'Beatport'},traxsource:{label:'Traxsource'},
-  itunes:{label:'iTunes'},deezer:{label:'Deezer'},lastfm:{label:'Last.fm',key:'lastfm'},lrclib:{label:'LRCLIB'},
-  acoustid:{label:'AcoustID',key:'acoustid',selected:false},fanart:{label:'fanart.tv',key:'fanart'},
+  itunes:{label:'iTunes'},deezer:{label:'Deezer'},lastfm:{label:'Last.fm'},lrclib:{label:'LRCLIB'},
+  acoustid:{label:'AcoustID',selected:false},fanart:{label:'fanart.tv',key:'fanart'},
   freedb:{label:'freedb'},local_freedb:{label:'freedb (local)'},
 };
 export type ComparisonSource = {id:string;provider:Provider;label:string;setupReason?:string;selected:boolean;web?:WebSourceInfo};
@@ -16,12 +16,15 @@ export type ComparisonTerms = {artist:string;title:string;albumArtist:string;alb
 export type ComparisonQuery = {mode:SearchMode;artist:string;title:string;album:string;text:string;page:number;lengths:number[];files:{path:string;title:string;artist:string;album:string;track:string;disc:string;length:number}[]};
 export type NeedsInput = {kind:'needs-input';reason:string;inputs:{key:string;label:string;value:string}[]};
 export type ComparisonSearchResult = SearchResult & {webResult?:WebResult};
+export const comparisonResultKey = (result:ComparisonSearchResult) => `${result.id}|${result.track_id||''}`;
 type FingerprintMatches = Record<string,{recording:string;acoustid:string}[]>;
 export type ComparisonSourceState = {
   source:ComparisonSource;
   status:'needs-setup'|'needs-input'|'searching'|'loading'|'needs-match'|'ready'|'empty'|'failed'|'cancelled';
   results:ComparisonSearchResult[];page:number;total:number|null;canMore:boolean;
   candidate?:ComparisonCandidate;error?:unknown;input?:NeedsInput;confirmed?:boolean;fingerprints?:FingerprintMatches;
+  /** Which of `results` the candidate was loaded from (see `comparisonResultKey`), so the edition list can show it. */
+  resultKey?:string;
 };
 type SearchHost = {
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
@@ -38,6 +41,8 @@ export function comparisonSources(credentials:TagSourceCredentials|null,listing:
       if (!credentials) setupReason='API key settings are unavailable. Check Tag Sources → API keys.';
       else if (!credentials[`${key}_key_set`] && !credentials[`${key}_built_in`]) setupReason=`${definition.label} needs an API key.`;
     }
+    if (provider==='lastfm' && credentials?.lastfm_available===false) setupReason='This build has no Last.fm application key.';
+    if (provider==='acoustid' && credentials?.acoustid_available===false) setupReason='This build has no AcoustID application key.';
     if (provider==='discogs' && !credentials) setupReason='API key settings are unavailable. Check Tag Sources → API keys.';
     if (provider==='discogs' && credentials && !credentials.discogs_app_key && !credentials.discogs_token_set) setupReason='Discogs needs application credentials or a personal access token.';
     if (provider==='local_freedb' && setup.localFreedbAvailable===false) setupReason='Choose the local freedb database folder in Options.';
@@ -156,10 +161,40 @@ export class ComparisonSearchSession {
       const canMore=!source.web && source.provider!=='itunes' && (total===null?results.length>=50:all.length<total) && results.length>0;
       const state:ComparisonSourceState={...current,results:all,total,page,canMore,status:all.length?(previous.candidate?previous.status==='ready'?'ready':'needs-match':'needs-match'):'empty'};
       this.publish(state);
-      if (!append && results.length) await this.loadResult(sourceId,results[0],false);
+      // Start from the one exact match when there is exactly one, wherever the provider ranked it.
+      const exact=this.exactResults(source,all);
+      if (!append && results.length) await this.loadResult(sourceId,exact.length===1?exact[0]:results[0],false);
+      // When the last page has arrived, the one exact match among everything loaded is accepted, or selected when it
+      // only appeared on a later page, unless the person has already chosen a result.
+      else if (append && !canMore && !current.confirmed && exact.length===1) {
+        const loaded=this.states.get(sourceId)!;
+        // Already the loaded candidate: accept it as it is instead of fetching the same release again.
+        if (loaded.candidate && loaded.resultKey===comparisonResultKey(exact[0])) this.publish({...loaded,confirmed:true,status:this.complete(loaded.candidate)?'ready':'needs-match'});
+        else await this.loadResult(sourceId,exact[0],false);
+      }
     } catch(error) {
       if(valid())this.publish({...this.states.get(sourceId)!,status:'failed',error});
     }
+  }
+
+  /** Every selected file has its track, or the source only supplies shared fields or artwork. */
+  private complete(candidate:ComparisonCandidate):boolean {
+    const release=candidate.release,sharedOnly=!release.tracks.length && (release.covers.length>0 || Object.keys(release.fields).length>0);
+    return sharedOnly || this.files.every(file=>candidate.tracks[file.path]!=null);
+  }
+  /** The results that are the album (or track) that was asked for, by artist and title. */
+  private exactResults(source:ComparisonSource,results:ComparisonSearchResult[]):ComparisonSearchResult[] {
+    if(source.web)return [];
+    const terms=this.sourceTerms.get(source.id)||this.terms,track=this.scope==='track';
+    const title=track?terms.title:terms.album,artist=track?terms.artist:terms.albumArtist;
+    return results.filter(row=>sameName(row.title,title)&&sameName(row.artist,artist));
+  }
+  /** Several results, but exactly one is the one asked for: no editions to choose between. Only when every
+   *  reported result is loaded: another edition could be waiting on a page that has not been fetched. */
+  private onlyExactResult(state:ComparisonSourceState,result:ComparisonSearchResult):boolean {
+    if(state.canMore)return false;
+    const exact=this.exactResults(state.source,state.results);
+    return exact.length===1&&comparisonResultKey(exact[0])===comparisonResultKey(result);
   }
 
   async load(sourceId:string,result:ComparisonSearchResult):Promise<void> { await this.loadResult(sourceId,result,true); }
@@ -175,7 +210,8 @@ export class ComparisonSearchSession {
         {provider:source.provider,input:result.id,ticket,files:this.files.map(({path,title,artist,album,track,disc,length})=>({path,title,artist,album,track,disc,length}))},valid));
       if(!valid())return;
       const trackId=result.track_id || (result.id.startsWith('track:')?result.id.slice(6):undefined);
-      let tracks=comparisonTrackMatches(this.files,release,trackId),fingerprints:FingerprintMatches|undefined;
+      // Last.fm's track lengths are user-submitted and often far off, so for it the title and artist decide.
+      let tracks=comparisonTrackMatches(this.files,release,trackId,{ignoreDuration:source.provider==='lastfm'}),fingerprints:FingerprintMatches|undefined;
       if(source.provider==='lrclib' && result.id.startsWith('files:') && release.tracks.length===this.files.length) tracks=Object.fromEntries(this.files.map((file,index)=>[file.path,index]));
       if(source.provider==='acoustid') {
         fingerprints=await this.request<FingerprintMatches>('acoustid_file_matches',{},valid);
@@ -191,10 +227,8 @@ export class ComparisonSearchSession {
         this.annotateFingerprints(release,tracks,fingerprints);
       }
       const candidate:ComparisonCandidate={sourceId,revision:++this.revision,release,tracks};
-      const matched=this.files.every(file=>tracks[file.path]!=null);
-      const sharedOnly=!release.tracks.length && (release.covers.length>0 || Object.keys(release.fields).length>0);
-      const accepted=confirmed || state.results.length===1 && (state.total===null || state.total<=1);
-      this.publish({...this.states.get(sourceId)!,candidate,fingerprints,confirmed:accepted,status:(matched||sharedOnly)&&accepted?'ready':'needs-match'});
+      const accepted=confirmed || state.results.length===1 && (state.total===null || state.total<=1) || this.onlyExactResult(state,result);
+      this.publish({...this.states.get(sourceId)!,candidate,fingerprints,confirmed:accepted,resultKey:comparisonResultKey(result),status:this.complete(candidate)&&accepted?'ready':'needs-match'});
     }catch(error){if(valid())this.publish({...this.states.get(sourceId)!,status:'failed',error});}
   }
 

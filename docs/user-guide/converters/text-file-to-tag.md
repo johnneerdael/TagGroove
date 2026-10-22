@@ -5,6 +5,14 @@ audio file. A mask assigns parts of each record to tag fields. Match by
 list order for a controlled selection, or include a filename/path key to
 connect records to files explicitly.
 
+<!-- figure:text-to-tag -->
+<figure markdown>
+![The Text File → Tag dialog with a source box for pasted records, a mask and a preview](../assets/screens/text-to-tag-light.png#only-light)
+![The Text File → Tag dialog with a source box for pasted records, a mask and a preview](../assets/screens/text-to-tag-dark.png#only-dark)
+<figcaption>Records are matched to the selected files by position or by a key.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Import two pasted records
 
 1. Keep copies, save pending edits and select two practice files in the
@@ -145,5 +153,5 @@ Inspect both matched and unmatched rows before applying a partial plan.
 
 - [Filename → Tag](filename-to-tag.md)
 - [Tag → Tag](tag-to-tag.md)
-- [Placeholders](../reference/placeholders.md)
+- [Placeholders](../scripting/placeholders.md)
 - [Converters](index.md)

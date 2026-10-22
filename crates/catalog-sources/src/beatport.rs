@@ -28,6 +28,12 @@ fn field(f: &mut std::collections::BTreeMap<String, Vec<String>>, k: &str, v: St
         f.insert(k.into(), vec![v]);
     }
 }
+/// Where Beatport serves artwork: `geo-media.beatport.com` today, `beatportimage.com` before.
+fn is_image_host(host: &str) -> bool {
+    host == "geo-media.beatport.com"
+        || host == "beatportimage.com"
+        || host.ends_with(".beatportimage.com")
+}
 pub(crate) fn cover(v: &Value) -> Option<String> {
     let raw = string(v, "dynamic_uri");
     let raw = if raw.is_empty() {
@@ -36,11 +42,7 @@ pub(crate) fn cover(v: &Value) -> Option<String> {
         raw.replace("{w}", "1000").replace("{h}", "1000")
     };
     let url = reqwest::Url::parse(&raw).ok()?;
-    (url.scheme() == "https"
-        && url
-            .host_str()
-            .is_some_and(|h| h == "beatportimage.com" || h.ends_with(".beatportimage.com")))
-    .then(|| url.to_string())
+    (url.scheme() == "https" && url.host_str().is_some_and(is_image_host)).then(|| url.to_string())
 }
 fn web_url(kind: &str, value: &Value, id: &str) -> String {
     let supplied = string(value, "slug");

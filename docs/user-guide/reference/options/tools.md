@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tools** to configure external programs for selected local audio files. Saved tools appear in the Tools menu and file-list context menu. The default tool can also run on a file double-click.
 
+<!-- figure:options-tools -->
+<figure markdown>
+![The tools page of the Options dialog](../../assets/screens/options-tools-light.png#only-light)
+![The tools page of the Options dialog](../../assets/screens/options-tools-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Start with a player or inspection program and one copied file. A tool is a separate application: it can change files independently of TagGroove, so its changes are not automatically a TagGroove undo step.
 

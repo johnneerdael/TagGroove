@@ -10,8 +10,8 @@ use tag_core::{
     evaluate, read_entry, read_entry_with_options, write_fields, write_fields_with_options, Fields,
     TagOptions,
 };
-const SORT: &str = include_str!("../../../docs/user-guide/concepts/sort-fields.md");
-const GAIN: &str = include_str!("../../../docs/user-guide/concepts/replaygain.md");
+const SORT: &str = include_str!("../../../docs/user-guide/tagging/concepts/sort-fields.md");
+const GAIN: &str = include_str!("../../../docs/user-guide/tagging/concepts/replaygain.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

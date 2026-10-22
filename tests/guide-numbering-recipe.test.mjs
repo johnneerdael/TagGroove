@@ -5,7 +5,7 @@ import ts from 'typescript';
 const source = await readFile(new URL('../src/numbering-review.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
 const {numberingCounter, numberingTotal, recallNumbering, createNumberingReview} = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
-const doc = await readFile(new URL('../docs/user-guide/cookbook/number-tracks-per-folder.md', import.meta.url), 'utf8');
+const doc = await readFile(new URL('../docs/user-guide/converters/recipes/number-tracks-per-folder.md', import.meta.url), 'utf8');
 function rows(text, marker) {
   const part = text.split(`<!-- ${marker}:start -->`)[1].split(`<!-- ${marker}:end -->`)[0];
   return part.split(/\r?\n/).filter(line => line.startsWith('|')).slice(2)

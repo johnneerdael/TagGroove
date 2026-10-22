@@ -3,6 +3,14 @@
 **View** changes how loaded information is displayed. Hiding a panel or a
 column does not remove the corresponding metadata from audio files.
 
+<!-- figure:menu-view -->
+<figure markdown>
+![The View menu open in TagGroove, listing its commands](../../assets/screens/menu-view-light.png#only-light)
+![The View menu open in TagGroove, listing its commands](../../assets/screens/menu-view-dark.png#only-dark)
+<figcaption>The View menu: Extended tags, tag-panel defaults and customization, field values.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Panels, fields and filtering
 
 | Item | Result |
@@ -18,7 +26,7 @@ column does not remove the corresponding metadata from audio files.
 Refresh is different from reloading only the selected tags. Resolve pending
 edits before a refresh that would replace loaded information. A filtered-out
 file remains loaded. Hiding the filter shows all loaded files, while remembering
-its text for restoration when the filter is shown again. See [filtering](../../guides/filter.md)
+its text for restoration when the filter is shown again. See [filtering](../../tagging/filter.md)
 for manual application, hidden selections and invalid queries.
 
 For example, configure a default genre, then choose **Default values in input

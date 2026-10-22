@@ -51,7 +51,7 @@ Suppose you often find albums without `ALBUMARTIST`:
 3. Leave **Field (empty = read-only)** empty if this is only an inspection
    column. A writable column needs its own valid field target.
 4. Choose **OK**, inspect several copied files and widen the column if needed.
-5. Use the [missing-fields recipe](../cookbook/find-missing-fields.md) to find
+5. Use the [missing-fields recipe](../tagging/recipes/find-missing-fields.md) to find
    the files needing attention. Adding the column has not filled their tags.
 
 This gives you a visible result and one clearly defined change to undo in

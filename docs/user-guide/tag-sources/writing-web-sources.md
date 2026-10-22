@@ -247,7 +247,7 @@ encoding and contexts used by both stages.
 
 - [Install sources, settings and debug output](web-sources.md)
 - [Header and parser-command reference](web-source-reference.md)
-- [Format-string quoting and functions](../reference/format-strings.md)
+- [Format-string quoting and functions](../scripting/format-strings.md)
 
 Stop the practice HTTP server with Ctrl+C when finished. Keep a working copy
 of the source before adapting its URL or parser for another response.

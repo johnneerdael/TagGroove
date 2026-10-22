@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tags** to choose when edits are saved and which images the tag panel displays. The child pages configure [Mpeg](tags-mpeg.md), [Ape, Mpc](tags-ape-mpc.md), [Mapping](tags-mapping.md), and [Advanced](tags-advanced.md) behavior.
 
+<!-- figure:options-tags -->
+<figure markdown>
+![The tags page of the Options dialog](../../assets/screens/options-tags-light.png#only-light)
+![The tags page of the Options dialog](../../assets/screens/options-tags-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     An edited field can be pending in TagGroove while the audio file on disk is unchanged. Keep the default pending mode to review a batch before using **Save tags**.
 

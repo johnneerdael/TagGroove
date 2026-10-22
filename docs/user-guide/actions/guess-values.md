@@ -5,6 +5,14 @@ Supply a source format string to read the text, then a guessing pattern
 to say which parts belong in which fields. Despite its name, this action
 does not infer a layout: the entire source must match the pattern.
 
+<!-- figure:action-guess-values -->
+<figure markdown>
+![The Edit action dialog with the action type set to Guess Values and its settings](../assets/screens/action-guess-values-light.png#only-light)
+![The Edit action dialog with the action type set to Guess Values and its settings](../assets/screens/action-guess-values-dark.png#only-dark)
+<figcaption>The Guess Values action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Split an artist and title
 
 Suppose `TITLE` contains `Juniper Vale / Paper Boats`, and the artist field
@@ -129,7 +137,7 @@ intermediate text; a regex nonmatch does not skip this action or later ones.
 
 Keep the quoted regex in the source box. Pasting it into **Guessing pattern**
 does not turn that box into a regex parser. See the
-[regex quoting reference](../reference/regular-expressions.md#regexp).
+[regex quoting reference](../scripting/regular-expressions.md#regexp).
 
 <!-- verified: crates/tag-core/tests/action_guide.rs:guess_values_regex_preparation_runs_the_written_stages; src/tag-tag-ui.ts:openTagToTag preview/apply handlers -->
 
@@ -153,7 +161,7 @@ does not turn that box into a regex parser. See the
 
 ## Related
 
-- [Format strings](../reference/format-strings.md)
+- [Format strings](../scripting/format-strings.md)
 - [Format Value](format-value.md)
-- [Tags from folder and file names](../cookbook/tags-from-folder-and-filename.md)
+- [Tags from folder and file names](../converters/recipes/tags-from-folder-and-filename.md)
 - [Actions and action groups](index.md)

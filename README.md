@@ -69,9 +69,9 @@ Beatport and Traxsource are built in, with searches for individual tracks and co
 
 Discogs supports release searches by artist and album, free text, barcode or catalog number, plus direct release links. Artist-and-title search helps when you have a single track: choose the edition, then pick the exact track from its tracklist.
 
-When catalogs disagree, **Compare sources for one file…** puts Discogs, Beatport and Traxsource values next to your current tags. Take the title from one source and the label from another, or leave a field alone. Nothing is selected for replacement until you choose it. Artwork is handled separately.
+When catalogs disagree, **Tag Sources → Compare metadata…** puts each provider’s values next to your current tags. Take the title from one source and the label from another, or leave a field alone. Nothing is selected for replacement until you choose it. Artwork is handled separately. The guide walks through it in [Compare metadata from several sources](https://taggroove.neerdael.nl/tag-sources/compare/).
 
-MusicBrainz, iTunes, Deezer, LRCLIB lyrics and AcoustID fingerprint lookup are available too. Some services need credentials, and Traxsource may need an optional challenge solver. See [tag sources](https://taggroove.neerdael.nl/tag-sources/) for setup, network use and provider limits.
+MusicBrainz, iTunes, Deezer, LRCLIB lyrics and AcoustID fingerprint lookup are available too. Some services need a key or an account, and a site that blocks TagGroove with a Cloudflare check can be reached through an optional solver you run. See [tag sources](https://taggroove.neerdael.nl/tag-sources/) for setup, network use and provider limits.
 
 ## Bring your Mp3tag setup
 
@@ -85,7 +85,7 @@ TagGroove can also save and restore its own configuration backups. Compatibility
 
 TagGroove's audio metadata writer stages changes in a copy and verifies that copy before replacing the file. Preservation tests check audio packet hashes, unknown fields and covers across supported formats. This is metadata editing; it does not transcode your music.
 
-Tag-panel edits wait for **Save tags**. Actions, applied converters and source imports write when confirmed in their own dialogs. Eligible desktop operations have Undo/Redo history, but its availability depends on the operation and successful history storage. Keep backups of your music. Read [editing and saving](https://taggroove.neerdael.nl/getting-started/editing-and-saving/) and [Undo limits](https://taggroove.neerdael.nl/guides/undo-history/) before a large batch.
+Tag-panel edits wait for **Save tags**. Actions, applied converters and source imports write when confirmed in their own dialogs. Eligible desktop operations have Undo/Redo history, but its availability depends on the operation and successful history storage. Keep backups of your music. Read [editing and saving](https://taggroove.neerdael.nl/getting-started/editing-and-saving/) and [Undo limits](https://taggroove.neerdael.nl/tagging/undo-history/) before a large batch.
 
 Online lookups send search terms and identifiers to the chosen provider. AcoustID sends a locally computed fingerprint and duration. These lookups do not upload your audio files.
 
@@ -118,12 +118,12 @@ If something gets in the way of tagging your music, [open an issue](https://gith
 
 ## Documentation
 
-The [user guide](https://taggroove.neerdael.nl/) covers installation, everyday editing and the more involved jobs:
+The [user guide](https://taggroove.neerdael.nl/) is organised by feature: [Tagging](https://taggroove.neerdael.nl/tagging/), [Tag sources](https://taggroove.neerdael.nl/tag-sources/), [Rename & convert](https://taggroove.neerdael.nl/converters/), [Actions](https://taggroove.neerdael.nl/actions/), [Scripting](https://taggroove.neerdael.nl/scripting/), [Export & playlists](https://taggroove.neerdael.nl/export/) and [Customize](https://taggroove.neerdael.nl/customize/). Good places to start:
 
-- [Your first tagging session](https://taggroove.neerdael.nl/learn/first-tagging-session/)
-- [Clean up a messy library](https://taggroove.neerdael.nl/learn/clean-a-messy-library/)
-- [Build an action group](https://taggroove.neerdael.nl/learn/first-action-group/)
-- [Format strings](https://taggroove.neerdael.nl/reference/format-strings/) and [regular expressions](https://taggroove.neerdael.nl/reference/regular-expressions/)
+- [Your first tagging session](https://taggroove.neerdael.nl/getting-started/first-tagging-session/)
+- [Clean up a messy library](https://taggroove.neerdael.nl/actions/clean-a-messy-library/)
+- [Build an action group](https://taggroove.neerdael.nl/actions/first-action-group/)
+- [Format strings](https://taggroove.neerdael.nl/scripting/format-strings/) and [regular expressions](https://taggroove.neerdael.nl/scripting/regular-expressions/)
 
 ## Credits and license
 

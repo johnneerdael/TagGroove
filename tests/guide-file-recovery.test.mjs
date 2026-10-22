@@ -11,7 +11,7 @@ const javascript = ts.transpileModule(source, {
 const {utilTargets} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 
 test('written mixed-format utility counts use the actual selection model under LF and CRLF', async () => {
-  const written = (await readFile(new URL('docs/user-guide/guides/utilities.md', root), 'utf8')).replace(/\r\n/g, '\n');
+  const written = (await readFile(new URL('docs/user-guide/tagging/utilities.md', root), 'utf8')).replace(/\r\n/g, '\n');
   for (const page of [written, written.replace(/\n/g, '\r\n')]) {
     const section = page.split('<!-- utility-scope-cases:start -->')[1].split('<!-- utility-scope-cases:end -->')[0];
     const rows = section.split(/\r?\n/).filter(line => line.startsWith('|')).slice(2);

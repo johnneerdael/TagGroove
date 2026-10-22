@@ -4,6 +4,14 @@ Use **Filename → Filename** to rearrange parts of existing names without
 reading or changing tags. Mark the parts in the old pattern with `%1`
 through `%9`, then reuse those parts in the new pattern.
 
+<!-- figure:filename-to-filename -->
+<figure markdown>
+![The Filename → Filename dialog with a matching pattern, an output format and a preview](../assets/screens/filename-to-filename-light.png#only-light)
+![The Filename → Filename dialog with a matching pattern, an output format and a preview](../assets/screens/filename-to-filename-dark.png#only-dark)
+<figcaption>Numbered parts %1 to %9 capture pieces of the current name.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Swap an artist and title
 
 Start with `Juniper Vale - Paper Boats.mp3` and make
@@ -151,7 +159,7 @@ backslashes in the new pattern still create destination folders.
 
 - [Filename → Tag](filename-to-tag.md)
 - [Tag → Filename](tag-to-filename.md)
-- [Format strings](../reference/format-strings.md)
+- [Format strings](../scripting/format-strings.md)
 - [Converters](index.md)
 
 ## Keep matching lyrics and karaoke together
@@ -167,5 +175,5 @@ audio-readback failure attempts to reverse the whole reviewed batch. Rollback
 retains externally changed files and unknown replacement folders and names
 them in the error. Newly created empty folders are removed after a handled
 failure only when they retain their identities. Successful Undo/Redo can leave
-empty destination folders. Read [associated files](../guides/associated-files.md)
+empty destination folders. Read [associated files](../tagging/associated-files.md)
 for matching, refusal and history rules.

@@ -4,6 +4,14 @@ Use **Import Text File** to replace one field with the complete contents
 of a text file. It suits lyrics, a long comment or album notes. It does
 not parse columns or assign different lines to different audio files.
 
+<!-- figure:action-import-text-file -->
+<figure markdown>
+![The Edit action dialog with the action type set to Import Text File and its settings](../assets/screens/action-import-text-file-light.png#only-light)
+![The Edit action dialog with the action type set to Import Text File and its settings](../assets/screens/action-import-text-file-dark.png#only-dark)
+<figcaption>The Import Text File action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Load a text file into a field
 
 1. Put a UTF-8 file named `notes.txt` beside your practice audio file.

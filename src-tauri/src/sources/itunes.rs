@@ -129,6 +129,185 @@ pub fn search_query(query: &SearchQuery, store: &str) -> Result<String, String> 
     url.map(String::from).map_err(|e| e.to_string())
 }
 
+/// Letters and digits only, lower-cased: "R.E.M.", "R.E.M" and "rem" compare equal.
+fn plain(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+/// The artists of a credit as whole names ("Artist A & Friends" is "artista" and "friends"),
+/// compared apart from case and punctuation.
+fn credited(names: &str) -> Vec<String> {
+    let mut text = names.to_lowercase();
+    for separator in [
+        " and ",
+        " & ",
+        " feat. ",
+        " feat ",
+        " featuring ",
+        " ft. ",
+        " with ",
+        " vs. ",
+        " vs ",
+        " x ",
+    ] {
+        text = text.replace(separator, ",");
+    }
+    text.split([',', ';', '/', '&', '+'])
+        .map(plain)
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
+/// Does a suffix such as `(Deluxe Edition)`, `[2017 Remaster]` or ` - 25th Anniversary` only label
+/// an edition of the same album? Every word of it must be an edition word, a year or an ordinal
+/// (`25th`): one other word (`Live`, `Acoustic`, `Monologue`) makes it a different album, and a
+/// bare small number (`(2)`) is a volume, not an edition.
+fn is_edition_label(suffix: &str) -> bool {
+    const EDITION_WORDS: [&str; 24] = [
+        "deluxe",
+        "edition",
+        "remaster",
+        "remastered",
+        "anniversary",
+        "expanded",
+        "bonus",
+        "track",
+        "tracks",
+        "reissue",
+        "reissued",
+        "collector",
+        "collectors",
+        "limited",
+        "platinum",
+        "explicit",
+        "clean",
+        "mono",
+        "stereo",
+        "super",
+        "special",
+        "version",
+        "original",
+        "the",
+    ];
+    let text = suffix.to_lowercase();
+    let words: Vec<&str> = text
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect();
+    let ordinal = |word: &str| {
+        let digits = word.trim_end_matches(|c: char| c.is_alphabetic());
+        !digits.is_empty()
+            && digits.chars().all(|c| c.is_ascii_digit())
+            && ["st", "nd", "rd", "th"].contains(&&word[digits.len()..])
+    };
+    let year = |word: &str| word.len() == 4 && (word.starts_with("19") || word.starts_with("20"));
+    !words.is_empty()
+        && words
+            .iter()
+            .all(|word| EDITION_WORDS.contains(word) || ordinal(word) || year(word))
+}
+
+/// The title without its trailing edition labels: "Automatic For The People (25th Anniversary
+/// Edition) [2017 Remaster]" and "Rumours - Deluxe" are "automaticforthepeople" and "rumours".
+/// A subtitle that is not an edition label stays part of the title, and so does bracketed text at
+/// the very start ("(What's the Story) Morning Glory?").
+fn core_title(title: &str) -> String {
+    let mut text = title.trim();
+    loop {
+        let cut = if text.ends_with(')') {
+            text.rfind('(')
+        } else if text.ends_with(']') {
+            text.rfind('[')
+        } else {
+            [" - ", " – ", " — "]
+                .iter()
+                .filter_map(|dash| text.rfind(dash))
+                .max()
+        };
+        match cut {
+            Some(at) if at > 0 && is_edition_label(&text[at..]) => text = text[..at].trim_end(),
+            _ => break,
+        }
+    }
+    plain(text)
+}
+
+/// Is this the requested album, whole: the same title, or the same title with edition labels?
+/// "Up" is not "Wake Up" nor "Up - Live"; "Up (Deluxe Edition)" is "Up".
+fn is_titled(found: &str, wanted: &str) -> bool {
+    let wanted_core = core_title(wanted);
+    !wanted_core.is_empty() && core_title(found) == wanted_core
+}
+
+/// Does an album search answer hold the album that was asked for, by that artist? iTunes ranks
+/// album searches by popularity and can leave a catalogue album out entirely. An edition of the
+/// title and extra credited artists still count; the same title by someone else does not, nor an
+/// artist whose name merely contains the requested one ("Museum" for "Muse"), nor a longer
+/// title that merely contains it ("Wake Up" for "Up").
+pub fn holds_album(page: &SearchPage, artist: &str, album: &str) -> bool {
+    let requested = credited(artist);
+    page.results.iter().any(|r| {
+        let found = credited(&r.artist);
+        is_titled(&r.title, album)
+            && (requested.is_empty()
+                // The result credits at least every requested artist ("Artist A & Friends" holds
+                // "Artist A"), or is the same credit. A single shared name is not enough:
+                // "Simon" is not "Simon & Garfunkel".
+                || requested.iter().all(|name| found.contains(name))
+                || plain(&r.artist) == plain(artist))
+    })
+}
+
+/// Step one of the artist fallback: the artists called this.
+pub fn artist_search_url(artist: &str, store: &str) -> Result<String, String> {
+    reqwest::Url::parse_with_params(
+        &format!("{API}/search"),
+        &[
+            ("term", artist.trim()),
+            ("media", "music"),
+            ("entity", "musicArtist"),
+            ("limit", "10"),
+            ("country", &country(store)),
+        ],
+    )
+    .map(String::from)
+    .map_err(|e| e.to_string())
+}
+
+/// The artists whose name equals the requested one apart from punctuation and case (the same
+/// artist can have several IDs), at most three.
+pub fn artist_ids(body: &Value, artist: &str) -> Vec<String> {
+    let wanted = plain(artist);
+    results(body)
+        .iter()
+        .filter(|r| text(r, "wrapperType") == "artist" && plain(&text(r, "artistName")) == wanted)
+        .filter_map(|r| number(r, "artistId").filter(|id| *id > 0))
+        .map(|id| id.to_string())
+        .take(3)
+        .collect()
+}
+
+/// Step two: every album of one artist, which lists albums the album search leaves out.
+pub fn artist_albums_url(id: &str, store: &str) -> String {
+    format!(
+        "{API}/lookup?id={id}&entity=album&limit={LOOKUP_LIMIT}&country={}",
+        country(store)
+    )
+}
+
+/// The albums of an artist lookup that are the requested one (editions included).
+pub fn albums_titled(body: &Value, album: &str) -> Vec<SearchResult> {
+    parse_search(body)
+        .results
+        .into_iter()
+        .filter(|r| is_titled(&r.title, album))
+        .collect()
+}
+
 /// `1440841180`, `id1440841180` or an Apple Music / iTunes album address.
 pub fn release_id(input: &str) -> Result<String, String> {
     let input = input.trim();
@@ -348,6 +527,172 @@ pub fn parse_release(body: &Value, size: CoverSize) -> Result<SourceRelease, Str
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_album_the_search_leaves_out_is_found_through_the_artist() {
+        // iTunes answers "R.E.M. Automatic For The People" with Document and an unrelated single.
+        let answer = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 1, "collectionName": "Document", "artistName": "R.E.M."},
+            {"wrapperType": "collection", "collectionId": 2, "collectionName": "Kill For The Steel - Single", "artistName": "King Gizzard"}
+        ]});
+        let page = parse_search(&answer);
+        assert!(!holds_album(&page, "R.E.M.", "Automatic For The People"));
+        assert!(
+            !holds_album(&page, "R.E.M.", ""),
+            "no album asked for, nothing to look for"
+        );
+        let found = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 1440949853, "collectionName": "Automatic For The People", "artistName": "R.E.M."}
+        ]});
+        assert!(holds_album(
+            &parse_search(&found),
+            "R.E.M",
+            "automatic for the people"
+        ));
+        // The same title by another artist is not the album that was asked for, but an edition
+        // title and extra credited artists are.
+        let other = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 7, "collectionName": "Greatest Hits", "artistName": "Other Artist"}
+        ]});
+        assert!(!holds_album(
+            &parse_search(&other),
+            "Artist A",
+            "Greatest Hits"
+        ));
+        let with_friends = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 8, "collectionName": "Greatest Hits (Deluxe Edition)", "artistName": "Artist A & Friends"}
+        ]});
+        assert!(holds_album(
+            &parse_search(&with_friends),
+            "Artist A",
+            "Greatest Hits"
+        ));
+        // Whole names only: "Museum" is not "Muse", and a credit of several artists matches any of them.
+        let museum = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 9, "collectionName": "Greatest Hits", "artistName": "Museum"}
+        ]});
+        assert!(!holds_album(
+            &parse_search(&museum),
+            "Muse",
+            "Greatest Hits"
+        ));
+        // Whole titles only: "Wake Up" is not "Up", an edition of "Up" is, and so is an edition-style
+        // request for a plainer title.
+        let wake = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 11, "collectionName": "Wake Up", "artistName": "Artist A"}
+        ]});
+        assert!(!holds_album(&parse_search(&wake), "Artist A", "Up"));
+        let up = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 12, "collectionName": "Up - Deluxe", "artistName": "Artist A"},
+            {"wrapperType": "collection", "collectionId": 13, "collectionName": "Up [2017 Remaster]", "artistName": "Artist A"},
+            {"wrapperType": "collection", "collectionId": 14, "collectionName": "Wake Up", "artistName": "Artist A"}
+        ]});
+        assert!(holds_album(&parse_search(&up), "Artist A", "Up"));
+        assert_eq!(
+            albums_titled(&up, "Up")
+                .iter()
+                .map(|r| r.id.as_str())
+                .collect::<Vec<_>>(),
+            ["12", "13"]
+        );
+        assert!(holds_album(
+            &parse_search(&up),
+            "Artist A",
+            "Up (Deluxe Edition)"
+        ));
+        // Other subtitles are other albums, and bracketed text that starts a title is part of it.
+        let acoustic = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 15, "collectionName": "Album (Live)", "artistName": "Artist A"},
+            {"wrapperType": "collection", "collectionId": 16, "collectionName": "Up - Live", "artistName": "Artist A"}
+        ]});
+        assert!(!holds_album(
+            &parse_search(&acoustic),
+            "Artist A",
+            "Album (Acoustic)"
+        ));
+        assert!(!holds_album(&parse_search(&acoustic), "Artist A", "Up"));
+        assert!(holds_album(
+            &parse_search(&acoustic),
+            "Artist A",
+            "Album (Live)"
+        ));
+        let morning = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 17, "collectionName": "(What's the Story) Morning Glory? [Remastered]", "artistName": "Oasis"}
+        ]});
+        assert!(holds_album(
+            &parse_search(&morning),
+            "Oasis",
+            "(What's the Story) Morning Glory?"
+        ));
+        assert_eq!(core_title("Album (Live) [2017 Remaster]"), "albumlive");
+        // Whole words only: "Monologue" and "Unlimited" are not edition labels, a suffix that also
+        // says "Live" is a different album, and a bare small number is a volume, not an edition.
+        assert_eq!(core_title("Album (Monologue)"), "albummonologue");
+        assert_eq!(core_title("Album (Unlimited)"), "albumunlimited");
+        assert_eq!(core_title("Album (Live - Deluxe)"), "albumlivedeluxe");
+        assert_eq!(core_title("Up (2)"), "up2");
+        assert_eq!(core_title("Up [3]"), "up3");
+        assert_eq!(core_title("Up (2017)"), "up");
+        assert_eq!(core_title("Up (25th Anniversary Edition)"), "up");
+        let duo = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 10, "collectionName": "Greatest Hits", "artistName": "Armin van Buuren & Silver Panda"}
+        ]});
+        assert!(holds_album(
+            &parse_search(&duo),
+            "Armin van Buuren",
+            "Greatest Hits"
+        ));
+        // One shared name of a multi-name credit is not enough, in either direction.
+        assert!(!holds_album(
+            &parse_search(&serde_json::json!({"results": [
+                {"wrapperType": "collection", "collectionId": 18, "collectionName": "Greatest Hits", "artistName": "Simon"}
+            ]})),
+            "Simon & Garfunkel",
+            "Greatest Hits"
+        ));
+        assert!(holds_album(
+            &parse_search(&serde_json::json!({"results": [
+                {"wrapperType": "collection", "collectionId": 19, "collectionName": "Greatest Hits", "artistName": "Earth, Wind & Fire"}
+            ]})),
+            "Earth, Wind & Fire",
+            "Greatest Hits"
+        ));
+        assert_eq!(
+            credited("Simon & Garfunkel feat. Friends"),
+            ["simon", "garfunkel", "friends"]
+        );
+
+        // The artists: punctuation and case do not matter, other artists do.
+        let artists = serde_json::json!({"results": [
+            {"wrapperType": "artist", "artistName": "R.E.M.", "artistId": 311145},
+            {"wrapperType": "artist", "artistName": "R.E.M", "artistId": 1832690355u64},
+            {"wrapperType": "artist", "artistName": "REM Tribute", "artistId": 9},
+            {"wrapperType": "collection", "artistName": "R.E.M.", "artistId": 77}
+        ]});
+        assert_eq!(artist_ids(&artists, "R.E.M."), ["311145", "1832690355"]);
+        assert_eq!(
+            artist_search_url("R.E.M.", "nl").unwrap(),
+            "https://itunes.apple.com/search?term=R.E.M.&media=music&entity=musicArtist&limit=10&country=NL"
+        );
+        assert_eq!(
+            artist_albums_url("311145", "not a store"),
+            "https://itunes.apple.com/lookup?id=311145&entity=album&limit=200&country=US"
+        );
+
+        // The artist's albums: every edition of the album, nothing else.
+        let albums = serde_json::json!({"results": [
+            {"wrapperType": "artist", "artistName": "R.E.M.", "artistId": 311145},
+            {"wrapperType": "collection", "collectionId": 1440949853, "collectionName": "Automatic For The People", "artistName": "R.E.M."},
+            {"wrapperType": "collection", "collectionId": 1440947163, "collectionName": "Automatic For The People (25th Anniversary Edition) [2017 Remaster]", "artistName": "R.E.M."},
+            {"wrapperType": "collection", "collectionId": 5, "collectionName": "Murmur", "artistName": "R.E.M."}
+        ]});
+        let titled = albums_titled(&albums, "Automatic For The People");
+        assert_eq!(
+            titled.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+            ["1440949853", "1440947163"]
+        );
+        assert!(albums_titled(&albums, "").is_empty());
+    }
+
     use super::*;
 
     fn fixture() -> Value {

@@ -2,6 +2,13 @@
 
 Open **File → Options… → Files** to restrict folder scans, control separators inside tag-derived names, and preserve file modification times.
 
+<!-- figure:options-files -->
+<figure markdown>
+![The files page of the Options dialog](../../assets/screens/options-files-light.png#only-light)
+![The files page of the Options dialog](../../assets/screens/options-files-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     A tag value is data; a separator typed into a filename format string is a request to create a folder. This page keeps those two uses separate.
 
@@ -14,7 +21,7 @@ changes and action-driven filename changes. Converters/transfers show exact path
 for review. Actions and Tag → Tag retain immediate execution, with command-start
 membership and per-effect checks. Inline edits remain audio-only. Copy keeps the originals and
 does not create a transfer Undo step. See
-[associated files](../../guides/associated-files.md) for matching rules, errors
+[associated files](../../tagging/associated-files.md) for matching rules, errors
 and undo behavior.
 
 ## Read files

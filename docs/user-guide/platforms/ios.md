@@ -48,7 +48,7 @@ If your goal is to tag an album rather than inspect a preview:
 2. Make copies available as ordinary local files on a desktop computer using
    your normal file-transfer process.
 3. Install the appropriate desktop package and follow
-   [Your first tagging session](../learn/first-tagging-session.md).
+   [Your first tagging session](../getting-started/first-tagging-session.md).
 4. Check the saved files and your player's display before replacing any
    originals or transferring the edited copies back.
 
