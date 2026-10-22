@@ -61,6 +61,10 @@ cleanup() {
       if [[ -d "$work/state/$i" ]]; then
         if ! diff -rq "$work/state/$i" "${state[$i]}" >/dev/null 2>&1; then echo "Restoring app state: ${state[$i]}" >&2; fi
         rsync -a --delete "$work/state/$i/" "${state[$i]}/"
+      elif [[ -e "$work/state/$i.absent" && -e "${state[$i]}" ]]; then
+        # The run created this folder (a fresh profile): put the machine back as it was.
+        echo "Removing app state created by the run: ${state[$i]}" >&2
+        rm -rf "${state[$i]}"
       fi
     done
   fi
@@ -118,7 +122,9 @@ scenes="$(node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' 
 # even when the run is interrupted.
 state=("$HOME/Library/Application Support/org.opentag.editor" "$HOME/Library/WebKit/org.opentag.editor" "$HOME/Library/Caches/org.opentag.editor")
 mkdir -p "$work/state"
-for i in "${!state[@]}"; do [[ -d "${state[$i]}" ]] && cp -R "${state[$i]}" "$work/state/$i"; done
+for i in "${!state[@]}"; do
+  if [[ -d "${state[$i]}" ]]; then cp -R "${state[$i]}" "$work/state/$i"; else : >"$work/state/$i.absent"; fi
+done
 
 # Turn off the "unsaved changes" confirmation for the run: it is a native sheet that blocks the page.
 # The settings folder is restored from the snapshot above when the run ends.
