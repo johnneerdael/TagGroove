@@ -84,6 +84,29 @@ Design decisions:
   platform notes (macOS, Linux, Android, iOS), and the tag sources iTunes,
   Deezer, LRCLIB, AcoustID, Last.fm and fanart.tv.
 
+## Core features
+
+What TagGroove is for, why each feature matters to a reader, and where the
+guide covers it. Get started links to every row, so the start path stays short
+and the depth lives in the feature.
+
+| Feature | Why it matters | Landing page | Get started deep link |
+|---|---|---|---|
+| **Tagging**: edit tags and cover art by hand | The reason people open the app; the name says "Tag" | `tagging/index.md` | Cards on `getting-started/index.md`; first session |
+| **Tag sources**: look up albums online | Fills tags without typing; the most-requested feature after editing | `tag-sources/index.md` | Card on Get started and Home |
+| **Compare metadata**: several providers field by field | New and distinctive: pick the best value per field | `tag-sources/compare.md` | Card on `tag-sources/index.md`, Home popular link |
+| **Rename & convert**: filenames ↔ tags, numbering | The everyday organising jobs | `converters/index.md` | Card on Get started and Home |
+| **Actions**: repeatable cleanup | Turns a one-off fix into a library-wide routine | `actions/index.md` | Card on Get started and Home |
+| **Scripting**: format strings, functions, regex | Power users' rules for names, tags, columns and reports | `scripting/index.md` | Card on Get started and Home |
+| **Export & playlists** | Spreadsheets, catalogues, playlists | `export/index.md` | Card on Get started and Home |
+| **Library, undo, chapters** (TagGroove extras) | Browse a cached collection, recover a session, see chapter rows | `tagging/index.md` (Browse; Files and history; Edit tags) | Linked from the Tagging landing page |
+| **Customize** | Make the window fit a routine | `customize/index.md` | Card on Home; link on Get started |
+| **Coming from Mp3tag** | Migration is a major reason to try the app | `getting-started/coming-from-mp3tag.md` | Card on Home; Get started sidebar |
+
+Add a row here when a feature ships, and give it a deep link from Get started
+and the home page. A feature that appears in the app menu but not in this table
+is a documentation gap.
+
 ## Status: computed, never edited by hand
 
 A page's status is its front matter. A page with `status: draft` is not
@@ -221,8 +244,8 @@ material:
 
 | Page(s) | Why |
 |---|---|
-| `learn/*` (all tutorials), `concepts/*` | Teaching layer |
-| `cookbook/*` (35 pages) | Recipe layer |
+| Tutorials (in each feature, listed by `learn/index.md`), `tagging/concepts/*` | Teaching layer |
+| Recipes (`*/recipes/*`, listed by `cookbook/index.md`) | Recipe layer |
 | `getting-started/editing-and-saving.md` | TagGroove's pending-edits model and session undo |
 | `getting-started/coming-from-mp3tag.md` | Migration: compatibility and differences |
 | `platforms/*` | macOS, Windows, Linux, Android, iOS specifics |
@@ -267,6 +290,10 @@ the docs lead will add it.
 | `customize-columns` | Customize columns dialog | `customize/columns.md` |
 
 ## Phase 2 workstreams
+
+> Historical. These workstreams were planned and mostly completed before the
+> guide moved to feature folders; the folder names below are the old ones. See
+> **Structure** above for where each page lives now.
 
 Eight workstreams that can run in parallel, each in its own branch from main
 and its own PR. A writer owns exactly the listed pages, plus one scene file

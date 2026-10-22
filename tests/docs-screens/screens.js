@@ -31,7 +31,22 @@
   // second under xvfb; the margin keeps slow runners from mixing scenes.
   // Focus is dropped first: WebKitGTK paints an empty popup for focused
   // inputs with suggestions when no window manager runs.
-  const shot = async name => { document.activeElement?.blur?.(); await sleep(900); await report('SHOT ' + name); await sleep(2500); };
+  // A scene may set `crop`: 'dialog' (the top open dialog) or a CSS selector.
+  // The rectangle is reported before the SHOT line for runners that crop
+  // (CSS pixels plus the page's inner size, so a runner can scale them).
+  const cropRect = crop => {
+    if (!crop) return null;
+    const el = crop === 'dialog' ? [...document.querySelectorAll('dialog[open]')].at(-1) : document.querySelector(crop);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return [r.left, r.top, r.width, r.height, innerWidth, innerHeight].map(n => Math.round(n)).join(',');
+  };
+  const shot = async (name, crop) => {
+    document.activeElement?.blur?.(); await sleep(900);
+    const rect = cropRect(crop);
+    if (rect) await report('CROP ' + rect);
+    await report('SHOT ' + name); await sleep(2500);
+  };
 
   const scenes = [
     { name: 'main-window', run: async () => { await clickRow(0); } },
@@ -54,13 +69,25 @@
     },
   ];
   // Scene files register factories that receive these helpers.
-  const helpers = { inv, sleep, waitFor, rows, idle, op, input, dialog, clickRow, selectAll, menu };
+  // Select the rows at the given indices (first plain click, the rest Ctrl/Cmd-click).
+  const selectRows = async indices => {
+    await clickRow(indices[0]);
+    for (const i of indices.slice(1)) rows()[i].querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true, metaKey: true }));
+    await waitFor(() => rows().filter(r => r.classList.contains('selected')).length === indices.length, 3000, indices.length + ' rows selected');
+  };
+  // Run a command and wait for its dialog (optionally until `selector` exists inside it).
+  const openDialog = async (name, selector, ms = 8000) => { op(name); return waitFor(() => { const d = dialog(); return d && (!selector || d.querySelector(selector)) && d; }, ms, 'dialog for ' + name + (selector ? ' (' + selector + ')' : '')); };
+  const openMenu = label => { const m = menu(label); if (!m) throw new Error('no ' + label + ' menu'); m.open = true; return m; };
+  // Options dialog: switch to the page with this id (see src/options-ui.ts).
+  const optionsPage = async (d, id) => { const b = d.querySelector(`[data-page="${id}"]`); if (!b) throw new Error('no options page ' + id); b.click(); await sleep(400); return d; };
+  const helpers = { inv, sleep, waitFor, rows, idle, op, input, dialog, clickRow, selectAll, menu, selectRows, openDialog, openMenu, optionsPage, report };
   for (const factory of window.OPENTAG_DOCS_SCENE_FILES || []) scenes.push(...factory(helpers));
   const wanted = window.OPENTAG_DOCS_SCENES;
   let failures = 0, taken = 0;
   try {
     await waitFor(() => rows().length >= 8, 20000, 'fixture rows');
     await idle();
+    const originalAppearance = document.querySelector('#appearance')?.value;
     for (const mode of ['light', 'dark']) {
       const select = document.querySelector('#appearance');
       input(select, mode);
@@ -70,7 +97,7 @@
         try {
           await reset();
           await scene.run();
-          await shot(`${scene.name}-${mode}`);
+          await shot(`${scene.name}-${mode}`, scene.crop);
           taken++;
         } catch (e) {
           failures++;
@@ -78,6 +105,8 @@
         }
       }
     }
+    // Leave the reader's own colour mode as it was (matters on a desktop run).
+    if (originalAppearance) { await reset(); input(document.querySelector('#appearance'), originalAppearance); }
   } catch (e) {
     failures++;
     await report(`FATAL ${e && e.message || e}`);

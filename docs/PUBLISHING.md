@@ -55,6 +55,25 @@ Run `python3 scripts/docs-status.py --drafts` to find unfinished pages, or
 `--coverage` to compare the plan with the original feature checklist.
 Coverage is a writing plan, not a feature-parity claim.
 
+## Move or rename a page
+
+The guide is organised by feature (see `docs/user-guide/_meta/ia.md`). When a
+page moves or is renamed, keep its old URL working:
+
+1. `git mv` the page, then update every relative link to it. The strict build
+   reports the ones you miss.
+2. Add `"old/path.md": "new/path.md"` to `docs/hooks/redirects.json`. The
+   build fails if the new page does not exist or if a page still exists at the
+   old path, and it writes a forwarding page at the old address that keeps the
+   query string and `#anchor`. The README, the app and bookmarks keep working.
+3. Update the page in `mkdocs.yml`, in `docs/user-guide/_meta/planned-nav.yml`
+   and in any Rust or JavaScript test that reads it
+   (`grep -rn "user-guide/<old path>" crates tests src-tauri`).
+
+Anchors inside a page do not redirect. When you split a section onto its own
+page, leave a short section with the same heading on the old page that links
+to the new one.
+
 ## Review and publication
 
 1. Open a pull request. Include user-visible documentation changes in its
