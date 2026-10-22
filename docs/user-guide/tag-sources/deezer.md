@@ -3,6 +3,13 @@
 Use **Tag Sources → Deezer…** for album metadata, track ISRCs and artwork.
 The public lookup needs no account or API key.
 
+<!-- figure:source-deezer -->
+<figure markdown>
+![The Deezer search dialog prefilled with the artist and album of the selected song](../assets/screens/source-deezer-light.png#only-light)
+![The Deezer search dialog prefilled with the artist and album of the selected song](../assets/screens/source-deezer-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 ## Find one track
 
 Select the intended file and choose **Artist and track title** in **Deezer…**.
@@ -13,6 +20,13 @@ Use [Compare metadata…](index.md#compare-fields-from-several-sources) to choos
 individual fields from different providers for one track or an entire album.
 
 ## Find an album
+
+<!-- figure:deezer-results -->
+<figure markdown>
+![Deezer search results for Taylor Swift The Life of a Showgirl](../assets/screens/deezer-results-light.png#only-light)
+![Deezer search results for Taylor Swift The Life of a Showgirl](../assets/screens/deezer-results-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 1. Select the album's files and choose **Deezer…**.
 2. Choose **Artist and album**, **Free text**, **Album ID or address**, or
@@ -31,6 +45,13 @@ too; a title match alone does not establish the correct edition.
 Album fields include `ALBUM`, `ALBUMARTIST`, `YEAR`, `GENRE`, `PUBLISHER`
 and `BARCODE`. Track fields include `TITLE`, `ARTIST`, `ISRC`, `TRACK` and
 `DISCNUMBER`, when supplied by Deezer.
+
+<!-- figure:deezer-review -->
+<figure markdown>
+![The Deezer review step: fields to write, the album cover and a tracks-and-files table](../assets/screens/deezer-review-light.png#only-light)
+![The Deezer review step: fields to write, the album cover and a tracks-and-files table](../assets/screens/deezer-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 Track pages are collected before the review opens. Track totals are calculated
 per disc, and disc totals come from the returned tracks. A failed later page

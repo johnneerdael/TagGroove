@@ -7,6 +7,14 @@ backup of the originals.
 
 ## Open one practice folder
 
+<!-- figure:menu-file -->
+<figure markdown>
+![The File menu open in TagGroove, with Change directory…, Add directory… and Add files… near the middle](../assets/screens/menu-file-light.png#only-light)
+![The File menu open in TagGroove, with Change directory…, Add directory… and Add files… near the middle](../assets/screens/menu-file-dark.png#only-dark)
+<figcaption>Change directory… replaces the list; Add directory… and Add files… add to it.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Choose **File → Change directory…** (++cmd+d++ / ++ctrl+d++ on desktop).
    From an empty window, **Open folder…** offers the same starting task.
 2. Select the copied folder. Resolve any pending edits before accepting a
@@ -93,6 +101,14 @@ folder or browse to another, use **Make first** for the default favorite, then
 **Favorite directory** (++ctrl+m++, Control on every platform) opens the first
 favorite and replaces the list. The File menu also offers individual favorites
 and recent directories when present.
+
+<!-- figure:favorite-directories -->
+<figure markdown>
+![The Favorite directories dialog listing saved folders](../assets/screens/favorite-directories-light.png#only-light)
+![The Favorite directories dialog listing saved folders](../assets/screens/favorite-directories-dark.png#only-dark)
+<figcaption>Favorite directories you can jump back to.</figcaption>
+</figure>
+<!-- /figure -->
 
 **Previous directory** and **Next directory** use the working-directory
 history; they are not track navigation and are not the same as the recent

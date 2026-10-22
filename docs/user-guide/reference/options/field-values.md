@@ -2,6 +2,13 @@
 
 Open **File → Options… → Field Values**, then **Edit field values…**, to maintain reusable choices for any editable tag field. The same editor is available through **View → Field values…**.
 
+<!-- figure:options-field-values -->
+<figure markdown>
+![The field values page of the Options dialog](../../assets/screens/options-field-values-light.png#only-light)
+![The field values page of the Options dialog](../../assets/screens/options-field-values-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Use a custom list for consistent spellings such as `Indie Folk`, `Instrumental`, and `Live`. The list suggests values; it does not forbid other text or automatically retag existing files.
 

@@ -5,6 +5,14 @@ Supply a source format string to read the text, then a guessing pattern
 to say which parts belong in which fields. Despite its name, this action
 does not infer a layout: the entire source must match the pattern.
 
+<!-- figure:action-guess-values -->
+<figure markdown>
+![The Edit action dialog with the action type set to Guess Values and its settings](../assets/screens/action-guess-values-light.png#only-light)
+![The Edit action dialog with the action type set to Guess Values and its settings](../assets/screens/action-guess-values-dark.png#only-dark)
+<figcaption>The Guess Values action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Split an artist and title
 
 Suppose `TITLE` contains `Juniper Vale / Paper Boats`, and the artist field

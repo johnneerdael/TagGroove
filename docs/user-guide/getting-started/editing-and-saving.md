@@ -6,6 +6,14 @@ and recover from a change before continuing with a whole album.
 
 ## Make one change you can recognize
 
+<!-- figure:tag-panel-pending -->
+<figure markdown>
+![The TagGroove window with the Album field edited in the tag panel: the status bar says there are pending changes for one file and the unsaved-files counter shows 1](../assets/screens/tag-panel-pending-light.png#only-light)
+![The TagGroove window with the Album field edited in the tag panel: the status bar says there are pending changes for one file and the unsaved-files counter shows 1](../assets/screens/tag-panel-pending-dark.png#only-dark)
+<figcaption>A pending edit: the file list and status bar show unsaved work until you choose Save tags.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Work on a copied audio file. Select it in the file list.
 2. In the tag panel, replace its **Album** with `Harbour Lights — practice`.
 3. Look for the pending marker beside the row and the **unsaved files** count.

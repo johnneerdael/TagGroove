@@ -9,47 +9,101 @@ Use it when one source is not enough, or when you want to review several
 editions before saving. For a single provider, the ordinary
 [search, review and save](index.md#search-review-and-save) dialog is shorter.
 
+## Open the window
+
 Select one track or the files of one album and choose **Tag Sources → Compare
 metadata…**. The same field choices work in both scopes. Opening the window
 reads the current files; online searches start only when requested.
 
-1. Check **Single track** or **Album** and the search terms. Track searches use
-   the performing artist and complete track title, including the mix/version.
-   Album searches use album artist and album title. If local album titles differ,
-   explicitly confirm that the selected files belong to one album.
-2. Open **Sources and matches** to choose native providers and installed `.src`
-   sources. Sources needing keys, a local database or extra search inputs explain
-   what is missing. AcoustID is optional: it reads each file to calculate its
-   fingerprint. Select **Search selected sources**, or search one source in its
-   details. A failed source leaves other results available; retry it separately.
-3. Check the suggested release and **Tracks and files**. Use **Matches** to
-   choose another edition, or **Match…** to correct a file's provider track.
-   Ambiguous matches require review. A changed candidate resets its field choices.
-4. Find any standard or extended field. **Existing values** stays separate from
-   the choice and result. Open **Use** to see each provider's returned value in
-   its own read-only box. Long text and multiple values remain available in full.
-   In Album mode the boxes show **track 1 as an example**; they never substitute
-   a later track when the first track has no value.
-5. Choose **Inherit**, **None**, or a provider for each field:
+<!-- figure:compare-start -->
+<figure markdown>
+![The Compare metadata window for the album Automatic For The People: the album search terms, Single track and Album toggle, a field table with Existing values, a Use choice set to Inherit and the Result](../assets/screens/compare-start-light.png#only-light)
+![The Compare metadata window for the album Automatic For The People: the album search terms, Single track and Album toggle, a field table with Existing values, a Use choice set to Inherit and the Result](../assets/screens/compare-start-dark.png#only-dark)
+<figcaption>Every field starts on Inherit, so nothing changes until you choose.</figcaption>
+</figure>
+<!-- /figure -->
 
-   | Choice | Result |
-   |---|---|
-   | **Inherit** | Keep each file's own existing values; this is the default. |
-   | **None** | Explicitly remove that field from every selected file. |
-   | **Provider** | Use that provider's own matched value for each file. |
+## 1. Choose the scope and search terms
 
-   One field choice applies to the whole album. Choosing a provider for `ARTIST`
-   writes each track's performing artist, not track 1's literal value to every
-   track. `ALBUMARTIST` is independent: a compilation can use `Various Artists`
-   while each track keeps its individual performer. An existing `VA` value is
-   unchanged until a choice explicitly replaces it.
-6. Check coverage counts and click an existing/result value for the per-track
-   preview. Missing provider values keep existing values; **None** is the explicit
-   removal action. An unmatched track must be matched before importing its track
-   fields. Artwork has the same Inherit/None/provider choices and a visual preview.
-7. Choose **Review and save**. Check affected paths, removals and missing-value
-   notices, then save the reviewed batch. Successful files appear separately if
-   another file fails. **Retry failed files** writes only the remaining failures.
+Check **Single track** or **Album** and the search terms. Track searches use
+the performing artist and complete track title, including the mix/version.
+Album searches use album artist and album title. If local album titles differ,
+explicitly confirm that the selected files belong to one album.
+
+## 2. Pick sources and search
+
+Open **Sources and matches** to choose native providers and installed `.src`
+sources. Sources needing keys, a local database or extra search inputs explain
+what is missing. AcoustID is optional: it reads each file to calculate its
+fingerprint. Select **Search selected sources**, or search one source in its
+details. A failed source leaves other results available; retry it separately.
+
+<!-- figure:compare-sources -->
+<figure markdown>
+![The Sources and matches panel listing every provider, with the suggested release and match status for each](../assets/screens/compare-sources-light.png#only-light)
+![The Sources and matches panel listing every provider, with the suggested release and match status for each](../assets/screens/compare-sources-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
+## 3. Check the matches
+
+Check the suggested release and **Tracks and files**. Use **Matches** to
+choose another edition, or **Match…** to correct a file's provider track.
+Ambiguous matches require review. A changed candidate resets its field choices.
+
+<!-- figure:compare-results -->
+<figure markdown>
+![The Compare metadata window after searching: the field table shows how many sources returned each field](../assets/screens/compare-results-light.png#only-light)
+![The Compare metadata window after searching: the field table shows how many sources returned each field](../assets/screens/compare-results-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
+## 4. See what each provider returned
+
+Find any standard or extended field. **Existing values** stays separate from
+the choice and result. Open **Use** to see each provider's returned value in
+its own read-only box. Long text and multiple values remain available in full.
+In Album mode the boxes show **track 1 as an example**; they never substitute
+a later track when the first track has no value.
+
+<!-- figure:compare-use-menu -->
+<figure markdown>
+![The Choose album panel: the existing value, Inherit and None, and each provider's returned album title](../assets/screens/compare-use-menu-light.png#only-light)
+![The Choose album panel: the existing value, Inherit and None, and each provider's returned album title](../assets/screens/compare-use-menu-dark.png#only-dark)
+<figcaption>Open Use to see what each provider returned before you choose.</figcaption>
+</figure>
+<!-- /figure -->
+
+## 5. Choose a value for each field
+
+Choose **Inherit**, **None**, or a provider for each field:
+
+| Choice | Result |
+|---|---|
+| **Inherit** | Keep each file's own existing values; this is the default. |
+| **None** | Explicitly remove that field from every selected file. |
+| **Provider** | Use that provider's own matched value for each file. |
+
+One field choice applies to the whole album. Choosing a provider for `ARTIST`
+writes each track's performing artist, not track 1's literal value to every
+track. `ALBUMARTIST` is independent: a compilation can use `Various Artists`
+while each track keeps its individual performer. An existing `VA` value is
+unchanged until a choice explicitly replaces it.
+
+## 6. Check coverage and per-track previews
+
+Check coverage counts and click an existing/result value for the per-track
+preview. Missing provider values keep existing values; **None** is the explicit
+removal action. An unmatched track must be matched before importing its track
+fields. Artwork has the same Inherit/None/provider choices and a visual preview.
+
+## 7. Review and save
+
+Choose **Review and save**. Check affected paths, removals and missing-value
+notices, then save the reviewed batch. Successful files appear separately if
+another file fails. **Retry failed files** writes only the remaining failures.
+
+## Good to know
 
 **Cancel** leaves unsaved choices unwritten; it cannot undo files already saved
 in a partial batch. Changing the selection or editing a file outside the reviewed

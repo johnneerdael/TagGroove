@@ -4,6 +4,14 @@ Use **Generate Playlists** to write playlists for the selected files from
 an action group. A partition format decides which tracks belong together;
 a filename format names each partition's playlist.
 
+<!-- figure:action-generate-playlists -->
+<figure markdown>
+![The Edit action dialog with the action type set to Generate Playlists and its settings](../assets/screens/action-generate-playlists-light.png#only-light)
+![The Edit action dialog with the action type set to Generate Playlists and its settings](../assets/screens/action-generate-playlists-dark.png#only-dark)
+<figcaption>The Generate Playlists action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Create one playlist per album folder
 
 1. Select a few copied files and put them in the desired file-list order.

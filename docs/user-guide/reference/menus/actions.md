@@ -4,6 +4,14 @@ Use **Actions** to apply a reusable sequence or run one action immediately. An
 action can change tags, paths or external files; inspect its settings on copied
 practice files before using a large selection.
 
+<!-- figure:menu-actions -->
+<figure markdown>
+![The Actions menu open in TagGroove, listing its commands](../../assets/screens/menu-actions-light.png#only-light)
+![The Actions menu open in TagGroove, listing its commands](../../assets/screens/menu-actions-dark.png#only-dark)
+<figcaption>The Actions menu: the quick action, the action groups dialog and every saved group.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     [Build your first action group](../../actions/first-action-group.md) teaches
     the difference between saving a workflow and applying it. The

@@ -19,6 +19,13 @@ Choose **Actions → Actions…** (++alt+6++; Alt is ⌥ Option on a Mac).
 Under **Groups**, choose **New…** and name it `Practice title cleanup`.
 Select that group and choose **Edit actions…**.
 
+<!-- figure:actions-dialog -->
+<figure markdown>
+![The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups](../assets/screens/actions-dialog-light.png#only-light)
+![The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups](../assets/screens/actions-dialog-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 The group is a saved ordered list of actions. Creating or editing the
 list does not itself change the music file. Applying the group will.
 

@@ -54,6 +54,13 @@ Choose **Preview** when you need to inspect its source page; this opens a
 browser page without importing tags. Select the intended result and choose
 **Next**.
 
+<!-- figure:musicbrainz-results -->
+<figure markdown>
+![MusicBrainz search results for R.E.M. Automatic for the People, with label, country, year and track count for each edition](../assets/screens/musicbrainz-results-light.png#only-light)
+![MusicBrainz search results for R.E.M. Automatic for the People, with label, country, year and track count for each edition](../assets/screens/musicbrainz-results-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 The review now shows **Fields**, **Artwork** when available, and **Tracks
 and files**. This is a proposal. Nothing in the proposed tag import is written
 until you choose its save button.
@@ -67,6 +74,13 @@ unrelated tracks around.
 In **Fields**, choose **None**, then check `ALBUM`, `ALBUMARTIST`, `ARTIST`
 and `TITLE`. Inspect their proposed values. If a field is absent from the
 source, it will not appear as a value to import.
+
+<!-- figure:musicbrainz-review -->
+<figure markdown>
+![The MusicBrainz review step: fields to write with check boxes, the release cover and a tracks-and-files table](../assets/screens/musicbrainz-review-light.png#only-light)
+![The MusicBrainz review step: fields to write with check boxes, the release cover and a tracks-and-files table](../assets/screens/musicbrainz-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 This narrow selection makes the result easier to verify. Other fields,
 such as your own genre, comments or numbering, stay outside this exercise.
@@ -85,6 +99,13 @@ In **Tracks and files**, inspect each track beside its assigned local file.
 Choose **Selection order** for this practice album, whose order you checked
 in step 1, then verify that every assignment is right. This restores a
 positional pairing; it does not determine which recording the file contains.
+
+<!-- figure:musicbrainz-tracks -->
+<figure markdown>
+![The Tracks and files table pairing each of the twelve files with a track from the chosen release](../assets/screens/musicbrainz-tracks-light.png#only-light)
+![The Tracks and files table pairing each of the twelve files with a track from the chosen release](../assets/screens/musicbrainz-tracks-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 For example, if source track 1 is Paper Boats and track 2 is Lanterns on the
 Water in a practice comparison, the local file containing Paper Boats must

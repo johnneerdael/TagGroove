@@ -4,6 +4,14 @@ Use **Tag → Filename** to give files consistent names from their tags.
 The same converter can build folders and move the files into them. Check
 that the source fields are correct before using them to construct paths.
 
+<!-- figure:tag-to-filename-album -->
+<figure markdown>
+![The Tag → Filename dialog with the format $num(%track%,2) - %artist% - %title% and a preview of the new names for the selected files](../assets/screens/tag-to-filename-album-light.png#only-light)
+![The Tag → Filename dialog with the format $num(%track%,2) - %artist% - %title% and a preview of the new names for the selected files](../assets/screens/tag-to-filename-album-dark.png#only-dark)
+<figcaption>The preview shows every new name before anything changes.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Rename a few tracks
 
 1. Keep copies, save pending edits and select practice files.

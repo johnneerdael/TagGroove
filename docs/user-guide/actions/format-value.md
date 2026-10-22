@@ -4,6 +4,14 @@ Use **Format Value** to create or replace a field with a value calculated
 from other tags. It can also build a new filename or folder name. Use it
 when the result needs placeholders, conditions or scripting functions.
 
+<!-- figure:action-format-value -->
+<figure markdown>
+![The Edit action dialog with the action type set to Format Value and its settings](../assets/screens/action-format-value-light.png#only-light)
+![The Edit action dialog with the action type set to Format Value and its settings](../assets/screens/action-format-value-dark.png#only-dark)
+<figcaption>The Format Value action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Fill a field from other tags
 
 1. Save pending edits and select a few practice files.

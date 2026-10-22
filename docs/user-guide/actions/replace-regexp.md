@@ -5,6 +5,14 @@ numbers, repeated spaces, a dated suffix, or a guest name to extract.
 The regular expression describes what to match; the replacement can reuse
 captured parts.
 
+<!-- figure:action-regex-replace -->
+<figure markdown>
+![The Edit action dialog with the action type set to Replace with Regular Expression and its settings](../assets/screens/action-regex-replace-light.png#only-light)
+![The Edit action dialog with the action type set to Replace with Regular Expression and its settings](../assets/screens/action-regex-replace-dark.png#only-dark)
+<figcaption>The Replace with Regular Expression action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Run the action
 
 1. Save pending edits and select a few copied files.

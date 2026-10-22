@@ -3,6 +3,13 @@
 Open **File → Options… → Language** to select the language of TagGroove's
 interface. Choose **OK** to apply it immediately.
 
+<!-- figure:options-language -->
+<figure markdown>
+![The language page of the Options dialog](../../assets/screens/options-language-light.png#only-light)
+![The language page of the Options dialog](../../assets/screens/options-language-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "Add a translation"
     Follow [Languages and translations](../../customize/languages.md) to edit
     the generated catalog and install it in the configuration folder.

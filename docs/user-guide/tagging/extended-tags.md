@@ -4,6 +4,14 @@ Use **Extended tags…** to see fields that are not on the tag panel, edit
 separate values and work with cover art. Open it through **View → Extended
 tags…** or ++alt+t++ with files selected. Alt is ⌥ Option on macOS.
 
+<!-- figure:extended-tags-album -->
+<figure markdown>
+![The Extended tags dialog for one track: every field with its value, the file's cover on the right](../assets/screens/extended-tags-album-light.png#only-light)
+![The Extended tags dialog for one track: every field with its value, the file's cover on the right](../assets/screens/extended-tags-album-dark.png#only-dark)
+<figcaption>Extended tags lists every field of the file, including fields the tag panel does not show.</figcaption>
+</figure>
+<!-- /figure -->
+
 For one file, the heading identifies its filename and available tag type.
 For a selection, the heading gives the number of files. A field's values
 can contain several lines without becoming several separate field values.

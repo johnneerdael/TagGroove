@@ -4,6 +4,14 @@ Use **Merge Duplicate Fields** when a field contains several separate
 values and the target player expects one combined value. It joins the
 existing values with a chosen separator. It does not remove repeated text.
 
+<!-- figure:action-merge-duplicate-fields -->
+<figure markdown>
+![The Edit action dialog with the action type set to Merge Duplicate Fields and its settings](../assets/screens/action-merge-duplicate-fields-light.png#only-light)
+![The Edit action dialog with the action type set to Merge Duplicate Fields and its settings](../assets/screens/action-merge-duplicate-fields-dark.png#only-dark)
+<figcaption>The Merge Duplicate Fields action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Join a field's values
 
 1. Save pending edits and select a few copied files.

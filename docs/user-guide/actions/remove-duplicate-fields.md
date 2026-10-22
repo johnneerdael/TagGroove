@@ -4,6 +4,14 @@ Use **Remove Duplicate Fields** to reduce a field's multiple values.
 Choose carefully: the default keeps only the first value, even when the
 later values are different artists or names that should be retained.
 
+<!-- figure:action-remove-duplicate-fields -->
+<figure markdown>
+![The Edit action dialog with the action type set to Remove Duplicate Fields and its settings](../assets/screens/action-remove-duplicate-fields-light.png#only-light)
+![The Edit action dialog with the action type set to Remove Duplicate Fields and its settings](../assets/screens/action-remove-duplicate-fields-dark.png#only-dark)
+<figcaption>The Remove Duplicate Fields action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Choose what to keep
 
 1. Save pending edits and select a few copied files.

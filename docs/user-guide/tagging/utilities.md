@@ -28,6 +28,14 @@ assuming every cleanup is recoverable.
 Use **Tools → Remove tag types…** when the task is “remove the old ID3v1
 block but retain ID3v2,” rather than “clear the displayed Title.”
 
+<!-- figure:remove-tag-types-dialog -->
+<figure markdown>
+![The Remove tag types dialog listing the tag types found in the selected files](../assets/screens/remove-tag-types-dialog-light.png#only-light)
+![The Remove tag types dialog listing the tag types found in the selected files](../assets/screens/remove-tag-types-dialog-dark.png#only-dark)
+<figcaption>Choose which tag types to remove from the selected files.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Inspect the file's tag-type information. On a practice MP3 it might list
    `ID3v2.4 APEv2 ID3v1`.
 2. Open **Remove tag types…**. Each choice shows how many selected files
@@ -54,6 +62,14 @@ another retained block cannot represent.
 A file can contain ID3v2 frames with no editable field or cover representation
 in TagGroove. **Remove unsupported fields…** targets those frames, rather
 than all custom field names or every format's opaque data.
+
+<!-- figure:unsupported-fields-dialog -->
+<figure markdown>
+![The Remove unsupported fields dialog listing ID3v2 frames TagGroove does not edit](../assets/screens/unsupported-fields-dialog-light.png#only-light)
+![The Remove unsupported fields dialog listing ID3v2 frames TagGroove does not edit](../assets/screens/unsupported-fields-dialog-dark.png#only-dark)
+<figcaption>Unsupported frames are listed before anything is removed.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Add a temporary [file-list column](../customize/columns.md) with the
    format string below, or use it while inspecting a copied file:
@@ -103,6 +119,14 @@ FLAC reserves padding alongside metadata so that later small tag changes may
 fit without relocating the audio frames. **Optimize…** normalizes that padding
 to one 4,096-byte block. It can shrink excessive padding or add missing padding;
 it does not change the compression level or improve audio quality.
+
+<!-- figure:optimize-dialog -->
+<figure markdown>
+![The Optimize dialog for a FLAC file, with options for padding and layout](../assets/screens/optimize-dialog-light.png#only-light)
+![The Optimize dialog for a FLAC file, with options for padding and layout](../assets/screens/optimize-dialog-dark.png#only-dark)
+<figcaption>Optimize works on FLAC and MP4 files.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Save edits and select the copied FLAC file.
 2. Choose **Tools → Optimize…**. Check the count and the explanation before

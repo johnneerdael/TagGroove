@@ -5,6 +5,14 @@ or `COMPOSER`. They help keep spellings consistent while leaving you free to
 type another value. Saving a suggestion does not retag existing files; choosing
 it for selected tracks and saving those edits is a separate step.
 
+<!-- figure:field-values-dialog -->
+<figure markdown>
+![The Field values dialog with a field list on the left and one value per line on the right](../assets/screens/field-values-dialog-light.png#only-light)
+![The Field values dialog with a field list on the left and one value per line on the right](../assets/screens/field-values-dialog-dark.png#only-dark)
+<figcaption>Suggested values appear in the tag panel's drop-down lists.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Make a small MOOD list
 
 1. Choose **View → Field values…**, or **File → Options… → Field Values →

@@ -4,6 +4,14 @@ Use **Help** to find documentation, inspect keyboard shortcuts, report a
 problem, check released versions or identify the installed TagGroove version.
 These commands do not require selected audio files.
 
+<!-- figure:menu-help -->
+<figure markdown>
+![The Help menu open in TagGroove, listing its commands](../../assets/screens/menu-help-light.png#only-light)
+![The Help menu open in TagGroove, listing its commands](../../assets/screens/menu-help-dark.png#only-dark)
+<figcaption>The Help menu: documentation, shortcuts, issues, updates and About.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Start with [your first tagging session](../../getting-started/first-tagging-session.md).
     Keep the app version from **About TagGroove** with any troubleshooting notes.

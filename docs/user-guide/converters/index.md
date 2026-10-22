@@ -9,6 +9,14 @@ preview shows the proposed result before you commit it. They live in the
 
 ## Choose a converter
 
+<!-- figure:menu-convert-album -->
+<figure markdown>
+![The Convert menu open in TagGroove, listing Tag → Filename, Filename → Tag, Filename → Filename, Text File → Tag, Tag → Tag and Auto-numbering](../assets/screens/menu-convert-album-light.png#only-light)
+![The Convert menu open in TagGroove, listing Tag → Filename, Filename → Tag, Filename → Filename, Text File → Tag, Tag → Tag and Auto-numbering](../assets/screens/menu-convert-album-dark.png#only-dark)
+<figcaption>All six converters are in the Convert menu.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Trusted source | Goal | Converter | Shortcut |
 |---|---|---|---|
 | Existing tags | Rename or move the files | [Tag → Filename](tag-to-filename.md) | ++alt+1++ |

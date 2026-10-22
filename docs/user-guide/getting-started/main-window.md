@@ -14,6 +14,14 @@ Configured columns, toolbars, placement and platform controls can differ.</figca
 
 ## Find each part
 
+<!-- figure:main-window-album -->
+<figure markdown>
+![The TagGroove main window with R.E.M.'s Automatic For The People open: menu bar and toolbar on top, the tag panel with the first track's tags on the left, the file list with twelve tracks on the right and the status bar below](../assets/screens/main-window-album-light.png#only-light)
+![The TagGroove main window with R.E.M.'s Automatic For The People open: menu bar and toolbar on top, the tag panel with the first track's tags on the left, the file list with twelve tracks on the right and the status bar below](../assets/screens/main-window-album-dark.png#only-dark)
+<figcaption>The main window with an album open and the first track selected.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Area | What to look for | What it means for your work |
 | --- | --- | --- |
 | Menu bar | **File**, **Edit**, **View**, **Convert**, **Actions**, **Tag Sources**, **Tools**, **Help** | Find named commands even when a toolbar button is hidden |

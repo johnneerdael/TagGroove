@@ -4,6 +4,14 @@
 First identify what has focus. Copying selected text is different from copying
 the tags of selected files; deleting a file is different from removing its row.
 
+<!-- figure:menu-edit -->
+<figure markdown>
+![The Edit menu open in TagGroove, listing its commands](../../assets/screens/menu-edit-light.png#only-light)
+![The Edit menu open in TagGroove, listing its commands](../../assets/screens/menu-edit-dark.png#only-dark)
+<figcaption>The Edit menu: tag clipboard, selection, Find, file operations and cover management.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## History and tag clipboard
 
 | Item | Result |

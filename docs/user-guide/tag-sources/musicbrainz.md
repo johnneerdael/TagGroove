@@ -4,6 +4,13 @@ Use MusicBrainz to find release metadata and artwork for an album. A
 **release** is a particular edition, which can differ from other editions in
 country, date, format or tracklist. TagGroove needs no API key for this source.
 
+<!-- figure:source-musicbrainz -->
+<figure markdown>
+![The MusicBrainz search dialog prefilled with the artist and album of the selected files](../assets/screens/source-musicbrainz-light.png#only-light)
+![The MusicBrainz search dialog prefilled with the artist and album of the selected files](../assets/screens/source-musicbrainz-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 Select local practice files, save intended pending edits and choose **Tag
 Sources → MusicBrainz…**. For a first guided import, follow
 [Tag an album from an online database](tag-from-online-sources.md).
@@ -54,6 +61,14 @@ count. The MusicBrainz score ranks a search match; it is not a verification of
 your files. A deluxe edition can score highly while adding tracks you do not
 have.
 
+<!-- figure:musicbrainz-results -->
+<figure markdown>
+![MusicBrainz search results for R.E.M. Automatic for the People, with label, country, year and track count for each edition](../assets/screens/musicbrainz-results-light.png#only-light)
+![MusicBrainz search results for R.E.M. Automatic for the People, with label, country, year and track count for each edition](../assets/screens/musicbrainz-results-dark.png#only-dark)
+<figcaption>Check the edition, track count and year before choosing Next.</figcaption>
+</figure>
+<!-- /figure -->
+
 Select a result and choose **Preview** to inspect its source page in your
 browser, or **Next** to open the import review. If the reviewed tracklist
 does not fit, use **Back**. Do not use matching controls to disguise the
@@ -64,6 +79,14 @@ wrong release.
 In **Fields**, clear values you want to retain and check the fields you want
 from the source. **All** and **None** change the set quickly. Check it on
 each run: unchecked fields are remembered for the provider.
+
+<!-- figure:musicbrainz-review -->
+<figure markdown>
+![The MusicBrainz review step: fields to write with check boxes, the release cover and a tracks-and-files table](../assets/screens/musicbrainz-review-light.png#only-light)
+![The MusicBrainz review step: fields to write with check boxes, the release cover and a tracks-and-files table](../assets/screens/musicbrainz-review-dark.png#only-dark)
+<figcaption>Uncheck a field to leave it unchanged; nothing is written until you save.</figcaption>
+</figure>
+<!-- /figure -->
 
 The source can provide these kinds of information when its record includes
 them:

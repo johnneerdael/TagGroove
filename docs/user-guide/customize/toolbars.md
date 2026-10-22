@@ -5,6 +5,14 @@ also hold named external tools and action groups. Arrange buttons around the
 work you repeat, while keeping the menus available for commands you use less
 often. Rearranging a toolbar does not itself change audio tags.
 
+<!-- figure:toolbar-customize -->
+<figure markdown>
+![The Customize toolbars dialog with an arrangement choice and the list of commands you can show on each toolbar](../assets/screens/toolbar-customize-light.png#only-light)
+![The Customize toolbars dialog with an arrangement choice and the list of commands you can show on each toolbar](../assets/screens/toolbar-customize-dark.png#only-dark)
+<figcaption>Choose which commands appear on the main and custom toolbars.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Show a toolbar or recover hidden buttons
 
 Use **View → Toolbars → Main toolbar** and **Custom toolbar** to show or hide

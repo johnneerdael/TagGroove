@@ -4,6 +4,14 @@ Use **Tag → Tag** to copy or calculate one destination field from existing
 tags. Its preview refreshes as you change the field or format string, so you
 can learn an expression before saving it in an action.
 
+<!-- figure:tag-to-tag -->
+<figure markdown>
+![The Tag → Tag dialog with a destination field, the format string $upper(%title%) and a live preview of the result](../assets/screens/tag-to-tag-light.png#only-light)
+![The Tag → Tag dialog with a destination field, the format string $upper(%title%) and a live preview of the result](../assets/screens/tag-to-tag-dark.png#only-dark)
+<figcaption>The preview refreshes as you type; nothing is written until you apply it.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Fill missing album artists
 
 1. Keep copies, save pending edits and select practice files.

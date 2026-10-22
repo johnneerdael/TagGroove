@@ -1,1 +1,765 @@
-[]
+[
+ {
+  "scene": "main-window-album",
+  "page": "getting-started/main-window.md",
+  "after": "## Find each part",
+  "alt": "The TagGroove main window with R.E.M.'s Automatic For The People open: menu bar and toolbar on top, the tag panel with the first track's tags on the left, the file list with twelve tracks on the right and the status bar below",
+  "caption": "The main window with an album open and the first track selected."
+ },
+ {
+  "scene": "menu-file",
+  "page": "reference/menus/file.md",
+  "after": "intro",
+  "alt": "The File menu open in TagGroove, listing its commands",
+  "caption": "The File menu: saving, playlists, export, opening folders and files, configuration."
+ },
+ {
+  "scene": "menu-edit",
+  "page": "reference/menus/edit.md",
+  "after": "intro",
+  "alt": "The Edit menu open in TagGroove, listing its commands",
+  "caption": "The Edit menu: tag clipboard, selection, Find, file operations and cover management."
+ },
+ {
+  "scene": "menu-view",
+  "page": "reference/menus/view.md",
+  "after": "intro",
+  "alt": "The View menu open in TagGroove, listing its commands",
+  "caption": "The View menu: Extended tags, tag-panel defaults and customization, field values."
+ },
+ {
+  "scene": "menu-actions",
+  "page": "reference/menus/actions.md",
+  "after": "intro",
+  "alt": "The Actions menu open in TagGroove, listing its commands",
+  "caption": "The Actions menu: the quick action, the action groups dialog and every saved group."
+ },
+ {
+  "scene": "menu-tag-sources",
+  "page": "reference/menus/tag-sources.md",
+  "after": "intro",
+  "alt": "The Tag Sources menu open in TagGroove, listing its commands",
+  "caption": "The Tag Sources menu with every provider, the cover commands, API keys and options."
+ },
+ {
+  "scene": "menu-tools",
+  "page": "reference/menus/tools.md",
+  "after": "intro",
+  "alt": "The Tools menu open in TagGroove, listing its commands",
+  "caption": "The Tools menu: tag-type removal, MP4 chapters, unsupported fields, Optimize and tool settings."
+ },
+ {
+  "scene": "menu-help",
+  "page": "reference/menus/help.md",
+  "after": "intro",
+  "alt": "The Help menu open in TagGroove, listing its commands",
+  "caption": "The Help menu: documentation, shortcuts, issues, updates and About."
+ },
+ {
+  "scene": "menu-tag-sources",
+  "page": "tag-sources/index.md",
+  "after": "## Choose a source",
+  "alt": "The Tag Sources menu open in TagGroove, listing MusicBrainz, Discogs, Beatport, Traxsource, Compare metadata, iTunes, Deezer, AcoustID, freedb, LRCLIB, the cover commands and API keys",
+  "caption": "Every provider has its own command; Compare metadata… puts several side by side."
+ },
+ {
+  "scene": "menu-convert-album",
+  "page": "reference/menus/convert.md",
+  "after": "intro",
+  "alt": "The Convert menu open in TagGroove, listing Tag → Filename, Filename → Tag, Filename → Filename, Text File → Tag, Tag → Tag and Auto-numbering",
+  "caption": "The Convert menu."
+ },
+ {
+  "scene": "menu-convert-album",
+  "page": "converters/index.md",
+  "after": "## Choose a converter",
+  "alt": "The Convert menu open in TagGroove, listing Tag → Filename, Filename → Tag, Filename → Filename, Text File → Tag, Tag → Tag and Auto-numbering",
+  "caption": "All six converters are in the Convert menu."
+ },
+ {
+  "scene": "menu-file",
+  "page": "getting-started/opening-files.md",
+  "after": "## Open one practice folder",
+  "alt": "The File menu open in TagGroove, with Change directory…, Add directory… and Add files… near the middle",
+  "caption": "Change directory… replaces the list; Add directory… and Add files… add to it."
+ },
+ {
+  "scene": "tag-panel-keep-album",
+  "page": "tagging/tag-panel.md",
+  "after": "## Set one album for several tracks",
+  "alt": "The tag panel with all twelve tracks selected: Title and Track show < keep >, while Artist, Album and Year show the values the tracks share",
+  "caption": "With several files selected, fields that differ show < keep >."
+ },
+ {
+  "scene": "tag-panel-pending",
+  "page": "getting-started/editing-and-saving.md",
+  "after": "## Make one change you can recognize",
+  "alt": "The TagGroove window with the Album field edited in the tag panel: the status bar says there are pending changes for one file and the unsaved-files counter shows 1",
+  "caption": "A pending edit: the file list and status bar show unsaved work until you choose Save tags."
+ },
+ {
+  "scene": "extended-tags-album",
+  "page": "tagging/extended-tags.md",
+  "after": "intro",
+  "alt": "The Extended tags dialog for one track: every field with its value, the file's cover on the right",
+  "caption": "Extended tags lists every field of the file, including fields the tag panel does not show."
+ },
+ {
+  "scene": "manage-covers",
+  "page": "tagging/covers.md",
+  "after": "## Understand the Manage covers list",
+  "alt": "The Manage covers dialog for twelve selected files: one front cover, 1200 × 1200 JPEG, with buttons to add, paste, replace, adjust, remove, reorder and extract",
+  "caption": "Manage covers lists every picture shared by the selected files."
+ },
+ {
+  "scene": "find-dialog",
+  "page": "tagging/find.md",
+  "after": "intro",
+  "alt": "The Find dialog with a search box, a strategy list and a results table",
+  "caption": "Find lists every match and selects the files you pick."
+ },
+ {
+  "scene": "filter-active",
+  "page": "tagging/filter.md",
+  "after": "## Start with a text search",
+  "alt": "The file list filtered with the expression TRACK GREATER 8: four of the twelve files are visible and the counter reads 4 visible · 1 selected",
+  "caption": "An active filter: only matching rows are shown; the other files stay loaded."
+ },
+ {
+  "scene": "remove-tag-types-dialog",
+  "page": "tagging/utilities.md",
+  "after": "## Remove a particular tag type",
+  "alt": "The Remove tag types dialog listing the tag types found in the selected files",
+  "caption": "Choose which tag types to remove from the selected files."
+ },
+ {
+  "scene": "optimize-dialog",
+  "page": "tagging/utilities.md",
+  "after": "## Optimize FLAC padding",
+  "alt": "The Optimize dialog for a FLAC file, with options for padding and layout",
+  "caption": "Optimize works on FLAC and MP4 files."
+ },
+ {
+  "scene": "unsupported-fields-dialog",
+  "page": "tagging/utilities.md",
+  "after": "## Inspect and remove unsupported ID3v2 frames",
+  "alt": "The Remove unsupported fields dialog listing ID3v2 frames TagGroove does not edit",
+  "caption": "Unsupported frames are listed before anything is removed."
+ },
+ {
+  "scene": "customize-columns",
+  "page": "customize/columns.md",
+  "after": "intro",
+  "alt": "The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column",
+  "caption": "Each column has a name, a display value, an optional field to edit and a sort key."
+ },
+ {
+  "scene": "customize-columns",
+  "page": "tagging/file-list.md",
+  "after": "## Show, size and arrange columns",
+  "alt": "The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column",
+  "caption": ""
+ },
+ {
+  "scene": "tag-to-filename-album",
+  "page": "converters/tag-to-filename.md",
+  "after": "intro",
+  "alt": "The Tag → Filename dialog with the format $num(%track%,2) - %artist% - %title% and a preview of the new names for the selected files",
+  "caption": "The preview shows every new name before anything changes."
+ },
+ {
+  "scene": "filename-to-tag",
+  "page": "converters/filename-to-tag.md",
+  "after": "intro",
+  "alt": "The Filename → Tag dialog with the pattern %track% - R.E.M. %title% and a preview of the tags it reads from the two selected files",
+  "caption": "The preview shows what each file would give its tags."
+ },
+ {
+  "scene": "filename-to-filename",
+  "page": "converters/filename-to-filename.md",
+  "after": "intro",
+  "alt": "The Filename → Filename dialog with a matching pattern, an output format and a preview",
+  "caption": "Numbered parts %1 to %9 capture pieces of the current name."
+ },
+ {
+  "scene": "text-to-tag",
+  "page": "converters/text-file-to-tag.md",
+  "after": "intro",
+  "alt": "The Text File → Tag dialog with a source box for pasted records, a mask and a preview",
+  "caption": "Records are matched to the selected files by position or by a key."
+ },
+ {
+  "scene": "tag-to-tag",
+  "page": "converters/tag-to-tag.md",
+  "after": "intro",
+  "alt": "The Tag → Tag dialog with a destination field, the format string $upper(%title%) and a live preview of the result",
+  "caption": "The preview refreshes as you type; nothing is written until you apply it."
+ },
+ {
+  "scene": "auto-numbering",
+  "page": "converters/auto-numbering.md",
+  "after": "intro",
+  "alt": "The Auto-numbering wizard with track and disc number settings",
+  "caption": "Track and disc numbers are staged as pending edits."
+ },
+ {
+  "scene": "actions-dialog",
+  "page": "actions/index.md",
+  "after": "## Build a reusable group",
+  "alt": "The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups",
+  "caption": "Groups run in order; each action sees the result of the one before."
+ },
+ {
+  "scene": "actions-dialog",
+  "page": "actions/first-action-group.md",
+  "after": "## 1. Create a named group",
+  "alt": "The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups",
+  "caption": ""
+ },
+ {
+  "scene": "actions-quick",
+  "page": "actions/index.md",
+  "after": "## Try a quick action",
+  "alt": "The Actions (Quick) dialog with an action type, its settings and an Apply action button",
+  "caption": "A quick action runs once and saves immediately."
+ },
+ {
+  "scene": "action-adjust-cover",
+  "page": "actions/adjust-cover.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Adjust Cover and its settings",
+  "caption": "The Adjust Cover action's settings in an action group."
+ },
+ {
+  "scene": "action-case-conversion",
+  "page": "actions/case-conversion.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Case Conversion and its settings",
+  "caption": "The Case Conversion action's settings in an action group."
+ },
+ {
+  "scene": "action-convert-codepage",
+  "page": "actions/convert-codepage.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Convert Codepage and its settings",
+  "caption": "The Convert Codepage action's settings in an action group."
+ },
+ {
+  "scene": "action-export",
+  "page": "actions/export.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Export and its settings",
+  "caption": "The Export action's settings in an action group."
+ },
+ {
+  "scene": "action-export-cover",
+  "page": "actions/export-cover.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Export Cover to File and its settings",
+  "caption": "The Export Cover to File action's settings in an action group."
+ },
+ {
+  "scene": "action-format-value",
+  "page": "actions/format-value.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Format Value and its settings",
+  "caption": "The Format Value action's settings in an action group."
+ },
+ {
+  "scene": "action-generate-playlists",
+  "page": "actions/generate-playlists.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Generate Playlists and its settings",
+  "caption": "The Generate Playlists action's settings in an action group."
+ },
+ {
+  "scene": "action-guess-values",
+  "page": "actions/guess-values.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Guess Values and its settings",
+  "caption": "The Guess Values action's settings in an action group."
+ },
+ {
+  "scene": "action-import-cover",
+  "page": "actions/import-cover.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Import Cover from File and its settings",
+  "caption": "The Import Cover from File action's settings in an action group."
+ },
+ {
+  "scene": "action-import-text-file",
+  "page": "actions/import-text-file.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Import Text File and its settings",
+  "caption": "The Import Text File action's settings in an action group."
+ },
+ {
+  "scene": "action-merge-duplicate-fields",
+  "page": "actions/merge-duplicate-fields.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Merge Duplicate Fields and its settings",
+  "caption": "The Merge Duplicate Fields action's settings in an action group."
+ },
+ {
+  "scene": "action-remove-duplicate-fields",
+  "page": "actions/remove-duplicate-fields.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Remove Duplicate Fields and its settings",
+  "caption": "The Remove Duplicate Fields action's settings in an action group."
+ },
+ {
+  "scene": "action-remove-fields",
+  "page": "actions/remove-fields.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Remove Fields and its settings",
+  "caption": "The Remove Fields action's settings in an action group."
+ },
+ {
+  "scene": "action-remove-fields-except",
+  "page": "actions/remove-fields-except.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Remove Fields Except and its settings",
+  "caption": "The Remove Fields Except action's settings in an action group."
+ },
+ {
+  "scene": "action-replace",
+  "page": "actions/replace.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Replace and its settings",
+  "caption": "The Replace action's settings in an action group."
+ },
+ {
+  "scene": "action-regex-replace",
+  "page": "actions/replace-regexp.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Replace with Regular Expression and its settings",
+  "caption": "The Replace with Regular Expression action's settings in an action group."
+ },
+ {
+  "scene": "action-set-cover-properties",
+  "page": "actions/set-cover-properties.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Set Cover Properties and its settings",
+  "caption": "The Set Cover Properties action's settings in an action group."
+ },
+ {
+  "scene": "action-split-field",
+  "page": "actions/split-field.md",
+  "after": "intro",
+  "alt": "The Edit action dialog with the action type set to Split Field by Separator and its settings",
+  "caption": "The Split Field by Separator action's settings in an action group."
+ },
+ {
+  "scene": "export-dialog",
+  "page": "export/index.md",
+  "after": "## Make the first report",
+  "alt": "The Export dialog: a list of export configurations, an export template editor, the output file name and options for appending and per-folder files",
+  "caption": "The Export dialog with the built-in Text configuration selected."
+ },
+ {
+  "scene": "playlist-generate-dialog",
+  "page": "export/playlists.md",
+  "after": "intro",
+  "alt": "The Generate playlists dialog with a file name pattern and a grouping value",
+  "caption": "Generate playlists writes one playlist per group of files."
+ },
+ {
+  "scene": "customize-tag-panel",
+  "page": "customize/tag-panel.md",
+  "after": "intro",
+  "alt": "The Customize tag panel dialog: the list of panel fields and the editor for the selected field's name, field, control type and default",
+  "caption": "Each tag-panel control is one field with a type, a size and a default."
+ },
+ {
+  "scene": "field-values-dialog",
+  "page": "customize/field-values.md",
+  "after": "intro",
+  "alt": "The Field values dialog with a field list on the left and one value per line on the right",
+  "caption": "Suggested values appear in the tag panel's drop-down lists."
+ },
+ {
+  "scene": "tools-configure",
+  "page": "customize/tools.md",
+  "after": "intro",
+  "alt": "The Configure tools dialog listing external tools with their name, program path and parameters",
+  "caption": "External tools open the selected files in another program."
+ },
+ {
+  "scene": "toolbar-customize",
+  "page": "customize/toolbars.md",
+  "after": "intro",
+  "alt": "The Customize toolbars dialog with an arrangement choice and the list of commands you can show on each toolbar",
+  "caption": "Choose which commands appear on the main and custom toolbars."
+ },
+ {
+  "scene": "favorite-directories",
+  "page": "getting-started/opening-files.md",
+  "after": "## Return to a directory",
+  "alt": "The Favorite directories dialog listing saved folders",
+  "caption": "Favorite directories you can jump back to."
+ },
+ {
+  "scene": "source-api-keys",
+  "page": "tag-sources/api-keys.md",
+  "after": "intro",
+  "alt": "The API keys dialog with sections for AcoustID, Last.fm and fanart.tv, each showing whether a key is saved",
+  "caption": "Each section says whether this build includes a key and links to the provider's registration page."
+ },
+ {
+  "scene": "source-musicbrainz",
+  "page": "tag-sources/musicbrainz.md",
+  "after": "intro",
+  "alt": "The MusicBrainz search dialog prefilled with the artist and album of the selected files",
+  "caption": ""
+ },
+ {
+  "scene": "musicbrainz-results",
+  "page": "tag-sources/musicbrainz.md",
+  "after": "## Identify the right edition",
+  "alt": "MusicBrainz search results for R.E.M. Automatic for the People, with label, country, year and track count for each edition",
+  "caption": "Check the edition, track count and year before choosing Next."
+ },
+ {
+  "scene": "musicbrainz-review",
+  "page": "tag-sources/musicbrainz.md",
+  "after": "## Review fields and file assignments",
+  "alt": "The MusicBrainz review step: fields to write with check boxes, the release cover and a tracks-and-files table",
+  "caption": "Uncheck a field to leave it unchanged; nothing is written until you save."
+ },
+ {
+  "scene": "musicbrainz-results",
+  "page": "tag-sources/tag-from-online-sources.md",
+  "after": "## 3. Choose the release that matches your files",
+  "alt": "MusicBrainz search results for R.E.M. Automatic for the People, with label, country, year and track count for each edition",
+  "caption": ""
+ },
+ {
+  "scene": "musicbrainz-review",
+  "page": "tag-sources/tag-from-online-sources.md",
+  "after": "## 4. Choose only the fields for this lesson",
+  "alt": "The MusicBrainz review step: fields to write with check boxes, the release cover and a tracks-and-files table",
+  "caption": ""
+ },
+ {
+  "scene": "musicbrainz-tracks",
+  "page": "tag-sources/tag-from-online-sources.md",
+  "after": "## 5. Check every file-to-track pair",
+  "alt": "The Tracks and files table pairing each of the twelve files with a track from the chosen release",
+  "caption": ""
+ },
+ {
+  "scene": "source-itunes",
+  "page": "tag-sources/itunes.md",
+  "after": "intro",
+  "alt": "The iTunes search dialog prefilled with the artist and album of the selected song",
+  "caption": ""
+ },
+ {
+  "scene": "itunes-results",
+  "page": "tag-sources/itunes.md",
+  "after": "## Find an album",
+  "alt": "iTunes search results for Taylor Swift The Life of a Showgirl",
+  "caption": ""
+ },
+ {
+  "scene": "itunes-review",
+  "page": "tag-sources/itunes.md",
+  "after": "## Fields and limits",
+  "alt": "The iTunes review step: fields to write, the album cover at 1200 × 1200 and a tracks-and-files table",
+  "caption": "The review shows which fields iTunes supplies and the cover it will write."
+ },
+ {
+  "scene": "source-deezer",
+  "page": "tag-sources/deezer.md",
+  "after": "intro",
+  "alt": "The Deezer search dialog prefilled with the artist and album of the selected song",
+  "caption": ""
+ },
+ {
+  "scene": "deezer-results",
+  "page": "tag-sources/deezer.md",
+  "after": "## Find an album",
+  "alt": "Deezer search results for Taylor Swift The Life of a Showgirl",
+  "caption": ""
+ },
+ {
+  "scene": "deezer-review",
+  "page": "tag-sources/deezer.md",
+  "after": "## Fields and artwork",
+  "alt": "The Deezer review step: fields to write, the album cover and a tracks-and-files table",
+  "caption": ""
+ },
+ {
+  "scene": "lrclib-form",
+  "page": "tag-sources/lrclib.md",
+  "after": "intro",
+  "alt": "The LRCLIB lyrics dialog: each selected file is looked up by title, artist, album and length",
+  "caption": ""
+ },
+ {
+  "scene": "lrclib-review",
+  "page": "tag-sources/lrclib.md",
+  "after": "## Plain or synchronized lyrics",
+  "alt": "The LRCLIB review step showing the lyrics found for the selected file",
+  "caption": ""
+ },
+ {
+  "scene": "acoustid-form",
+  "page": "tag-sources/acoustid.md",
+  "after": "intro",
+  "alt": "The AcoustID dialog that fingerprints the selected file and looks it up",
+  "caption": ""
+ },
+ {
+  "scene": "fanart-results",
+  "page": "tag-sources/fanart-tv.md",
+  "after": "intro",
+  "alt": "fanart.tv results for an album: the available front covers and disc artwork, ordered by likes",
+  "caption": "fanart.tv supplies artwork only."
+ },
+ {
+  "scene": "beatport-release-form",
+  "page": "tag-sources/catalog.md",
+  "after": "## Search a track or release",
+  "alt": "The Beatport dialog set to search by release, with the artist and release title filled in from the selected files",
+  "caption": "Search by release to find a whole release; search by track for a single file."
+ },
+ {
+  "scene": "beatport-release-results",
+  "page": "tag-sources/catalog.md",
+  "after": "## Open a matched track's full release",
+  "alt": "Beatport release results: the first hit is Digital Renaissance Vol. 1 on ÆDEN RECORDS, catalog number Æ001D, 15 tracks",
+  "caption": "The release search lists label, catalog number, year and track count."
+ },
+ {
+  "scene": "source-beatport",
+  "page": "tag-sources/catalog.md",
+  "after": "intro",
+  "alt": "The Beatport dialog with a search type, artist and title",
+  "caption": ""
+ },
+ {
+  "scene": "source-traxsource",
+  "page": "tag-sources/catalog.md",
+  "after": "## Optional challenge solver",
+  "alt": "The Traxsource dialog with a search type, artist and title",
+  "caption": ""
+ },
+ {
+  "scene": "source-discogs",
+  "page": "tag-sources/discogs.md",
+  "after": "intro",
+  "alt": "The Discogs search dialog with a search type, artist and album",
+  "caption": ""
+ },
+ {
+  "scene": "source-freedb",
+  "page": "tag-sources/freedb.md",
+  "after": "intro",
+  "alt": "The freedb dialog with the choice between the selected files' track layout and artist and album",
+  "caption": ""
+ },
+ {
+  "scene": "source-local-freedb",
+  "page": "tag-sources/local-freedb.md",
+  "after": "intro",
+  "alt": "The local freedb dialog with a disc ID or artist and album words",
+  "caption": ""
+ },
+ {
+  "scene": "compare-start",
+  "page": "tag-sources/compare.md",
+  "after": "## Open the window",
+  "alt": "The Compare metadata window for the album Automatic For The People: the album search terms, Single track and Album toggle, a field table with Existing values, a Use choice set to Inherit and the Result",
+  "caption": "Every field starts on Inherit, so nothing changes until you choose."
+ },
+ {
+  "scene": "compare-sources",
+  "page": "tag-sources/compare.md",
+  "after": "## 2. Pick sources and search",
+  "alt": "The Sources and matches panel listing every provider, with the suggested release and match status for each",
+  "caption": ""
+ },
+ {
+  "scene": "compare-results",
+  "page": "tag-sources/compare.md",
+  "after": "## 3. Check the matches",
+  "alt": "The Compare metadata window after searching: the field table shows how many sources returned each field",
+  "caption": ""
+ },
+ {
+  "scene": "compare-use-menu",
+  "page": "tag-sources/compare.md",
+  "after": "## 4. See what each provider returned",
+  "alt": "The Choose album panel: the existing value, Inherit and None, and each provider's returned album title",
+  "caption": "Open Use to see what each provider returned before you choose."
+ },
+ {
+  "scene": "compare-results",
+  "page": "tag-sources/index.md",
+  "after": "## Compare fields from several sources",
+  "alt": "The Compare metadata window after searching: the field table shows how many sources returned each field",
+  "caption": ""
+ },
+ {
+  "scene": "import-mp3tag-setup",
+  "page": "getting-started/coming-from-mp3tag.md",
+  "after": "## Prepare the profile and your current session",
+  "alt": "The Import Mp3tag setup dialog with buttons to choose an Mp3tag configuration folder or a backup ZIP and an optional legacy codepage",
+  "caption": "File → Import Mp3tag setup… reads a configuration folder or backup ZIP and previews what can come across."
+ },
+ {
+  "scene": "options-general",
+  "page": "reference/options/general.md",
+  "after": "intro",
+  "alt": "The general page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-messages",
+  "page": "reference/options/messages.md",
+  "after": "intro",
+  "alt": "The messages page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-files",
+  "page": "reference/options/files.md",
+  "after": "intro",
+  "alt": "The files page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-directories",
+  "page": "reference/options/directories.md",
+  "after": "intro",
+  "alt": "The directories page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-appearance",
+  "page": "reference/options/appearance.md",
+  "after": "intro",
+  "alt": "The appearance page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-library",
+  "page": "reference/options/library.md",
+  "after": "intro",
+  "alt": "The library page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-language",
+  "page": "reference/options/language.md",
+  "after": "intro",
+  "alt": "The language page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tags",
+  "page": "reference/options/tags.md",
+  "after": "intro",
+  "alt": "The tags page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tags-mpeg",
+  "page": "reference/options/tags-mpeg.md",
+  "after": "intro",
+  "alt": "The tags mpeg page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tags-ape",
+  "page": "reference/options/tags-ape-mpc.md",
+  "after": "intro",
+  "alt": "The tags ape page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tags-mapping",
+  "page": "reference/options/tags-mapping.md",
+  "after": "intro",
+  "alt": "The tags mapping page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tags-advanced",
+  "page": "reference/options/tags-advanced.md",
+  "after": "intro",
+  "alt": "The tags advanced page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tag-panel",
+  "page": "reference/options/tag-panel.md",
+  "after": "intro",
+  "alt": "The tag panel page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-field-values",
+  "page": "reference/options/field-values.md",
+  "after": "intro",
+  "alt": "The field values page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-networking",
+  "page": "reference/options/networking.md",
+  "after": "intro",
+  "alt": "The networking page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-updates",
+  "page": "reference/options/updates.md",
+  "after": "intro",
+  "alt": "The updates page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tag-sources",
+  "page": "reference/options/tag-sources.md",
+  "after": "intro",
+  "alt": "The tag sources page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tag-sources-freedb",
+  "page": "reference/options/tag-sources-freedb.md",
+  "after": "intro",
+  "alt": "The tag sources freedb page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tag-sources-local-freedb",
+  "page": "reference/options/tag-sources-local-freedb.md",
+  "after": "intro",
+  "alt": "The tag sources local freedb page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-export",
+  "page": "reference/options/export.md",
+  "after": "intro",
+  "alt": "The export page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-playlist",
+  "page": "reference/options/playlist.md",
+  "after": "intro",
+  "alt": "The playlist page of the Options dialog",
+  "caption": ""
+ },
+ {
+  "scene": "options-tools",
+  "page": "reference/options/tools.md",
+  "after": "intro",
+  "alt": "The tools page of the Options dialog",
+  "caption": ""
+ }
+]

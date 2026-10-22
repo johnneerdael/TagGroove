@@ -2,6 +2,13 @@
 
 Open **File → Options… → Playlist** to configure **Playlist (all files)**, **Playlist (selected files)**, and **Generate playlists…**. A playlist stores references to audio files; creating one does not copy or transcode the music.
 
+<!-- figure:options-playlist -->
+<figure markdown>
+![The playlist page of the Options dialog](../../assets/screens/options-playlist-light.png#only-light)
+![The playlist page of the Options dialog](../../assets/screens/options-playlist-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Use `.m3u8` and relative entries for a Unicode playlist that can move with its album folder. Keep the filename-confirmation dialog enabled until destinations are predictable.
 

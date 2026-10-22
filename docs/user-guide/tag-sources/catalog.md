@@ -5,7 +5,22 @@ individual track or a complete release. Check the artist, mix/version, label
 and catalog number before importing a candidate. Catalog availability and
 access restrictions can change independently of TagGroove.
 
+<!-- figure:source-beatport -->
+<figure markdown>
+![The Beatport dialog with a search type, artist and title](../assets/screens/source-beatport-light.png#only-light)
+![The Beatport dialog with a search type, artist and title](../assets/screens/source-beatport-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 ## Search a track or release
+
+<!-- figure:beatport-release-form -->
+<figure markdown>
+![The Beatport dialog set to search by release, with the artist and release title filled in from the selected files](../assets/screens/beatport-release-form-light.png#only-light)
+![The Beatport dialog set to search by release, with the artist and release title filled in from the selected files](../assets/screens/beatport-release-form-dark.png#only-dark)
+<figcaption>Search by release to find a whole release; search by track for a single file.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Select one track, or the files of one release, and open its source.
 2. Use **Track: artist and title** to search a track. The search starts with the
@@ -33,6 +48,14 @@ In a track review, select **Open full release**. TagGroove uses that track's
 exact release identifier to load the release and its complete tracklist; it
 does not perform another title search for a similarly named release.
 
+<!-- figure:beatport-release-results -->
+<figure markdown>
+![Beatport release results: the first hit is Digital Renaissance Vol. 1 on ÆDEN RECORDS, catalog number Æ001D, 15 tracks](../assets/screens/beatport-release-results-light.png#only-light)
+![Beatport release results: the first hit is Digital Renaissance Vol. 1 on ÆDEN RECORDS, catalog number Æ001D, 15 tracks](../assets/screens/beatport-release-results-dark.png#only-dark)
+<figcaption>The release search lists label, catalog number, year and track count.</figcaption>
+</figure>
+<!-- /figure -->
+
 For one selected file, its matched catalog track remains paired by track
 identifier. **Use track for this file** can choose another exact track row.
 With several files, inspect and adjust all file-to-track matches before
@@ -45,6 +68,13 @@ To choose individual fields from several providers, use
 
 Traxsource may require a FlareSolverr-compatible proxy when direct catalog
 requests are restricted. TagGroove does not install or start a solver.
+
+<!-- figure:source-traxsource -->
+<figure markdown>
+![The Traxsource dialog with a search type, artist and title](../assets/screens/source-traxsource-light.png#only-light)
+![The Traxsource dialog with a search type, artist and title](../assets/screens/source-traxsource-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 Open **Options → Tag Sources → Traxsource**:
 

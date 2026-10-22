@@ -5,6 +5,14 @@ not copy, transcode or retag the recordings. Use it to preserve a listening
 order or create a list for another player, then test that the references work
 in their intended location.
 
+<!-- figure:playlist-generate-dialog -->
+<figure markdown>
+![The Generate playlists dialog with a file name pattern and a grouping value](../assets/screens/playlist-generate-dialog-light.png#only-light)
+![The Generate playlists dialog with a file name pattern and a grouping value](../assets/screens/playlist-generate-dialog-dark.png#only-dark)
+<figcaption>Generate playlists writes one playlist per group of files.</figcaption>
+</figure>
+<!-- /figure -->
+
 These workflows assume ordinary local desktop files and writable folders.
 Provider documents have different access limits. If the file list contains
 chapter or CUE-track rows, follow [Chapters and cue sheets as rows](../tagging/chapters.md)

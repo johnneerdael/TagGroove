@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tag Panel**, then **Customize tag panel…**, to choose the fields shown beside the file list. **View → Customize tag panel…** opens the same editor.
 
+<!-- figure:options-tag-panel -->
+<figure markdown>
+![The tag panel page of the Options dialog](../../assets/screens/options-tag-panel-light.png#only-light)
+![The tag panel page of the Options dialog](../../assets/screens/options-tag-panel-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Add a field for metadata edited frequently, such as `MOOD`. Hiding a control removes it from the panel, not from the audio files.
 

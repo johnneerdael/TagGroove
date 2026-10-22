@@ -56,6 +56,14 @@ keeps it empty; removing examples does not make them return at the next start.
 
 ## Try a quick action
 
+<!-- figure:actions-quick -->
+<figure markdown>
+![The Actions (Quick) dialog with an action type, its settings and an Apply action button](../assets/screens/actions-quick-light.png#only-light)
+![The Actions (Quick) dialog with an action type, its settings and an Apply action button](../assets/screens/actions-quick-dark.png#only-dark)
+<figcaption>A quick action runs once and saves immediately.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Select one practice file whose title contains an underscore.
 2. Choose **Actions → Actions (Quick)…**.
 3. Choose **Replace** in **Action type**.
@@ -69,6 +77,14 @@ keeps it empty; removing examples does not make them return at the next start.
 settings. Check them before the next application.
 
 ## Build a reusable group
+
+<!-- figure:actions-dialog -->
+<figure markdown>
+![The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups](../assets/screens/actions-dialog-light.png#only-light)
+![The Actions dialog: a list of action groups with check boxes, buttons to create, duplicate, rename, remove and reorder them, and Save groups and Apply checked groups](../assets/screens/actions-dialog-dark.png#only-dark)
+<figcaption>Groups run in order; each action sees the result of the one before.</figcaption>
+</figure>
+<!-- /figure -->
 
 1. Open **Actions → Actions…** and choose **New…** under **Groups**.
 2. Give the group a clear name, such as `Titles: underscores and spaces`.

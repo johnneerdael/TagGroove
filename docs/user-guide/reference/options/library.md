@@ -2,6 +2,13 @@
 
 Open **File → Options… → Library** to keep previously read metadata between sessions. The Library is a cache of file information, not a second collection of audio files.
 
+<!-- figure:options-library -->
+<figure markdown>
+![The library page of the Options dialog](../../assets/screens/options-library-light.png#only-light)
+![The library page of the Options dialog](../../assets/screens/options-library-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Enable it when repeatedly opening a large collection. A first load still has to read the files; later loads provide the opportunity for a cache hit.
 

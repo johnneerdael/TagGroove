@@ -2,6 +2,13 @@
 
 Open **File → Options… → Updates** to control checks against TagGroove releases on GitHub. Checking reports available versions; TagGroove does not automatically download or install them.
 
+<!-- figure:options-updates -->
+<figure markdown>
+![The updates page of the Options dialog](../../assets/screens/options-updates-light.png#only-light)
+![The updates page of the Options dialog](../../assets/screens/options-updates-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Use **Check now…** for a deliberate check. Review the release notes and choose the package for the platform before replacing an installed build.
 

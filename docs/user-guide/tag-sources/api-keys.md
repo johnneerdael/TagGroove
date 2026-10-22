@@ -3,6 +3,14 @@
 AcoustID, Last.fm and fanart.tv need a key before they can be used. Discogs
 has its own sign-in; see [Discogs](discogs.md). Other sources need no key.
 
+<!-- figure:source-api-keys -->
+<figure markdown>
+![The API keys dialog with sections for AcoustID, Last.fm and fanart.tv, each showing whether a key is saved](../assets/screens/source-api-keys-light.png#only-light)
+![The API keys dialog with sections for AcoustID, Last.fm and fanart.tv, each showing whether a key is saved](../assets/screens/source-api-keys-dark.png#only-dark)
+<figcaption>Each section says whether this build includes a key and links to the provider's registration page.</figcaption>
+</figure>
+<!-- /figure -->
+
 Open **Tag Sources → API keys…** for AcoustID, Last.fm and fanart.tv. Each
 section says whether this build includes a key. Without a built-in or saved
 key, the corresponding source stays unavailable.

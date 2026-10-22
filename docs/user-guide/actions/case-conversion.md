@@ -4,6 +4,14 @@ Use **Case Conversion** to make capitalization consistent in a field or
 filename. It applies a mechanical rule; it does not recognize artist names,
 abbreviations or words that should stay lowercase.
 
+<!-- figure:action-case-conversion -->
+<figure markdown>
+![The Edit action dialog with the action type set to Case Conversion and its settings](../assets/screens/action-case-conversion-light.png#only-light)
+![The Edit action dialog with the action type set to Case Conversion and its settings](../assets/screens/action-case-conversion-dark.png#only-dark)
+<figcaption>The Case Conversion action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Change a field's capitalization
 
 1. Select a few copied files and save pending edits.

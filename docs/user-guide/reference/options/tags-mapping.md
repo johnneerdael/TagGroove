@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tags → Mapping** to give a format's fields the names used throughout TagGroove. A mapping changes the field name exposed to the editor and format strings; it does not translate its text or calculate a new value.
 
+<!-- figure:options-tags-mapping -->
+<figure markdown>
+![The tags mapping page of the Options dialog](../../assets/screens/options-tags-mapping-light.png#only-light)
+![The tags mapping page of the Options dialog](../../assets/screens/options-tags-mapping-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Use a mapping when two formats store the same concept under different field names. Do not use it to extract a year from a full date: that requires a value transformation.
 

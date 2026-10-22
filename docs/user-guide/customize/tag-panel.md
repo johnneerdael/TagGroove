@@ -6,6 +6,14 @@ A control's **Name** is its label; **Field** is the actual metadata name.
 Showing, hiding or rearranging a control does not by itself remove metadata
 from an audio file.
 
+<!-- figure:customize-tag-panel -->
+<figure markdown>
+![The Customize tag panel dialog: the list of panel fields and the editor for the selected field's name, field, control type and default](../assets/screens/customize-tag-panel-light.png#only-light)
+![The Customize tag panel dialog: the list of panel fields and the editor for the selected field's name, field, control type and default](../assets/screens/customize-tag-panel-dark.png#only-dark)
+<figcaption>Each tag-panel control is one field with a type, a size and a default.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Add a Mood control
 
 1. Open **Customize tag panel…** and choose **New**.

@@ -2,6 +2,13 @@
 
 Open **File → Options… → Networking** to configure requests to online tag sources and the update service.
 
+<!-- figure:options-networking -->
+<figure markdown>
+![The networking page of the Options dialog](../../assets/screens/options-networking-light.png#only-light)
+![The networking page of the Options dialog](../../assets/screens/options-networking-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Keep the system proxy choice unless the network requires a different route. A longer timeout helps a slow server finish; it does not fix an incorrect address or an authentication failure.
 

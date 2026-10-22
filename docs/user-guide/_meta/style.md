@@ -307,26 +307,41 @@ warning, nothing is.
 
 ## 8. Screenshots
 
-Screenshots must come from reviewed CI capture, never from a writer's
-machine. The Linux native job in the reviewed reusable build captures the
-five core scenes in both themes after exact-head authorization. The former
-automatic workflow and its legacy ID must stay disabled. See
-`docs/PUBLISHING.md` and `.github/CI_LOCKDOWN.md`.
+The guide is screenshot-led: every feature landing page, every converter, action
+type, tag source and Options page, and every dialog a lesson mentions has one.
+Screenshots come from one of two reviewed routes, never from a hand-edited image.
 
-- **Current process:** obtain a clean review and let the authorized validation
-  run publish `docs-screens`. Inspect the images and source revision before
-  committing them, then obtain a fresh review for the resulting head.
-- **Preparing a scene:** add it to
-  `tests/docs-screens/scenes/<workstream>.js` and include the requested scene
-  in the reviewed job's explicit scene list. Keep `screens.js` for the core
-  scenes. The scene README lists helpers and the Juniper Vale fixture album;
-  `converters.js` is a working model. Pushing a scene alone does not capture it.
+- **Linux CI (default for the core scenes):** the Linux native job in the reviewed
+  reusable build captures the five core scenes in both themes after exact-head
+  authorization, against the invented *Harbour Lights* album. The former automatic
+  workflow and its legacy ID must stay disabled. See `docs/PUBLISHING.md` and
+  `.github/CI_LOCKDOWN.md`.
+- **Local macOS capture (owner-approved):** `scripts/docs-screenshots-macos.sh` drives a
+  debug build of `main` through the scenes in `tests/docs-screens/` against a working
+  copy of the owner's real albums and songs. It is opt-in
+  (`TAGGROOVE_DOCS_CAPTURE_LOCAL=1`), refuses to run while TagGroove is open, never
+  touches the originals, turns off the "unsaved changes" prompt for the run and restores
+  the app's saved settings, browser storage and undo journal afterwards. Use it for the
+  macOS look and for scenes that need the owner's provider keys. Use material that
+  fits the provider: rock albums for MusicBrainz, a dance release and dance singles for
+  Beatport and Traxsource, pop singles for iTunes, Deezer and LRCLIB.
+
+- **Reviewing images:** open every image before committing it. Reject a capture that
+  shows an error banner, a native dialog, a hover highlight or another app's content.
+  Commit only images a page uses, then obtain a fresh review for the resulting head.
+- **Preparing a scene:** add it to a file in `tests/docs-screens/scenes/` (one table row in
+  `menus-and-dialogs.js` for a menu-launched dialog) and list the figure in
+  `tests/docs-screens/figures.json`. Keep `screens.js` for the core scenes. The scene
+  README lists the helpers. Pushing a scene alone does not capture it.
+- **Embedding:** `python3 scripts/docs-screens-embed.py` inserts each figure from
+  `figures.json` after the heading it names, only when both theme images exist, and
+  updates figures it already placed. Do not hand-write figure markup.
 - **Artifact fetch:** `scripts/docs-screens-fetch.sh <run-id> [scene…]`
   downloads `docs-screens` from an explicit verified run and copies selected
   PNGs into `docs/user-guide/assets/screens/`. It starts no workload. Confirm
   the run's source and inspect every image; commit only images the page uses.
-- **Embedding:** always both variants, so each colour scheme shows the
-  matching screenshot:
+- **Markup:** always both variants, so each colour scheme shows the
+  matching screenshot (the embed script writes exactly this):
 
   ```markdown
   <figure markdown>

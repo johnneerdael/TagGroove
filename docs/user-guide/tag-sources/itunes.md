@@ -3,6 +3,13 @@
 Use **Tag Sources → iTunes…** for album metadata and store artwork. No Apple
 account or API key is needed for the lookup.
 
+<!-- figure:source-itunes -->
+<figure markdown>
+![The iTunes search dialog prefilled with the artist and album of the selected song](../assets/screens/source-itunes-light.png#only-light)
+![The iTunes search dialog prefilled with the artist and album of the selected song](../assets/screens/source-itunes-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 ## Find one track
 
 Select the intended file and choose **Artist and track title** in **iTunes…**.
@@ -13,6 +20,13 @@ Use [Compare metadata…](index.md#compare-fields-from-several-sources) to choos
 individual fields from different providers for one track or an entire album.
 
 ## Find an album
+
+<!-- figure:itunes-results -->
+<figure markdown>
+![iTunes search results for Taylor Swift The Life of a Showgirl](../assets/screens/itunes-results-light.png#only-light)
+![iTunes search results for Taylor Swift The Life of a Showgirl](../assets/screens/itunes-results-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 1. Select the album's files and open **iTunes…**.
 2. Choose **Artist and album**, **Free text**, **Album ID or Apple Music
@@ -46,6 +60,14 @@ songs than its stated positive track count, TagGroove reports an incomplete albu
 before opening the review or saving. A response at the limit without a usable
 album total is also refused. Smaller responses without a total show the
 available songs, whose completeness cannot be confirmed.
+
+<!-- figure:itunes-review -->
+<figure markdown>
+![The iTunes review step: fields to write, the album cover at 1200 × 1200 and a tracks-and-files table](../assets/screens/itunes-review-light.png#only-light)
+![The iTunes review step: fields to write, the album cover at 1200 × 1200 and a tracks-and-files table](../assets/screens/itunes-review-dark.png#only-dark)
+<figcaption>The review shows which fields iTunes supplies and the cover it will write.</figcaption>
+</figure>
+<!-- /figure -->
 
 TagGroove makes no continuation request for this album lookup. Large or
 incomplete albums can therefore be unavailable, including in **Covers:

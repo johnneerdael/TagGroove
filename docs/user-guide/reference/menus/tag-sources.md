@@ -5,6 +5,14 @@ Select the files of one album, save pending edits, then choose a provider.
 A search result is a candidate: review the release, enabled fields and track
 matching before importing it.
 
+<!-- figure:menu-tag-sources -->
+<figure markdown>
+![The Tag Sources menu open in TagGroove, listing its commands](../../assets/screens/menu-tag-sources-light.png#only-light)
+![The Tag Sources menu open in TagGroove, listing its commands](../../assets/screens/menu-tag-sources-dark.png#only-dark)
+<figcaption>The Tag Sources menu with every provider, the cover commands, API keys and options.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Built-in source commands
 
 | Item | Purpose |

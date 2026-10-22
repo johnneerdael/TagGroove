@@ -226,6 +226,13 @@ customization. Keep at least one column visible. Drag column headers to
 rearrange them, or drag their dividers to set widths. A hidden column's
 metadata is still present in files.
 
+<!-- figure:customize-columns -->
+<figure markdown>
+![The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column](../assets/screens/customize-columns-light.png#only-light)
+![The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column](../assets/screens/customize-columns-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 **View → Auto-size columns** or Command+numeric-keypad + / Ctrl+numeric-keypad + fits
 columns to measured contents within width limits. The shortcut requires
 the numeric keypad plus key. Very long lists are sampled from the top, so

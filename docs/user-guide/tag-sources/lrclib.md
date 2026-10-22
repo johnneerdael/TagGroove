@@ -4,6 +4,13 @@ Use **Tag Sources → Lyrics: LRCLIB…** to find lyrics for selected files.
 No API key is needed. Lyrics are proposed in `UNSYNCEDLYRICS` for review
 before writing.
 
+<!-- figure:lrclib-form -->
+<figure markdown>
+![The LRCLIB lyrics dialog: each selected file is looked up by title, artist, album and length](../assets/screens/lrclib-form-light.png#only-light)
+![The LRCLIB lyrics dialog: each selected file is looked up by title, artist, album and length](../assets/screens/lrclib-form-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 Use [Compare metadata…](index.md#compare-fields-from-several-sources) to mix this
 source's fields with other providers for one track or an album. In Album mode,
 one provider choice per field uses each track's own matched values. Inherit keeps
@@ -42,6 +49,13 @@ The default is plain text. Enable **Write synchronized lyrics (LRC time
 stamps) when available** in **Options → Tag Sources → Online services** to
 keep LRC timestamps. Both choices write text to `UNSYNCEDLYRICS`; this option
 does not create an ID3 synchronized-lyrics frame. Player support varies.
+
+<!-- figure:lrclib-review -->
+<figure markdown>
+![The LRCLIB review step showing the lyrics found for the selected file](../assets/screens/lrclib-review-light.png#only-light)
+![The LRCLIB review step showing the lyrics found for the selected file](../assets/screens/lrclib-review-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 When only synchronized lyrics are available and the option is off, TagGroove
 removes timestamps and LRC metadata lines. LRCLIB supplies no language;

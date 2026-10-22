@@ -5,6 +5,14 @@ selection. It can open a player, editor or inspection application without
 making you browse to each track again. TagGroove does not automatically undo
 changes that another application makes.
 
+<!-- figure:tools-configure -->
+<figure markdown>
+![The Configure tools dialog listing external tools with their name, program path and parameters](../assets/screens/tools-configure-light.png#only-light)
+![The Configure tools dialog listing external tools with their name, program path and parameters](../assets/screens/tools-configure-dark.png#only-dark)
+<figcaption>External tools open the selected files in another program.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Configure one tool on a copied file
 
 1. Choose one copied ordinary local audio file. Save intended pending edits

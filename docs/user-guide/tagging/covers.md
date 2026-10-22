@@ -62,6 +62,14 @@ partly filled circle **◐** identifies a cover present in only some files,
 with its file count shown. These indicators describe membership, not image
 quality or whether the cover is the front image.
 
+<!-- figure:manage-covers -->
+<figure markdown>
+![The Manage covers dialog for twelve selected files: one front cover, 1200 × 1200 JPEG, with buttons to add, paste, replace, adjust, remove, reorder and extract](../assets/screens/manage-covers-light.png#only-light)
+![The Manage covers dialog for twelve selected files: one front cover, 1200 × 1200 JPEG, with buttons to add, paste, replace, adjust, remove, reorder and extract](../assets/screens/manage-covers-dark.png#only-dark)
+<figcaption>Manage covers lists every picture shared by the selected files.</figcaption>
+</figure>
+<!-- /figure -->
+
 For example, suppose a front cover is embedded in one of two selected files:
 
 <!-- cover-presence-examples:start -->

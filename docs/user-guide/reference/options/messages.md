@@ -2,6 +2,13 @@
 
 Open **File → Options… → Messages** to choose which completion messages and confirmations appear around editing operations.
 
+<!-- figure:options-messages -->
+<figure markdown>
+![The messages page of the Options dialog](../../assets/screens/options-messages-light.png#only-light)
+![The messages page of the Options dialog](../../assets/screens/options-messages-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Keep confirmations for tag removal, file deletion, and unsaved changes enabled while learning. A completion message and a confirmation serve different purposes: one reports what happened, the other asks before proceeding.
 

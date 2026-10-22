@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tags → Mpeg** to control ID3v1, ID3v2, and APE tags in MPEG-family audio. This policy also serves raw AAC and TTA through TagGroove's format adapters. An AAC stream inside an MP4/M4A container instead uses MP4 tags.
 
+<!-- figure:options-tags-mpeg -->
+<figure markdown>
+![The tags mpeg page of the Options dialog](../../assets/screens/options-tags-mpeg-light.png#only-light)
+![The tags mpeg page of the Options dialog](../../assets/screens/options-tags-mpeg-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     A file can hold several independent tag blocks with conflicting values. Check what is read before choosing what to write or remove. Try a copied file before changing a library-wide policy.
 

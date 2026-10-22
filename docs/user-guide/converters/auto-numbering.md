@@ -4,6 +4,14 @@ Use **Auto-numbering** to assign track and optional disc numbers in the
 current file-list order. Preview the sequence, stage it as pending edits,
 then save. The wizard does not infer an album's intended order from audio.
 
+<!-- figure:auto-numbering -->
+<figure markdown>
+![The Auto-numbering wizard with track and disc number settings](../assets/screens/auto-numbering-light.png#only-light)
+![The Auto-numbering wizard with track and disc number settings](../assets/screens/auto-numbering-dark.png#only-dark)
+<figcaption>Track and disc numbers are staged as pending edits.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Number one album
 
 1. Keep copies, save pending edits and arrange the files in their intended

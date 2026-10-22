@@ -4,6 +4,13 @@ Use **Tag Sources → Discogs…** for release metadata and artwork. An exact
 release helps distinguish editions with different tracks, catalog numbers
 or covers.
 
+<!-- figure:source-discogs -->
+<figure markdown>
+![The Discogs search dialog with a search type, artist and album](../assets/screens/source-discogs-light.png#only-light)
+![The Discogs search dialog with a search type, artist and album](../assets/screens/source-discogs-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 Use [Compare metadata…](index.md#compare-fields-from-several-sources) to mix this
 source's fields with other providers for one track or an album. In Album mode,
 one provider choice per field uses each track's own matched values. Inherit keeps

@@ -4,6 +4,14 @@ Use **Replace** for literal text changes: underscores to spaces, an unwanted
 word, or a consistent spelling. The search text is not a regular expression;
 `.` means a dot and `*` means an asterisk.
 
+<!-- figure:action-replace -->
+<figure markdown>
+![The Edit action dialog with the action type set to Replace and its settings](../assets/screens/action-replace-light.png#only-light)
+![The Edit action dialog with the action type set to Replace and its settings](../assets/screens/action-replace-dark.png#only-dark)
+<figcaption>The Replace action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Make a replacement
 
 1. Save pending edits and select a few copied files.

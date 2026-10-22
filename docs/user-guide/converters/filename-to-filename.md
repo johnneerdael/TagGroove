@@ -4,6 +4,14 @@ Use **Filename → Filename** to rearrange parts of existing names without
 reading or changing tags. Mark the parts in the old pattern with `%1`
 through `%9`, then reuse those parts in the new pattern.
 
+<!-- figure:filename-to-filename -->
+<figure markdown>
+![The Filename → Filename dialog with a matching pattern, an output format and a preview](../assets/screens/filename-to-filename-light.png#only-light)
+![The Filename → Filename dialog with a matching pattern, an output format and a preview](../assets/screens/filename-to-filename-dark.png#only-dark)
+<figcaption>Numbered parts %1 to %9 capture pieces of the current name.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Swap an artist and title
 
 Start with `Juniper Vale - Paper Boats.mp3` and make

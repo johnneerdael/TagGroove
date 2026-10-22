@@ -4,6 +4,14 @@ Use the Filter to show files that need attention: tracks without an album artist
 
 ## Start with a text search
 
+<!-- figure:filter-active -->
+<figure markdown>
+![The file list filtered with the expression TRACK GREATER 8: four of the twelve files are visible and the counter reads 4 visible · 1 selected](../assets/screens/filter-active-light.png#only-light)
+![The file list filtered with the expression TRACK GREATER 8: four of the twelve files are visible and the counter reads 4 visible · 1 selected](../assets/screens/filter-active-dark.png#only-dark)
+<figcaption>An active filter: only matching rows are shown; the other files stay loaded.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Open a folder or add files to the list.
 2. Show **View → Show filter** with ++f3++ if the Filter is hidden.
 3. Type `Juniper Harbour` into the Filter.

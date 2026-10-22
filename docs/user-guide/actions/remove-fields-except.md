@@ -5,6 +5,14 @@ all other fields. This is useful for a controlled export copy of your music;
 it can also remove useful identifiers, sort fields and artwork if they are
 missing from the keep list.
 
+<!-- figure:action-remove-fields-except -->
+<figure markdown>
+![The Edit action dialog with the action type set to Remove Fields Except and its settings](../assets/screens/action-remove-fields-except-light.png#only-light)
+![The Edit action dialog with the action type set to Remove Fields Except and its settings](../assets/screens/action-remove-fields-except-dark.png#only-dark)
+<figcaption>The Remove Fields Except action's settings in an action group.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Keep a chosen set of fields
 
 1. Save pending edits and select copied files.

@@ -5,6 +5,14 @@ which values can be edited there, and how each column sorts. A column can
 show a computed value while editing a different underlying field, or can
 be read-only. Changing a view definition does not convert the audio format.
 
+<!-- figure:customize-columns -->
+<figure markdown>
+![The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column](../assets/screens/customize-columns-light.png#only-light)
+![The Customize columns dialog: a list of columns with New, Duplicate, Remove and Move buttons, and Name, Value, Field, Sort by, Width and Alignment for the selected column](../assets/screens/customize-columns-dark.png#only-dark)
+<figcaption>Each column has a name, a display value, an optional field to edit and a sort key.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Add an editable recording-code column
 
 1. Select a copied practice file whose ISRC field contains the invented

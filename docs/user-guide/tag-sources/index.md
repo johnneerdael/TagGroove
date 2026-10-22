@@ -43,6 +43,14 @@ then save the changes.
 
 ## Choose a source
 
+<!-- figure:menu-tag-sources -->
+<figure markdown>
+![The Tag Sources menu open in TagGroove, listing MusicBrainz, Discogs, Beatport, Traxsource, Compare metadata, iTunes, Deezer, AcoustID, freedb, LRCLIB, the cover commands and API keys](../assets/screens/menu-tag-sources-light.png#only-light)
+![The Tag Sources menu open in TagGroove, listing MusicBrainz, Discogs, Beatport, Traxsource, Compare metadata, iTunes, Deezer, AcoustID, freedb, LRCLIB, the cover commands and API keys](../assets/screens/menu-tag-sources-dark.png#only-dark)
+<figcaption>Every provider has its own command; Compare metadata… puts several side by side.</figcaption>
+</figure>
+<!-- /figure -->
+
 | Source | Use it for | Setup |
 |---|---|---|
 | [MusicBrainz](musicbrainz.md) | Track and release metadata and Cover Art Archive artwork | No key |
@@ -102,6 +110,13 @@ one track or one album. For every field you choose **Inherit** (keep what the
 files have), **None** (remove it) or a provider, then review the combined
 result before anything is written. A failed source leaves the others
 available.
+
+<!-- figure:compare-results -->
+<figure markdown>
+![The Compare metadata window after searching: the field table shows how many sources returned each field](../assets/screens/compare-results-light.png#only-light)
+![The Compare metadata window after searching: the field table shows how many sources returned each field](../assets/screens/compare-results-dark.png#only-dark)
+</figure>
+<!-- /figure -->
 
 The full walkthrough, including track matching, per-field choices and partial
 save recovery, is on [Compare metadata from several sources](compare.md).

@@ -5,6 +5,14 @@ application configuration. Loading files into the list does not convert their
 audio. A command mentioning all files has a different scope from one using
 the current selection.
 
+<!-- figure:menu-file -->
+<figure markdown>
+![The File menu open in TagGroove, listing its commands](../../assets/screens/menu-file-light.png#only-light)
+![The File menu open in TagGroove, listing its commands](../../assets/screens/menu-file-dark.png#only-dark)
+<figcaption>The File menu: saving, playlists, export, opening folders and files, configuration.</figcaption>
+</figure>
+<!-- /figure -->
+
 ## Tags and copies
 
 | Item | What it does |

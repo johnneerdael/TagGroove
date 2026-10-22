@@ -2,6 +2,13 @@
 
 Open **File → Options… → Directories** for folder scanning and the starting folder of the cover-image picker. Its **Startup** child page controls the fallback folder when there is no remembered local file list or explicit launch request.
 
+<!-- figure:options-directories -->
+<figure markdown>
+![The directories page of the Options dialog](../../assets/screens/options-directories-light.png#only-light)
+![The directories page of the Options dialog](../../assets/screens/options-directories-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Start with one album folder. Enabling subfolders for a music-library root can add many more files than expected; the [Files](files.md) extension restriction can narrow the scan.
 

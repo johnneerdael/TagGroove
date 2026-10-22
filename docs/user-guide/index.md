@@ -27,8 +27,8 @@ cleanup on a whole library. Start with a copy of an album.
 
 <div markdown>
 
-![The TagGroove main window with an album open](assets/screens/main-window-light.png#only-light){ .screen }
-![The TagGroove main window with an album open](assets/screens/main-window-dark.png#only-dark){ .screen }
+![The TagGroove main window with R.E.M.’s Automatic For The People open: tag panel on the left, twelve tracks in the file list](assets/screens/main-window-album-light.png#only-light){ .screen }
+![The TagGroove main window with R.E.M.’s Automatic For The People open: tag panel on the left, twelve tracks in the file list](assets/screens/main-window-album-dark.png#only-dark){ .screen }
 
 </div>
 

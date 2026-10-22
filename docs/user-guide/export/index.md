@@ -33,6 +33,14 @@ output choices in the dialog. The steps below assume the dialog is enabled.
 
 ## Make the first report
 
+<!-- figure:export-dialog -->
+<figure markdown>
+![The Export dialog: a list of export configurations, an export template editor, the output file name and options for appending and per-folder files](../assets/screens/export-dialog-light.png#only-light)
+![The Export dialog: a list of export configurations, an export template editor, the output file name and options for appending and per-folder files](../assets/screens/export-dialog-dark.png#only-dark)
+<figcaption>The Export dialog with the built-in Text configuration selected.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Select the **Text** configuration.
 2. Set **Export file name** to an absolute path in a practice folder, such as
    `C:\Reports\tracks.txt` on Windows or `/Users/you/Reports/tracks.txt` on a Mac.

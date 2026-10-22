@@ -5,6 +5,14 @@ tag values, then select the files behind those results. Find leaves the
 file list's contents in place. To reduce the visible list, use
 [Filter](filter.md) instead.
 
+<!-- figure:find-dialog -->
+<figure markdown>
+![The Find dialog with a search box, a strategy list and a results table](../assets/screens/find-dialog-light.png#only-light)
+![The Find dialog with a search box, a strategy list and a results table](../assets/screens/find-dialog-dark.png#only-dark)
+<figcaption>Find lists every match and selects the files you pick.</figcaption>
+</figure>
+<!-- /figure -->
+
 The search runs on the currently listed, visible files, including their
 pending field values. A filename means its leaf name with extension, not
 its whole folder path. Technical information fields are not part of this

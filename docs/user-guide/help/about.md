@@ -108,6 +108,17 @@ the writing plan. A large navigation or passing example suite does not prove
 that every canonical detail has been covered. Start on copies and confirm a
 saved result in the tools used for your own library.
 
+## About the examples and screenshots
+
+Screenshots are taken on macOS with real albums, so you see what TagGroove
+shows for ordinary music: rock albums for the file and rename examples, a dance
+release and dance singles for the Beatport and Traxsource examples, pop singles
+for iTunes, Deezer and lyrics. Windows and Linux show the same controls in
+their own window style. The step-by-step lessons use an invented practice album
+(*Harbour Lights* by Juniper Vale) so that every result in the text can be
+reproduced exactly; a screenshot may therefore show different values from the
+text beside it. Search results from online providers change over time.
+
 ## Improve a page
 
 For a correction, identify the page/section, your TagGroove version, the steps

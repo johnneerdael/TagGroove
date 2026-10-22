@@ -13,6 +13,14 @@ controls depend on the saved panel configuration.
 
 ## Set one album for several tracks
 
+<!-- figure:tag-panel-keep-album -->
+<figure markdown>
+![The tag panel with all twelve tracks selected: Title and Track show < keep >, while Artist, Album and Year show the values the tracks share](../assets/screens/tag-panel-keep-album-light.png#only-light)
+![The tag panel with all twelve tracks selected: Title and Track show < keep >, while Artist, Album and Year show the values the tracks share](../assets/screens/tag-panel-keep-album-dark.png#only-dark)
+<figcaption>With several files selected, fields that differ show &lt; keep &gt;.</figcaption>
+</figure>
+<!-- /figure -->
+
 1. Select two copied tracks with different titles, `Paper Boats` and
    `North Pier`.
 2. Check that the panel's selected-file count is 2. Leave **Title** unchanged.

@@ -2,6 +2,13 @@
 
 Open **File → Options… → Appearance** to change color mode, control size, and separation between file-list rows.
 
+<!-- figure:options-appearance -->
+<figure markdown>
+![The appearance page of the Options dialog](../../assets/screens/options-appearance-light.png#only-light)
+![The appearance page of the Options dialog](../../assets/screens/options-appearance-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Enlarge the whole interface when text is hard to read. Enlarge only the toolbar when its buttons are the problem.
 

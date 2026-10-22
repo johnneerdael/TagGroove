@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tag Sources** or **Tag Sources → Options…** for source lookups, cover-image output and diagnostics. Server settings are under [freedb](tag-sources-freedb.md); historical offline databases are under [Local freedb](tag-sources-local-freedb.md).
 
+<!-- figure:options-tag-sources -->
+<figure markdown>
+![The tag sources page of the Options dialog](../../assets/screens/options-tag-sources-light.png#only-light)
+![The tag sources page of the Options dialog](../../assets/screens/options-tag-sources-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Saving an image beside an album and embedding it in audio files are separate actions. This page supplies the external image's name; the import review determines what is actually saved.
 

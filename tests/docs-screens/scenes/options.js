@@ -6,7 +6,7 @@
   const pages = [
     'general', 'messages', 'files', 'directories', 'appearance', 'library', 'language',
     'tags', 'tags-mpeg', 'tags-ape', 'tags-mapping', 'tags-advanced', 'tag-panel',
-    'field-values', 'networking', 'updates', 'tag-sources', 'freedb', 'local-freedb',
+    'field-values', 'networking', 'updates', 'tag-sources', 'tag-sources-freedb', 'tag-sources-local-freedb',
     'export', 'playlist', 'tools',
   ];
   return pages.map(id => ({

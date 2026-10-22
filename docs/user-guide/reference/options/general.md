@@ -2,6 +2,13 @@
 
 Open **File → Options… → General** to control everyday selection, sorting, and typing behavior. These settings affect the editor rather than the contents of saved tags.
 
+<!-- figure:options-general -->
+<figure markdown>
+![The general page of the Options dialog](../../assets/screens/options-general-light.png#only-light)
+![The general page of the Options dialog](../../assets/screens/options-general-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Leave [automatic saving](tags.md) off until the difference between selecting a file, editing a field, and saving tags is familiar. Automatic selection and automatic saving are separate settings.
 

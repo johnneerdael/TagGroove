@@ -2,6 +2,13 @@
 
 Open **File → Options… → Tags → Ape, Mpc** for formats whose normal metadata is APE: Monkey's Audio, Musepack, WavPack, TAK, and OptimFROG.
 
+<!-- figure:options-tags-ape -->
+<figure markdown>
+![The tags ape page of the Options dialog](../../assets/screens/options-tags-ape-light.png#only-light)
+![The tags ape page of the Options dialog](../../assets/screens/options-tags-ape-dark.png#only-dark)
+</figure>
+<!-- /figure -->
+
 !!! tip "New to this?"
     Keep APEv2 writing enabled for these formats unless a specific player requires another choice. ID3v1 cannot hold the same field set, artwork, or full Unicode text.
 

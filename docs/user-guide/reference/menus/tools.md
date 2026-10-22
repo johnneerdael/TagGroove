@@ -5,6 +5,14 @@ configuration command and any external programs you have defined. A built-in
 utility writes through TagGroove's supported file path; a named external tool
 starts another program with its own behavior and completion rules.
 
+<!-- figure:menu-tools -->
+<figure markdown>
+![The Tools menu open in TagGroove, listing its commands](../../assets/screens/menu-tools-light.png#only-light)
+![The Tools menu open in TagGroove, listing its commands](../../assets/screens/menu-tools-dark.png#only-dark)
+<figcaption>The Tools menu: tag-type removal, MP4 chapters, unsupported fields, Optimize and tool settings.</figcaption>
+</figure>
+<!-- /figure -->
+
 !!! tip "Choose a workflow first"
 
     Use [built-in utilities](../../tagging/utilities.md) for stored tag/layout
