@@ -440,11 +440,6 @@ async fn send_with(
     };
     let client = discogs_client.as_ref().unwrap_or(client);
     let solver_ok = super::solver::eligible(&service.auth, form, accept, url);
-    if let Some(solved) =
-        super::solver::before(url, service.name, solver_ok, accept, channel, ticket).await?
-    {
-        return Ok(solved);
-    }
     let mut last = service.gate.0.lock().await;
     if let Some(previous) = *last {
         let wait = service.spacing.saturating_sub(previous.elapsed());
@@ -454,6 +449,14 @@ async fn send_with(
     }
     if stale(channel, ticket) {
         return Err(CANCELLED.into());
+    }
+    // A host that blocked a direct request earlier goes straight to the solver, but still through
+    // the service's gate: the provider's spacing and one-request-at-a-time rule apply to it too.
+    if let Some(solved) =
+        super::solver::before(url, service.name, solver_ok, accept, channel, ticket).await?
+    {
+        *last = Some(Instant::now());
+        return Ok(solved);
     }
     let target = routed(url);
     let mut request = match form {
@@ -490,7 +493,7 @@ async fn send_with(
     *last = Some(Instant::now());
     // Addresses may carry API keys; errors never show them.
     let response = result.map_err(|error| network_message(service.name, &error.without_url()))?;
-    super::solver::after(
+    let answer = super::solver::after(
         response,
         url,
         service.name,
@@ -499,7 +502,10 @@ async fn send_with(
         channel,
         ticket,
     )
-    .await
+    .await;
+    // The next request is spaced from the end of a solved answer too.
+    *last = Some(Instant::now());
+    answer
 }
 
 pub fn network_message(name: &str, error: &reqwest::Error) -> String {
@@ -902,14 +908,16 @@ pub async fn web_page_with_service(
     } else {
         async {
             let solver_ok = super::solver::eligible(&Auth::None, None, "text/html", &url);
-            if let Some(solved) =
-                super::solver::before(&url, name, solver_ok, "text/html", channel, ticket).await?
-            {
-                return Ok(solved);
-            }
             let mut last = WEB.0.lock().await;
             if stale(channel, ticket) {
                 return Err(CANCELLED.into());
+            }
+            // A blocked host goes to the solver, still one request at a time like every web page.
+            if let Some(solved) =
+                super::solver::before(&url, name, solver_ok, "text/html", channel, ticket).await?
+            {
+                *last = Some(Instant::now());
+                return Ok(solved);
             }
             let mut request = page_client.get(url.clone());
             if let Some(agent) = user_agent {
@@ -929,7 +937,7 @@ pub async fn web_page_with_service(
                     network_message(name, &error)
                 }
             })?;
-            super::solver::after(
+            let answer = super::solver::after(
                 response,
                 &url,
                 name,
@@ -938,7 +946,9 @@ pub async fn web_page_with_service(
                 channel,
                 ticket,
             )
-            .await
+            .await;
+            *last = Some(Instant::now());
+            answer
         }
         .await?
     };
@@ -1051,6 +1061,35 @@ impl Image {
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn a_blocked_host_still_waits_for_its_services_gate() {
+        // Once a host blocked a direct request, its requests go through the solver, and the
+        // provider's one-at-a-time rule and spacing still apply to them.
+        static GATE: Gate = Gate::new();
+        let url = Url::parse("https://blocked-gate-test.invalid/page").unwrap();
+        catalog_sources::solver::mark_blocked(&url);
+        let service = Service::new("Gate test", &GATE, 0);
+        let held = GATE.0.lock().await;
+        let client = client().unwrap();
+        let request = send_with(
+            &client,
+            &service,
+            &url,
+            "application/json",
+            None,
+            Channel::Search,
+            u64::MAX,
+        );
+        tokio::pin!(request);
+        // Another request holds the gate: the blocked-host request does not run ahead of it.
+        let early = tokio::time::timeout(Duration::from_millis(150), request.as_mut()).await;
+        assert!(early.is_err(), "the request skipped the gate: {early:?}");
+        drop(held);
+        // With the gate free it proceeds: no solver is set up here, so it says where to add one.
+        let error = request.await.unwrap_err();
+        assert!(error.contains("blocking TagGroove (Cloudflare)"), "{error}");
+    }
+
     use super::*;
 
     #[test]
