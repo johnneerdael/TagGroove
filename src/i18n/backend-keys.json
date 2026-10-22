@@ -1397,7 +1397,6 @@
  "{name} is not a known command",
  "{name} is too long for a Nero chapter tag",
  "{name} is unavailable right now (HTTP {code}).",
- "{name} needs an API key. Add one in Tag Sources → API keys….",
  "{name} produced an address TagGroove cannot open: {url}",
  "{name} rate limit reached. Wait a minute and try again.",
  "{name} redirected to an address TagGroove does not trust.",

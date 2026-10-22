@@ -32,7 +32,8 @@ then save the changes.
     Only fanart.tv takes a key from you. If a site blocks TagGroove with a
     Cloudflare check, an optional solver gets you through.
 
-    [:octicons-arrow-right-24: API keys and sign-ins](api-keys.md)  
+    [:octicons-arrow-right-24: API keys and sign-ins](api-keys.md)
+
     [:octicons-arrow-right-24: Cloudflare solver](cloudflare-solver.md)
 
 -   **Add or write your own sources**
