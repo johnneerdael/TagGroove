@@ -22,6 +22,7 @@ mod lastfm;
 mod lrclib;
 mod model;
 mod musicbrainz;
+mod solver;
 mod track_search_tests;
 pub(crate) mod web;
 
@@ -78,10 +79,29 @@ async fn saved_credentials(app: &tauri::AppHandle) -> Result<credentials::Creden
         .map_err(|e| e.to_string())?
 }
 
-/// The user's key, else the build's; without either the source cannot run.
-fn required_key(name: &str, user: &str, built_in: Option<&'static str>) -> Result<String, String> {
-    keys::choose(user, built_in)
-        .ok_or_else(|| format!("{name} needs an API key. Add one in Tag Sources → API keys…."))
+/// Last.fm requests use TagGroove's own application key, signed with the person's session
+/// when they signed in (Tag Sources → API keys…). Nobody enters a Last.fm key.
+struct LastfmAccess {
+    key: &'static str,
+    session: Option<(&'static str, String)>,
+}
+impl LastfmAccess {
+    async fn load(app: &tauri::AppHandle) -> Result<Self, String> {
+        let key = keys::lastfm().ok_or("This build has no Last.fm application key.")?;
+        let session = saved_credentials(app).await?.lastfm_session;
+        Ok(Self {
+            key,
+            session: keys::lastfm_secret()
+                .filter(|_| !session.is_empty())
+                .map(|secret| (secret, session)),
+        })
+    }
+    fn address(&self, url: String) -> Result<String, String> {
+        match &self.session {
+            Some((secret, session)) => lastfm::with_session(&url, secret, session),
+            None => Ok(url),
+        }
+    }
 }
 
 /// Cover Art Archive size from Options → Tag Sources (`pages.tag-sources`).
@@ -233,9 +253,70 @@ fn parse_search_response(
     }
 }
 
+/// Where to send the person to approve TagGroove on Last.fm, and the token to finish with.
+#[derive(serde::Serialize)]
+pub struct LastfmSignIn {
+    pub token: String,
+    pub url: String,
+}
+
+/// Last.fm desktop sign-in, step 1: ask for a request token and the address to approve it at.
 #[tauri::command]
-pub fn tag_source_catalog_reset() -> Result<(), String> {
-    catalog::reset()
+pub async fn lastfm_sign_in_start() -> Result<LastfmSignIn, String> {
+    let (key, secret) = keys::lastfm()
+        .zip(keys::lastfm_secret())
+        .ok_or("This build cannot sign in to Last.fm.")?;
+    let url = lastfm::token_url(key, secret)?;
+    let service = service(Provider::Lastfm, String::new());
+    let body = http::json(&service, &url, Channel::Search, u64::MAX).await?;
+    let token = lastfm::parse_token(&body)?;
+    Ok(LastfmSignIn {
+        url: lastfm::authorize_url(key, &token)?,
+        token,
+    })
+}
+
+/// Step 2, after the person approved TagGroove in the browser: keep the session.
+#[tauri::command]
+pub async fn lastfm_sign_in_finish(
+    app: tauri::AppHandle,
+    token: String,
+) -> Result<credentials::CredentialsView, String> {
+    let (key, secret) = keys::lastfm()
+        .zip(keys::lastfm_secret())
+        .ok_or("This build cannot sign in to Last.fm.")?;
+    let url = lastfm::session_url(key, secret, token.trim())?;
+    let service = service(Provider::Lastfm, String::new());
+    let body = http::json(&service, &url, Channel::Search, u64::MAX).await?;
+    let (user, session) = lastfm::parse_session(&body)?;
+    let path = settings_path(&app)?;
+    let store = secret_store(&app);
+    tauri::async_runtime::spawn_blocking(move || {
+        credentials::set_lastfm_session(&path, &user, &session).map(|saved| saved.view(&*store))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Forget the Last.fm sign-in. Last.fm keeps working with TagGroove's own key.
+#[tauri::command]
+pub async fn lastfm_sign_out(
+    app: tauri::AppHandle,
+) -> Result<credentials::CredentialsView, String> {
+    let path = settings_path(&app)?;
+    let store = secret_store(&app);
+    tauri::async_runtime::spawn_blocking(move || {
+        credentials::set_lastfm_session(&path, "", "").map(|saved| saved.view(&*store))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// "Retry direct access": forget which hosts blocked a direct request this session.
+#[tauri::command]
+pub fn tag_source_solver_reset() -> Result<(), String> {
+    solver::reset();
+    Ok(())
 }
 
 #[tauri::command]
@@ -289,17 +370,13 @@ pub async fn tag_source_search(
             )
         }
         Provider::Lrclib => lrclib_search(query, ticket).await,
-        Provider::Acoustid => acoustid_search(&app, query, ticket).await,
+        Provider::Acoustid => acoustid_search(query, ticket).await,
         Provider::Lastfm => {
-            let key = required_key(
-                "Last.fm",
-                &saved_credentials(&app).await?.lastfm_key,
-                keys::lastfm(),
-            )?;
+            let access = LastfmAccess::load(&app).await?;
             let service = service(provider, String::new());
             if query.mode == model::SearchMode::ArtistAlbum {
                 let id = lastfm::name_id(&query.artist, &query.album)?;
-                let url = lastfm::info_url(&id, &key)?;
+                let url = access.address(lastfm::info_url(&id, access.key)?)?;
                 return match http::json_optional(&service, &url, Channel::Search, ticket).await? {
                     Some(body) => lastfm::parse_info_result(&body, &id),
                     None => Ok(SearchPage {
@@ -308,7 +385,7 @@ pub async fn tag_source_search(
                     }),
                 };
             }
-            let url = lastfm::search_url(&query, &key)?;
+            let url = access.address(lastfm::search_url(&query, access.key)?)?;
             parse_search_response(
                 provider,
                 query.mode,
@@ -446,16 +523,11 @@ pub fn audio_fingerprint_backend() -> serde_json::Value {
 
 /// AcoustID: fingerprint each file locally, look the fingerprints up and
 /// rank the releases that hold the most files.
-async fn acoustid_search(
-    app: &tauri::AppHandle,
-    query: SearchQuery,
-    ticket: u64,
-) -> Result<SearchPage, String> {
-    let key = required_key(
-        "AcoustID",
-        &saved_credentials(app).await?.acoustid_key,
-        keys::acoustid(),
-    )?;
+async fn acoustid_search(query: SearchQuery, ticket: u64) -> Result<SearchPage, String> {
+    // Lookups use TagGroove's own application key; the personal key is only for submitting
+    // fingerprints, which TagGroove never does.
+    let key = keys::acoustid()
+        .ok_or("This build has no AcoustID application key, so AcoustID is unavailable.")?;
     if query.mode != model::SearchMode::Fingerprint || query.files.is_empty() {
         return Err("AcoustID identifies the selected files by their audio fingerprints.".into());
     }
@@ -516,7 +588,7 @@ async fn acoustid_search(
                 continue;
             }
         };
-        let form = acoustid::lookup_form(&key, duration, &fingerprint);
+        let form = acoustid::lookup_form(key, duration, &fingerprint);
         let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
         let body =
             http::json_post(&service, acoustid::LOOKUP, &form, Channel::Search, ticket).await?;
@@ -805,19 +877,15 @@ pub async fn tag_source_release(
         }
         Provider::Lrclib => lrclib_release(&service, &input, files, ticket).await,
         Provider::Lastfm => {
-            let key = required_key(
-                "Last.fm",
-                &saved_credentials(&app).await?.lastfm_key,
-                keys::lastfm(),
-            )?;
+            let access = LastfmAccess::load(&app).await?;
             if input.starts_with("track:") {
-                let url = lastfm::track_info_url(&input, &key)?;
+                let url = access.address(lastfm::track_info_url(&input, access.key)?)?;
                 let body = http::json_optional(&service, &url, Channel::Release, ticket)
                     .await?
                     .ok_or("Last.fm could not find this track.")?;
                 return lastfm::parse_track(&body, &input, online().lastfm_genres);
             }
-            let url = lastfm::info_url(&input, &key)?;
+            let url = access.address(lastfm::info_url(&input, access.key)?)?;
             let body = http::json_optional(&service, &url, Channel::Release, ticket)
                 .await?
                 .ok_or("Last.fm could not find this album.")?;
@@ -1661,11 +1729,7 @@ mod tests {
     }
 
     #[test]
-    fn keyed_services_need_a_key_and_keep_it_out_of_addresses() {
-        assert!(required_key("Last.fm", "", None)
-            .unwrap_err()
-            .contains("API keys"));
-        assert_eq!(required_key("Last.fm", " mine ", None).unwrap(), "mine");
+    fn only_fanart_takes_a_key_from_the_person() {
         if keys::fanart().is_none() {
             assert!(fanart_service("").is_err());
             let service = fanart_service("personal").unwrap();

@@ -4,35 +4,16 @@ use catalog_sources::{Catalog, Release};
 use std::sync::{Arc, OnceLock};
 fn state() -> Arc<catalog_sources::http::State> {
     static STATE: OnceLock<Arc<catalog_sources::http::State>> = OnceLock::new();
-    STATE.get_or_init(Arc::default).clone()
+    // Blocks are remembered in the registry every tag source shares.
+    STATE
+        .get_or_init(|| {
+            Arc::new(catalog_sources::http::State::shared(
+                catalog_sources::solver::global_blocked(),
+            ))
+        })
+        .clone()
 }
 
-/// Forget only the in-memory Traxsource challenge marker. User settings and the
-/// cached Beatport application token remain untouched.
-pub fn reset() -> Result<(), String> {
-    state().reset();
-    Ok(())
-}
-fn solver_config(
-    value: Option<&serde_json::Value>,
-) -> Result<catalog_sources::http::SolverConfig, String> {
-    let mut config = catalog_sources::http::SolverConfig::default();
-    if let Some(value) = value {
-        config.endpoint = match value.get("endpoint") {
-            None | Some(serde_json::Value::Null) => None,
-            Some(serde_json::Value::String(s)) => Some(s.trim().into()),
-            _ => return Err("Solver endpoint must be a URL".into()),
-        };
-        if let Some(timeout) = value.get("timeout_seconds") {
-            config.timeout_seconds = timeout
-                .as_u64()
-                .or_else(|| timeout.as_str().and_then(|s| s.trim().parse().ok()))
-                .ok_or("Solver timeout must be a whole number of seconds")?;
-        }
-    }
-    config.api_url()?;
-    Ok(config)
-}
 fn provider(provider: Provider) -> Result<catalog_sources::Provider, String> {
     match provider {
         Provider::Beatport => Ok(catalog_sources::Provider::Beatport),
@@ -40,7 +21,7 @@ fn provider(provider: Provider) -> Result<catalog_sources::Provider, String> {
         _ => Err("This source is not a native catalog provider".into()),
     }
 }
-fn catalog(provider: Provider, channel: http::Channel, ticket: u64) -> Result<Catalog, String> {
+fn catalog(channel: http::Channel, ticket: u64) -> Result<Catalog, String> {
     let network = crate::settings::network();
     // Follow redirects only within the original catalog origin. Tokens cannot
     // move to another catalog host, image server, or the optional solver.
@@ -66,11 +47,7 @@ fn catalog(provider: Provider, channel: http::Channel, ticket: u64) -> Result<Ca
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|_| "Could not create solver network client")?;
-    let solver = if provider == Provider::Traxsource {
-        solver_config(crate::settings::current().pages.get("tag-sources-catalog"))?
-    } else {
-        catalog_sources::http::SolverConfig::default()
-    };
+    let solver = super::solver::config()?;
     Ok(Catalog::new(catalog_sources::http::Http::new(
         client,
         solver_client,
@@ -198,7 +175,7 @@ pub async fn search(
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join(" ");
-    let page = catalog(provider_id, http::Channel::Search, ticket)?
+    let page = catalog(http::Channel::Search, ticket)?
         .search(provider, releases, &term, query.page)
         .await?;
     let field = |fields: &tag_core::Fields, key: &str| {
@@ -235,7 +212,7 @@ pub async fn release(
 ) -> Result<SourceRelease, String> {
     let provider = provider(provider_id)?;
     let input = catalog_sources::normalize_id(provider, input)?;
-    let release = catalog(provider_id, http::Channel::Release, ticket)?
+    let release = catalog(http::Channel::Release, ticket)?
         .release(provider, &input)
         .await?;
     map_release(provider_id, &input, release)
@@ -275,7 +252,7 @@ mod tests {
     #[test]
     fn solver_timeout_accepts_saved_string_or_numeric_values() {
         for timeout in [serde_json::json!(120), serde_json::json!("120")] {
-            let cfg = solver_config(Some(
+            let cfg = crate::sources::solver::parse(Some(
                 &serde_json::json!({"endpoint":"http://127.0.0.1:8191","timeout_seconds":timeout}),
             ))
             .unwrap();
@@ -290,7 +267,10 @@ mod tests {
             serde_json::json!(301),
             serde_json::json!("bad"),
         ] {
-            assert!(solver_config(Some(&serde_json::json!({"timeout_seconds":timeout}))).is_err());
+            assert!(crate::sources::solver::parse(Some(
+                &serde_json::json!({"timeout_seconds":timeout})
+            ))
+            .is_err());
         }
     }
 }

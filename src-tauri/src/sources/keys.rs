@@ -1,9 +1,11 @@
 //! Application keys of online services, built into release builds from the
 //! build environment (CI passes repository secrets as `OPENTAG_*` variables).
 //! A build without them compiles normally: Discogs then falls back to a
-//! personal token, and the key-gated sources wait for a
-//! key the user enters in Tag Sources → API keys…. The values never reach the
-//! webview, which only learns whether a key exists.
+//! personal token, fanart.tv waits for a key the user enters in Tag Sources →
+//! API keys…, and AcoustID and Last.fm are unavailable (nobody enters keys for
+//! those two: AcoustID's personal key is only for submitting fingerprints,
+//! which TagGroove never does). The values never reach the webview, which only
+//! learns whether a key exists.
 
 /// A built-in key, or `None` when the build had none (or an empty one).
 fn built_in(value: Option<&'static str>) -> Option<&'static str> {
@@ -23,9 +25,14 @@ pub fn acoustid() -> Option<&'static str> {
     built_in(option_env!("OPENTAG_ACOUSTID_API_KEY"))
 }
 
-/// The Last.fm API key (read-only methods need no secret).
+/// TagGroove's own Last.fm application key. Users never enter one.
 pub fn lastfm() -> Option<&'static str> {
     built_in(option_env!("OPENTAG_LASTFM_API_KEY"))
+}
+
+/// The Last.fm shared secret that signs the desktop sign-in. It never reaches the webview.
+pub fn lastfm_secret() -> Option<&'static str> {
+    built_in(option_env!("OPENTAG_LASTFM_SHARED_SECRET"))
 }
 
 /// The fanart.tv project API key.
@@ -59,16 +66,6 @@ pub fn discogs_spacing(auth: &super::http::Auth) -> u64 {
     }
 }
 
-/// The user's own key when set, else the built-in one.
-pub fn choose(user: &str, built_in: Option<&'static str>) -> Option<String> {
-    let user = user.trim();
-    if user.is_empty() {
-        built_in.map(str::to_owned)
-    } else {
-        Some(user.to_owned())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::http::Auth;
@@ -94,12 +91,6 @@ mod tests {
         assert!(matches!(discogs_auth("", None), Auth::None));
     }
 
-    #[test]
-    fn user_keys_replace_built_in_keys() {
-        assert_eq!(choose(" user ", Some("built")).as_deref(), Some("user"));
-        assert_eq!(choose("", Some("built")).as_deref(), Some("built"));
-        assert_eq!(choose("", None), None);
-    }
     #[test]
     fn discogs_application_and_user_credentials_have_distinct_budgets() {
         use super::super::http::Auth;

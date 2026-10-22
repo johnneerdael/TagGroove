@@ -2,8 +2,10 @@
 //! other configuration files rather than in the shared Options store, or, when
 //! the user chooses it, in the system keychain. It never travels back to the
 //! webview, which only learns whether one is set and where it is kept. The
-//! user's own API keys for AcoustID, Last.fm and fanart.tv live in the same
-//! private file and are never shown again either.
+//! user's own fanart.tv key, and the session of a Last.fm sign-in, live in the
+//! same private file and are never shown again either. AcoustID needs nothing
+//! from the person: lookups use TagGroove's own application key, and the
+//! personal key is only for submitting fingerprints, which TagGroove never does.
 //!
 //! The keychain is opt-in and only touched when the token is saved, moved or
 //! needed for a Discogs request. A plain-text token stays in the private file
@@ -19,10 +21,11 @@ pub struct Credentials {
     /// The token is in the system keychain; `discogs_token` is then empty.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub discogs_token_in_keychain: bool,
+    /// The Last.fm account TagGroove is signed in to (shown), and its session key (never shown).
     #[serde(skip_serializing_if = "String::is_empty")]
-    pub acoustid_key: String,
+    pub lastfm_user: String,
     #[serde(skip_serializing_if = "String::is_empty")]
-    pub lastfm_key: String,
+    pub lastfm_session: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub fanart_key: String,
 }
@@ -35,10 +38,14 @@ pub struct CredentialsView {
     pub keychain_available: bool,
     /// This build carries TagGroove's Discogs application key.
     pub discogs_app_key: bool,
-    pub acoustid_key_set: bool,
-    pub acoustid_built_in: bool,
-    pub lastfm_key_set: bool,
-    pub lastfm_built_in: bool,
+    /// This build has TagGroove's AcoustID application key: AcoustID works without anything entered.
+    pub acoustid_available: bool,
+    /// This build has TagGroove's Last.fm application key: Last.fm works without anything entered.
+    pub lastfm_available: bool,
+    /// This build can also sign a person in (it has the shared secret).
+    pub lastfm_can_sign_in: bool,
+    /// The Last.fm account name when signed in; empty otherwise.
+    pub lastfm_user: String,
     pub fanart_key_set: bool,
     pub fanart_built_in: bool,
 }
@@ -50,9 +57,7 @@ pub struct CredentialsUpdate {
     pub discogs_token: Option<String>,
     /// Where to keep the token; absent keeps the current place.
     pub keychain: Option<bool>,
-    /// New API keys, or empty strings to remove them; absent keeps them.
-    pub acoustid_key: Option<String>,
-    pub lastfm_key: Option<String>,
+    /// A new fanart.tv key, or an empty string to remove it; absent keeps it.
     pub fanart_key: Option<String>,
 }
 
@@ -179,10 +184,14 @@ impl Credentials {
             discogs_token_in_keychain: self.discogs_token_in_keychain,
             keychain_available: store.available(),
             discogs_app_key: keys::discogs_app().is_some(),
-            acoustid_key_set: !self.acoustid_key.is_empty(),
-            acoustid_built_in: keys::acoustid().is_some(),
-            lastfm_key_set: !self.lastfm_key.is_empty(),
-            lastfm_built_in: keys::lastfm().is_some(),
+            acoustid_available: keys::acoustid().is_some(),
+            lastfm_available: keys::lastfm().is_some(),
+            lastfm_can_sign_in: keys::lastfm().is_some() && keys::lastfm_secret().is_some(),
+            lastfm_user: if self.lastfm_session.is_empty() {
+                String::new()
+            } else {
+                self.lastfm_user.clone()
+            },
             fanart_key_set: !self.fanart_key.is_empty(),
             fanart_built_in: keys::fanart().is_some(),
         }
@@ -198,6 +207,15 @@ impl Credentials {
             .map(Option::unwrap_or_default)
             .map_err(|e| format!("The Discogs token could not be read. {e}"))
     }
+}
+
+/// Remember a finished Last.fm sign-in, or (with an empty session) forget it.
+pub fn set_lastfm_session(path: &Path, user: &str, session: &str) -> Result<Credentials, String> {
+    let mut current = load(path)?;
+    current.lastfm_user = user.trim().to_owned();
+    current.lastfm_session = session.trim().to_owned();
+    save(path, &current)?;
+    Ok(current)
 }
 
 pub fn load(path: &Path) -> Result<Credentials, String> {
@@ -225,16 +243,10 @@ pub fn update(
 ) -> Result<CredentialsView, String> {
     let mut current = load(path)?;
     let mut keys_changed = false;
-    for (service, slot, value) in [
-        ("AcoustID", &mut current.acoustid_key, &update.acoustid_key),
-        ("Last.fm", &mut current.lastfm_key, &update.lastfm_key),
-        ("fanart.tv", &mut current.fanart_key, &update.fanart_key),
-    ] {
-        if let Some(value) = value {
-            let key = validated_key(service, value)?;
-            keys_changed |= *slot != key;
-            *slot = key;
-        }
+    if let Some(value) = &update.fanart_key {
+        let key = validated_key("fanart.tv", value)?;
+        keys_changed |= current.fanart_key != key;
+        current.fanart_key = key;
     }
     let keychain = update.keychain.unwrap_or(current.discogs_token_in_keychain);
     let token = match &update.discogs_token {
@@ -293,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn api_keys_are_saved_privately_kept_with_the_token_and_never_viewed() {
+    fn the_fanart_key_is_saved_privately_kept_with_the_token_and_never_viewed() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tag-sources.json");
         let store = MemoryStore::default();
@@ -301,45 +313,90 @@ mod tests {
             &path,
             &store,
             CredentialsUpdate {
-                lastfm_key: Some(" lastfm-key ".into()),
-                acoustid_key: Some("acoustid-key".into()),
+                fanart_key: Some(" fanart-key ".into()),
                 ..Default::default()
             },
         )
         .unwrap();
-        assert!(view.lastfm_key_set && view.acoustid_key_set && !view.fanart_key_set);
+        assert!(view.fanart_key_set);
         let json = serde_json::to_string(&view).unwrap();
-        assert!(!json.contains("lastfm-key") && !json.contains("acoustid-key"));
-        assert_eq!(load(&path).unwrap().lastfm_key, "lastfm-key");
-        // Moving or replacing the Discogs token keeps the API keys.
+        assert!(!json.contains("fanart-key"));
+        assert_eq!(load(&path).unwrap().fanart_key, "fanart-key");
+        // Moving or replacing the Discogs token keeps the fanart.tv key.
         update(&path, &store, set("token")).unwrap();
         update(&path, &store, stored(true)).unwrap();
         update(&path, &store, stored(false)).unwrap();
         let saved = load(&path).unwrap();
         assert_eq!(
-            (saved.acoustid_key.as_str(), saved.discogs_token.as_str()),
-            ("acoustid-key", "token")
+            (saved.fanart_key.as_str(), saved.discogs_token.as_str()),
+            ("fanart-key", "token")
         );
-        // An empty key removes it; a malformed key changes nothing.
+        // A malformed key changes nothing; an empty key removes it.
         let bad = CredentialsUpdate {
             fanart_key: Some("a b".into()),
-            lastfm_key: Some(String::new()),
             ..Default::default()
         };
         assert!(update(&path, &store, bad)
             .unwrap_err()
             .contains("fanart.tv"));
-        assert_eq!(load(&path).unwrap().lastfm_key, "lastfm-key");
+        assert_eq!(load(&path).unwrap().fanart_key, "fanart-key");
         let cleared = update(
             &path,
             &store,
             CredentialsUpdate {
-                lastfm_key: Some(String::new()),
+                fanart_key: Some(String::new()),
                 ..Default::default()
             },
         )
         .unwrap();
-        assert!(!cleared.lastfm_key_set && cleared.acoustid_key_set);
+        assert!(!cleared.fanart_key_set);
+    }
+
+    #[test]
+    fn an_acoustid_key_saved_by_an_earlier_version_is_ignored_and_dropped_on_the_next_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tag-sources.json");
+        let store = MemoryStore::default();
+        std::fs::write(
+            &path,
+            r#"{"acoustid_key":"stale-key","fanart_key":"fanart-key"}"#,
+        )
+        .unwrap();
+        assert_eq!(load(&path).unwrap().fanart_key, "fanart-key");
+        update(&path, &store, set("token")).unwrap();
+        update(
+            &path,
+            &store,
+            CredentialsUpdate {
+                fanart_key: Some("newer-key".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("stale-key") && !text.contains("acoustid"));
+        assert!(text.contains("newer-key"));
+    }
+
+    #[test]
+    fn a_lastfm_sign_in_is_stored_privately_and_only_its_account_name_is_viewed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tag-sources.json");
+        let store = MemoryStore::default();
+        let saved = set_lastfm_session(&path, " someone ", " sk-secret ").unwrap();
+        let view = saved.view(&store);
+        assert_eq!(view.lastfm_user, "someone");
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(json.contains("someone") && !json.contains("sk-secret"));
+        assert_eq!(load(&path).unwrap().lastfm_session, "sk-secret");
+        // Other settings changes keep the sign-in; signing out forgets it.
+        update(&path, &store, set("token")).unwrap();
+        assert_eq!(load(&path).unwrap().lastfm_session, "sk-secret");
+        let out = set_lastfm_session(&path, "", "").unwrap();
+        assert_eq!(out.view(&store).lastfm_user, "");
+        assert!(!std::fs::read_to_string(&path)
+            .unwrap()
+            .contains("sk-secret"));
     }
 
     #[test]

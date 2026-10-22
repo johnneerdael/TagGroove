@@ -4,11 +4,11 @@ import {comparisonTrackMatches} from './metadata-comparison';
 import type {ComparisonCandidate, ComparisonScope} from './metadata-comparison';
 
 type NativeProvider = Exclude<Provider,'web'>;
-type NativeDefinition = {label:string;key?:'acoustid'|'lastfm'|'fanart';selected?:boolean};
+type NativeDefinition = {label:string;key?:'fanart';selected?:boolean};
 const nativeSources:Record<NativeProvider,NativeDefinition> = {
   musicbrainz:{label:'MusicBrainz'},discogs:{label:'Discogs'},beatport:{label:'Beatport'},traxsource:{label:'Traxsource'},
-  itunes:{label:'iTunes'},deezer:{label:'Deezer'},lastfm:{label:'Last.fm',key:'lastfm'},lrclib:{label:'LRCLIB'},
-  acoustid:{label:'AcoustID',key:'acoustid',selected:false},fanart:{label:'fanart.tv',key:'fanart'},
+  itunes:{label:'iTunes'},deezer:{label:'Deezer'},lastfm:{label:'Last.fm'},lrclib:{label:'LRCLIB'},
+  acoustid:{label:'AcoustID',selected:false},fanart:{label:'fanart.tv',key:'fanart'},
   freedb:{label:'freedb'},local_freedb:{label:'freedb (local)'},
 };
 export type ComparisonSource = {id:string;provider:Provider;label:string;setupReason?:string;selected:boolean;web?:WebSourceInfo};
@@ -38,6 +38,8 @@ export function comparisonSources(credentials:TagSourceCredentials|null,listing:
       if (!credentials) setupReason='API key settings are unavailable. Check Tag Sources → API keys.';
       else if (!credentials[`${key}_key_set`] && !credentials[`${key}_built_in`]) setupReason=`${definition.label} needs an API key.`;
     }
+    if (provider==='lastfm' && credentials?.lastfm_available===false) setupReason='This build has no Last.fm application key.';
+    if (provider==='acoustid' && credentials?.acoustid_available===false) setupReason='This build has no AcoustID application key.';
     if (provider==='discogs' && !credentials) setupReason='API key settings are unavailable. Check Tag Sources → API keys.';
     if (provider==='discogs' && credentials && !credentials.discogs_app_key && !credentials.discogs_token_set) setupReason='Discogs needs application credentials or a personal access token.';
     if (provider==='local_freedb' && setup.localFreedbAvailable===false) setupReason='Choose the local freedb database folder in Options.';

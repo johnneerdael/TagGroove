@@ -255,6 +255,7 @@ pub fn load(path: &Path) -> (Settings, Option<String>) {
     };
     settings.version = VERSION;
     migrate_fingerprint_options(&mut settings);
+    migrate_solver_options(&mut settings);
     match settings.validate() {
         Ok(()) => (settings, None),
         Err(e) => (
@@ -290,6 +291,17 @@ fn migrate_fingerprint_options(settings: &mut Settings) {
                 *value = serde_json::Value::String(String::new());
             }
         }
+    }
+}
+
+/// The Cloudflare solver used to be a Traxsource option (`tag-sources-catalog`). It now serves
+/// every tag source, so an existing endpoint and timeout move to `tag-sources-solver`.
+fn migrate_solver_options(settings: &mut Settings) {
+    if let Some(legacy) = settings.pages.remove("tag-sources-catalog") {
+        settings
+            .pages
+            .entry("tag-sources-solver".into())
+            .or_insert(legacy);
     }
 }
 
@@ -643,5 +655,45 @@ mod fingerprint_migration_tests {
         );
         migrate_fingerprint_options(&mut settings);
         assert_eq!(settings.pages["tag-sources-online"]["fpcalc"], "");
+    }
+}
+
+#[cfg(test)]
+mod solver_migration_tests {
+    use super::*;
+
+    #[test]
+    fn the_traxsource_solver_becomes_the_general_solver_without_losing_values() {
+        let mut settings = Settings::default();
+        settings.pages.insert(
+            "tag-sources-catalog".into(),
+            serde_json::json!({"endpoint": "https://trawl.example", "timeout_seconds": 90}),
+        );
+        migrate_solver_options(&mut settings);
+        assert!(!settings.pages.contains_key("tag-sources-catalog"));
+        assert_eq!(
+            settings.pages["tag-sources-solver"]["endpoint"],
+            "https://trawl.example"
+        );
+        assert_eq!(settings.pages["tag-sources-solver"]["timeout_seconds"], 90);
+    }
+
+    #[test]
+    fn an_existing_general_solver_setting_is_not_overwritten() {
+        let mut settings = Settings::default();
+        settings.pages.insert(
+            "tag-sources-catalog".into(),
+            serde_json::json!({"endpoint": "http://old"}),
+        );
+        settings.pages.insert(
+            "tag-sources-solver".into(),
+            serde_json::json!({"endpoint": "http://new"}),
+        );
+        migrate_solver_options(&mut settings);
+        assert_eq!(
+            settings.pages["tag-sources-solver"]["endpoint"],
+            "http://new"
+        );
+        assert!(!settings.pages.contains_key("tag-sources-catalog"));
     }
 }

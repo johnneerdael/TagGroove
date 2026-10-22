@@ -41,6 +41,7 @@ pub struct Page {
 }
 mod beatport;
 pub mod http;
+pub mod solver;
 mod traxsource;
 pub use beatport::parse_track as parse_beatport_track;
 pub use traxsource::{

@@ -273,6 +273,10 @@ impl Catalog {
         let expected = v["track_count"].as_u64();
         let mut ids = std::collections::BTreeSet::new();
         let mut numbers = std::collections::BTreeSet::new();
+        // Beatport's track listing is in release order but its rows carry no `number` (the
+        // listing schema has none; only a single track's detail does). Without positions the
+        // order is the position.
+        let mut by_order = None;
         for page in 1..=100 {
             let body = self
                 .beatport_get(&format!(
@@ -284,12 +288,24 @@ impl Catalog {
             let rows = v["results"]
                 .as_array()
                 .ok_or("Malformed Beatport release: missing tracklist")?;
+            let by_order = *by_order.get_or_insert_with(|| {
+                !rows
+                    .iter()
+                    .any(|row| row["number"].as_u64().is_some_and(|n| n > 0))
+            });
             for row in rows {
-                let track = crate::beatport::parse_track_value(row)?;
+                let mut track = crate::beatport::parse_track_value(row)?;
+                if by_order {
+                    track.number = u32::try_from(release.tracks.len() + 1)
+                        .map_err(|_| "Beatport release has too many tracks")?;
+                }
                 if track.release_id != id || !ids.insert(track.id.clone()) {
                     return Err("Beatport release track identity mismatch".into());
                 }
-                if track.number == 0 || !numbers.insert(track.number) {
+                if track.number == 0 {
+                    return Err("Incomplete Beatport release track positions".into());
+                }
+                if !numbers.insert(track.number) {
                     return Err("Beatport release contains duplicate track positions".into());
                 }
                 release.tracks.push(track)

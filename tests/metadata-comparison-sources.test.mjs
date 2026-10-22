@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {loadProductionModule} from './helpers/load-production-module.mjs';
 const {comparisonSources,comparisonQuery,ComparisonSearchSession}=await loadProductionModule('metadata-comparison-sources.ts');
 const {buildComparisonPreview}=await loadProductionModule('metadata-comparison.ts');
-const credentials={discogs_token_set:false,discogs_app_key:true,acoustid_key_set:true,lastfm_key_set:true,fanart_key_set:true};
+const credentials={discogs_token_set:false,discogs_app_key:true,acoustid_available:true,lastfm_available:true,fanart_key_set:true};
 const listing={folder:'/sources',sources:[],settings:[],problems:[]};
 const files=[{path:'/a.flac',name:'a.flac',title:'One (Extended Mix)',artist:'Artist A',album:'Compilation',album_artist:'VA',track:'1',disc:'1',length:300,fields:{TITLE:['One (Extended Mix)'],ARTIST:['Artist A'],ALBUM:['Compilation'],ALBUMARTIST:['VA']}},{path:'/b.flac',name:'b.flac',title:'Two',artist:'Artist B',album:'Compilation',album_artist:'VA',track:'2',disc:'1',length:301,fields:{TITLE:['Two'],ARTIST:['Artist B'],ALBUM:['Compilation'],ALBUMARTIST:['VA']}}];
 const terms={artist:'Artist A',title:'One (Extended Mix)',albumArtist:'VA',album:'Compilation'};
@@ -59,8 +59,8 @@ test('single-track lyric lookup honors corrected search terms without rewriting 
 });
 
 test('missing keys and broken installed scripts remain visible without provider requests',async()=>{
-  const available=comparisonSources({...credentials,lastfm_key_set:false},{...listing,problems:[{file:'Broken.src',error:'Invalid search declaration'}]});
-  assert.match(available.find(s=>s.provider==='lastfm').setupReason,/key/i);
+  const available=comparisonSources({...credentials,lastfm_available:false},{...listing,problems:[{file:'Broken.src',error:'Invalid search declaration'}]});
+  assert.match(available.find(s=>s.provider==='lastfm').setupReason,/Last\.fm application key/);
   assert.match(available.find(s=>s.label==='Broken.src').setupReason,/Invalid search/);
   const s=session(async()=>{assert.fail('a source requiring setup must not be invoked');});
   await s.value.search(available.filter(x=>x.setupReason),'album',files,terms);

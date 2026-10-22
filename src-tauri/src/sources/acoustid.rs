@@ -112,7 +112,7 @@ pub fn check(body: &Value) -> Result<(), String> {
         .and_then(Value::as_str)
         .unwrap_or("unknown error");
     Err(match code {
-        Some(4) => "AcoustID rejected the API key. Check it in Tag Sources → API keys….".into(),
+        Some(4) => "AcoustID rejected TagGroove's application key.".into(),
         Some(14) => "AcoustID rate limit reached. Wait a moment and try again.".into(),
         _ => format!("AcoustID returned an error: {message}"),
     })
@@ -420,7 +420,7 @@ mod tests {
         assert_eq!(results[1].id, other);
         assert!(check(&serde_json::json!({"status": "error", "error": {"code": 4, "message": "invalid API key"}}))
             .unwrap_err()
-            .contains("API key"));
+            .contains("TagGroove's application key"));
     }
 
     #[test]

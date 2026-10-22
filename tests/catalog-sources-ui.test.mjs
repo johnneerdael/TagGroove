@@ -35,13 +35,13 @@ test('Discogs artist/title review waits for an explicit track choice',async()=>{
   const s=setup(async command=>command==='tag_source_search'?{results:[{id:'discogs-44',title:'Night',artist:'Guest'}],total:1}:command==='tag_source_release'?{...release('discogs'),id:'44',tracks:[track(1,'Unrelated intro'),track(7,file.title)]}:undefined);
   await s.ui.run('source-discogs-artist-title');const d=document.querySelector('dialog');assert.equal(d.querySelector('#ts-mode').value,'artist_title');assert.equal(d.querySelector('#ts-artist').value,'Guest');d.querySelector('#ts-search').click();await tick();d.querySelector('#ts-next').click();await tick();assert.equal(d.querySelector('#ts-apply').disabled,true);const select=d.querySelector('#ts-use-track');select.value='1';select.dispatchEvent(new Event('change'));assert.equal(d.querySelector('#ts-apply').disabled,false);d.querySelector('#ts-apply').click();await tick();assert.equal(s.applied[0].items[0].updates.TITLE[0],file.title);assert.equal(s.applied[0].items[0].updates.TRACK[0],'7');
 });
-test('catalog solver settings are optional, validated and have a reset action',async()=>{
-  let reset=0;const page=tagSourcesOptionsPages(async()=>null,undefined,undefined,async()=>reset++).find(page=>page.id==='tag-sources-catalog');assert.equal(page.label,'Traxsource');assert.equal(page.controls.find(control=>control.id==='tag-source-catalog-reset').label,'Retry direct Traxsource access');assert.equal(page.defaults.endpoint,'');const draft={pages:{'tag-sources-catalog':{endpoint:'http://localhost:8191/v1',timeout_seconds:'60'}}};assert.equal(page.validate(draft),undefined);draft.pages['tag-sources-catalog'].endpoint='file:///tmp/solver';assert.match(page.validate(draft),/HTTP/);draft.pages['tag-sources-catalog'].endpoint='';draft.pages['tag-sources-catalog'].timeout_seconds='0';assert.match(page.validate(draft),/1 to 300/);await page.controls.find(control=>control.id==='tag-source-catalog-reset').run();assert.equal(reset,1);
+test('Cloudflare solver settings are optional, validated and have a reset action',async()=>{
+  let reset=0;const page=tagSourcesOptionsPages(async()=>null,undefined,undefined,async()=>reset++).find(page=>page.id==='tag-sources-solver');assert.equal(page.label,'Cloudflare solver');assert.equal(page.controls.find(control=>control.id==='tag-source-solver-reset').label,'Retry direct access');assert.equal(page.defaults.endpoint,'');const draft={pages:{'tag-sources-solver':{endpoint:'http://localhost:8191/v1',timeout_seconds:'60'}}};assert.equal(page.validate(draft),undefined);draft.pages['tag-sources-solver'].endpoint='file:///tmp/solver';assert.match(page.validate(draft),/HTTP/);draft.pages['tag-sources-solver'].endpoint='';draft.pages['tag-sources-solver'].timeout_seconds='0';assert.match(page.validate(draft),/1 to 300/);await page.controls.find(control=>control.id==='tag-source-solver-reset').run();assert.equal(reset,1);
 });
 
-test('Traxsource solver endpoint validation matches backend URL restrictions',()=>{
-  const page=tagSourcesOptionsPages(async()=>null).find(page=>page.id==='tag-sources-catalog');
-  const validate=endpoint=>page.validate({pages:{'tag-sources-catalog':{endpoint,timeout_seconds:120}}});
+test('Cloudflare solver endpoint validation matches backend URL restrictions',()=>{
+  const page=tagSourcesOptionsPages(async()=>null).find(page=>page.id==='tag-sources-solver');
+  const validate=endpoint=>page.validate({pages:{'tag-sources-solver':{endpoint,timeout_seconds:120}}});
   for(const endpoint of ['', '   ', 'http://localhost:8191', 'http://localhost:8191/v1', 'https://solver.example/proxy/v1/', 'http://[::1]:8191/v1', ' https://solver.example/v1 ']) {
     assert.equal(validate(endpoint),undefined,`accept ${endpoint}`);
   }

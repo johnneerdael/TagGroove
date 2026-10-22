@@ -195,6 +195,7 @@ pub fn trusted(url: &Url) -> bool {
                 | "api.beatport.com"
                 | "account.beatport.com"
                 | "www.beatport.com"
+                | "geo-media.beatport.com"
                 | "www.traxsource.com"
                 | "traxsource.com"
                 | "geo-static.traxsource.com"
@@ -383,6 +384,11 @@ fn routed(url: &Url) -> Url {
     route(url, offline_test_run())
 }
 
+/// The address a solver is asked for (the offline fixture address in scripted test runs).
+pub(crate) fn routed_for_solver(url: &Url) -> Url {
+    routed(url)
+}
+
 /// Catalog adapters share the same offline fixture routing as native sources.
 pub(crate) fn catalog_route(url: &Url) -> Result<Url, String> {
     if !trusted(url) {
@@ -433,6 +439,12 @@ async fn send_with(
         None
     };
     let client = discogs_client.as_ref().unwrap_or(client);
+    let solver_ok = super::solver::eligible(&service.auth, form, accept, url);
+    if let Some(solved) =
+        super::solver::before(url, service.name, solver_ok, accept, channel, ticket).await?
+    {
+        return Ok(solved);
+    }
     let mut last = service.gate.0.lock().await;
     if let Some(previous) = *last {
         let wait = service.spacing.saturating_sub(previous.elapsed());
@@ -477,7 +489,17 @@ async fn send_with(
     let result = request.send().await;
     *last = Some(Instant::now());
     // Addresses may carry API keys; errors never show them.
-    result.map_err(|error| network_message(service.name, &error.without_url()))
+    let response = result.map_err(|error| network_message(service.name, &error.without_url()))?;
+    super::solver::after(
+        response,
+        url,
+        service.name,
+        solver_ok,
+        accept,
+        channel,
+        ticket,
+    )
+    .await
 }
 
 pub fn network_message(name: &str, error: &reqwest::Error) -> String {
@@ -497,6 +519,10 @@ pub fn status_message(name: &str, status: StatusCode, auth: &Auth) -> String {
         (401 | 403, Auth::DiscogsToken(_)) => "Discogs rejected the personal access token. Update it in Tag Sources → Discogs access token….".into(),
         (401 | 403, Auth::DiscogsApp { .. }) => "Discogs refused TagGroove's application key. Add a personal access token in Tag Sources → Discogs access token….".into(),
         (401 | 403, Auth::None) if name == "Discogs" => "Discogs requires a personal access token for this request. Add one in Tag Sources → Discogs access token….".into(),
+        // Nobody enters a Last.fm key: it is TagGroove's own.
+        (400 | 401 | 403, Auth::Key) if name == "Last.fm" => "Last.fm rejected TagGroove's request. Try again later, or sign out and in again in Tag Sources → API keys….".into(),
+        // Nobody enters an AcoustID key either: lookups use TagGroove's own.
+        (400 | 401 | 403, Auth::Key) if name == "AcoustID" => "AcoustID rejected TagGroove's application key.".into(),
         (400 | 401 | 403, Auth::Key | Auth::Headers(_)) => format!("{name} rejected the request. Check the API key in Tag Sources → API keys…."),
         _ => plain_status_message(name, status),
     }
@@ -611,6 +637,15 @@ async fn fetch_json(
             return Ok(None);
         }
         if !status.is_success() {
+            if service.name == "Last.fm" {
+                if let Some(reason) = read_limited(response, MAX_JSON_BYTES, service.name)
+                    .await
+                    .ok()
+                    .and_then(|body| super::lastfm::failure_reason(&body))
+                {
+                    return Err(reason);
+                }
+            }
             return Err(status_message(service.name, status, &service.auth));
         }
         let body = read_limited(response, MAX_JSON_BYTES, service.name).await?;
@@ -866,6 +901,12 @@ pub async fn web_page_with_service(
         .await?
     } else {
         async {
+            let solver_ok = super::solver::eligible(&Auth::None, None, "text/html", &url);
+            if let Some(solved) =
+                super::solver::before(&url, name, solver_ok, "text/html", channel, ticket).await?
+            {
+                return Ok(solved);
+            }
             let mut last = WEB.0.lock().await;
             if stale(channel, ticket) {
                 return Err(CANCELLED.into());
@@ -881,13 +922,23 @@ pub async fn web_page_with_service(
             }
             let result = request.send().await;
             *last = Some(Instant::now());
-            result.map_err(|error| {
+            let response = result.map_err(|error| {
                 if error.is_redirect() {
                     format!("{name} redirected to an address TagGroove cannot open.")
                 } else {
                     network_message(name, &error)
                 }
-            })
+            })?;
+            super::solver::after(
+                response,
+                &url,
+                name,
+                solver_ok,
+                "text/html",
+                channel,
+                ticket,
+            )
+            .await
         }
         .await?
     };
@@ -898,7 +949,12 @@ pub async fn web_page_with_service(
             status.as_u16()
         ));
     }
-    let final_url = response.url().clone();
+    // A page the solver returned has no address of its own: use the one that was asked for.
+    let final_url = if super::solver::is_placeholder(response.url()) {
+        url.clone()
+    } else {
+        response.url().clone()
+    };
     let content_type = response
         .headers()
         .get(header::CONTENT_TYPE)
@@ -1113,9 +1169,11 @@ mod tests {
             "https://geo-static2.traxsource.com/cover.jpg",
             "https://beatportimage.com/image.jpg",
             "https://geo-media.beatportimage.com/image.jpg",
+            "https://geo-media.beatport.com/image_size/1000x1000/6389d0da-09b9-43dc-b4ea-91b30f4d79aa.jpg",
         ] {
             assert!(parse_trusted(address).is_ok(), "{address}");
         }
+        assert!(parse_trusted("https://geo-media.beatport.com.example.invalid/image.jpg").is_err());
         assert!(parse_trusted("https://beatportimage.com.example.invalid/image.jpg").is_err());
     }
 
@@ -1196,7 +1254,15 @@ mod tests {
         assert!(unauthorized(&app).contains("application key"));
         assert!(!unauthorized(&app).contains("secret="));
         assert!(unauthorized(&Auth::None).contains("requires"));
-        assert!(status_message("Last.fm", StatusCode::FORBIDDEN, &Auth::Key).contains("API key"));
+        assert!(
+            status_message("AcoustID", StatusCode::FORBIDDEN, &Auth::Key)
+                .contains("TagGroove's application key")
+        );
+        assert!(status_message("fanart.tv", StatusCode::FORBIDDEN, &Auth::Key).contains("API key"));
+        assert!(
+            !status_message("Last.fm", StatusCode::FORBIDDEN, &Auth::Key)
+                .contains("Check the API key")
+        );
         assert!(
             status_message("MusicBrainz", StatusCode::TOO_MANY_REQUESTS, &Auth::None)
                 .contains("rate limit")

@@ -21,7 +21,7 @@ function setup({local=originals(),invoke,apply}={}){
  const w=new Window({url:'https://test.invalid'});for(const key of ['window','document','Node','NodeFilter','MutationObserver','Element','HTMLElement','HTMLInputElement','HTMLButtonElement','HTMLDialogElement','Event','KeyboardEvent'])globalThis[key]=key==='window'?w:w[key];
  let files=structuredClone(local),counter=1000,reason='';const calls=[],written=[];
  const defaults=async(command,args)=>{
-  if(command==='load_tag_source_settings')return{discogs_token_set:false,discogs_app_key:true,acoustid_key_set:true,lastfm_key_set:true,fanart_key_set:true};
+  if(command==='load_tag_source_settings')return{discogs_token_set:false,discogs_app_key:true,acoustid_available:true,lastfm_available:true,fanart_key_set:true};
   if(command==='web_sources_list')return{folder:'/sources',sources:[],settings:[],problems:[]};
   if(command==='local_freedb_index_status')return{directory:null,discs:0};
   if(command==='tag_source_comparison_snapshot')return 'snapshot-1';

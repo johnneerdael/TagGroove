@@ -1,4 +1,5 @@
-//! Last.fm (`ws.audioscrobbler.com/2.0`, read-only methods with an API key):
+//! Last.fm (`ws.audioscrobbler.com/2.0`, read-only methods with TagGroove's own application key;
+//! the user signs in through Last.fm's desktop flow instead of entering a key):
 //! album search and album information, whose top tags become GENRE. Last.fm's
 //! terms ask for credit and links back; results and releases link to the
 //! album's Last.fm page.
@@ -8,6 +9,21 @@ use tag_core::Fields;
 
 #[cfg(test)]
 mod comparison_track_tests {
+    #[test]
+    fn a_refused_status_still_explains_itself_from_the_json_body() {
+        assert_eq!(
+            failure_reason(br#"{"error":14,"message":"Unauthorized Token - This token has not been authorized"}"#).as_deref(),
+            Some("TagGroove is not approved yet. Approve it on the Last.fm page in your browser, then choose Finish.")
+        );
+        assert_eq!(
+            failure_reason(br#"{"error":15,"message":"expired"}"#).as_deref(),
+            Some("The Last.fm sign-in link expired. Start again.")
+        );
+        // No reason in the body: the caller keeps its status-based message.
+        assert!(failure_reason(b"<html>Forbidden</html>").is_none());
+        assert!(failure_reason(br#"{"token":"abc"}"#).is_none());
+    }
+
     use super::*;
     #[test]
     fn track_query_keeps_performing_artist_and_title_separate() {
@@ -61,15 +77,127 @@ pub fn check(body: &Value) -> Result<(), String> {
     match body.get("error").and_then(Value::as_u64) {
         None => Ok(()),
         Some(6) => Err("Last.fm could not find this album.".into()),
-        Some(10 | 26) => {
-            Err("Last.fm rejected the API key. Check it in Tag Sources → API keys….".into())
-        }
+        Some(10 | 26) => Err("Last.fm rejected TagGroove's application key.".into()),
+        Some(4) => Err("Last.fm did not accept the sign-in. Start again.".into()),
+        Some(9) => Err("Your Last.fm sign-in is no longer valid. Sign in again in Tag Sources → API keys….".into()),
+        Some(14) => Err("TagGroove is not approved yet. Approve it on the Last.fm page in your browser, then choose Finish.".into()),
+        Some(15) => Err("The Last.fm sign-in link expired. Start again.".into()),
         Some(29) => Err("Last.fm rate limit reached. Wait a minute and try again.".into()),
         Some(code) => Err(match text(body, "message") {
             message if message.is_empty() => format!("Last.fm returned error {code}."),
             message => format!("Last.fm returned an error: {message}"),
         }),
     }
+}
+
+/// Last.fm answers some failures (an unapproved sign-in, a dead session) with an HTTP 4xx status
+/// and the reason in a JSON body. The wording for that reason, when the body carries one.
+pub fn failure_reason(body: &[u8]) -> Option<String> {
+    check(&serde_json::from_slice::<Value>(body).ok()?).err()
+}
+
+/// The signature Last.fm asks for: every parameter except `format` and `callback`, sorted by
+/// name, written as name then value, followed by the shared secret, then hashed with MD5.
+pub fn api_sig(params: &[(&str, &str)], secret: &str) -> String {
+    use md5::{Digest, Md5};
+    let mut sorted: Vec<&(&str, &str)> = params
+        .iter()
+        .filter(|(name, _)| !matches!(*name, "format" | "callback"))
+        .collect();
+    sorted.sort_by(|a, b| a.0.cmp(b.0));
+    let mut text = String::new();
+    for (name, value) in sorted {
+        text.push_str(name);
+        text.push_str(value);
+    }
+    text.push_str(secret);
+    Md5::digest(text.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// A signed call: the parameters, TagGroove's key, then the signature.
+fn signed_url(key: &str, secret: &str, params: &[(&str, &str)]) -> Result<String, String> {
+    let mut all = params.to_vec();
+    all.push(("api_key", key));
+    let signature = api_sig(&all, secret);
+    all.push(("api_sig", &signature));
+    all.push(("format", "json"));
+    reqwest::Url::parse_with_params(API, &all)
+        .map(String::from)
+        .map_err(|e| e.to_string())
+}
+
+/// Step 1 of the desktop sign-in: ask Last.fm for a request token.
+pub fn token_url(key: &str, secret: &str) -> Result<String, String> {
+    signed_url(key, secret, &[("method", "auth.getToken")])
+}
+
+/// Step 2: the page where the person approves TagGroove (opened in the browser).
+pub fn authorize_url(key: &str, token: &str) -> Result<String, String> {
+    reqwest::Url::parse_with_params(
+        "https://www.last.fm/api/auth/",
+        &[("api_key", key), ("token", token)],
+    )
+    .map(String::from)
+    .map_err(|e| e.to_string())
+}
+
+/// Step 3: trade the approved token for a session.
+pub fn session_url(key: &str, secret: &str, token: &str) -> Result<String, String> {
+    signed_url(
+        key,
+        secret,
+        &[("method", "auth.getSession"), ("token", token)],
+    )
+}
+
+pub fn parse_token(body: &Value) -> Result<String, String> {
+    check(body)?;
+    Some(text(body, "token"))
+        .filter(|token| !token.is_empty() && token.len() <= 64)
+        .ok_or_else(|| "Last.fm did not return a sign-in token.".into())
+}
+
+/// The account name and session key of a finished sign-in.
+pub fn parse_session(body: &Value) -> Result<(String, String), String> {
+    check(body)?;
+    let session = body.get("session").unwrap_or(&Value::Null);
+    let (name, key) = (text(session, "name"), text(session, "key"));
+    if name.is_empty() || key.is_empty() || key.len() > 64 {
+        return Err("Last.fm did not return a session.".into());
+    }
+    Ok((name, key))
+}
+
+/// Sign an already built read address with the signed-in session, so the call is made on behalf
+/// of that account. The address keeps `format=json`, which is never part of the signature.
+pub fn with_session(url: &str, secret: &str, session: &str) -> Result<String, String> {
+    let mut address = reqwest::Url::parse(url).map_err(|e| e.to_string())?;
+    let pairs: Vec<(String, String)> = address
+        .query_pairs()
+        .filter(|(name, _)| !matches!(name.as_ref(), "api_sig" | "sk"))
+        .map(|(name, value)| (name.into_owned(), value.into_owned()))
+        .collect();
+    let mut params: Vec<(&str, &str)> = pairs
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    params.push(("sk", session));
+    let signature = api_sig(&params, secret);
+    // Rebuild the query without any earlier signature, then add the new one.
+    address
+        .query_pairs_mut()
+        .clear()
+        .extend_pairs(
+            pairs
+                .iter()
+                .map(|(name, value)| (name.as_str(), value.as_str())),
+        )
+        .append_pair("sk", session)
+        .append_pair("api_sig", &signature);
+    Ok(address.into())
 }
 
 fn url(key: &str, params: &[(&str, &str)]) -> Result<String, String> {
@@ -555,9 +683,97 @@ mod tests {
         );
         assert!(check(&serde_json::json!({"error": 10}))
             .unwrap_err()
-            .contains("API key"));
+            .contains("application key"));
         assert!(check(&serde_json::json!({"error": 29}))
             .unwrap_err()
             .contains("rate limit"));
+    }
+}
+
+#[cfg(test)]
+mod sign_in_tests {
+    use super::*;
+
+    #[test]
+    fn the_signature_sorts_parameters_and_ignores_format_and_callback() {
+        // The worked example in Last.fm's desktop authentication documentation.
+        let sig = api_sig(
+            &[
+                ("method", "auth.getSession"),
+                ("token", "tok"),
+                ("api_key", "key"),
+                ("format", "json"),
+            ],
+            "mysecret",
+        );
+        use md5::{Digest, Md5};
+        let expected: String = Md5::digest(b"api_keykeymethodauth.getSessiontokentokmysecret")
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(sig, expected);
+        assert_eq!(sig.len(), 32);
+    }
+
+    #[test]
+    fn sign_in_addresses_carry_a_signature_but_never_the_secret() {
+        for url in [
+            token_url("key", "secret").unwrap(),
+            session_url("key", "secret", "tok").unwrap(),
+        ] {
+            let parsed = reqwest::Url::parse(&url).unwrap();
+            let query: std::collections::HashMap<_, _> = parsed.query_pairs().collect();
+            assert_eq!(query["api_key"], "key");
+            assert_eq!(query["api_sig"].len(), 32);
+            assert_eq!(query["format"], "json");
+            assert!(!url.contains("secret"));
+        }
+        let approve = authorize_url("key", "tok").unwrap();
+        assert_eq!(
+            approve,
+            "https://www.last.fm/api/auth/?api_key=key&token=tok"
+        );
+    }
+
+    #[test]
+    fn token_and_session_responses_are_read_strictly() {
+        assert_eq!(
+            parse_token(&serde_json::json!({"token":"abc123"})).unwrap(),
+            "abc123"
+        );
+        assert!(parse_token(&serde_json::json!({})).is_err());
+        assert!(parse_token(&serde_json::json!({"error":15,"message":"x"}))
+            .unwrap_err()
+            .contains("expired"));
+        let session =
+            serde_json::json!({"session":{"name":"someone","key":"sk123","subscriber":0}});
+        assert_eq!(
+            parse_session(&session).unwrap(),
+            ("someone".into(), "sk123".into())
+        );
+        assert!(parse_session(&serde_json::json!({"session":{"name":"someone"}})).is_err());
+        assert!(
+            parse_session(&serde_json::json!({"error":14,"message":"x"}))
+                .unwrap_err()
+                .contains("Approve")
+        );
+    }
+
+    #[test]
+    fn a_read_address_is_signed_with_the_session_and_resigned_when_signed_again() {
+        let base = info_url("album:Artist\tAlbum", "key").unwrap();
+        let signed = with_session(&base, "secret", "sk1").unwrap();
+        let query: std::collections::HashMap<_, _> = reqwest::Url::parse(&signed)
+            .unwrap()
+            .query_pairs()
+            .map(|(a, b)| (a.into_owned(), b.into_owned()))
+            .collect();
+        assert_eq!(query["sk"], "sk1");
+        assert_eq!(query["api_sig"].len(), 32);
+        assert!(!signed.contains("secret"));
+        // Signing an already signed address replaces the old signature.
+        let again = with_session(&signed, "secret", "sk2").unwrap();
+        assert_eq!(again.matches("api_sig=").count(), 1);
+        assert_eq!(again.matches("sk=").count(), 1);
     }
 }
