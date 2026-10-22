@@ -162,21 +162,43 @@ fn credited(names: &str) -> Vec<String> {
         .collect()
 }
 
+/// The title without an edition suffix: "Automatic For The People (25th Anniversary Edition) [2017
+/// Remaster]" and "Rumours - Deluxe" are "automaticforthepeople" and "rumours".
+fn base_title(title: &str) -> String {
+    let cut = title
+        .find(['(', '['])
+        .into_iter()
+        .chain(
+            [" - ", " – ", " — "]
+                .iter()
+                .filter_map(|dash| title.find(dash)),
+        )
+        .min()
+        .unwrap_or(title.len());
+    plain(&title[..cut])
+}
+
+/// Is this the requested album, whole: the same title, or the same title with an edition suffix?
+/// "Up" is not "Wake Up"; "Up (Deluxe Edition)" is "Up".
+fn is_titled(found: &str, wanted: &str) -> bool {
+    let wanted_base = base_title(wanted);
+    !wanted_base.is_empty() && (plain(found) == plain(wanted) || base_title(found) == wanted_base)
+}
+
 /// Does an album search answer hold the album that was asked for, by that artist? iTunes ranks
-/// album searches by popularity and can leave a catalogue album out entirely. A longer title
-/// (an edition) and extra credited artists still count; the same title by someone else does not,
-/// and neither does an artist whose name merely contains the requested one ("Museum" for "Muse").
+/// album searches by popularity and can leave a catalogue album out entirely. An edition of the
+/// title and extra credited artists still count; the same title by someone else does not, nor an
+/// artist whose name merely contains the requested one ("Museum" for "Muse"), nor a longer
+/// title that merely contains it ("Wake Up" for "Up").
 pub fn holds_album(page: &SearchPage, artist: &str, album: &str) -> bool {
-    let wanted = plain(album);
     let artists = credited(artist);
-    !wanted.is_empty()
-        && page.results.iter().any(|r| {
-            plain(&r.title).contains(&wanted)
-                && (artists.is_empty()
-                    || credited(&r.artist)
-                        .iter()
-                        .any(|name| artists.contains(name)))
-        })
+    page.results.iter().any(|r| {
+        is_titled(&r.title, album)
+            && (artists.is_empty()
+                || credited(&r.artist)
+                    .iter()
+                    .any(|name| artists.contains(name)))
+    })
 }
 
 /// Step one of the artist fallback: the artists called this.
@@ -216,16 +238,12 @@ pub fn artist_albums_url(id: &str, store: &str) -> String {
     )
 }
 
-/// The albums of an artist lookup whose title contains the requested one (editions included).
+/// The albums of an artist lookup that are the requested one (editions included).
 pub fn albums_titled(body: &Value, album: &str) -> Vec<SearchResult> {
-    let wanted = plain(album);
-    if wanted.is_empty() {
-        return Vec::new();
-    }
     parse_search(body)
         .results
         .into_iter()
-        .filter(|r| plain(&r.title).contains(&wanted))
+        .filter(|r| is_titled(&r.title, album))
         .collect()
 }
 
@@ -495,6 +513,30 @@ mod tests {
             &parse_search(&museum),
             "Muse",
             "Greatest Hits"
+        ));
+        // Whole titles only: "Wake Up" is not "Up", an edition of "Up" is, and so is an edition-style
+        // request for a plainer title.
+        let wake = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 11, "collectionName": "Wake Up", "artistName": "Artist A"}
+        ]});
+        assert!(!holds_album(&parse_search(&wake), "Artist A", "Up"));
+        let up = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 12, "collectionName": "Up - Deluxe", "artistName": "Artist A"},
+            {"wrapperType": "collection", "collectionId": 13, "collectionName": "Up [2017 Remaster]", "artistName": "Artist A"},
+            {"wrapperType": "collection", "collectionId": 14, "collectionName": "Wake Up", "artistName": "Artist A"}
+        ]});
+        assert!(holds_album(&parse_search(&up), "Artist A", "Up"));
+        assert_eq!(
+            albums_titled(&up, "Up")
+                .iter()
+                .map(|r| r.id.as_str())
+                .collect::<Vec<_>>(),
+            ["12", "13"]
+        );
+        assert!(holds_album(
+            &parse_search(&up),
+            "Artist A",
+            "Up (Deluxe Edition)"
         ));
         let duo = serde_json::json!({"results": [
             {"wrapperType": "collection", "collectionId": 10, "collectionName": "Greatest Hits", "artistName": "Armin van Buuren"}
