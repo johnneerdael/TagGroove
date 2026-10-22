@@ -688,6 +688,18 @@ mod tests {
             .unwrap_err()
             .contains("rate limit"));
     }
+
+    #[test]
+    fn a_token_last_fm_will_not_accept_again_says_to_start_again() {
+        // The sign-in dialog offers Start for a new token when a message ends this way.
+        for code in [4, 15] {
+            let message = check(&serde_json::json!({ "error": code })).unwrap_err();
+            assert!(message.ends_with("Start again."), "{code}: {message}");
+        }
+        // Still waiting for the approval: Finish stays available, so this one does not.
+        let pending = check(&serde_json::json!({"error": 14})).unwrap_err();
+        assert!(!pending.ends_with("Start again."), "{pending}");
+    }
 }
 
 #[cfg(test)]

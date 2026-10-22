@@ -802,6 +802,7 @@ export class TagSourcesUI {
     };
     lastfm.start.addEventListener('click',async () => {
       lastfm.start.disabled = true;
+      dialog.querySelector('.dialog-error')?.remove();
       try {
         const request = await this.host.invoke<{token:string;url:string}>('lastfm_sign_in_start');
         lastfmToken = request.token;
@@ -818,7 +819,13 @@ export class TagSourcesUI {
     lastfm.finish.addEventListener('click',async () => {
       lastfm.finish.disabled = true;
       try { lastfmShow(await this.host.invoke<TagSourceCredentials>('lastfm_sign_in_finish',{token:lastfmToken})); }
-      catch (e) { showError(String(e)); }
+      catch (e) {
+        const message = String(e);
+        showError(message);
+        // A token Last.fm will not accept again (expired, refused) comes with "Start again.": offer Start for a new one
+        // instead of resubmitting it. "Not approved yet" and network failures keep Finish for another try.
+        if (/Start again\.\s*$/.test(message)) { lastfmToken = ''; lastfm.steps.hidden = true; lastfm.url.hidden = true; lastfm.finish.hidden = true; lastfm.start.hidden = false; }
+      }
       lastfm.finish.disabled = false;
     });
     lastfm.out.addEventListener('click',async () => {

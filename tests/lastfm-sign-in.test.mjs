@@ -5,7 +5,7 @@ import {loadProductionModule} from './helpers/load-production-module.mjs';
 const {TagSourcesUI}=await loadProductionModule('tag-sources.ts');
 const url='https://www.last.fm/api/auth/?api_key=app&token=tok';
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
-async function run(openPage,check){
+async function run(openPage,check,finish=async()=>({lastfm_available:true,lastfm_can_sign_in:true,lastfm_user:'someone'})){
   const window=new Window({url:'http://localhost:1420'}),calls=[];
   const saved=Object.fromEntries(['window','document'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
   globalThis.window=window;globalThis.document=window.document;
@@ -15,7 +15,7 @@ async function run(openPage,check){
       if(command==='load_tag_source_settings')return{lastfm_available:true,lastfm_can_sign_in:true,lastfm_user:''};
       if(command==='lastfm_sign_in_start')return{token:'tok',url};
       if(command==='tag_source_open_page')return openPage();
-      if(command==='lastfm_sign_in_finish')return{lastfm_available:true,lastfm_can_sign_in:true,lastfm_user:'someone'};
+      if(command==='lastfm_sign_in_finish')return finish();
       throw Error('Unexpected command '+command);
     }};
   try{await check({ui:new TagSourcesUI(host),calls,q:selector=>document.querySelector(selector)});}
@@ -58,4 +58,30 @@ test('where no browser can be opened the approval address is shown and sign-in s
     assert.equal(q('#ts-lastfm-url').hidden,true);
     assert.ok(calls.some(([command])=>command==='lastfm_sign_in_finish'));
   });
+});
+
+test('an expired or refused token brings Start back; a token still waiting for approval keeps Finish',async()=>{
+  const expired=async env=>{
+    const {q,calls}=env;
+    await signIn(env);
+    q('#ts-lastfm-finish').click();
+    for(let i=0;i<6;i++)await tick();
+    assert.match(q('.dialog-error').textContent,/Start again/);
+    assert.equal(q('#ts-lastfm-start').hidden,false);assert.equal(q('#ts-lastfm-finish').hidden,true);assert.equal(q('#ts-lastfm-steps').hidden,true);
+    // Starting again asks for a new token and clears the old message.
+    q('#ts-lastfm-start').click();
+    for(let i=0;i<6;i++)await tick();
+    assert.equal(calls.filter(([command])=>command==='lastfm_sign_in_start').length,2);
+    assert.equal(q('.dialog-error'),null);
+    assert.equal(q('#ts-lastfm-finish').hidden,false);
+  };
+  await run(async()=>undefined,expired,async()=>{throw 'The Last.fm sign-in link expired. Start again.';});
+  await run(async()=>undefined,async env=>{
+    const {q}=env;
+    await signIn(env);
+    q('#ts-lastfm-finish').click();
+    for(let i=0;i<6;i++)await tick();
+    assert.match(q('.dialog-error').textContent,/not approved yet/);
+    assert.equal(q('#ts-lastfm-finish').hidden,false);assert.equal(q('#ts-lastfm-start').hidden,true);
+  },async()=>{throw 'TagGroove is not approved yet. Approve it on the Last.fm page in your browser, then choose Finish.';});
 });
