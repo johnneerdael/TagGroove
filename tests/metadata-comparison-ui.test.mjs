@@ -144,3 +144,72 @@ test('capturing current metadata preserves search terms already edited while the
  resolve({token:'fresh',files:[{path:'/a.flac',fields:{...local[0].fields,TITLE:['Current native title']},duration:300,covers:local[0].covers}]});await opening;
  assert.equal(main().querySelector('[data-query-title]').value,'My chosen search');close();
 });
+
+test('a failed provider stays visible and retrying it preserves another provider choice',async()=>{
+ let failed=true;
+ const s=setup({invoke:async(command,args,defaults)=>{
+  if(command==='tag_source_search'&&args.provider==='discogs'&&failed)throw Error('Provider temporarily unavailable');
+  return defaults(command,args);
+ }});
+ await s.ui.open();await search();choose('ARTIST','native:musicbrainz');
+ main().querySelector('[data-sources]').click();let sources=document.querySelector('dialog.metadata-comparison-sources');assert.match(sources.textContent,/Provider temporarily unavailable/);
+ sources.querySelector('[data-source-details="native:discogs"]').click();failed=false;
+ const before=s.calls.filter(c=>c.command==='tag_source_search').length;
+ sources.querySelector('[data-retry-source]').click();for(let i=0;i<8;i++)await tick();
+ assert.equal(s.calls.filter(c=>c.command==='tag_source_search').length,before+1);
+ sources.querySelector('[data-close]').click();assert.match(main().querySelector('[data-field="ARTIST"] [data-pick-field]').textContent,/MusicBrainz/);close();
+});
+
+test('a newly enabled installed source exposes editable declared inputs and can search on its own',async()=>{
+ const web={id:'custom.src',menu:'My source',name:'Custom metadata',search_by:[{label:'Artist',format:'%artist%'},{label:'Catalog number',format:''}],direct:false};
+ const s=setup({invoke:async(command,args,defaults)=>{
+  if(command==='web_sources_list')return{folder:'/sources',sources:[web],settings:[],problems:[]};
+  if(command==='web_source_search')return{columns:['Title'],results:[{url:'https://example.invalid/release/1',cover:null,preview:null,values:['Compilation']}],direct:false};
+  if(command==='web_source_release')return sourceRelease('web');
+  return defaults(command,args);
+ }});
+ await s.ui.open();main().querySelector('[data-sources]').click();const d=document.querySelector('dialog.metadata-comparison-sources');d.querySelector('[data-source-details="web:custom.src"]').click();await tick();
+ const input=d.querySelector('[data-source-input="1"]');assert.ok(input,'Declared input is editable before the first search');input.value='MY-CATALOG';
+ d.querySelector('[data-retry-source]').click();for(let i=0;i<8;i++)await tick();
+ const request=s.calls.find(c=>c.command==='web_source_search');assert.deepEqual(request.args.values,['Resolved words','MY-CATALOG']);
+ assert.equal(s.calls.filter(c=>c.command==='tag_source_search').length,0);d.querySelector('[data-close]').click();close();
+});
+
+test('partial album saves list completed files and retry only failed immutable targets once',async()=>{
+ let finish;const s=setup({apply:async(items)=>new Promise(resolve=>finish=resolve)});
+ await s.ui.open();choose('COMMENT','none');main().querySelector('[data-review]').click();let review=document.querySelector('dialog.metadata-comparison-review');
+ const save=review.querySelector('[data-save]');save.click();save.click();await tick();assert.equal(s.written.length,1);
+ const refreshed=originals();refreshed[0].fields.COMMENT=[];s.setFiles(refreshed);
+ finish({succeeded:['/a.flac'],failed:[{path:'/b.flac',error:'File temporarily busy'}]});await tick();
+ review=document.querySelector('dialog.metadata-comparison-review');assert.ok(review);assert.match(review.querySelector('[data-completed]').textContent,/a.flac/);assert.match(review.textContent,/File temporarily busy/);
+ review.querySelector('[data-save]').click();await tick();assert.equal(s.written.length,2);assert.deepEqual(s.written[1].items,[{path:'/b.flac',updates:{COMMENT:[]},comparison_snapshot:'snapshot-1'}]);
+ finish({succeeded:['/b.flac'],failed:[]});await tick();assert.equal(main(),null);
+});
+
+test('closing pending reads or searches ignores their late replies and never writes',async()=>{
+ for(const command of ['tag_source_comparison_snapshot','tag_source_search']){
+  let resolve;const s=setup({invoke:async(cmd,args,defaults)=>cmd===command?new Promise(done=>resolve=()=>done(cmd==='tag_source_comparison_snapshot'?'snapshot-late':{results:[result()],total:1})):defaults(cmd,args)});
+  const opening=s.ui.open();await tick();if(command==='tag_source_search'){await opening;main().querySelector('[data-search]').click();await tick();}
+  close();resolve();await opening;for(let i=0;i<5;i++)await tick();assert.equal(main(),null);assert.equal(s.written.length,0);assert.ok(s.calls.some(c=>c.command==='tag_source_comparison_cancel'));
+ }
+});
+
+test('a native stale-snapshot rejection keeps the reviewed choices visible for inspection',async()=>{
+ const s=setup({apply:async()=>({succeeded:[],failed:[{path:'/a.flac',error:'Metadata changed since review'},{path:'/b.flac',error:'Metadata changed since review'}]})});
+ await s.ui.open();choose('COMMENT','none');main().querySelector('[data-review]').click();document.querySelector('[data-save]').click();await tick();
+ assert.match(document.querySelector('dialog.metadata-comparison-review').textContent,/Metadata changed since review/);assert.match(main().querySelector('[data-field="COMMENT"]').textContent,/None/);
+ document.querySelector('dialog.metadata-comparison-review [data-close]').click();close();
+});
+
+test('reordered multi-disc tracks keep their own sparse values and invalidate replaced source choices',async()=>{
+ const local=originals();local[1].disc='2';local[1].fields.CUSTOM_CREDIT=['Keep my second credit'];
+ const s=setup({local:[local[1],local[0]],invoke:async(command,args,defaults)=>{
+  if(command==='tag_source_release'){const release=sourceRelease(args.provider);delete release.tracks[1].fields.CUSTOM_CREDIT;release.tracks.reverse();return release;}
+  return defaults(command,args);
+ }});
+ await s.ui.open();await search();choose('ARTIST','native:musicbrainz');choose('ALBUMARTIST','native:discogs');choose('CUSTOM_CREDIT','native:musicbrainz');choose('COMMENT','none');
+ main().querySelector('[data-sources]').click();let detail=document.querySelector('dialog.metadata-comparison-sources');detail.querySelector('[data-source-details="native:musicbrainz"]').click();detail.querySelector('[data-load-result]').click();for(let i=0;i<6;i++)await tick();detail.querySelector('[data-close]').click();
+ assert.match(main().querySelector('[data-field="ARTIST"] [data-pick-field]').textContent,/Inherit/);assert.match(main().querySelector('[data-field="ALBUMARTIST"] [data-pick-field]').textContent,/Discogs/);
+ choose('ARTIST','native:musicbrainz');choose('CUSTOM_CREDIT','native:musicbrainz');main().querySelector('[data-review]').click();const review=document.querySelector('dialog.metadata-comparison-review');assert.match(review.textContent,/missing provider values keep/);review.querySelector('[data-save]').click();await tick();
+ assert.deepEqual(s.written[0].items,[{path:'/a.flac',updates:{ALBUMARTIST:['Various Artists'],COMMENT:[],ARTIST:['Artist A feat. Guest'],CUSTOM_CREDIT:['First','Second']},comparison_snapshot:'snapshot-1'},{path:'/b.flac',updates:{ALBUMARTIST:['Various Artists'],COMMENT:[]},comparison_snapshot:'snapshot-1'}]);
+});

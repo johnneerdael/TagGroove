@@ -221,8 +221,14 @@ export class ComparisonSearchSession {
   }
 
   async retry(sourceId:string,terms?:ComparisonTerms):Promise<void> {
+    if(!this.ticket)this.ticket=this.host.nextTicket();
     if(terms && this.states.has(sourceId))this.sourceTerms.set(sourceId,structuredClone(terms));
     await this.searchSource(sourceId,false);
+  }
+  async searchOne(source:ComparisonSource,scope:ComparisonScope,files:SourceFile[],terms:ComparisonTerms):Promise<void> {
+    this.scope=scope;this.files=structuredClone(files);this.terms=structuredClone(terms);
+    if(!this.states.has(source.id))this.publish({source,status:'searching',results:[],page:0,total:null,canMore:false});
+    await this.retry(source.id,terms);
   }
   async more(sourceId:string):Promise<void> { if(this.states.get(sourceId)?.canMore)await this.searchSource(sourceId,true); }
   cancel():void {

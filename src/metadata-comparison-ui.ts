@@ -40,6 +40,7 @@ export class MetadataComparisonUI {
   private termsEdited=false;
   private sources:ComparisonSource[]=[];
   private selected=new Set<string>();
+  private webValues=new Map<string,string[]>();
   private choices:Record<string,ComparisonChoice>=Object.create(null);
   private artwork:ComparisonChoice=inherit();
   private session:ComparisonSearchSession;
@@ -132,6 +133,11 @@ export class MetadataComparisonUI {
       }
       this.dialog.querySelector<HTMLElement>('[data-group-warning]')!.hidden=!this.mixed;
       this.sources=comparisonSources(credentials||null,listing||emptyListing(),local?{localFreedbAvailable:!!local.directory}:{});
+      await Promise.all(this.sources.filter(source=>source.web).map(async source=>{
+        const values=await Promise.all(source.web!.search_by.map(field=>field.format?this.host.evaluate(this.files[0].path,field.format).catch(()=>''):Promise.resolve('')));
+        this.webValues.set(source.id,values);
+      }));
+      if(this.closed)return;
       // Installed scripts expose their declared inputs; enable them explicitly in Sources.
       this.selected=new Set(this.sources.filter(source=>source.selected&&!source.web).map(source=>source.id));
       this.ready=true;this.renderFields();this.sync();
@@ -318,9 +324,10 @@ export class MetadataComparisonUI {
     if(!this.child)return;this.detailSource=sourceId;
     const source=this.sources.find(source=>source.id===sourceId);if(!source)return;
     const state=this.session.states.get(sourceId),candidate=state?.candidate;
-    const inputs=state?.input?.inputs||[];
+    const inputs=state?.input?.inputs||(source.web?source.web.search_by.map((field,index)=>({key:String(index),label:field.label,value:this.webValues.get(source.id)?.[index]||''})):[]);
     this.child.querySelector('[data-child-body]')!.innerHTML=`<button type="button" class="mc-text-action" data-all-sources>← All sources</button><h3 translate="no">${html(source.label)}</h3><p class="mc-hint">${html(source.setupReason||this.stateLabel(state))}</p>
       ${inputs.length?`<div class="mc-source-inputs">${inputs.map(input=>`<label class="field"><span translate="no">${html(input.label)}</span><input data-source-input="${html(input.key)}" value="${html(input.value)}"></label>`).join('')}</div>`:''}
+      ${source.provider==='acoustid'?'<p class="mc-hint">AcoustID reads each selected file to calculate an audio fingerprint. Enable it when you want recording identification.</p>':''}
       ${source.setupReason?'':`<button type="button" data-retry-source="${html(sourceId)}">${state?.status==='failed'?'Retry this source':'Search this source'}</button>`}
       ${state?.results.length?`<ol class="mc-candidate-list">${state.results.map((result,index)=>`<li><span translate="no">${html([result.artist,result.title,result.release_title,result.year,result.catalog_number].filter(Boolean).join(' · '))}</span><button type="button" data-load-result="${index}" data-result-id="${html(result.id)}" data-result-track="${html(result.track_id||'')}">Use this result</button></li>`).join('')}</ol>`:''}
       ${state?.canMore?'<button type="button" data-more-results>More results</button>':''}
@@ -339,11 +346,12 @@ export class MetadataComparisonUI {
       if(button.dataset.retrySource){
         const id=button.dataset.retrySource,source=this.sources.find(source=>source.id===id)!;
         const terms=structuredClone(this.terms),inputs=[...this.child!.querySelectorAll<HTMLInputElement>('[data-source-input]')];
-        if(source.web){terms.webValues={...(terms.webValues||{}),[id]:inputs.map(input=>input.value)};}
+        if(source.web){const values=inputs.map(input=>input.value);this.webValues.set(id,values);terms.webValues={...(terms.webValues||{}),[id]:values};}
         else for(const input of inputs)if(['artist','title','albumArtist','album'].includes(input.dataset.sourceInput!))terms[input.dataset.sourceInput as 'artist'|'title'|'albumArtist'|'album']=input.value;
         const disc=inputs.find(input=>input.dataset.sourceInput==='disc')?.value;
         if(disc)void this.session.load(id,{id:disc,title:disc,artist:'',year:'',country:'',label:'',catalog_number:'',format:'',track_count:null,score:null,barcode:'',thumb:null,url:''});
-        else void this.session.retry(id,terms);
+        else if(this.scopeAllowed()&&this.selectionValid())void this.session.searchOne(source,this.scope,this.files,terms);
+        else this.error('The local file selection or metadata changed. Close comparison and start again.',this.child!);
       }
       if(button.hasAttribute('data-load-result')&&this.detailSource){
         const row=this.session.states.get(this.detailSource)?.results[Number(button.dataset.loadResult)];
@@ -386,7 +394,7 @@ export class MetadataComparisonUI {
   }
   private reviewBody() {
     const child=this.openChild('review','Review changes',`${this.pending.length} file${this.pending.length===1?'':'s'} to save${this.completed.size?` · ${this.completed.size} already saved`:''}`,
-      `<table class="ts-table mc-preview"><thead><tr><th>File</th><th>Changes</th></tr></thead><tbody>${this.pending.map(item=>`<tr><th translate="no">${html(this.files.find(file=>file.path===item.path)?.name||item.path)}</th><td>${Object.entries(item.updates).map(([field,values])=>`<div><strong translate="no">${html(fieldLabel(field))}</strong>: ${values.length?`<span translate="no">${html(values.join(MULTI))}</span>`:'<span class="mc-removal">Remove field</span>'}</div>`).join('')}${item.remove_covers?'<div class="mc-removal">Remove existing artwork</div>':this.frozen?.cover?'<div>Import selected artwork</div>':''}${this.failed.filter(error=>error.path===item.path).map(error=>`<p class="mc-removal">${html(error.error)}</p>`).join('')}</td></tr>`).join('')}</tbody></table>
+      `${this.completed.size?`<section data-completed><h3>Saved files</h3><ul>${[...this.completed].map(path=>`<li translate="no">${html(path)}</li>`).join('')}</ul></section>`:''}<table class="ts-table mc-preview"><thead><tr><th>File</th><th>Changes</th></tr></thead><tbody>${this.pending.map(item=>`<tr><th translate="no">${html(item.path)}</th><td>${Object.entries(item.updates).map(([field,values])=>`<div><strong translate="no">${html(fieldLabel(field))}</strong>: ${values.length?`<span translate="no">${html(values.join(MULTI))}</span>`:'<span class="mc-removal">Remove field</span>'}</div>`).join('')}${item.remove_covers?'<div class="mc-removal">Remove existing artwork</div>':this.frozen?.cover?'<div>Import selected artwork</div>':''}${this.failed.filter(error=>error.path===item.path).map(error=>`<p class="mc-removal">${html(error.error)}</p>`).join('')}</td></tr>`).join('')}</tbody></table>
       ${this.frozen?.missing.length?`<p class="mc-hint">${this.frozen.missing.length} missing provider values keep their existing values.</p>`:''}
       <p class="mc-hint">Fields set to Inherit are unchanged. Only the selected files are written.</p><div class="mc-child-actions"><button type="button" data-close>${this.completed.size?'Close comparison':'Back to fields'}</button><button type="button" class="primary" data-save>${this.completed.size?'Retry failed files':`Save ${this.pending.length} file${this.pending.length===1?'':'s'}`}</button></div>`);
     child.addEventListener('click',event=>{if((event.target as Element).closest('[data-save]'))void this.save();});
