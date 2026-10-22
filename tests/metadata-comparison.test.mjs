@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {loadProductionModule} from './helpers/load-production-module.mjs';
 
-const {comparisonFields,comparisonExample,comparisonTrackMatches,buildComparisonPreview,comparisonSelectionKey}=await loadProductionModule('metadata-comparison.ts');
+const {comparisonFields,comparisonExample,comparisonTrackMatches,buildComparisonPreview,comparisonSelectionKey,sameName}=await loadProductionModule('metadata-comparison.ts');
 const file=(path,fields,extra={})=>({path,name:path.split('/').pop(),title:fields.TITLE?.[0]||'',artist:fields.ARTIST?.[0]||'',album:fields.ALBUM?.[0]||'',album_artist:fields.ALBUMARTIST?.[0]||'',track:fields.TRACK?.[0]||'',disc:'1',length:300,fields,...extra});
 const files=()=>[
   file('/a.flac',{TITLE:['One (Extended Mix)'],ARTIST:['Artist A'],ALBUM:['Compilation'],ALBUMARTIST:['VA'],COMMENT:['Personal A'],DJ_COLLECTION:['Late night','Warm-up']}),
@@ -138,4 +138,9 @@ test('a selection key ignores field-key ordering but detects edited values and r
   copy[0].fields.COMMENT=['New note'];
   assert.notEqual(comparisonSelectionKey(local),comparisonSelectionKey(copy));
   assert.notEqual(comparisonSelectionKey(local),comparisonSelectionKey([...local].reverse()));
+});
+
+test('names compare apart from case, accents, punctuation and spacing',()=>{
+  assert.ok(sameName('R.E.M.','REM')&&sameName('R.E.M','r.e.m.')&&sameName('Beyoncé','BEYONCE'));
+  assert.ok(!sameName('R.E.M.','R.E.M. Tribute')&&!sameName('','')&&!sameName('Document','Automatic'));
 });

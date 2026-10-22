@@ -129,6 +129,76 @@ pub fn search_query(query: &SearchQuery, store: &str) -> Result<String, String> 
     url.map(String::from).map_err(|e| e.to_string())
 }
 
+/// Letters and digits only, lower-cased: "R.E.M.", "R.E.M" and "rem" compare equal.
+fn plain(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+/// Does an album search answer hold the album that was asked for? iTunes ranks album searches
+/// by popularity and can leave a catalogue album out entirely.
+pub fn holds_album(page: &SearchPage, album: &str) -> bool {
+    let wanted = plain(album);
+    !wanted.is_empty()
+        && page
+            .results
+            .iter()
+            .any(|r| plain(&r.title).contains(&wanted))
+}
+
+/// Step one of the artist fallback: the artists called this.
+pub fn artist_search_url(artist: &str, store: &str) -> Result<String, String> {
+    reqwest::Url::parse_with_params(
+        &format!("{API}/search"),
+        &[
+            ("term", artist.trim()),
+            ("media", "music"),
+            ("entity", "musicArtist"),
+            ("limit", "10"),
+            ("country", &country(store)),
+        ],
+    )
+    .map(String::from)
+    .map_err(|e| e.to_string())
+}
+
+/// The artists whose name equals the requested one apart from punctuation and case (the same
+/// artist can have several IDs), at most three.
+pub fn artist_ids(body: &Value, artist: &str) -> Vec<String> {
+    let wanted = plain(artist);
+    results(body)
+        .iter()
+        .filter(|r| text(r, "wrapperType") == "artist" && plain(&text(r, "artistName")) == wanted)
+        .filter_map(|r| number(r, "artistId").filter(|id| *id > 0))
+        .map(|id| id.to_string())
+        .take(3)
+        .collect()
+}
+
+/// Step two: every album of one artist, which lists albums the album search leaves out.
+pub fn artist_albums_url(id: &str, store: &str) -> String {
+    format!(
+        "{API}/lookup?id={id}&entity=album&limit={LOOKUP_LIMIT}&country={}",
+        country(store)
+    )
+}
+
+/// The albums of an artist lookup whose title contains the requested one (editions included).
+pub fn albums_titled(body: &Value, album: &str) -> Vec<SearchResult> {
+    let wanted = plain(album);
+    if wanted.is_empty() {
+        return Vec::new();
+    }
+    parse_search(body)
+        .results
+        .into_iter()
+        .filter(|r| plain(&r.title).contains(&wanted))
+        .collect()
+}
+
 /// `1440841180`, `id1440841180` or an Apple Music / iTunes album address.
 pub fn release_id(input: &str) -> Result<String, String> {
     let input = input.trim();
@@ -348,6 +418,59 @@ pub fn parse_release(body: &Value, size: CoverSize) -> Result<SourceRelease, Str
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_album_the_search_leaves_out_is_found_through_the_artist() {
+        // iTunes answers "R.E.M. Automatic For The People" with Document and an unrelated single.
+        let answer = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 1, "collectionName": "Document", "artistName": "R.E.M."},
+            {"wrapperType": "collection", "collectionId": 2, "collectionName": "Kill For The Steel - Single", "artistName": "King Gizzard"}
+        ]});
+        let page = parse_search(&answer);
+        assert!(!holds_album(&page, "Automatic For The People"));
+        assert!(
+            !holds_album(&page, ""),
+            "no album asked for, nothing to look for"
+        );
+        let found = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 1440949853, "collectionName": "Automatic For The People", "artistName": "R.E.M."}
+        ]});
+        assert!(holds_album(
+            &parse_search(&found),
+            "automatic for the people"
+        ));
+
+        // The artists: punctuation and case do not matter, other artists do.
+        let artists = serde_json::json!({"results": [
+            {"wrapperType": "artist", "artistName": "R.E.M.", "artistId": 311145},
+            {"wrapperType": "artist", "artistName": "R.E.M", "artistId": 1832690355u64},
+            {"wrapperType": "artist", "artistName": "REM Tribute", "artistId": 9},
+            {"wrapperType": "collection", "artistName": "R.E.M.", "artistId": 77}
+        ]});
+        assert_eq!(artist_ids(&artists, "R.E.M."), ["311145", "1832690355"]);
+        assert_eq!(
+            artist_search_url("R.E.M.", "nl").unwrap(),
+            "https://itunes.apple.com/search?term=R.E.M.&media=music&entity=musicArtist&limit=10&country=NL"
+        );
+        assert_eq!(
+            artist_albums_url("311145", "not a store"),
+            "https://itunes.apple.com/lookup?id=311145&entity=album&limit=200&country=US"
+        );
+
+        // The artist's albums: every edition of the album, nothing else.
+        let albums = serde_json::json!({"results": [
+            {"wrapperType": "artist", "artistName": "R.E.M.", "artistId": 311145},
+            {"wrapperType": "collection", "collectionId": 1440949853, "collectionName": "Automatic For The People", "artistName": "R.E.M."},
+            {"wrapperType": "collection", "collectionId": 1440947163, "collectionName": "Automatic For The People (25th Anniversary Edition) [2017 Remaster]", "artistName": "R.E.M."},
+            {"wrapperType": "collection", "collectionId": 5, "collectionName": "Murmur", "artistName": "R.E.M."}
+        ]});
+        let titled = albums_titled(&albums, "Automatic For The People");
+        assert_eq!(
+            titled.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+            ["1440949853", "1440947163"]
+        );
+        assert!(albums_titled(&albums, "").is_empty());
+    }
+
     use super::*;
 
     fn fixture() -> Value {

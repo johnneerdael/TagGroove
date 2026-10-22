@@ -233,3 +233,30 @@ test('comparison UI labels translate while provider values, custom field names a
  assert.equal(main().querySelector('header').textContent,'Metadaten vergleichen');assert.match(main().querySelector('[data-field="ARTIST"]').textContent,/Unterschiedlich/);
  assert.equal(main().querySelector('[data-field="Title"] th span').textContent,'Title');assert.equal(main().querySelector('[data-field="Title"] .mc-value').textContent,'Save');close();
 });
+
+test('a source with several editions offers an Edition list that loads the chosen one and confirms it',async()=>{
+ const editions=[{...result(),id:'release:1',title:'Compilation',year:'1992',country:'US',catalog_number:'CAT-1'},{...result(),id:'release:2',title:'Compilation',year:'2017',country:'UK',catalog_number:'CAT-2'},{...result(),id:'release:3',title:'Compilation',year:'2017',country:'DE',catalog_number:'CAT-3'}];
+ const loaded=[];
+ const s=setup({invoke:async(command,args,defaults)=>{
+  if(command==='tag_source_search'&&args.provider==='musicbrainz')return{results:editions,total:3};
+  if(command==='tag_source_release'&&args.provider==='musicbrainz'){loaded.push(args.input);return{...sourceRelease('musicbrainz'),id:args.input};}
+  return defaults(command,args);
+ }});
+ await s.ui.open();await search();
+ main().querySelector('[data-sources]').click();
+ const panel=()=>document.querySelector('dialog.metadata-comparison-sources');
+ const select=()=>panel().querySelector('select[data-edition="native:musicbrainz"]');
+ // Several editions with the same title: the first is only suggested, and the list shows them all.
+ assert.deepEqual(loaded,['release:1']);
+ assert.match(panel().textContent,/Choose the matching result/);
+ assert.deepEqual([...select().options].map(option=>option.textContent),['Various Artists · Compilation · 1992 · US · Label · CAT-1 · Album','Various Artists · Compilation · 2017 · UK · Label · CAT-2 · Album','Various Artists · Compilation · 2017 · DE · Label · CAT-3 · Album']);
+ assert.equal(select().value,'0');
+ // A source with a single result needs no list.
+ assert.equal(panel().querySelector('select[data-edition="native:deezer"]'),null);
+ // Choosing an edition loads that release and confirms the source.
+ select().value='2';select().dispatchEvent(new s.w.Event('change',{bubbles:true}));
+ for(let i=0;i<8;i++)await tick();
+ assert.deepEqual(loaded,['release:1','release:3']);
+ assert.equal(select().value,'2','the list keeps showing the chosen edition');
+ assert.match(panel().querySelector('select[data-edition="native:musicbrainz"]').closest('.mc-source-item').textContent,/Ready/);
+});

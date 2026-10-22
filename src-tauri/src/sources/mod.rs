@@ -345,15 +345,31 @@ pub async fn tag_source_search(
             parse_search_response(provider, query.mode, &body)
         }
         Provider::Itunes => {
+            let service = service(provider, String::new());
             let url = itunes::search_query(&query, &online().itunes_country)?;
-            let body = http::json(
-                &service(provider, String::new()),
-                &url,
-                Channel::Search,
-                ticket,
-            )
-            .await?;
-            parse_search_response(provider, query.mode, &body)
+            let body = http::json(&service, &url, Channel::Search, ticket).await?;
+            let mut page = parse_search_response(provider, query.mode, &body)?;
+            // iTunes ranks album searches by popularity and can leave a catalogue album out
+            // (R.E.M.'s "Automatic For The People"). When the answer holds no album of the requested
+            // title, add the artist's own albums of that title.
+            if query.mode == model::SearchMode::ArtistAlbum
+                && !query.artist.trim().is_empty()
+                && !itunes::holds_album(&page, &query.album)
+            {
+                match itunes_artist_albums(&service, &query, ticket).await {
+                    Ok(mut found) => {
+                        found.retain(|f| !page.results.iter().any(|r| r.id == f.id));
+                        if !found.is_empty() {
+                            page.results.splice(0..0, found);
+                            page.total = Some(page.results.len() as u32);
+                        }
+                    }
+                    // A stopped search stays stopped; any other failure keeps the first answer.
+                    Err(error) if error == http::CANCELLED => return Err(error),
+                    Err(_) => {}
+                }
+            }
+            Ok(page)
         }
         Provider::Deezer => {
             let service = service(provider, String::new());
@@ -410,6 +426,34 @@ pub async fn tag_source_search(
 
 async fn required_key_for_fanart(app: &tauri::AppHandle) -> Result<http::Service, String> {
     fanart_service(&saved_credentials(app).await?.fanart_key)
+}
+
+/// The artist's albums of the requested title, from the artist's own album list.
+async fn itunes_artist_albums(
+    service: &http::Service,
+    query: &SearchQuery,
+    ticket: u64,
+) -> Result<Vec<model::SearchResult>, String> {
+    let store = online().itunes_country;
+    let artists = http::json(
+        service,
+        &itunes::artist_search_url(&query.artist, &store)?,
+        Channel::Search,
+        ticket,
+    )
+    .await?;
+    let mut found = Vec::new();
+    for id in itunes::artist_ids(&artists, &query.artist) {
+        let body = http::json(
+            service,
+            &itunes::artist_albums_url(&id, &store),
+            Channel::Search,
+            ticket,
+        )
+        .await?;
+        found.extend(itunes::albums_titled(&body, &query.album));
+    }
+    Ok(found)
 }
 
 /// LRCLIB: each selected file's lyrics (one result for all of them), or a

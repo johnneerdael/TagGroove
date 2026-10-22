@@ -110,7 +110,11 @@ const identities = (fields:Fields) => Object.entries(fields).filter(([name,value
 const trackHasId = (track:SourceTrack,id:string) => identities(track.fields).some(([,values]) => values.includes(id));
 
 /** Suggest only unambiguous mappings; positions alone are not identity evidence. */
-export function comparisonTrackMatches(files:SourceFile[],release:SourceRelease,trackId?:string):Record<string,number|null> {
+/** The same name apart from case, accents, punctuation and spacing ("R.E.M." and "R.E.M" and "REM"). */
+export const sameName = (a:string,b:string) => { const key=(value:string)=>normalized(value).replace(/ /g,''); return key(a)!=='' && key(a)===key(b); };
+
+/** `ignoreDuration`: for a provider whose track lengths are only approximate (Last.fm), where title and artist decide. */
+export function comparisonTrackMatches(files:SourceFile[],release:SourceRelease,trackId?:string,{ignoreDuration=false}:{ignoreDuration?:boolean}={}):Record<string,number|null> {
   const possible = files.map(file => {
     if (files.length === 1 && trackId) return release.tracks.flatMap((track,index) => trackHasId(track,trackId) ? [index] : []);
     const own = identities(comparisonExisting(file));
@@ -118,7 +122,7 @@ export function comparisonTrackMatches(files:SourceFile[],release:SourceRelease,
     if (comparable) return release.tracks.flatMap((track,index) => own.some(([name,values]) => track.fields[name]?.some(value => values.includes(value))) ? [index] : []);
     if (!normalized(file.title) || !normalized(file.artist)) return [];
     return release.tracks.flatMap((track,index) => {
-      const durationMatches = !(file.length > 0 && track.length != null && track.length > 0) || Math.abs(file.length-track.length) <= 3;
+      const durationMatches = ignoreDuration || !(file.length > 0 && track.length != null && track.length > 0) || Math.abs(file.length-track.length) <= 3;
       return durationMatches && normalized(file.title) === normalized(track.title) && normalized(file.artist) === normalized(track.artist) ? [index] : [];
     });
   });

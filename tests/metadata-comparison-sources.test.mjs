@@ -258,3 +258,35 @@ test('an in-flight detail lookup cannot overwrite a later explicit track mapping
   resolveLate(release());await pending;
   assert.deepEqual(s.value.states.get('native:musicbrainz').candidate.tracks,{'/a.flac':1,'/b.flac':null});
 });
+
+test('a source with several results is ready when exactly one is the requested album, and asks for a choice between editions',async()=>{
+  const run=async results=>{
+    const s=session(async command=>command==='tag_source_search'?{results,total:results.length}:release('deezer'));
+    await s.value.search([source('deezer')],'album',files,terms);
+    return s.value.states.get('native:deezer');
+  };
+  // One exact album and an anniversary edition: nothing to choose between.
+  const exact=await run([row('album:1'),row('album:2',{title:'Compilation (25th Anniversary Edition)'})]);
+  assert.equal(exact.status,'ready');assert.equal(exact.confirmed,true);
+  // Punctuation and case do not matter for the artist or the title.
+  assert.equal((await run([row('album:1',{title:'COMPILATION',artist:'v.a.'}),row('album:2',{title:'Another'})])).status,'ready');
+  // The same album twice (editions of one title): the person chooses the edition.
+  assert.equal((await run([row('album:1'),row('album:2')])).status,'needs-match');
+  // The top result is not the requested album: it stays a suggestion.
+  const other=await run([row('album:1',{title:'Document',artist:'VA'}),row('album:2',{title:'Compilation (Live)'})]);
+  assert.equal(other.status,'needs-match');assert.equal(other.confirmed,false);
+});
+
+test('Last.fm matches tracks by title and artist even when its lengths are far off',async()=>{
+  const lastfm=release('lastfm');
+  lastfm.tracks=lastfm.tracks.map(track=>({...track,length:track.length+90}));
+  const s=session(async command=>command==='tag_source_search'?{results:[row()],total:1}:lastfm);
+  await s.value.search([source('lastfm')],'album',files,terms);
+  const state=s.value.states.get('native:lastfm');
+  assert.deepEqual(state.candidate.tracks,{'/a.flac':0,'/b.flac':1});
+  assert.equal(state.status,'ready');
+  // Another provider with the same lengths still needs an explicit match.
+  const strict=session(async command=>command==='tag_source_search'?{results:[row()],total:1}:{...release('deezer'),tracks:lastfm.tracks});
+  await strict.value.search([source('deezer')],'album',files,terms);
+  assert.deepEqual(strict.value.states.get('native:deezer').candidate.tracks,{'/a.flac':null,'/b.flac':null});
+});

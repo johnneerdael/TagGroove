@@ -922,6 +922,7 @@
  "Edit {label}": "Edit {label}",
  "Edited copy could not be read ({workingError}); backup: {e}": "Edited copy could not be read ({workingError}); backup: {e}",
  "Edited copy — includes pending tag changes": "Edited copy — includes pending tag changes",
+ "Edition": "Edition",
  "Edit…": "Edit…",
  "Else without If": "Else without If",
  "Embed an image from the clipboard in the selected files": "Embed an image from the clipboard in the selected files",

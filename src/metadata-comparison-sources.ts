@@ -1,6 +1,6 @@
 import type {Provider, SearchMode, SearchResult, SourceFile, SourceRelease, TagSourceCredentials} from './tag-sources';
 import type {WebListing, WebResult, WebSearchPage, WebSourceInfo} from './web-sources';
-import {comparisonTrackMatches} from './metadata-comparison';
+import {comparisonTrackMatches, sameName} from './metadata-comparison';
 import type {ComparisonCandidate, ComparisonScope} from './metadata-comparison';
 
 type NativeProvider = Exclude<Provider,'web'>;
@@ -16,12 +16,15 @@ export type ComparisonTerms = {artist:string;title:string;albumArtist:string;alb
 export type ComparisonQuery = {mode:SearchMode;artist:string;title:string;album:string;text:string;page:number;lengths:number[];files:{path:string;title:string;artist:string;album:string;track:string;disc:string;length:number}[]};
 export type NeedsInput = {kind:'needs-input';reason:string;inputs:{key:string;label:string;value:string}[]};
 export type ComparisonSearchResult = SearchResult & {webResult?:WebResult};
+export const comparisonResultKey = (result:ComparisonSearchResult) => `${result.id}|${result.track_id||''}`;
 type FingerprintMatches = Record<string,{recording:string;acoustid:string}[]>;
 export type ComparisonSourceState = {
   source:ComparisonSource;
   status:'needs-setup'|'needs-input'|'searching'|'loading'|'needs-match'|'ready'|'empty'|'failed'|'cancelled';
   results:ComparisonSearchResult[];page:number;total:number|null;canMore:boolean;
   candidate?:ComparisonCandidate;error?:unknown;input?:NeedsInput;confirmed?:boolean;fingerprints?:FingerprintMatches;
+  /** Which of `results` the candidate was loaded from (see `comparisonResultKey`), so the edition list can show it. */
+  resultKey?:string;
 };
 type SearchHost = {
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
@@ -164,6 +167,15 @@ export class ComparisonSearchSession {
     }
   }
 
+  /** Several results, but exactly one is the album (or track) that was asked for, by artist and title: no editions to choose between. */
+  private onlyExactResult(state:ComparisonSourceState,result:ComparisonSearchResult):boolean {
+    if(state.source.web)return false;
+    const terms=this.sourceTerms.get(state.source.id)||this.terms,track=this.scope==='track';
+    const title=track?terms.title:terms.album,artist=track?terms.artist:terms.albumArtist;
+    const exact=(row:ComparisonSearchResult)=>sameName(row.title,title)&&sameName(row.artist,artist);
+    return exact(result)&&state.results.filter(exact).length===1;
+  }
+
   async load(sourceId:string,result:ComparisonSearchResult):Promise<void> { await this.loadResult(sourceId,result,true); }
   private async loadResult(sourceId:string,result:ComparisonSearchResult,confirmed:boolean):Promise<void> {
     const state=this.states.get(sourceId);if(!state)return;
@@ -177,7 +189,8 @@ export class ComparisonSearchSession {
         {provider:source.provider,input:result.id,ticket,files:this.files.map(({path,title,artist,album,track,disc,length})=>({path,title,artist,album,track,disc,length}))},valid));
       if(!valid())return;
       const trackId=result.track_id || (result.id.startsWith('track:')?result.id.slice(6):undefined);
-      let tracks=comparisonTrackMatches(this.files,release,trackId),fingerprints:FingerprintMatches|undefined;
+      // Last.fm's track lengths are user-submitted and often far off, so for it the title and artist decide.
+      let tracks=comparisonTrackMatches(this.files,release,trackId,{ignoreDuration:source.provider==='lastfm'}),fingerprints:FingerprintMatches|undefined;
       if(source.provider==='lrclib' && result.id.startsWith('files:') && release.tracks.length===this.files.length) tracks=Object.fromEntries(this.files.map((file,index)=>[file.path,index]));
       if(source.provider==='acoustid') {
         fingerprints=await this.request<FingerprintMatches>('acoustid_file_matches',{},valid);
@@ -195,8 +208,8 @@ export class ComparisonSearchSession {
       const candidate:ComparisonCandidate={sourceId,revision:++this.revision,release,tracks};
       const matched=this.files.every(file=>tracks[file.path]!=null);
       const sharedOnly=!release.tracks.length && (release.covers.length>0 || Object.keys(release.fields).length>0);
-      const accepted=confirmed || state.results.length===1 && (state.total===null || state.total<=1);
-      this.publish({...this.states.get(sourceId)!,candidate,fingerprints,confirmed:accepted,status:(matched||sharedOnly)&&accepted?'ready':'needs-match'});
+      const accepted=confirmed || state.results.length===1 && (state.total===null || state.total<=1) || this.onlyExactResult(state,result);
+      this.publish({...this.states.get(sourceId)!,candidate,fingerprints,confirmed:accepted,resultKey:comparisonResultKey(result),status:(matched||sharedOnly)&&accepted?'ready':'needs-match'});
     }catch(error){if(valid())this.publish({...this.states.get(sourceId)!,status:'failed',error});}
   }
 
