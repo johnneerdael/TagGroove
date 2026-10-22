@@ -207,6 +207,8 @@ pub async fn after(
     }
     let headers = response.headers().clone();
     let (target, eligible) = challenged_target(&response, url, eligible);
+    // Cloudflare's markers are near the top of its pages, so a refusal larger than the cap is read
+    // only that far for the block check; a refusal that is not a block is handed back cut there.
     let mut body = Vec::new();
     while let Some(chunk) = response
         .chunk()
@@ -669,5 +671,37 @@ mod tests {
         let rebuilt = rebuild(StatusCode::OK, &headers, b"x".to_vec()).unwrap();
         assert!(rebuilt.headers().get(header::SET_COOKIE).is_none());
         assert!(rebuilt.headers().get(header::CONTENT_TYPE).is_some());
+    }
+
+    #[tokio::test]
+    async fn a_request_a_solver_cannot_take_is_sent_directly_even_to_a_redirecting_blocked_site() {
+        let from = Url::parse("https://app-cred-from.example/page").unwrap();
+        let to = Url::parse("https://app-cred-to.example/landing").unwrap();
+        let search = http::Channel::Search;
+        let _ = after(
+            cloudflare_block(Some(to.clone())),
+            &from,
+            "Site",
+            Eligibility::Allowed,
+            "text/html",
+            search,
+            0,
+        )
+        .await;
+        assert!(solver::is_blocked(&from) && solver::is_blocked(&to));
+        // A freedb handshake, a token request, an image or a form still go out directly.
+        for refused in [
+            Eligibility::Credentials,
+            Eligibility::Image,
+            Eligibility::Form,
+        ] {
+            assert!(
+                before(&from, "Site", refused, "text/html", search, 0)
+                    .await
+                    .unwrap()
+                    .is_none(),
+                "{refused:?}"
+            );
+        }
     }
 }

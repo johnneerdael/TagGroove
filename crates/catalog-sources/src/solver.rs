@@ -444,6 +444,23 @@ mod tests {
     }
 
     #[test]
+    fn clearing_forgets_the_redirects_remembered_with_the_blocks() {
+        let blocked = BlockedHosts::default();
+        let from = Url::parse("https://a.example/start").unwrap();
+        let to = Url::parse("https://b.example/landing").unwrap();
+        blocked.mark(&to);
+        blocked.remember_redirect(&from, &to);
+        assert!(blocked.contains(&from) && blocked.contains(&to));
+        assert_eq!(blocked.redirect_of(&from), Some(to.clone()));
+        // The same origin is not a redirect, so nothing is remembered for it.
+        blocked.remember_redirect(&to, &Url::parse("https://b.example/other").unwrap());
+        assert!(blocked.redirect_of(&to).is_none());
+        blocked.clear();
+        assert!(!blocked.contains(&from) && !blocked.contains(&to));
+        assert!(blocked.redirect_of(&from).is_none());
+    }
+
+    #[test]
     fn a_block_is_remembered_per_host_and_port_until_cleared() {
         let registry = BlockedHosts::default();
         let a = Url::parse("https://blocked.example/path").unwrap();

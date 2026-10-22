@@ -60,7 +60,8 @@ When it sees one:
    in your files.
 
 Choose **Retry direct access** after you fixed the solver or the connection, or
-when you think the block has passed. It makes TagGroove forget which sites
+when you think the block has passed. A short rate limit from Cloudflare counts as
+a block too, so it needs the same step (or a restart) to undo. It makes TagGroove forget which sites
 blocked it, so the next request goes directly again. It does not change any tags.
 Restarting TagGroove has the same effect, because the memory lasts one session.
 
