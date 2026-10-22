@@ -402,8 +402,8 @@
   "scene": "source-api-keys",
   "page": "tag-sources/api-keys.md",
   "after": "intro",
-  "alt": "The API keys dialog with sections for AcoustID, Last.fm and fanart.tv, each showing whether a key is saved",
-  "caption": "Each section says whether this build includes a key and links to the provider's registration page."
+  "alt": "The API keys dialog with the Last.fm account sign-in and a section for the fanart.tv key",
+  "caption": "The Last.fm section signs you in; the fanart.tv section says whether this build includes a key."
  },
  {
   "scene": "source-musicbrainz",
@@ -546,11 +546,11 @@
   "caption": ""
  },
  {
-  "scene": "options-tag-sources-catalog",
-  "page": "tag-sources/catalog.md",
-  "after": "## Optional challenge solver",
-  "alt": "The Traxsource page of the Options dialog with the solver endpoint, timeout and the button that clears remembered restrictions",
-  "caption": "Options → Tag Sources → Traxsource holds the optional solver endpoint."
+  "scene": "options-tag-sources-solver",
+  "page": "tag-sources/cloudflare-solver.md",
+  "after": "## Set one up",
+  "alt": "The Cloudflare solver page of the Options dialog with the solver endpoint, timeout and the Retry direct access button",
+  "caption": "Options → Tag Sources → Cloudflare solver holds the optional solver endpoint."
  },
  {
   "scene": "source-discogs",

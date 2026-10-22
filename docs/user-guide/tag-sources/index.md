@@ -27,9 +27,13 @@ then save the changes.
 
     ---
 
-    Discogs, AcoustID, Last.fm and fanart.tv need an account or key first.
+    TagGroove brings its own keys for Discogs, AcoustID and Last.fm, so you
+    enter nothing; a Discogs token and a Last.fm sign-in are optional extras.
+    Only fanart.tv takes a key from you. If a site blocks TagGroove with a
+    Cloudflare check, an optional solver gets you through.
 
-    [:octicons-arrow-right-24: API keys](api-keys.md)
+    [:octicons-arrow-right-24: API keys and sign-ins](api-keys.md)  
+    [:octicons-arrow-right-24: Cloudflare solver](cloudflare-solver.md)
 
 -   **Add or write your own sources**
 
@@ -55,12 +59,12 @@ then save the changes.
 |---|---|---|
 | [MusicBrainz](musicbrainz.md) | Track and release metadata and Cover Art Archive artwork | No key |
 | [Discogs](discogs.md) | Releases, artist/track-title search, catalog numbers and artwork | TagGroove application credentials or a personal token |
-| [Beatport / Traxsource](catalog.md) | Individual tracks, releases, mix/version metadata and artwork | No personal key; Traxsource may need an optional challenge solver |
+| [Beatport / Traxsource](catalog.md) | Individual tracks, releases, mix/version metadata and artwork | No personal key; a site that blocks TagGroove can use an optional [Cloudflare solver](cloudflare-solver.md) |
 | [iTunes](itunes.md) | Store track/album metadata and artwork | No key; choose the store country in Options |
 | [Deezer](deezer.md) | Track/album metadata, ISRCs and artwork | No key |
 | [LRCLIB](lrclib.md) | Lyrics matched to each selected file | No key |
-| [AcoustID](acoustid.md) | Recordings identified by audio fingerprint | [API key](api-keys.md); fingerprinting libraries are included |
-| [Last.fm](lastfm.md) | Track/album metadata and listener tags for `GENRE` | [API key](api-keys.md) |
+| [AcoustID](acoustid.md) | Recordings identified by audio fingerprint | None; fingerprinting libraries are included |
+| [Last.fm](lastfm.md) | Track/album metadata and listener tags for `GENRE` | None; optional [account sign-in](api-keys.md#lastfm-account) |
 | [fanart.tv](fanart-tv.md) | Album covers and disc artwork | [API key](api-keys.md); covers only |
 | [freedb and gnudb](freedb.md) / [local freedb](local-freedb.md) | Disc metadata from a CDDB server or local database folder | Configure the server or local folder in Options |
 
@@ -123,10 +127,11 @@ save recovery, is on [Compare metadata from several sources](compare.md).
 
 ## Set up API keys { #api-keys }
 
-**Tag Sources → API keys…** stores your keys for AcoustID, Last.fm and
-fanart.tv; without a built-in or saved key, that source stays unavailable.
-Discogs uses its own sign-in. Details and precedence rules are on
-[API keys for tag sources](api-keys.md).
+**Tag Sources → API keys…** stores your fanart.tv key; without a built-in or
+saved key, fanart.tv stays unavailable. The same dialog signs you in to Last.fm.
+AcoustID and Last.fm need no key from you, and Discogs uses its own sign-in. Details and precedence rules are on
+[API keys and sign-ins for tag sources](api-keys.md). If a site blocks TagGroove
+with a Cloudflare check, see [Cloudflare solver](cloudflare-solver.md).
 
 ## Network access and privacy
 

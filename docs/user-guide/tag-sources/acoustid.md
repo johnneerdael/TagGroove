@@ -24,10 +24,13 @@ runs on your device and reads the selected audio without changing its tags.
 
 1. Add the album's audio files to TagGroove. On Android, choose documents with
    the system picker so TagGroove has permission to read them.
-2. Open **Tag Sources → API keys…**. If this build has no AcoustID key, add
-   your application's key using the registration address shown there.
-3. Select the files to identify. Files need readable, supported audio; an
+2. Select the files to identify. Files need readable, supported audio; an
    encrypted or damaged file cannot be identified just because its tags load.
+
+There is no key or account to set up. TagGroove looks fingerprints up with its
+own AcoustID application key. AcoustID's personal key exists only to submit new
+fingerprints, which TagGroove never does, so nothing asks you for one. A build
+without TagGroove's key marks AcoustID as unavailable.
 
 Advanced desktop users can optionally choose a different producer in
 **Options → Tag Sources → Online services → Optional fpcalc override
@@ -78,13 +81,13 @@ releases can contain it, so the highest-ranked result still needs review.
 Files without a usable match do not gain an inferred AcoustID.
 
 TagGroove sends fingerprints and durations, not audio files. It performs
-lookups only and does not submit new fingerprints. AcoustID requests are
+lookups only and does not submit new fingerprints, so it never needs your
+AcoustID account. AcoustID requests are
 spaced about 350 milliseconds apart; MusicBrainz lookups use a separate
 spacing of about 1.1 seconds. Local fingerprinting adds to the time needed.
 
 ## Related
 
-- [API keys](api-keys.md)
 - [Compare metadata from several sources](compare.md)
 - [Search, review and save](index.md#search-review-and-save)
 - [Tag Sources options](../reference/options/tag-sources.md)

@@ -8,7 +8,8 @@ use tag_core::{
 const FORMAT: &str = include_str!("../../../docs/user-guide/scripting/format-strings.md");
 const REGEX: &str = include_str!("../../../docs/user-guide/scripting/regular-expressions.md");
 const PLACEHOLDERS: &str = include_str!("../../../docs/user-guide/scripting/placeholders.md");
-const GUEST: &str = include_str!("../../../docs/user-guide/actions/recipes/feat-artists-to-title.md");
+const GUEST: &str =
+    include_str!("../../../docs/user-guide/actions/recipes/feat-artists-to-title.md");
 const FOLDERS: &str =
     include_str!("../../../docs/user-guide/converters/recipes/tags-from-folder-and-filename.md");
 

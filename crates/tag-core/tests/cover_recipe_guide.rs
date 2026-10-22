@@ -12,7 +12,8 @@ use tag_core::{
 };
 const EMBED: &str = include_str!("../../../docs/user-guide/tagging/recipes/embed-folder-jpg.md");
 const RESIZE: &str = include_str!("../../../docs/user-guide/tagging/recipes/resize-covers.md");
-const FRONT: &str = include_str!("../../../docs/user-guide/tagging/recipes/keep-only-front-cover.md");
+const FRONT: &str =
+    include_str!("../../../docs/user-guide/tagging/recipes/keep-only-front-cover.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
     [lf.clone(), lf.replace('\n', "\r\n")]

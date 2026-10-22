@@ -18,11 +18,15 @@ fn written_page_fences_have_the_same_literal_contents_in_both_checkout_formats()
             1,
         ),
         (
-            include_str!("../../../docs/user-guide/converters/recipes/rename-zero-padded-track-numbers.md"),
+            include_str!(
+                "../../../docs/user-guide/converters/recipes/rename-zero-padded-track-numbers.md"
+            ),
             5,
         ),
         (
-            include_str!("../../../docs/user-guide/converters/recipes/tags-from-folder-and-filename.md"),
+            include_str!(
+                "../../../docs/user-guide/converters/recipes/tags-from-folder-and-filename.md"
+            ),
             8,
         ),
         (

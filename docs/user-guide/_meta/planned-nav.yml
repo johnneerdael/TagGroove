@@ -62,7 +62,8 @@ nav:
     - Tag an album from an online database: tag-sources/tag-from-online-sources.md
     - Compare metadata from several sources: tag-sources/compare.md
     - Set up keys and sign-ins:
-      - API keys: tag-sources/api-keys.md
+      - API keys and sign-ins: tag-sources/api-keys.md
+      - Cloudflare solver: tag-sources/cloudflare-solver.md
       - Network access and privacy: tag-sources/privacy-and-network.md
     - Sources:
       - MusicBrainz: tag-sources/musicbrainz.md

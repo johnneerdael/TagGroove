@@ -7,7 +7,8 @@ use guide_examples::text_blocks;
 use std::path::Path;
 use tag_core::{encode_export_document, render_export, ExportOptions, ExportRow};
 
-const RECIPE: &str = include_str!("../../../docs/user-guide/export/recipes/html-album-catalogue.md");
+const RECIPE: &str =
+    include_str!("../../../docs/user-guide/export/recipes/html-album-catalogue.md");
 
 fn row(
     folder: &Path,

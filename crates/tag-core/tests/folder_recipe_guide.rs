@@ -9,8 +9,10 @@ use std::{
 use tag_core::{evaluate_filename_with_context, EvalContext, Fields};
 const ARTIST: &str =
     include_str!("../../../docs/user-guide/converters/recipes/rename-into-artist-album-folders.md");
-const DISC: &str = include_str!("../../../docs/user-guide/converters/recipes/rename-multi-disc-albums.md");
-const COMPILATION: &str = include_str!("../../../docs/user-guide/converters/recipes/rename-compilations.md");
+const DISC: &str =
+    include_str!("../../../docs/user-guide/converters/recipes/rename-multi-disc-albums.md");
+const COMPILATION: &str =
+    include_str!("../../../docs/user-guide/converters/recipes/rename-compilations.md");
 const HOST: &str = include_str!("../../../src-tauri/src/lib.rs");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");

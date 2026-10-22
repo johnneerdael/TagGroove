@@ -103,7 +103,7 @@ does not restore an earlier report, so keep any version you need separately.
 | `%album%` | Supply the heading from the first input row. Select one consistent album for this recipe. |
 | `$if2(%albumartist%,%artist%)` | Use the album artist, falling back to the first file's artist when absent. A fallback does not repair missing album-artist tags. |
 | `$replace(value,&,&amp;,<,&lt;,>,&gt;)` | Encode text characters that could otherwise be interpreted as HTML markup. |
-| `src="../../cookbook/folder.jpg"` | Ask the browser to read that separate file from the page's folder. |
+| `src="folder.jpg"` | Ask the browser to read that separate file from the page's folder. |
 | `$loop($num(%track%,3))` | Sort and repeat track rows using a padded numeric key. |
 | `$num(%track%,2)` | Format the printed track number independently of the sorting key. |
 | `%_total_files%` outside the loop | Count all input rows in this report. |
@@ -122,7 +122,7 @@ safe URL.
 
 ### Use a PNG cover
 
-Change only `src="../../cookbook/folder.jpg"` to `src="../../cookbook/folder.png"` after verifying that
+Change only `src="folder.jpg"` to `src="folder.png"` after verifying that
 `folder.png` exists beside the report. Renaming the extension alone does not
 convert an image's bytes. Use one known basename/format consistently when
 applying the recipe across several folders.

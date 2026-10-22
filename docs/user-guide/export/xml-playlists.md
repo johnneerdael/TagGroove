@@ -59,7 +59,7 @@ files present beside the playlist:
 | --- | --- |
 | XSPF `Song%20One.wav` | `Song One.wav` |
 | XSPF `Song%2520One.wav` | `Song%20One.wav` |
-| WPL `src="../guides/Song%20One.wav"` as a raw relative path | Try the literal `Song%20One.wav` first, using the existing path fallback rules |
+| WPL `src="Song%20One.wav"` as a raw relative path | Try the literal `Song%20One.wav` first, using the existing path fallback rules |
 
 On macOS and Linux, a raw WPL or ASX filename such as `mix:disc.flac` or
 `a:disc.flac` is checked as a local filename before interpreting its colon as a

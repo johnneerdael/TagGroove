@@ -3,8 +3,10 @@ mod guide_examples;
 use image::{DynamicImage, ImageFormat, RgbImage};
 use std::{fs, path::Path};
 use tag_core::{add_cover, filter::compile_filter, read_entry, Fields};
-const MISSING: &str = include_str!("../../../docs/user-guide/tagging/recipes/find-missing-fields.md");
-const COVERS: &str = include_str!("../../../docs/user-guide/tagging/recipes/find-missing-covers.md");
+const MISSING: &str =
+    include_str!("../../../docs/user-guide/tagging/recipes/find-missing-fields.md");
+const COVERS: &str =
+    include_str!("../../../docs/user-guide/tagging/recipes/find-missing-covers.md");
 const BITRATE: &str = include_str!("../../../docs/user-guide/tagging/recipes/find-low-bitrate.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");

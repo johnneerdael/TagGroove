@@ -132,7 +132,7 @@ new rename mode. **Remove from list** and **Clear list** keep files on disk.
 bypasses the trash. The existing confirmation preferences still apply.
 
 Source buttons open the existing source flows. A key-gated source such as
-AcoustID remains unavailable until the app has an applicable API key. Adding
+fanart.tv remains unavailable until the app has an applicable API key. Adding
 its button does not supply credentials or establish a successful provider
 lookup. **Last tag source** can reopen an installed web source. **Last tag
 source (quick)** remembers the last built-in source separately, including

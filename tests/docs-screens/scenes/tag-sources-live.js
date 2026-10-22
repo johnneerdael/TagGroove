@@ -75,10 +75,6 @@
       await h.selectAll();
       await searchFlow('source-discogs', { results: 'discogs-results', review: 'discogs-review' });
     }),
-    scene('discogs-release-flow', ['discogs-dj-results', 'discogs-dj-review'], DJ, async () => {
-      await h.selectAll();
-      await searchFlow('source-discogs', { results: 'discogs-dj-results', review: 'discogs-dj-review' });
-    }),
     scene('beatport-release-flow', ['beatport-release-form', 'beatport-release-results', 'beatport-release-review', 'beatport-release-tracks'], DJ, async () => {
       await h.selectAll();
       await searchFlow('source-beatport', { form: 'beatport-release-form', results: 'beatport-release-results', review: 'beatport-release-review', tracks: 'beatport-release-tracks' }, { mode: 'release' });
@@ -89,7 +85,8 @@
     }),
     scene('traxsource-release-flow', ['traxsource-release-results', 'traxsource-release-review', 'traxsource-release-tracks'], DJ, async () => {
       await h.selectAll();
-      await searchFlow('source-traxsource', { results: 'traxsource-release-results', review: 'traxsource-release-review', tracks: 'traxsource-release-tracks' }, { mode: 'release' });
+      // Traxsource lists this compilation under "Various Artists": search by the release title alone.
+      await searchFlow('source-traxsource', { results: 'traxsource-release-results', review: 'traxsource-release-review', tracks: 'traxsource-release-tracks' }, { mode: 'release', terms: { 'ts-artist': '', 'ts-album': 'Digital Renaissance' } });
     }),
     scene('traxsource-track-flow', ['traxsource-track-results', 'traxsource-track-review'], EDM, async () => {
       await h.selectAll();

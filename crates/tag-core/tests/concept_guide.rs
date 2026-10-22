@@ -7,10 +7,12 @@ use tag_core::{
     evaluate_filename_with_context, evaluate_with_context, EvalContext, Fields,
 };
 
-const VALUES: &str = include_str!("../../../docs/user-guide/tagging/concepts/multi-value-fields.md");
+const VALUES: &str =
+    include_str!("../../../docs/user-guide/tagging/concepts/multi-value-fields.md");
 const ENCODINGS: &str = include_str!("../../../docs/user-guide/tagging/concepts/text-encodings.md");
 const ACTIONS: &str = include_str!("../../../docs/user-guide/actions/first-action-group.md");
-const RENAME: &str = include_str!("../../../docs/user-guide/converters/rename-files-and-folders.md");
+const RENAME: &str =
+    include_str!("../../../docs/user-guide/converters/rename-files-and-folders.md");
 
 fn cells(line: &str) -> Vec<&str> {
     line.trim_matches('|').split('|').map(str::trim).collect()

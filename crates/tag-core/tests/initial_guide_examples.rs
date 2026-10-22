@@ -8,12 +8,14 @@ use tag_core::{
 
 const FORMAT: &str = include_str!("../../../docs/user-guide/scripting/format-strings.md");
 const REGEX: &str = include_str!("../../../docs/user-guide/scripting/regular-expressions.md");
-const FIRST: &str = include_str!("../../../docs/user-guide/getting-started/first-tagging-session.md");
+const FIRST: &str =
+    include_str!("../../../docs/user-guide/getting-started/first-tagging-session.md");
 const NUMBERS: &str =
     include_str!("../../../docs/user-guide/converters/recipes/rename-zero-padded-track-numbers.md");
 const FOLDERS: &str =
     include_str!("../../../docs/user-guide/converters/recipes/tags-from-folder-and-filename.md");
-const GUESTS: &str = include_str!("../../../docs/user-guide/actions/recipes/feat-artists-to-title.md");
+const GUESTS: &str =
+    include_str!("../../../docs/user-guide/actions/recipes/feat-artists-to-title.md");
 
 fn fields() -> Fields {
     [

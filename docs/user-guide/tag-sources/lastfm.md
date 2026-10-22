@@ -1,8 +1,10 @@
 # Last.fm
 
 Last.fm supplies album and track metadata, cover art and listener tags that
-TagGroove can write as `GENRE`. It needs an API key; see
-[API keys](api-keys.md).
+TagGroove can write as `GENRE`. It needs no key from you: TagGroove has its own
+Last.fm application key, so the source works as soon as you open it. You can
+also [sign in to your Last.fm account](api-keys.md#lastfm-account) to make
+requests as that account; nothing else changes.
 
 Choose **Tag Sources → Last.fm…**. **Artist and album** looks up that album
 directly; **Album title words** searches by album title. **Artist and track title**

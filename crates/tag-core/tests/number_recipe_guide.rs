@@ -8,9 +8,12 @@ use tag_core::{
     numbering::{plan_numbering, NumberingItem, NumberingOptions},
     Fields,
 };
-const TRACK: &str = include_str!("../../../docs/user-guide/converters/recipes/split-track-total.md");
-const DISC: &str = include_str!("../../../docs/user-guide/converters/recipes/disc-numbers-from-folders.md");
-const FOLDER: &str = include_str!("../../../docs/user-guide/converters/recipes/number-tracks-per-folder.md");
+const TRACK: &str =
+    include_str!("../../../docs/user-guide/converters/recipes/split-track-total.md");
+const DISC: &str =
+    include_str!("../../../docs/user-guide/converters/recipes/disc-numbers-from-folders.md");
+const FOLDER: &str =
+    include_str!("../../../docs/user-guide/converters/recipes/number-tracks-per-folder.md");
 const YEAR: &str = include_str!("../../../docs/user-guide/actions/recipes/year-from-date.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");

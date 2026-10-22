@@ -42,6 +42,11 @@ access restrictions can change independently of TagGroove.
    and track-to-file matches before saving through the ordinary
    [source review](index.md#search-review-and-save).
 
+If a release search finds nothing, clear the **Artist** box and search by the
+release title alone. A compilation can be credited to *Various Artists* on one
+store and to its full list of artists on another, so the artist of your files may
+not match.
+
 Fields depend on the provider and result. Traxsource release rows do not always
 include BPM or key. An individual track lookup also reads its detail page for
 those values when available; missing fields are not invented.
@@ -71,34 +76,15 @@ saving. Opening a release alone writes nothing.
 To choose individual fields from several providers, use
 [Compare metadata…](index.md#compare-fields-from-several-sources).
 
-## Optional challenge solver
+## When Cloudflare blocks a lookup
 
-Traxsource may require a FlareSolverr-compatible proxy when direct catalog
-requests are restricted. TagGroove does not install or start a solver.
-
-<!-- figure:options-tag-sources-catalog -->
-<figure markdown>
-![The Traxsource page of the Options dialog with the solver endpoint, timeout and the button that clears remembered restrictions](../assets/screens/options-tag-sources-catalog-light.png#only-light)
-![The Traxsource page of the Options dialog with the solver endpoint, timeout and the button that clears remembered restrictions](../assets/screens/options-tag-sources-catalog-dark.png#only-dark)
-<figcaption>Options → Tag Sources → Traxsource holds the optional solver endpoint.</figcaption>
-</figure>
-<!-- /figure -->
-
-
-Open **Options → Tag Sources → Traxsource**:
-
-- **Traxsource solver endpoint:** leave empty for direct access, or
-  enter the HTTP/HTTPS endpoint of a trusted solver, for example
-  `http://localhost:8191/v1`. Include a host and omit credentials, query
-  parameters and fragments.
-- **Solver timeout (seconds):** use 1–300 seconds; the default is 120.
-- **Retry restricted catalog services:** clear restrictions remembered during this app session after
-  updating the solver or fixing connectivity. This action does not edit tags.
-
-Choose **OK** to save endpoint and timeout changes. Saving an endpoint permits
-challenged Traxsource page requests to use that solver. An unavailable or rejected
-solver produces a lookup error; a failed or challenged page is not a valid
-empty release. Close or cancel an unwanted lookup before retrying.
+Traxsource in particular can answer with a Cloudflare challenge instead of the
+page. When any tag source does, TagGroove repeats the request through an
+optional FlareSolverr-compatible service (FlareSolverr, Byparr or trawl) that you
+run, and stops contacting that site directly until you choose **Retry direct
+access**. Without a solver the lookup stops with a message that says where to
+add one. Set it up once under **Options → Tag Sources → Cloudflare solver**; it
+serves every tag source. See [Cloudflare solver](cloudflare-solver.md).
 
 ## Network access and privacy
 
@@ -106,17 +92,17 @@ Searches send artist/title terms and provider identifiers to the selected
 catalog. Metadata and artwork retrieval contact that catalog and its image
 hosts. Audio files are not uploaded by these catalog lookups.
 
-Beatport uses its direct catalog API and never uses this solver. A configured
-solver receives Traxsource page addresses and fetches those pages.
-Choose a solver whose operator and network are trusted. The endpoint is saved
-in ordinary Options, separately from private source credentials; do not put
-passwords or tokens in its address. Catalog solver configuration does not grant
-it access to TagGroove's Discogs token.
+A configured solver receives the page addresses of the requests it handles. A
+request that carries a credential, such as Beatport's authenticated catalog API,
+never goes to a solver. Choose a solver whose operator and network are trusted;
+the endpoint is saved in ordinary Options, separately from private source
+credentials, so do not put passwords or tokens in its address.
 
 ## Related
 
 - [Search, review and save](index.md)
 - [Compare metadata from several sources](compare.md)
 - [Discogs artist and title search](discogs.md#find-a-track-by-artist-and-title)
+- [Cloudflare solver](cloudflare-solver.md)
 - [Tag Sources options](../reference/options/tag-sources.md)
 - [Undo and history](../tagging/undo-history.md)

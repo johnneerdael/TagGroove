@@ -47,7 +47,7 @@ Use the trace to identify whether a source's page structure or parsing steps hav
 
 | Setting | Choices and default |
 |---|---|
-| **API keys…** | Open the AcoustID, Last.fm and fanart.tv key dialog; storage is separate from ordinary Options. |
+| **API keys…** | Open the dialog for your own fanart.tv key and the optional Last.fm account sign-in; storage is separate from ordinary Options. |
 | iTunes **Store country (two letters)** | For example `US` (default) or `NL`; an empty value uses `US`. |
 | iTunes **Cover size** | 600, 1200 (default) or 3000 pixels |
 | Deezer **Cover size** | 500 or 1000 (default) pixels |
@@ -66,26 +66,30 @@ its separate credential and optional keychain setting.
 The **freedb** and **Local freedb** subpages configure a CDDB server and local
 database folder. They do not choose servers for the other online services.
 
-## Traxsource
+## Cloudflare solver
 
-The **Traxsource** subpage configures an optional
-FlareSolverr-compatible challenge solver. Leave **Traxsource solver
-endpoint** empty for direct access, or enter a trusted HTTP/HTTPS endpoint
-without credentials in its address. Saving an endpoint allows challenged Traxsource
-page requests to use it. Beatport uses its direct catalog API and never uses
-this solver. The endpoint is stored in ordinary Options.
+The **Cloudflare solver** subpage configures an optional FlareSolverr-compatible
+service (FlareSolverr, Byparr or trawl) for every tag source. Leave **Solver
+endpoint** empty to use no solver, or enter the HTTP/HTTPS address of a trusted
+one, for example `http://127.0.0.1:8191` (`/v1` is added when missing), without
+credentials, query parameters or a fragment. When Cloudflare blocks a request,
+TagGroove repeats it through the solver and stops contacting that site directly
+for the rest of the session; without a solver the lookup says where to add one.
+Requests that carry a key, token or signature are never sent to a solver. The
+endpoint is stored in ordinary Options.
 
 **Solver timeout (seconds)** defaults to 120 and accepts 1–300.
-**Retry direct Traxsource access** clears remembered access restrictions;
-use it after updating the solver or fixing connectivity. It does not change
-tags. Read the [catalog source guide](../../tag-sources/catalog.md) for the
-track/release workflow and solver privacy details.
+**Retry direct access** forgets which sites blocked TagGroove; use it after
+updating the solver or fixing connectivity. It does not change tags. Read
+[Cloudflare solver](../../tag-sources/cloudflare-solver.md) for what happens on a
+block and what the solver can see.
 
 ## Related
 
 - [freedb server settings](tag-sources-freedb.md)
 - [Local freedb database](tag-sources-local-freedb.md)
 - [Tag-source workflow and API keys](../../tag-sources/index.md)
+- [Cloudflare solver](../../tag-sources/cloudflare-solver.md)
 - [LRCLIB lyrics](../../tag-sources/lrclib.md)
 - [AcoustID setup](../../tag-sources/acoustid.md)
 - [Networking](networking.md)

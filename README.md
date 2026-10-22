@@ -71,7 +71,7 @@ Discogs supports release searches by artist and album, free text, barcode or cat
 
 When catalogs disagree, **Tag Sources → Compare metadata…** puts each provider’s values next to your current tags. Take the title from one source and the label from another, or leave a field alone. Nothing is selected for replacement until you choose it. Artwork is handled separately. The guide walks through it in [Compare metadata from several sources](https://taggroove.neerdael.nl/tag-sources/compare/).
 
-MusicBrainz, iTunes, Deezer, LRCLIB lyrics and AcoustID fingerprint lookup are available too. Some services need credentials, and Traxsource may need an optional challenge solver. See [tag sources](https://taggroove.neerdael.nl/tag-sources/) for setup, network use and provider limits.
+MusicBrainz, iTunes, Deezer, LRCLIB lyrics and AcoustID fingerprint lookup are available too. Some services need a key or an account, and a site that blocks TagGroove with a Cloudflare check can be reached through an optional solver you run. See [tag sources](https://taggroove.neerdael.nl/tag-sources/) for setup, network use and provider limits.
 
 ## Bring your Mp3tag setup
 

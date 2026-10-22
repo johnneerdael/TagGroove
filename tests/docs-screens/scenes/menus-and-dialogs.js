@@ -5,6 +5,7 @@
 //   op:     run this `data-op` command and wait for its dialog.
 //   select: which rows to select first: 'one' (row 0), 'two' (rows 1 and 6), 'all' or 'none'.
 //   ready:  a selector that must exist inside the dialog before capture.
+//   before: optional async function that prepares app state before the command runs.
 //   setup:  optional async function (dialog, helpers) to bring the dialog into the shown state.
 //   crop:   'dialog' captures just the dialog; omit for the whole window.
 //
@@ -73,7 +74,12 @@
     { name: 'source-local-freedb', op: 'source-local-freedb', select: 'all', crop: 'dialog' },
     { name: 'source-lrclib', op: 'source-lrclib', album: LYRICS, select: 'one', crop: 'dialog' },
     { name: 'source-cover-fanart', op: 'source-cover-fanart', select: 'all', crop: 'dialog' },
-    { name: 'source-api-keys', op: 'source-keys', select: 'none', crop: 'dialog' },
+    // What a new person sees: no Last.fm sign-in and no saved fanart.tv key. The owner's real
+    // sign-in and key are put back by the runner's state restore when the run ends.
+    { name: 'source-api-keys', op: 'source-keys', select: 'none', crop: 'dialog', before: async () => {
+      await h.inv('lastfm_sign_out');
+      await h.inv('save_tag_source_settings', { update: { fanart_key: '' } });
+    } },
     { name: 'source-compare-start', op: 'source-compare', select: 'all', crop: 'dialog' },
 
     // ---- Export & playlists ----
@@ -94,6 +100,7 @@
     album: s.album,
     run: async () => {
       await select(s.select);
+      if (s.before) await s.before();
       if (s.menu) { h.openMenu(s.menu); return; }
       const d = await h.openDialog(s.op, s.ready);
       if (s.setup) await s.setup(d, h);

@@ -4,8 +4,10 @@ use tag_core::{
     evaluate, Fields,
 };
 const SPACES: &str = include_str!("../../../docs/user-guide/actions/recipes/trim-spaces.md");
-const BRACKETS: &str = include_str!("../../../docs/user-guide/actions/recipes/remove-text-in-brackets.md");
-const ARTISTS: &str = include_str!("../../../docs/user-guide/actions/recipes/split-multiple-artists.md");
+const BRACKETS: &str =
+    include_str!("../../../docs/user-guide/actions/recipes/remove-text-in-brackets.md");
+const ARTISTS: &str =
+    include_str!("../../../docs/user-guide/actions/recipes/split-multiple-artists.md");
 const CREDIT: &str = include_str!("../../../docs/user-guide/actions/recipes/split-artist-title.md");
 fn forms(page: &str) -> [String; 2] {
     let lf = page.replace("\r\n", "\n");
