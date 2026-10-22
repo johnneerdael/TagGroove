@@ -45,12 +45,16 @@ a server error as a block.
 
 When it sees one:
 
-1. TagGroove repeats that request through your solver, whatever the request was:
-   a search, a release page, a track page.
-2. From then on in this session it stops contacting that site directly. Every
-   later request to the same site goes through the solver, so a site that has
-   already blocked you is not hit again with requests that are bound to be
-   refused.
+1. TagGroove repeats the request through your solver if it is a plain public
+   lookup: a search, a release page or a track page. A request that carries a
+   key, token or signature (Discogs, Last.fm, Beatport's catalog API), a form
+   submission and an image download are never sent to a solver; if one of those
+   is blocked, the lookup fails with a message that says so.
+2. From then on in this session it stops contacting that site directly. Its
+   later plain lookups go through the solver, so a site that has already blocked
+   you is not hit again with requests that are bound to be refused. The requests
+   that cannot use a solver fail the same way until you choose **Retry direct
+   access**.
 3. With no solver set up, the lookup fails and the message tells you to add one
    in **Options → Tag Sources → Cloudflare solver**. Nothing is saved or changed
    in your files.
