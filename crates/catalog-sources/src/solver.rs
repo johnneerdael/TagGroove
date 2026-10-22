@@ -263,18 +263,21 @@ pub async fn solve(
             "Solver redirected outside the original site".into(),
         ));
     }
+    // The site's own status is handed back with its body: a 404 is an answer ("not found"), and each
+    // transport applies its usual meaning to the status. Only an unresolved challenge is an error.
     let solved_status = solution["status"].as_u64().unwrap_or(0);
-    if !(200..300).contains(&solved_status) {
-        return Err(SolveError::Permanent(format!(
-            "The solver received HTTP {solved_status} from the site"
-        )));
+    if !(100..600).contains(&solved_status) {
+        return Err(SolveError::Permanent(
+            "The solver did not report the site's HTTP status".into(),
+        ));
     }
-    let body = solution["response"]
-        .as_str()
-        .filter(|s| !s.is_empty() && s.len() <= MAX_PAGE_BYTES)
-        .ok_or_else(|| {
-            SolveError::Permanent("Solver returned empty or oversized content".into())
-        })?;
+    let success = (200..300).contains(&solved_status);
+    let body = solution["response"].as_str().unwrap_or_default();
+    if body.len() > MAX_PAGE_BYTES || (success && body.is_empty()) {
+        return Err(SolveError::Permanent(
+            "Solver returned empty or oversized content".into(),
+        ));
+    }
     let headers = solution["headers"].as_object();
     let header = |name: &str| {
         headers.and_then(|headers| {

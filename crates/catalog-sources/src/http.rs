@@ -189,6 +189,10 @@ impl Http {
                     )
                 }
                 Err(SolveError::Permanent(message)) => return Err(message),
+                // The site's own status keeps its usual meaning, as for a direct answer.
+                Ok(page) if !(200..300).contains(&page.status) => {
+                    return Err(format!("Catalog HTTP {}", page.status))
+                }
                 Ok(page) => return Ok(page.body),
             }
         }

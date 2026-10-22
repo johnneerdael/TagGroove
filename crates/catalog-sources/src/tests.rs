@@ -396,6 +396,29 @@ fn declared_release_tracklist_must_be_complete() {
 }
 
 #[tokio::test]
+async fn a_status_the_site_returns_through_the_solver_keeps_its_meaning() {
+    // A blocked host sends every request through the solver; the site's own answers still count.
+    for (solved_status, body) in [(404, "<p>Not found</p>"), (404, ""), (500, "oops")] {
+        let block = response_with(
+            403,
+            "server: cloudflare\r\ncf-ray: 8a1b2c3d4e5f-AMS\r\ncontent-type: text/html\r\n",
+            "<title>Attention Required! | Cloudflare</title>Sorry, you have been blocked.",
+        );
+        let (base, direct) = server(vec![block]);
+        let (solver, solved) = server(vec![response(
+            200,
+            &serde_json::json!({"status":"ok","solution":{"url":format!("{base}/"),"status":solved_status,"response":body}}).to_string(),
+        )]);
+        let error = transport(Some(solver), std::sync::Arc::new(|| false))
+            .get(&reqwest::Url::parse(&base).unwrap(), None, true)
+            .await
+            .unwrap_err();
+        assert_eq!(error, format!("Catalog HTTP {solved_status}"), "{body:?}");
+        direct.join().unwrap();
+        solved.join().unwrap();
+    }
+}
+#[tokio::test]
 async fn solver_attempts_are_bounded_at_two() {
     let (base, direct) = server(vec![response(
         403,
