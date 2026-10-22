@@ -321,6 +321,9 @@ package version is no longer present in the authenticated repository suites,
 capture refuses; refresh the affected builder dependency rather than guessing a
 replacement source version or weakening the byte checks.
 
+HTTP download failures identify the public archive host and path alongside the
+status code. URL credentials, query parameters and fragments stay out of logs.
+
 When assembling source locally, pass `--linux-evidence DIRECTORY` containing
 `linux-source-linux-x64.json`, `linux-source-linux-arm64.json`, and their
 `objects/SHA256` files. Both source-archive assembly and final verification

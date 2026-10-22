@@ -1,5 +1,6 @@
 """Distribution capture boundaries and offline provenance refusal tests."""
 import copy
+import contextlib
 import hashlib
 import importlib.util
 import io
@@ -8,7 +9,9 @@ from pathlib import Path
 import shutil
 import struct
 import tempfile
+import sys
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 
@@ -50,6 +53,25 @@ class LinuxDistributionCapture(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('linux_distribution_capture', SCRIPT)
         module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         return module
+
+    def test_cli_identifies_missing_download_without_exposing_url_credentials(self):
+        m = self.module()
+        url = ('https://sensitive-user:sensitive-password@archive.ubuntu.com/ubuntu/pool/main/e/example/'
+               'missing.tar.xz?token=sensitive-query#sensitive-fragment')
+        failure = urllib.error.HTTPError(url, 404, 'Not Found', {}, None)
+        arguments = ['capture', '--platform', 'linux-x64', '--source-commit', 'a'*40,
+                     '--version', '0.2.75', '--image', 'image', '--inspector', 'inspector',
+                     '--strip', 'strip', '--patchelf', 'patchelf', '--output', 'output']
+        output = io.StringIO()
+        with patch.object(sys, 'argv', arguments), patch.object(m, 'capture', side_effect=failure):
+            with contextlib.redirect_stderr(output), self.assertRaises(SystemExit) as stopped:
+                m.main()
+        self.assertEqual(stopped.exception.code, 1)
+        message = output.getvalue()
+        self.assertIn('HTTP 404', message)
+        self.assertIn('https://archive.ubuntu.com/ubuntu/pool/main/e/example/missing.tar.xz', message)
+        for private in ['sensitive-user', 'sensitive-password', 'sensitive-query', 'sensitive-fragment']:
+            self.assertNotIn(private, message)
 
     def test_listing_rejects_duplicate_unsafe_and_unsupported_entries(self):
         m = self.module()

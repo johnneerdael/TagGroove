@@ -19,6 +19,7 @@ import stat
 import struct
 import subprocess
 import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -732,6 +733,11 @@ def main():
                                  args.image.resolve(),args.inspector.resolve(),{'strip':args.strip,'patchelf':args.patchelf},pins)
         export_capture(args.output.resolve(),manifest,objects)
         print(f"Captured {args.platform}: {len(manifest['files'])} paths, {len(manifest['bindings'])} package/source bindings")
+    except urllib.error.HTTPError as error:
+        address = urllib.parse.urlsplit(error.url)
+        public = urllib.parse.urlunsplit((address.scheme, address.hostname or '',
+            urllib.parse.quote(address.path, safe='/%+._~-'), '', ''))
+        parser.exit(1,f'Linux distribution capture: HTTP {error.code} downloading {public}\n')
     except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as error:
         parser.exit(1,f'Linux distribution capture: {error}\n')
 
