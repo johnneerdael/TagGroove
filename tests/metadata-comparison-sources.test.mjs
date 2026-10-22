@@ -327,3 +327,31 @@ test('one exact match on a first page that has more results is only a suggestion
   assert.equal(all.value.states.get('native:deezer').canMore,false);
   assert.equal(all.value.states.get('native:deezer').status,'ready');
 });
+
+test('after the last page arrives the one exact match is accepted or selected, unless the person already chose',async()=>{
+  const run=async(first,second,choose)=>{
+    const s=session(async(command,args)=>{
+      if(command==='tag_source_search')return args.query.page===0?{results:first,total:first.length+second.length}:{results:second,total:first.length+second.length};
+      if(command==='tag_source_release')return release('deezer');
+      assert.fail(command);
+    });
+    await s.value.search([source('deezer')],'album',files,terms);
+    const before=s.value.states.get('native:deezer');
+    if(choose)await s.value.load('native:deezer',choose);
+    await s.value.more('native:deezer');
+    return{before,after:s.value.states.get('native:deezer')};
+  };
+  // The exact match is on page one: only a suggestion while more pages are outstanding, ready after the last one.
+  const a1=row('a1'),a2=row('a2',{title:'Other'}),a3=row('a3',{title:'Another'});
+  const first=await run([a1,a2],[a3]);
+  assert.equal(first.before.status,'needs-match');
+  assert.equal(first.after.canMore,false);assert.equal(first.after.status,'ready');assert.equal(first.after.confirmed,true);assert.equal(first.after.resultKey,'a1|');
+  // The exact match only appears on the last page: it is selected without a click.
+  const second=await run([row('b1',{title:'Other'}),row('b2',{title:'Different'})],[row('b3')]);
+  assert.equal(second.before.resultKey,'b1|');assert.equal(second.before.status,'needs-match');
+  assert.equal(second.after.resultKey,'b3|');assert.equal(second.after.status,'ready');
+  // The person chose a result before the last page: that choice stays.
+  const c1=row('c1',{title:'Other'});
+  const third=await run([c1,row('c2',{title:'Different'})],[row('c3')],c1);
+  assert.equal(third.after.resultKey,'c1|');assert.equal(third.after.confirmed,true);
+});

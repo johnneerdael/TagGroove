@@ -162,8 +162,11 @@ export class ComparisonSearchSession {
       const state:ComparisonSourceState={...current,results:all,total,page,canMore,status:all.length?(previous.candidate?previous.status==='ready'?'ready':'needs-match':'needs-match'):'empty'};
       this.publish(state);
       // Start from the one exact match when there is exactly one, wherever the provider ranked it.
-      const exact=this.exactResults(source,results);
+      const exact=this.exactResults(source,all);
       if (!append && results.length) await this.loadResult(sourceId,exact.length===1?exact[0]:results[0],false);
+      // When the last page has arrived, the one exact match among everything loaded is accepted, or selected when it
+      // only appeared on a later page, unless the person has already chosen a result.
+      else if (append && !canMore && !current.confirmed && exact.length===1) await this.loadResult(sourceId,exact[0],false);
     } catch(error) {
       if(valid())this.publish({...this.states.get(sourceId)!,status:'failed',error});
     }
