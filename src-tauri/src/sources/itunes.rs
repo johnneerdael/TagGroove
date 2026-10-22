@@ -138,15 +138,20 @@ fn plain(value: &str) -> String {
         .collect()
 }
 
-/// Does an album search answer hold the album that was asked for? iTunes ranks album searches
-/// by popularity and can leave a catalogue album out entirely.
-pub fn holds_album(page: &SearchPage, album: &str) -> bool {
+/// Does an album search answer hold the album that was asked for, by that artist? iTunes ranks
+/// album searches by popularity and can leave a catalogue album out entirely. A longer title
+/// (an edition) and extra credited artists still count; the same title by someone else does not.
+pub fn holds_album(page: &SearchPage, artist: &str, album: &str) -> bool {
     let wanted = plain(album);
+    let artist = plain(artist);
     !wanted.is_empty()
-        && page
-            .results
-            .iter()
-            .any(|r| plain(&r.title).contains(&wanted))
+        && page.results.iter().any(|r| {
+            let found = plain(&r.artist);
+            plain(&r.title).contains(&wanted)
+                && (artist.is_empty()
+                    || found.contains(&artist)
+                    || (!found.is_empty() && artist.contains(&found)))
+        })
 }
 
 /// Step one of the artist fallback: the artists called this.
@@ -426,9 +431,9 @@ mod tests {
             {"wrapperType": "collection", "collectionId": 2, "collectionName": "Kill For The Steel - Single", "artistName": "King Gizzard"}
         ]});
         let page = parse_search(&answer);
-        assert!(!holds_album(&page, "Automatic For The People"));
+        assert!(!holds_album(&page, "R.E.M.", "Automatic For The People"));
         assert!(
-            !holds_album(&page, ""),
+            !holds_album(&page, "R.E.M.", ""),
             "no album asked for, nothing to look for"
         );
         let found = serde_json::json!({"results": [
@@ -436,7 +441,26 @@ mod tests {
         ]});
         assert!(holds_album(
             &parse_search(&found),
+            "R.E.M",
             "automatic for the people"
+        ));
+        // The same title by another artist is not the album that was asked for, but an edition
+        // title and extra credited artists are.
+        let other = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 7, "collectionName": "Greatest Hits", "artistName": "Other Artist"}
+        ]});
+        assert!(!holds_album(
+            &parse_search(&other),
+            "Artist A",
+            "Greatest Hits"
+        ));
+        let credited = serde_json::json!({"results": [
+            {"wrapperType": "collection", "collectionId": 8, "collectionName": "Greatest Hits (Deluxe Edition)", "artistName": "Artist A & Friends"}
+        ]});
+        assert!(holds_album(
+            &parse_search(&credited),
+            "Artist A",
+            "Greatest Hits"
         ));
 
         // The artists: punctuation and case do not matter, other artists do.

@@ -354,7 +354,7 @@ pub async fn tag_source_search(
             // title, add the artist's own albums of that title.
             if query.mode == model::SearchMode::ArtistAlbum
                 && !query.artist.trim().is_empty()
-                && !itunes::holds_album(&page, &query.album)
+                && !itunes::holds_album(&page, &query.artist, &query.album)
             {
                 match itunes_artist_albums(&service, &query, ticket).await {
                     Ok(mut found) => {

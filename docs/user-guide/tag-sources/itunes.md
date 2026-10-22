@@ -39,8 +39,8 @@ individual fields from different providers for one track or an entire album.
 
 iTunes ranks album searches by popularity and sometimes leaves a catalogue album
 out, such as R.E.M.'s *Automatic For The People*. When an artist-and-album
-search finds no album with your title, TagGroove also looks through the albums
-of that artist and adds the ones that match, editions included.
+search finds no album with your title by that artist, TagGroove also looks through
+the albums of that artist and adds the ones that match, editions included.
 
 iTunes returns up to 50 album search results; there is no further result-page
 lookup. Narrow the words or use an album ID if the edition is missing.
